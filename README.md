@@ -1,0 +1,1 @@
+# CloudedDeals-scraper-1.0
