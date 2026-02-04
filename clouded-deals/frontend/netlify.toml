@@ -1,0 +1,17 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Next.js requires the Netlify Next.js runtime plugin.
+# Install @netlify/plugin-nextjs as a dev dependency or add it here.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# SPA fallback for client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
