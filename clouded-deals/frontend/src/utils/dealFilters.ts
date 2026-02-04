@@ -7,6 +7,7 @@ interface FilterOptions {
   minPrice?: number;
   maxPrice?: number;
   minDiscount?: number;
+  searchQuery?: string;
 }
 
 export function filterDeals(deals: Deal[], options: FilterOptions): Deal[] {
@@ -14,7 +15,11 @@ export function filterDeals(deals: Deal[], options: FilterOptions): Deal[] {
     if (options.category && options.category !== 'all' && deal.category !== options.category) {
       return false;
     }
-    if (options.dispensaryId && options.dispensaryId !== 'all' && deal.dispensary.id !== options.dispensaryId) {
+    if (
+      options.dispensaryId &&
+      options.dispensaryId !== 'all' &&
+      deal.dispensary.id !== options.dispensaryId
+    ) {
       return false;
     }
     if (options.brandName && deal.brand.name !== options.brandName) {
@@ -27,8 +32,16 @@ export function filterDeals(deals: Deal[], options: FilterOptions): Deal[] {
       return false;
     }
     if (options.minDiscount !== undefined && deal.original_price) {
-      const discount = ((deal.original_price - deal.deal_price) / deal.original_price) * 100;
+      const discount =
+        ((deal.original_price - deal.deal_price) / deal.original_price) * 100;
       if (discount < options.minDiscount) return false;
+    }
+    if (options.searchQuery) {
+      const q = options.searchQuery.toLowerCase();
+      const matchesProduct = deal.product_name.toLowerCase().includes(q);
+      const matchesBrand = deal.brand.name.toLowerCase().includes(q);
+      const matchesDispensary = deal.dispensary.name.toLowerCase().includes(q);
+      if (!matchesProduct && !matchesBrand && !matchesDispensary) return false;
     }
     return true;
   });

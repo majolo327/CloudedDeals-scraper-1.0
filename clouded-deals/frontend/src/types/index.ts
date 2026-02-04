@@ -47,6 +47,8 @@ export interface Deal {
   is_staff_pick: boolean;
   is_featured: boolean;
   is_verified: boolean;
+  is_pinned?: boolean;
+  pinned_position?: number | null;
   source: DealSource;
   status: DealStatus;
   created_at: string;

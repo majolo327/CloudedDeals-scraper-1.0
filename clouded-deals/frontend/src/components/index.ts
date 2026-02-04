@@ -1,28 +1,32 @@
-// Layout
+// UI Components
 export { AgeGate } from './AgeGate';
-export { Footer } from './Footer';
-export { StickyStatsBar } from './StickyStatsBar';
+export { DealCard } from './DealCard';
+export { DealCardSkeleton, TopPickSkeleton, Skeleton } from './Skeleton';
 export { LocationSelector } from './LocationSelector';
+export { ToastContainer } from './Toast';
+export type { ToastData } from './Toast';
 
 // Cards
-export { CompactDealCard } from './CompactDealCard';
-export { CompactTopPick } from './CompactTopPick';
-export { StaffPickMiniCard } from './StaffPickMiniCard';
-export { DealCard } from './DealCard';
+export { CompactDealCard, CompactTopPick, StaffPickMiniCard } from './cards';
+
+// Layout
+export { Footer, StickyStatsBar } from './layout';
 
 // Modals
-export { DealModal } from './DealModal';
-export { ShareModal } from './ShareModal';
-export { AccuracyModal } from './AccuracyModal';
-
-// Pages
-export { BrowsePage } from './BrowsePage';
-export { SavedPage } from './SavedPage';
+export {
+  AccuracyModal,
+  DealModal,
+  ShareModal,
+  DailyCompleteModal,
+  NineClearModal,
+  ComingSoonModal,
+} from './modals';
 
 // Badges
 export { VerifiedBadge, StaffPickBadge, CategoryBadge, ZoneBadge } from './badges';
 
-// UI
-export { Skeleton, DealCardSkeleton, TopPickSkeleton } from './Skeleton';
-export { Toast, ToastContainer } from './Toast';
-export type { ToastData } from './Toast';
+// Pages
+export { DealsPage } from './DealsPage';
+export { SearchPage } from './SearchPage';
+export { BrowsePage } from './BrowsePage';
+export { SavedPage } from './SavedPage';
