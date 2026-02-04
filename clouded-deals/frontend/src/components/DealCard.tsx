@@ -1,20 +1,7 @@
 'use client';
 
 import { Heart, BadgeCheck, Star, MapPin, CheckCircle } from 'lucide-react';
-
-interface Deal {
-  id: string;
-  product_name: string;
-  category: string;
-  weight: string;
-  original_price: number | null;
-  deal_price: number;
-  dispensary: { name: string };
-  brand: { name: string };
-  is_verified?: boolean;
-  is_staff_pick?: boolean;
-  is_featured?: boolean;
-}
+import type { Deal } from '@/types';
 
 interface DealCardProps {
   deal: Deal;
@@ -79,7 +66,7 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
 
       {/* Brand */}
       <p className="text-[11px] sm:text-xs text-purple-400 uppercase tracking-wide font-bold mb-1">
-        {deal.brand?.name}
+        {deal.brand?.name || 'Unknown Brand'}
       </p>
 
       {/* Product name */}
@@ -103,7 +90,7 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
       {/* Dispensary */}
       <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
         <MapPin className="w-2.5 h-2.5 opacity-60" />
-        <span className="truncate">{deal.dispensary?.name}</span>
+        <span className="truncate">{deal.dispensary?.name || 'Unknown Dispensary'}</span>
       </div>
     </div>
   );

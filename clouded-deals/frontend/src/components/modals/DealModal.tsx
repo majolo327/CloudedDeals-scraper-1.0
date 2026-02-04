@@ -4,20 +4,7 @@ import { useEffect, useState } from 'react';
 import { X, Heart, BadgeCheck, Star, MapPin, ExternalLink, MessageCircle, CheckCircle } from 'lucide-react';
 import { ShareModal } from './ShareModal';
 import { AccuracyModal } from './AccuracyModal';
-
-interface Deal {
-  id: string;
-  product_name: string;
-  category: string;
-  weight: string;
-  original_price: number | null;
-  deal_price: number;
-  dispensary: { name: string; address?: string; menu_url?: string };
-  brand: { name: string };
-  is_verified?: boolean;
-  is_top_pick?: boolean;
-  is_staff_pick?: boolean;
-}
+import type { Deal } from '@/types';
 
 interface DealModalProps {
   deal: Deal;
@@ -32,7 +19,7 @@ interface DealModalProps {
 function formatShareText(deal: Deal, url: string): string {
   return `${deal.brand?.name || ''} — ${deal.product_name}
 $${deal.deal_price}${deal.original_price ? ` (was $${deal.original_price})` : ''}
-${deal.dispensary.name} — Las Vegas
+${deal.dispensary?.name || 'Unknown'} — Las Vegas
 ${url}`;
 }
 
@@ -141,7 +128,7 @@ export function DealModal({
           </div>
 
           {/* Brand + Product name */}
-          <p className="text-sm text-slate-400 mb-1">{deal.brand?.name}</p>
+          <p className="text-sm text-slate-400 mb-1">{deal.brand?.name || 'Unknown Brand'}</p>
           <h3 className="text-xl sm:text-2xl font-bold text-white mb-3">{deal.product_name}</h3>
 
           {/* Category + Weight pills */}
@@ -181,8 +168,8 @@ export function DealModal({
                 <MapPin className="w-5 h-5 text-slate-400" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-white">{deal.dispensary.name}</p>
-                <p className="text-sm text-slate-400 truncate">{deal.dispensary.address || 'Las Vegas, NV'}</p>
+                <p className="font-semibold text-white">{deal.dispensary?.name || 'Unknown Dispensary'}</p>
+                <p className="text-sm text-slate-400 truncate">{deal.dispensary?.address || 'Las Vegas, NV'}</p>
               </div>
             </div>
           </div>
@@ -210,7 +197,7 @@ export function DealModal({
                 <span className="text-sm sm:text-base">{isSaved ? 'Saved' : 'Save'}</span>
               </button>
               <a
-                href={deal.dispensary.menu_url || '#'}
+                href={deal.dispensary?.menu_url || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 py-3 sm:py-3.5 min-h-[48px] bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-purple-500/20 flex items-center justify-center gap-2"

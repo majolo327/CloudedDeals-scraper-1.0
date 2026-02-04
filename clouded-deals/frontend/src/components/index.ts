@@ -1,5 +1,4 @@
 // UI Components
-export { AgeGate } from './AgeGate';
 export { DealCard } from './DealCard';
 export { DealCardSkeleton, TopPickSkeleton, Skeleton } from './Skeleton';
 export { LocationSelector } from './LocationSelector';
@@ -10,7 +9,7 @@ export type { ToastData } from './Toast';
 export { CompactDealCard, CompactTopPick, StaffPickMiniCard } from './cards';
 
 // Layout
-export { Footer, StickyStatsBar } from './layout';
+export { AgeGate, Footer, StickyStatsBar } from './layout';
 
 // Modals
 export {

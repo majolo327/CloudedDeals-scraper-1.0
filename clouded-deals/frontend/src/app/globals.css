@@ -225,6 +225,29 @@ body {
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+
+  .scroll-mt-24 {
+    scroll-margin-top: 6rem;
+  }
+
+  .slide-in-from-bottom-4 {
+    animation: slideInFromBottom 0.3s var(--ease-smooth) forwards;
+  }
+
+  .slide-in-from-top-4 {
+    animation: slideInFromTop 0.3s var(--ease-smooth) forwards;
+  }
+}
+
+/* Slide-in keyframes for utility classes */
+@keyframes slideInFromBottom {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInFromTop {
+  from { opacity: 0; transform: translateY(-16px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* ===== COMPONENTS ===== */

@@ -47,6 +47,11 @@ export interface Deal {
   is_verified: boolean;
   is_featured?: boolean;
   is_pinned?: boolean;
-  pinned_position?: number;
+  pinned_position?: number | null;
+  editorial_note?: string;
+  save_count?: number;
   created_at: Date;
+  updated_at?: Date;
+  source?: DealSource;
+  status?: DealStatus;
 }

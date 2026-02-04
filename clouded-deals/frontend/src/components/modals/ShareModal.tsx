@@ -2,15 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { X, Copy, Mail, Smartphone, Check } from 'lucide-react';
-
-interface Deal {
-  id: string;
-  product_name: string;
-  original_price: number | null;
-  deal_price: number;
-  dispensary: { name: string };
-  brand: { name: string };
-}
+import type { Deal } from '@/types';
 
 interface ShareModalProps {
   deal: Deal;
@@ -20,7 +12,7 @@ interface ShareModalProps {
 function formatShareText(deal: Deal, url: string): string {
   return `${deal.brand?.name || ''} — ${deal.product_name}
 $${deal.deal_price}${deal.original_price ? ` (was $${deal.original_price})` : ''}
-${deal.dispensary.name} — Las Vegas
+${deal.dispensary?.name || 'Unknown'} — Las Vegas
 ${url}`;
 }
 
@@ -65,7 +57,7 @@ export function ShareModal({ deal, onClose }: ShareModalProps) {
     const subject = encodeURIComponent(`Deal: ${deal.brand?.name || ''} ${deal.product_name}`);
     const body = encodeURIComponent(shareText);
     window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
-  }, [deal, shareText]);
+  }, [deal.brand?.name, deal.product_name, shareText]);
 
   return (
     <div
