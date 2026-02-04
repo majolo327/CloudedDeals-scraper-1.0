@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 interface ScrapeRun {
   id: string;
@@ -27,37 +27,47 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setStats({ totalProducts: 0, totalDeals: 0, successRate: 0, activeSites: 0 });
+      setLoading(false);
+      return;
+    }
+
     (async () => {
-      const [productsRes, dealsRes, dispensariesRes, runsRes] =
-        await Promise.all([
-          supabase.from("products").select("id", { count: "exact", head: true }),
-          supabase.from("deals").select("id", { count: "exact", head: true }),
-          supabase
-            .from("dispensaries")
-            .select("id", { count: "exact", head: true })
-            .eq("is_active", true),
-          supabase
-            .from("scrape_runs")
-            .select("*")
-            .order("started_at", { ascending: false })
-            .limit(10),
-        ]);
+      try {
+        const [productsRes, dealsRes, dispensariesRes, runsRes] =
+          await Promise.all([
+            supabase.from("products").select("id", { count: "exact", head: true }),
+            supabase.from("deals").select("id", { count: "exact", head: true }),
+            supabase
+              .from("dispensaries")
+              .select("id", { count: "exact", head: true })
+              .eq("is_active", true),
+            supabase
+              .from("scrape_runs")
+              .select("*")
+              .order("started_at", { ascending: false })
+              .limit(10),
+          ]);
 
-      // Calculate success rate from recent runs.
-      const recentRuns = (runsRes.data ?? []) as ScrapeRun[];
-      const completedRuns = recentRuns.filter((r) => r.status === "completed");
-      const successRate =
-        recentRuns.length > 0
-          ? Math.round((completedRuns.length / recentRuns.length) * 100)
-          : 0;
+        const recentRuns = (runsRes.data ?? []) as ScrapeRun[];
+        const completedRuns = recentRuns.filter((r) => r.status === "completed");
+        const successRate =
+          recentRuns.length > 0
+            ? Math.round((completedRuns.length / recentRuns.length) * 100)
+            : 0;
 
-      setStats({
-        totalProducts: productsRes.count ?? 0,
-        totalDeals: dealsRes.count ?? 0,
-        successRate,
-        activeSites: dispensariesRes.count ?? 0,
-      });
-      setRuns(recentRuns);
+        setStats({
+          totalProducts: productsRes.count ?? 0,
+          totalDeals: dealsRes.count ?? 0,
+          successRate,
+          activeSites: dispensariesRes.count ?? 0,
+        });
+        setRuns(recentRuns);
+      } catch (err) {
+        console.error("Failed to load dashboard stats:", err);
+        setStats({ totalProducts: 0, totalDeals: 0, successRate: 0, activeSites: 0 });
+      }
       setLoading(false);
     })();
   }, []);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import {
   Category,
   CATEGORY_LABELS,
@@ -20,13 +20,18 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
 
   // Fetch dispensary list once for the dropdown.
   useEffect(() => {
+    if (!isSupabaseConfigured) return;
     (async () => {
-      const { data } = await supabase
-        .from("dispensaries")
-        .select("id, name, url, platform, address, city, state, is_active")
-        .eq("is_active", true)
-        .order("name");
-      if (data) setDispensaries(data as Dispensary[]);
+      try {
+        const { data } = await supabase
+          .from("dispensaries")
+          .select("id, name, url, platform, address, city, state, is_active")
+          .eq("is_active", true)
+          .order("name");
+        if (data) setDispensaries(data as Dispensary[]);
+      } catch {
+        // Dispensary list is non-critical — filters still work without it
+      }
     })();
   }, []);
 

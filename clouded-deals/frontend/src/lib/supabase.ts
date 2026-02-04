@@ -10,24 +10,30 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 let _supabase: SupabaseClient | null = null;
 
-export function getSupabase(): SupabaseClient {
+/** True when Supabase env vars are configured. */
+export const isSupabaseConfigured =
+  typeof process !== "undefined" &&
+  !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
+  !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+export function getSupabase(): SupabaseClient | null {
+  if (!isSupabaseConfigured) return null;
   if (!_supabase) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !key) {
-      throw new Error(
-        "NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY must be set"
-      );
-    }
-    _supabase = createClient(url, key);
+    _supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
   }
   return _supabase;
 }
 
-/** Convenience alias — lazily creates the public client on first access. */
+/** Convenience alias — lazily creates the public client on first access.
+ *  Returns `undefined` for any property when env vars are missing. */
 export const supabase = new Proxy({} as SupabaseClient, {
   get(_target, prop, receiver) {
-    return Reflect.get(getSupabase(), prop, receiver);
+    const client = getSupabase();
+    if (!client) return undefined;
+    return Reflect.get(client, prop, receiver);
   },
 });
 
