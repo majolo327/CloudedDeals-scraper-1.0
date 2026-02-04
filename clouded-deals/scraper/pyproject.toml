@@ -1,0 +1,13 @@
+[project]
+name = "clouded-deals-scraper"
+version = "0.1.0"
+description = "Playwright-based scraper for CloudedDeals"
+requires-python = ">=3.10"
+dependencies = [
+    "playwright>=1.40.0",
+    "supabase>=2.3.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+scrape = "main:scrape"
