@@ -40,16 +40,13 @@ export interface Deal {
   weight: string;
   original_price: number | null;
   deal_price: number;
-  dispensary: { id: string; name: string };
-  brand: { id: string; name: string };
-  deal_score: number;
+  dispensary: Dispensary;
+  brand: Brand;
   is_top_pick: boolean;
   is_staff_pick: boolean;
-  is_featured: boolean;
   is_verified: boolean;
+  is_featured?: boolean;
   is_pinned?: boolean;
-  pinned_position?: number | null;
-  source: DealSource;
-  status: DealStatus;
-  created_at: string;
+  pinned_position?: number;
+  created_at: Date;
 }
