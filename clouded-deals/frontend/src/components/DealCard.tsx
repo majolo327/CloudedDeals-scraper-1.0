@@ -1,108 +1,109 @@
-"use client";
+'use client';
 
-import { Deal, CATEGORY_LABELS, Category } from "@/lib/types";
+import { Heart, BadgeCheck, Star, MapPin, CheckCircle } from 'lucide-react';
+
+interface Deal {
+  id: string;
+  product_name: string;
+  category: string;
+  weight: string;
+  original_price: number | null;
+  deal_price: number;
+  dispensary: { name: string };
+  brand: { name: string };
+  is_verified?: boolean;
+  is_staff_pick?: boolean;
+  is_featured?: boolean;
+}
 
 interface DealCardProps {
   deal: Deal;
-  variant?: "compact" | "full";
+  isSaved: boolean;
+  isUsed?: boolean;
+  onSave: () => void;
+  onClick: () => void;
 }
 
-function formatPrice(cents: number | null): string {
-  if (cents === null) return "—";
-  return `$${cents.toFixed(2)}`;
-}
-
-function scoreColor(score: number): string {
-  if (score >= 80) return "bg-green-500";
-  if (score >= 60) return "bg-yellow-500";
-  if (score >= 40) return "bg-orange-500";
-  return "bg-red-500";
-}
-
-export default function DealCard({ deal, variant = "compact" }: DealCardProps) {
-  const product = deal.product;
-  const dispensary = deal.dispensary;
-
-  if (!product) return null;
-
-  const discount = product.discount_percent;
-  const category = product.category;
-
+export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: DealCardProps) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
-      {/* Header: discount badge + score */}
-      <div className="flex items-center justify-between gap-2 px-4 pt-4">
-        {discount !== null && discount > 0 && (
-          <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-sm font-semibold text-green-800 dark:bg-green-900/40 dark:text-green-300">
-            {Math.round(discount)}% OFF
-          </span>
-        )}
-
-        {category && (
-          <span className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-            {CATEGORY_LABELS[category as Category] ?? category}
-          </span>
-        )}
-
-        <span
-          className={`ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white ${scoreColor(deal.deal_score)}`}
-          title={`Deal score: ${deal.deal_score}`}
+    <div
+      onClick={onClick}
+      className={`group glass frost rounded-xl p-4 cursor-pointer transition-all duration-300 ${
+        isSaved
+          ? 'card-saved'
+          : 'hover:bg-slate-800/70 hover:border-white/10'
+      }`}
+    >
+      {/* Badges row */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          {isUsed && (
+            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-green-500/10 text-green-400">
+              <CheckCircle className="w-2.5 h-2.5" />
+              Used
+            </span>
+          )}
+          {deal.is_verified && (
+            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-purple-500/10 text-purple-400">
+              <BadgeCheck className="w-2.5 h-2.5" />
+              Verified
+            </span>
+          )}
+          {deal.is_staff_pick && (
+            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-cyan-500/10 text-cyan-400">
+              <Star className="w-2.5 h-2.5 fill-current" />
+              Staff Pick
+            </span>
+          )}
+          {deal.is_featured && (
+            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-amber-500/10 text-amber-400">
+              <Star className="w-2.5 h-2.5 fill-current" />
+              Featured
+            </span>
+          )}
+        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onSave();
+          }}
+          className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+            isSaved
+              ? 'bg-purple-500/10 text-purple-400'
+              : 'text-slate-500 hover:text-purple-400 hover:bg-purple-500/10'
+          }`}
         >
-          {Math.round(deal.deal_score)}
-        </span>
+          <Heart className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
+        </button>
       </div>
 
-      {/* Body */}
-      <div className="px-4 pb-4 pt-3">
-        {/* Product name */}
-        <h3 className="text-base font-semibold leading-snug text-zinc-900 dark:text-zinc-100">
-          {product.name}
-        </h3>
+      {/* Brand */}
+      <p className="text-[11px] sm:text-xs text-purple-400 uppercase tracking-wide font-bold mb-1">
+        {deal.brand?.name}
+      </p>
 
-        {/* Brand */}
-        {product.brand && (
-          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-            {product.brand}
-          </p>
+      {/* Product name */}
+      <h3 className="text-[13px] sm:text-sm font-medium text-slate-100 mb-1 line-clamp-1">
+        {deal.product_name}
+      </h3>
+
+      {/* Weight + Category */}
+      <p className="text-[10px] text-slate-500 mb-3">
+        {deal.weight} &bull; {deal.category.charAt(0).toUpperCase() + deal.category.slice(1)}
+      </p>
+
+      {/* Price */}
+      <div className="flex items-baseline gap-2 mb-3">
+        <span className="text-base sm:text-lg font-mono font-bold text-purple-400">${deal.deal_price}</span>
+        {deal.original_price && (
+          <span className="text-[10px] text-slate-500 line-through">${deal.original_price}</span>
         )}
+      </div>
 
-        {/* Prices */}
-        <div className="mt-3 flex items-baseline gap-2">
-          <span className="text-xl font-bold text-green-600 dark:text-green-400">
-            {formatPrice(product.sale_price)}
-          </span>
-          {product.original_price !== null &&
-            product.original_price !== product.sale_price && (
-              <span className="text-sm text-zinc-400 line-through">
-                {formatPrice(product.original_price)}
-              </span>
-            )}
-        </div>
-
-        {/* Extended info — full variant only */}
-        {variant === "full" && (
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
-            {product.weight_value !== null && (
-              <span>
-                {product.weight_value}
-                {product.weight_unit ?? "g"}
-              </span>
-            )}
-            {product.thc_percent !== null && (
-              <span>THC {product.thc_percent}%</span>
-            )}
-            {product.cbd_percent !== null && (
-              <span>CBD {product.cbd_percent}%</span>
-            )}
-          </div>
-        )}
-
-        {/* Dispensary */}
-        {dispensary && (
-          <p className="mt-3 truncate border-t border-zinc-100 pt-2 text-xs text-zinc-400 dark:border-zinc-800 dark:text-zinc-500">
-            {dispensary.name}
-          </p>
-        )}
+      {/* Dispensary */}
+      <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+        <MapPin className="w-2.5 h-2.5 opacity-60" />
+        <span className="truncate">{deal.dispensary?.name}</span>
       </div>
     </div>
   );

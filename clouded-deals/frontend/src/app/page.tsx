@@ -1,13 +1,22 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Star } from "lucide-react";
+import { Star, Heart } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { AgeGate } from "@/components/AgeGate";
 import { CompactDealCard } from "@/components/CompactDealCard";
 import { CompactTopPick } from "@/components/CompactTopPick";
 import { StaffPickMiniCard } from "@/components/StaffPickMiniCard";
 import { StickyStatsBar } from "@/components/StickyStatsBar";
 import { Footer } from "@/components/Footer";
+import { LocationSelector } from "@/components/LocationSelector";
+import { DealModal } from "@/components/DealModal";
+import { DealCardSkeleton, TopPickSkeleton } from "@/components/Skeleton";
+import { ToastContainer } from "@/components/Toast";
+import type { ToastData } from "@/components/Toast";
+import { useSavedDeals } from "@/hooks/useSavedDeals";
+import { useStreak } from "@/hooks/useStreak";
+import { useBrandAffinity } from "@/hooks/useBrandAffinity";
 
 type DealsTab = "today" | "verified";
 type DealCategory = "all" | "flower" | "concentrate" | "vape" | "edible" | "preroll";
@@ -66,12 +75,48 @@ function normalizeDeal(row: DealRow): NormalizedDeal {
 }
 
 export default function Home() {
+  const [isAgeVerified, setIsAgeVerified] = useState(false);
   const [deals, setDeals] = useState<NormalizedDeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DealsTab>("today");
   const [activeCategory, setActiveCategory] = useState<DealCategory>("all");
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [selectedDeal, setSelectedDeal] = useState<NormalizedDeal | null>(null);
+  const [toasts, setToasts] = useState<ToastData[]>([]);
+
+  const { savedDeals, toggleSavedDeal, markDealUsed, isDealUsed } = useSavedDeals();
+  const { streak, isNewMilestone, clearMilestone } = useStreak();
+  const { trackBrand } = useBrandAffinity();
+
+  // Check age verification on mount
+  useEffect(() => {
+    const verified = localStorage.getItem("clouded_age_verified");
+    if (verified === "true") {
+      setIsAgeVerified(true);
+    }
+  }, []);
+
+  // Show streak milestone toast
+  useEffect(() => {
+    if (isNewMilestone) {
+      addToast(`${isNewMilestone}-day streak! Keep it up.`, "streak");
+      clearMilestone();
+    }
+  }, [isNewMilestone, clearMilestone]);
+
+  const handleAgeVerify = () => {
+    localStorage.setItem("clouded_age_verified", "true");
+    setIsAgeVerified(true);
+  };
+
+  const addToast = (message: string, type: ToastData["type"]) => {
+    const id = Date.now().toString();
+    setToasts((prev) => [...prev, { id, message, type }]);
+  };
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const fetchDeals = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -104,13 +149,20 @@ export default function Home() {
     fetchDeals();
   }, [fetchDeals]);
 
-  const toggleSave = (id: string) => {
-    setSavedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const handleToggleSave = (deal: NormalizedDeal) => {
+    const wasSaved = savedDeals.has(deal.id);
+    toggleSavedDeal(deal.id);
+    if (!wasSaved) {
+      trackBrand(deal.brand.name);
+      addToast("Deal saved!", "saved");
+    } else {
+      addToast("Removed from saved", "removed");
+    }
+  };
+
+  const handleMarkUsed = (deal: NormalizedDeal) => {
+    markDealUsed(deal.id);
+    addToast("Marked as used", "success");
   };
 
   const dismiss = (id: string) => {
@@ -130,8 +182,13 @@ export default function Home() {
     (d) => d.id !== topPick?.id && !staffPicks.some((sp) => sp.id === d.id)
   );
 
+  // Show AgeGate if not verified
+  if (!isAgeVerified) {
+    return <AgeGate onVerify={handleAgeVerify} />;
+  }
+
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-slate-950 text-white">
       {/* Gradient overlay */}
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-950/20 via-slate-950 to-slate-950 pointer-events-none" />
 
@@ -142,8 +199,23 @@ export default function Home() {
             Clouded<span className="text-purple-400">Deals</span>
           </h1>
           <div className="flex items-center gap-3 text-xs text-slate-500">
-            <span>Las Vegas</span>
+            <LocationSelector />
             <span className="h-3 w-px bg-slate-800" />
+            {savedDeals.size > 0 && (
+              <>
+                <span className="flex items-center gap-1 text-purple-400">
+                  <Heart className="w-3 h-3 fill-current" />
+                  {savedDeals.size}
+                </span>
+                <span className="h-3 w-px bg-slate-800" />
+              </>
+            )}
+            {streak > 1 && (
+              <>
+                <span className="text-orange-400">{streak}d streak</span>
+                <span className="h-3 w-px bg-slate-800" />
+              </>
+            )}
             <span>{deals.length} deals</span>
           </div>
         </div>
@@ -161,12 +233,12 @@ export default function Home() {
       <main className="relative max-w-6xl mx-auto px-4 py-6">
         {loading ? (
           <div className="space-y-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-[140px] animate-pulse rounded-xl glass"
-              />
-            ))}
+            <TopPickSkeleton />
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <DealCardSkeleton key={i} />
+              ))}
+            </div>
           </div>
         ) : visibleDeals.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -189,10 +261,10 @@ export default function Home() {
               <section>
                 <CompactTopPick
                   deal={topPick}
-                  isSaved={savedIds.has(topPick.id)}
-                  onSave={() => toggleSave(topPick.id)}
+                  isSaved={savedDeals.has(topPick.id)}
+                  onSave={() => handleToggleSave(topPick)}
                   onDismiss={() => dismiss(topPick.id)}
-                  onClick={() => {}}
+                  onClick={() => setSelectedDeal(topPick)}
                 />
               </section>
             )}
@@ -211,9 +283,9 @@ export default function Home() {
                     <StaffPickMiniCard
                       key={deal.id}
                       deal={deal}
-                      isSaved={savedIds.has(deal.id)}
-                      onSave={() => toggleSave(deal.id)}
-                      onClick={() => {}}
+                      isSaved={savedDeals.has(deal.id)}
+                      onSave={() => handleToggleSave(deal)}
+                      onClick={() => setSelectedDeal(deal)}
                     />
                   ))}
                 </div>
@@ -228,11 +300,11 @@ export default function Home() {
                     <CompactDealCard
                       key={deal.id}
                       deal={deal}
-                      isSaved={savedIds.has(deal.id)}
+                      isSaved={savedDeals.has(deal.id)}
                       isAppearing
-                      onSave={() => toggleSave(deal.id)}
+                      onSave={() => handleToggleSave(deal)}
                       onDismiss={() => dismiss(deal.id)}
-                      onClick={() => {}}
+                      onClick={() => setSelectedDeal(deal)}
                     />
                   ))}
                 </div>
@@ -244,6 +316,21 @@ export default function Home() {
 
       {/* Footer */}
       <Footer />
+
+      {/* Deal Modal */}
+      {selectedDeal && (
+        <DealModal
+          deal={selectedDeal}
+          onClose={() => setSelectedDeal(null)}
+          isSaved={savedDeals.has(selectedDeal.id)}
+          onToggleSave={() => handleToggleSave(selectedDeal)}
+          isUsed={isDealUsed(selectedDeal.id)}
+          onMarkUsed={() => handleMarkUsed(selectedDeal)}
+        />
+      )}
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

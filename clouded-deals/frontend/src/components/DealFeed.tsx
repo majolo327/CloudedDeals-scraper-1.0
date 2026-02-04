@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { Deal, DealFilters, DEFAULT_FILTERS } from "@/lib/types";
-import DealCard from "./DealCard";
 
 const PAGE_SIZE = 20;
 
@@ -220,7 +219,10 @@ export default function DealFeed({ filters = DEFAULT_FILTERS }: DealFeedProps) {
     <div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {deals.map((deal) => (
-          <DealCard key={deal.id} deal={deal} variant="full" />
+          <div key={deal.id} className="glass frost rounded-xl p-4">
+            <p className="text-sm font-medium text-slate-100">{deal.product?.name}</p>
+            <p className="text-xs text-slate-500">{deal.dispensary?.name}</p>
+          </div>
         ))}
       </div>
 
