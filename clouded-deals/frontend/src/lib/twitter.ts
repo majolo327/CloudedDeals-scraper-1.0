@@ -113,7 +113,7 @@ interface RateLimitState {
   resetAt: number; // Unix timestamp (seconds)
 }
 
-let rateLimitState: RateLimitState = { remaining: Infinity, resetAt: 0 };
+const rateLimitState: RateLimitState = { remaining: Infinity, resetAt: 0 };
 
 async function waitForRateLimit(): Promise<void> {
   if (rateLimitState.remaining > 0) return;
