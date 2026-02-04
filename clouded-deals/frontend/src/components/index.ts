@@ -15,6 +15,13 @@ export { DealModal } from './DealModal';
 export { ShareModal } from './ShareModal';
 export { AccuracyModal } from './AccuracyModal';
 
+// Pages
+export { BrowsePage } from './BrowsePage';
+export { SavedPage } from './SavedPage';
+
+// Badges
+export { VerifiedBadge, StaffPickBadge, CategoryBadge, ZoneBadge } from './badges';
+
 // UI
 export { Skeleton, DealCardSkeleton, TopPickSkeleton } from './Skeleton';
 export { Toast, ToastContainer } from './Toast';
