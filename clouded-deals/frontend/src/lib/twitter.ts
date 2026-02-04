@@ -59,7 +59,8 @@ async function hmacSha1(key: string, data: string): Promise<string> {
     ["sign"]
   );
   const sig = await crypto.subtle.sign("HMAC", cryptoKey, enc.encode(data));
-  return btoa(String.fromCharCode(...new Uint8Array(sig)));
+  const bytes = Array.from(new Uint8Array(sig));
+  return btoa(String.fromCharCode(...bytes));
 }
 
 async function buildAuthHeader(
@@ -113,7 +114,7 @@ interface RateLimitState {
   resetAt: number; // Unix timestamp (seconds)
 }
 
-let rateLimitState: RateLimitState = { remaining: Infinity, resetAt: 0 };
+const rateLimitState: RateLimitState = { remaining: Infinity, resetAt: 0 };
 
 async function waitForRateLimit(): Promise<void> {
   if (rateLimitState.remaining > 0) return;
@@ -169,7 +170,7 @@ export async function postTweet(text: string): Promise<TweetResult> {
   }
 
   const data = await res.json();
-  const tweetId: string = data?.data?.id ?? null;
+  const tweetId: string | null = data?.data?.id ?? null;
 
   return { success: true, tweet_id: tweetId, error: null };
 }
