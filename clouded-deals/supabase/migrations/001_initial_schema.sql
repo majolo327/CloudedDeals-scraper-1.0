@@ -58,11 +58,11 @@ CREATE TABLE products (
 
     -- De-duplicate within a single day per dispensary.  Same product at
     -- the same sale price on the same date is the same row.
-    CONSTRAINT uq_product_per_day UNIQUE (
+     CONSTRAINT uq_product_per_day UNIQUE (
         dispensary_id,
         name,
         sale_price,
-        (scraped_at::DATE)
+        scraped_at
     )
 );
 
