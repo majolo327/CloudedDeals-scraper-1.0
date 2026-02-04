@@ -1,188 +1,126 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from "react";
-import { Star, Heart } from "lucide-react";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import { AgeGate } from "@/components/AgeGate";
-import { CompactDealCard } from "@/components/CompactDealCard";
-import { CompactTopPick } from "@/components/CompactTopPick";
-import { StaffPickMiniCard } from "@/components/StaffPickMiniCard";
-import { StickyStatsBar } from "@/components/StickyStatsBar";
-import { Footer } from "@/components/Footer";
-import { LocationSelector } from "@/components/LocationSelector";
-import { DealModal } from "@/components/DealModal";
-import { DealCardSkeleton, TopPickSkeleton } from "@/components/Skeleton";
-import { ToastContainer } from "@/components/Toast";
-import type { ToastData } from "@/components/Toast";
-import { useSavedDeals } from "@/hooks/useSavedDeals";
-import { useStreak } from "@/hooks/useStreak";
-import { useBrandAffinity } from "@/hooks/useBrandAffinity";
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Star, Heart, Search, Bookmark, AlertCircle } from 'lucide-react';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { fetchDeals } from '@/lib/api';
+import type { Deal } from '@/types';
+import { AgeGate } from '@/components/AgeGate';
+import { DealsPage } from '@/components/DealsPage';
+import { SearchPage } from '@/components/SearchPage';
+import { BrowsePage } from '@/components/BrowsePage';
+import { SavedPage } from '@/components/SavedPage';
+import { LocationSelector } from '@/components/LocationSelector';
+import { Footer } from '@/components/layout';
+import { DealModal } from '@/components/modals';
+import { DealCardSkeleton, TopPickSkeleton } from '@/components/Skeleton';
+import { ToastContainer } from '@/components/Toast';
+import type { ToastData } from '@/components/Toast';
+import { useSavedDeals } from '@/hooks/useSavedDeals';
+import { useStreak } from '@/hooks/useStreak';
+import { useBrandAffinity } from '@/hooks/useBrandAffinity';
 
-type DealsTab = "today" | "verified";
-type DealCategory = "all" | "flower" | "concentrate" | "vape" | "edible" | "preroll";
-
-interface DealRow {
-  id: string;
-  deal_score: number;
-  created_at: string;
-  product: {
-    id: string;
-    name: string;
-    brand: string | null;
-    category: string | null;
-    original_price: number | null;
-    sale_price: number | null;
-    weight_value: number | null;
-    weight_unit: string | null;
-  };
-  dispensary: {
-    id: string;
-    name: string;
-  };
-}
-
-interface NormalizedDeal {
-  id: string;
-  product_name: string;
-  category: string;
-  weight: string;
-  original_price: number | null;
-  deal_price: number;
-  dispensary: { id: string; name: string };
-  brand: { id: string; name: string };
-  is_top_pick: boolean;
-  is_staff_pick: boolean;
-  is_featured: boolean;
-}
-
-function normalizeDeal(row: DealRow): NormalizedDeal {
-  const weight = row.product.weight_value
-    ? `${row.product.weight_value}${row.product.weight_unit || "g"}`
-    : "";
-  return {
-    id: row.id,
-    product_name: row.product.name,
-    category: row.product.category || "flower",
-    weight,
-    original_price: row.product.original_price,
-    deal_price: row.product.sale_price || 0,
-    dispensary: row.dispensary,
-    brand: { id: row.product.brand || "", name: row.product.brand || "Unknown" },
-    is_top_pick: row.deal_score >= 80,
-    is_staff_pick: row.deal_score >= 65 && row.deal_score < 80,
-    is_featured: row.deal_score >= 70,
-  };
-}
+type AppPage = 'home' | 'search' | 'browse' | 'saved';
 
 export default function Home() {
   const [isAgeVerified, setIsAgeVerified] = useState(false);
-  const [deals, setDeals] = useState<NormalizedDeal[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<DealsTab>("today");
-  const [activeCategory, setActiveCategory] = useState<DealCategory>("all");
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-  const [selectedDeal, setSelectedDeal] = useState<NormalizedDeal | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [activePage, setActivePage] = useState<AppPage>('home');
+  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
+  const [highlightSaved, setHighlightSaved] = useState(false);
 
-  const { savedDeals, toggleSavedDeal, markDealUsed, isDealUsed } = useSavedDeals();
+  const { savedDeals, usedDeals, toggleSavedDeal, markDealUsed, isDealUsed, savedCount } =
+    useSavedDeals();
   const { streak, isNewMilestone, clearMilestone } = useStreak();
-  const { trackBrand } = useBrandAffinity();
+  const { trackBrand, topBrands, totalSaves } = useBrandAffinity();
 
-  // Check age verification on mount
+  // Age verification
   useEffect(() => {
-    const verified = localStorage.getItem("clouded_age_verified");
-    if (verified === "true") {
-      setIsAgeVerified(true);
-    }
+    const verified = localStorage.getItem('clouded_age_verified');
+    if (verified === 'true') setIsAgeVerified(true);
   }, []);
 
-  // Show streak milestone toast
-  useEffect(() => {
-    if (isNewMilestone) {
-      addToast(`${isNewMilestone}-day streak! Keep it up.`, "streak");
-      clearMilestone();
-    }
-  }, [isNewMilestone, clearMilestone]);
-
   const handleAgeVerify = () => {
-    localStorage.setItem("clouded_age_verified", "true");
+    localStorage.setItem('clouded_age_verified', 'true');
     setIsAgeVerified(true);
   };
 
-  const addToast = (message: string, type: ToastData["type"]) => {
+  // Toast helpers
+  const addToast = useCallback((message: string, type: ToastData['type']) => {
     const id = Date.now().toString();
     setToasts((prev) => [...prev, { id, message, type }]);
-  };
+  }, []);
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const fetchDeals = useCallback(async () => {
-    if (!isSupabaseConfigured) {
-      setLoading(false);
-      return;
+  // Streak milestone toast
+  useEffect(() => {
+    if (isNewMilestone) {
+      addToast(`${isNewMilestone}-day streak! Keep it up.`, 'streak');
+      clearMilestone();
     }
-    try {
-      const { data, error } = await supabase
-        .from("deals")
-        .select(
-          `id, deal_score, created_at,
-           product:products!inner(id, name, brand, category, original_price, sale_price, weight_value, weight_unit),
-           dispensary:dispensaries!inner(id, name)`
-        )
-        .eq("qualified", true)
-        .order("deal_score", { ascending: false })
-        .limit(50);
+  }, [isNewMilestone, clearMilestone, addToast]);
 
-      if (error) throw error;
-      if (data) {
-        setDeals((data as unknown as DealRow[]).map(normalizeDeal));
-      }
-    } catch {
-      // DB not available
+  // Fetch deals
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const result = await fetchDeals();
+      if (cancelled) return;
+      setDeals(result.deals);
+      setError(result.error);
+      setLoading(false);
     }
-    setLoading(false);
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  useEffect(() => {
-    fetchDeals();
-  }, [fetchDeals]);
-
-  const handleToggleSave = (deal: NormalizedDeal) => {
-    const wasSaved = savedDeals.has(deal.id);
-    toggleSavedDeal(deal.id);
-    if (!wasSaved) {
-      trackBrand(deal.brand.name);
-      addToast("Deal saved!", "saved");
-    } else {
-      addToast("Removed from saved", "removed");
+  // Derived deal lists
+  const verifiedDeals = useMemo(
+    () => deals.filter((d) => d.is_verified),
+    [deals]
+  );
+  const featuredDeals = useMemo(
+    () => deals.filter((d) => d.is_featured),
+    [deals]
+  );
+  const brands = useMemo(() => {
+    const seen = new Map<string, Deal['brand']>();
+    for (const d of deals) {
+      if (!seen.has(d.brand.id)) seen.set(d.brand.id, d.brand);
     }
-  };
+    return Array.from(seen.values());
+  }, [deals]);
 
-  const handleMarkUsed = (deal: NormalizedDeal) => {
-    markDealUsed(deal.id);
-    addToast("Marked as used", "success");
-  };
-
-  const dismiss = (id: string) => {
-    setDismissedIds((prev) => new Set(prev).add(id));
-  };
-
-  // Filter deals
-  const visibleDeals = deals.filter((d) => {
-    if (dismissedIds.has(d.id)) return false;
-    if (activeCategory !== "all" && d.category !== activeCategory) return false;
-    return true;
-  });
-
-  const topPick = visibleDeals.find((d) => d.is_top_pick);
-  const staffPicks = visibleDeals.filter((d) => d.is_staff_pick);
-  const gridDeals = visibleDeals.filter(
-    (d) => d.id !== topPick?.id && !staffPicks.some((sp) => sp.id === d.id)
+  // Save handler with brand tracking
+  const handleToggleSave = useCallback(
+    (dealId: string) => {
+      const wasSaved = savedDeals.has(dealId);
+      toggleSavedDeal(dealId);
+      if (!wasSaved) {
+        const deal = deals.find((d) => d.id === dealId);
+        if (deal) trackBrand(deal.brand.name);
+        addToast('Deal saved!', 'saved');
+      } else {
+        addToast('Removed from saved', 'removed');
+      }
+    },
+    [savedDeals, toggleSavedDeal, deals, trackBrand, addToast]
   );
 
-  // Show AgeGate if not verified
+  const handleHighlightSaved = useCallback(() => {
+    setHighlightSaved(true);
+    setTimeout(() => setHighlightSaved(false), 1500);
+  }, []);
+
+  // AgeGate
   if (!isAgeVerified) {
     return <AgeGate onVerify={handleAgeVerify} />;
   }
@@ -195,18 +133,25 @@ export default function Home() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-xl border-b border-purple-500/10">
         <div className="max-w-6xl mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight">
-            Clouded<span className="text-purple-400">Deals</span>
-          </h1>
+          <button onClick={() => setActivePage('home')} className="focus:outline-none">
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight">
+              Clouded<span className="text-purple-400">Deals</span>
+            </h1>
+          </button>
           <div className="flex items-center gap-3 text-xs text-slate-500">
             <LocationSelector />
             <span className="h-3 w-px bg-slate-800" />
-            {savedDeals.size > 0 && (
+            {savedCount > 0 && (
               <>
-                <span className="flex items-center gap-1 text-purple-400">
+                <button
+                  onClick={() => setActivePage('saved')}
+                  className={`flex items-center gap-1 transition-all ${
+                    highlightSaved ? 'text-purple-300 scale-110' : 'text-purple-400'
+                  }`}
+                >
                   <Heart className="w-3 h-3 fill-current" />
-                  {savedDeals.size}
-                </span>
+                  {savedCount}
+                </button>
                 <span className="h-3 w-px bg-slate-800" />
               </>
             )}
@@ -221,18 +166,35 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Sticky stats / category bar */}
-      <StickyStatsBar
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        activeCategory={activeCategory}
-        onCategoryChange={setActiveCategory}
-      />
+      {/* Navigation tabs */}
+      <nav className="sticky top-14 sm:top-16 z-40 bg-slate-900/90 backdrop-blur-lg border-b border-slate-800/50">
+        <div className="max-w-6xl mx-auto px-4 flex items-center gap-1">
+          {[
+            { id: 'home' as const, label: 'Deals', icon: Star },
+            { id: 'search' as const, label: 'Search', icon: Search },
+            { id: 'browse' as const, label: 'Browse', icon: Star },
+            { id: 'saved' as const, label: 'Saved', icon: Bookmark },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActivePage(tab.id)}
+              className={`flex items-center gap-1.5 px-3 py-3 text-xs font-medium transition-all border-b-2 ${
+                activePage === tab.id
+                  ? 'text-purple-400 border-purple-400'
+                  : 'text-slate-500 border-transparent hover:text-slate-300'
+              }`}
+            >
+              <tab.icon className="w-3.5 h-3.5" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </nav>
 
       {/* Main content */}
-      <main className="relative max-w-6xl mx-auto px-4 py-6">
+      <main className="relative">
         {loading ? (
-          <div className="space-y-4">
+          <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
             <TopPickSkeleton />
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -240,77 +202,65 @@ export default function Home() {
               ))}
             </div>
           </div>
-        ) : visibleDeals.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center max-w-6xl mx-auto px-4">
+            <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mb-4">
+              <AlertCircle className="w-8 h-8 text-red-400" />
+            </div>
+            <h2 className="text-lg font-semibold text-slate-300 mb-2">
+              Something went wrong
+            </h2>
+            <p className="text-sm text-slate-500 max-w-sm mb-4">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-purple-500/20 text-purple-400 rounded-lg text-sm font-medium hover:bg-purple-500/30 transition-colors"
+            >
+              Try again
+            </button>
+          </div>
+        ) : deals.length === 0 && !isSupabaseConfigured ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center max-w-6xl mx-auto px-4">
             <div className="w-16 h-16 rounded-2xl bg-slate-800/50 flex items-center justify-center mb-4">
               <Star className="w-8 h-8 text-slate-600" />
             </div>
-            <h2 className="text-lg font-semibold text-slate-300 mb-2">
-              No deals yet
-            </h2>
+            <h2 className="text-lg font-semibold text-slate-300 mb-2">No deals yet</h2>
             <p className="text-sm text-slate-500 max-w-sm">
-              {!isSupabaseConfigured
-                ? "Database not connected. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to see live deals."
-                : "Deals will appear here once the scraper runs. Check back soon."}
+              Database not connected. Set NEXT_PUBLIC_SUPABASE_URL and
+              NEXT_PUBLIC_SUPABASE_ANON_KEY to see live deals.
             </p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* Top Pick */}
-            {topPick && (
-              <section>
-                <CompactTopPick
-                  deal={topPick}
-                  isSaved={savedDeals.has(topPick.id)}
-                  onSave={() => handleToggleSave(topPick)}
-                  onDismiss={() => dismiss(topPick.id)}
-                  onClick={() => setSelectedDeal(topPick)}
-                />
-              </section>
+          <>
+            {activePage === 'home' && (
+              <DealsPage
+                deals={deals}
+                verifiedDeals={verifiedDeals}
+                featuredDeals={featuredDeals}
+                savedDeals={savedDeals}
+                usedDeals={usedDeals}
+                toggleSavedDeal={handleToggleSave}
+                setSelectedDeal={setSelectedDeal}
+                savedCount={savedCount}
+                streak={streak}
+                topBrands={topBrands}
+                totalBrandSaves={totalSaves}
+                addToast={addToast}
+                onHighlightSavedIcon={handleHighlightSaved}
+              />
             )}
-
-            {/* Staff Picks */}
-            {staffPicks.length > 0 && (
-              <section>
-                <div className="flex items-center gap-2 mb-3">
-                  <Star className="w-4 h-4 text-cyan-400" />
-                  <h2 className="text-sm font-semibold text-slate-300">
-                    Staff Picks
-                  </h2>
-                </div>
-                <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
-                  {staffPicks.map((deal) => (
-                    <StaffPickMiniCard
-                      key={deal.id}
-                      deal={deal}
-                      isSaved={savedDeals.has(deal.id)}
-                      onSave={() => handleToggleSave(deal)}
-                      onClick={() => setSelectedDeal(deal)}
-                    />
-                  ))}
-                </div>
-              </section>
+            {activePage === 'search' && (
+              <SearchPage
+                deals={deals}
+                brands={brands}
+                savedDeals={savedDeals}
+                toggleSavedDeal={handleToggleSave}
+                setSelectedDeal={setSelectedDeal}
+                onNavigateToBrands={() => setActivePage('browse')}
+              />
             )}
-
-            {/* Deal Grid */}
-            {gridDeals.length > 0 && (
-              <section>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {gridDeals.map((deal) => (
-                    <CompactDealCard
-                      key={deal.id}
-                      deal={deal}
-                      isSaved={savedDeals.has(deal.id)}
-                      isAppearing
-                      onSave={() => handleToggleSave(deal)}
-                      onDismiss={() => dismiss(deal.id)}
-                      onClick={() => setSelectedDeal(deal)}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-          </div>
+            {activePage === 'browse' && <BrowsePage />}
+            {activePage === 'saved' && <SavedPage deals={deals} />}
+          </>
         )}
       </main>
 
@@ -323,9 +273,12 @@ export default function Home() {
           deal={selectedDeal}
           onClose={() => setSelectedDeal(null)}
           isSaved={savedDeals.has(selectedDeal.id)}
-          onToggleSave={() => handleToggleSave(selectedDeal)}
+          onToggleSave={() => handleToggleSave(selectedDeal.id)}
           isUsed={isDealUsed(selectedDeal.id)}
-          onMarkUsed={() => handleMarkUsed(selectedDeal)}
+          onMarkUsed={() => {
+            markDealUsed(selectedDeal.id);
+            addToast('Marked as used', 'success');
+          }}
         />
       )}
 
