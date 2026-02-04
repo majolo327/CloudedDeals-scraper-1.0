@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 interface ScrapeRun {
   id: string;
@@ -22,23 +22,30 @@ export default function ScraperPage() {
 
   // ----- Fetch runs -----
   useEffect(() => {
+    if (!isSupabaseConfigured) return;
     (async () => {
-      const { data } = await supabase
-        .from("scrape_runs")
-        .select("*")
-        .order("started_at", { ascending: false })
-        .limit(20);
+      try {
+        const { data } = await supabase
+          .from("scrape_runs")
+          .select("*")
+          .order("started_at", { ascending: false })
+          .limit(20);
 
-      const rows = (data ?? []) as ScrapeRun[];
-      setRuns(rows);
+        const rows = (data ?? []) as ScrapeRun[];
+        setRuns(rows);
 
-      const running = rows.find((r) => r.status === "running");
-      if (running) setCurrentRun(running);
+        const running = rows.find((r) => r.status === "running");
+        if (running) setCurrentRun(running);
+      } catch {
+        // DB not available
+      }
     })();
   }, []);
 
   // ----- Real-time run updates -----
   useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
     const channel = supabase
       .channel("scrape-runs-realtime")
       .on(

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: "grid" },
@@ -31,25 +31,45 @@ export default function AdminLayout({
 
   // ----- Auth check -----
   useEffect(() => {
-    (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        router.replace("/");
-        return;
-      }
-      setUser(session.user.email ?? session.user.id);
+    if (!isSupabaseConfigured) {
+      // No Supabase — allow access for development / preview
+      setUser("dev@localhost");
       setChecking(false);
+      return;
+    }
+
+    let subscription: { unsubscribe: () => void } | undefined;
+
+    (async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) {
+          router.replace("/");
+          return;
+        }
+        setUser(session.user.email ?? session.user.id);
+        setChecking(false);
+      } catch {
+        // Auth failed — allow through for dev
+        setUser("dev@localhost");
+        setChecking(false);
+      }
     })();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) router.replace("/");
-    });
+    try {
+      const {
+        data: { subscription: sub },
+      } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (!session) router.replace("/");
+      });
+      subscription = sub;
+    } catch {
+      // Auth listener not available
+    }
 
-    return () => subscription.unsubscribe();
+    return () => subscription?.unsubscribe();
   }, [router]);
 
   if (checking) {

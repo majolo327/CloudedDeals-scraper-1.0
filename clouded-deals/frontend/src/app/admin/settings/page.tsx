@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { Dispensary, Platform } from "@/lib/types";
 
 const PLATFORMS: Platform[] = ["dutchie", "curaleaf", "jane"];
@@ -23,31 +23,44 @@ export default function SettingsPage() {
 
   // ----- Fetch dispensaries -----
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
     (async () => {
-      const { data } = await supabase
-        .from("dispensaries")
-        .select("id, name, url, platform, address, city, state, is_active")
-        .order("platform")
-        .order("name");
-      if (data) setDispensaries(data as Dispensary[]);
+      try {
+        const { data } = await supabase
+          .from("dispensaries")
+          .select("id, name, url, platform, address, city, state, is_active")
+          .order("platform")
+          .order("name");
+        if (data) setDispensaries(data as Dispensary[]);
+      } catch {
+        // DB not available
+      }
       setLoading(false);
     })();
   }, []);
 
   // ----- Toggle dispensary active state -----
   async function toggleDispensary(id: string, currentActive: boolean) {
+    if (!isSupabaseConfigured) return;
     setSaving(id);
-    const { error } = await supabase
-      .from("dispensaries")
-      .update({ is_active: !currentActive })
-      .eq("id", id);
+    try {
+      const { error } = await supabase
+        .from("dispensaries")
+        .update({ is_active: !currentActive })
+        .eq("id", id);
 
-    if (!error) {
-      setDispensaries((prev) =>
-        prev.map((d) =>
-          d.id === id ? { ...d, is_active: !currentActive } : d
-        )
-      );
+      if (!error) {
+        setDispensaries((prev) =>
+          prev.map((d) =>
+            d.id === id ? { ...d, is_active: !currentActive } : d
+          )
+        );
+      }
+    } catch {
+      // DB not available
     }
     setSaving(null);
   }
