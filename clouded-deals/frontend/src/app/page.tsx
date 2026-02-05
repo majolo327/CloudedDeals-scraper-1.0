@@ -18,6 +18,7 @@ import type { ToastData } from '@/components/Toast';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { useStreak } from '@/hooks/useStreak';
 import { useBrandAffinity } from '@/hooks/useBrandAffinity';
+import { touchSession, trackEvent, trackSavedDeal, trackUnsavedDeal } from '@/lib/analytics';
 
 type AppPage = 'home' | 'search' | 'browse' | 'saved';
 
@@ -39,7 +40,10 @@ export default function Home() {
   // Age verification
   useEffect(() => {
     const verified = localStorage.getItem('clouded_age_verified');
-    if (verified === 'true') setIsAgeVerified(true);
+    if (verified === 'true') {
+      setIsAgeVerified(true);
+      touchSession();
+    }
   }, []);
 
   const handleAgeVerify = () => {
@@ -81,14 +85,21 @@ export default function Home() {
     };
   }, []);
 
-  // Derived deal lists
+  // Filter to only show today's deals (after midnight)
+  const todaysDeals = useMemo(() => {
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    return deals.filter((d) => new Date(d.created_at) >= todayMidnight);
+  }, [deals]);
+
+  // Derived deal lists (from today's deals only)
   const verifiedDeals = useMemo(
-    () => deals.filter((d) => d.is_verified),
-    [deals]
+    () => todaysDeals.filter((d) => d.is_verified),
+    [todaysDeals]
   );
   const featuredDeals = useMemo(
-    () => deals.filter((d) => d.is_featured),
-    [deals]
+    () => todaysDeals.filter((d) => d.is_featured),
+    [todaysDeals]
   );
   const brands = useMemo(() => {
     const seen = new Map<string, Deal['brand']>();
@@ -107,8 +118,11 @@ export default function Home() {
         const deal = deals.find((d) => d.id === dealId);
         if (deal) trackBrand(deal.brand.name);
         addToast('Deal saved!', 'saved');
+        trackEvent('deal_save', dealId);
+        trackSavedDeal(dealId);
       } else {
         addToast('Removed from saved', 'removed');
+        trackUnsavedDeal(dealId);
       }
     },
     [savedDeals, toggleSavedDeal, deals, trackBrand, addToast]
@@ -160,13 +174,13 @@ export default function Home() {
                 <span className="h-3 w-px bg-slate-800" />
               </>
             )}
-            <span>{deals.length} deals</span>
+            <span>{todaysDeals.length} deals</span>
           </div>
         </div>
       </header>
 
-      {/* Navigation tabs */}
-      <nav className="sticky top-14 sm:top-16 z-40 bg-slate-900/90 backdrop-blur-lg border-b border-slate-800/50">
+      {/* Desktop navigation tabs (hidden on mobile — bottom nav used instead) */}
+      <nav className="hidden sm:block sticky top-16 z-40 bg-slate-900/90 backdrop-blur-lg border-b border-slate-800/50">
         <div className="max-w-6xl mx-auto px-4 flex items-center gap-1">
           {[
             { id: 'home' as const, label: 'Deals', icon: Star },
@@ -190,8 +204,8 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* Main content */}
-      <main className="relative">
+      {/* Main content — bottom padding on mobile for bottom nav */}
+      <main className="relative pb-20 sm:pb-0">
         {loading ? (
           <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
             <TopPickSkeleton />
@@ -232,7 +246,7 @@ export default function Home() {
           <>
             {activePage === 'home' && (
               <DealsPage
-                deals={deals}
+                deals={todaysDeals}
                 verifiedDeals={verifiedDeals}
                 featuredDeals={featuredDeals}
                 savedDeals={savedDeals}
@@ -249,7 +263,7 @@ export default function Home() {
             )}
             {activePage === 'search' && (
               <SearchPage
-                deals={deals}
+                deals={todaysDeals}
                 brands={brands}
                 savedDeals={savedDeals}
                 toggleSavedDeal={handleToggleSave}
@@ -283,6 +297,31 @@ export default function Home() {
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+      {/* Mobile bottom nav bar */}
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/50">
+        <div className="flex items-center justify-around px-2 pb-[env(safe-area-inset-bottom)]">
+          {[
+            { id: 'home' as const, label: 'Deals', icon: Star },
+            { id: 'search' as const, label: 'Search', icon: Search },
+            { id: 'browse' as const, label: 'Browse', icon: Star },
+            { id: 'saved' as const, label: 'Saved', icon: Bookmark },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActivePage(tab.id)}
+              className={`flex flex-col items-center gap-0.5 px-3 py-2 min-w-[56px] min-h-[48px] text-[10px] font-medium transition-colors ${
+                activePage === tab.id
+                  ? 'text-purple-400'
+                  : 'text-slate-500 active:text-slate-300'
+              }`}
+            >
+              <tab.icon className="w-5 h-5" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }

@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Heart, X, MapPin, Sparkles, Star } from 'lucide-react';
+import { Heart, X, MapPin, Sparkles, Star, Info, Clock } from 'lucide-react';
 import type { Deal } from '@/types';
+import type { RecommendationReason } from '@/lib/personalization';
+import { getRecommendationText } from '@/lib/personalization';
+import { isFreshDeal } from '@/lib/socialProof';
 
 interface CompactDealCardProps {
   deal: Deal;
@@ -14,6 +17,10 @@ interface CompactDealCardProps {
   onDismiss: () => void;
   onClick: () => void;
   onShare?: () => void;
+  // Personalization props
+  isRecommended?: boolean;
+  recommendationReason?: RecommendationReason | null;
+  personalizationScore?: number;
 }
 
 const categoryLabels: Record<string, string> = {
@@ -33,10 +40,16 @@ export function CompactDealCard({
   onSave,
   onDismiss,
   onClick,
+  isRecommended = false,
+  recommendationReason,
+  personalizationScore,
 }: CompactDealCardProps) {
   const [heartPulse, setHeartPulse] = useState(false);
   const [saveGlow, setSaveGlow] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
   const prevSavedRef = useRef(isSaved);
+
+  const reasonText = getRecommendationText(recommendationReason ?? null);
 
   useEffect(() => {
     if (isSaved && !prevSavedRef.current) {
@@ -72,6 +85,40 @@ export function CompactDealCard({
       {showSparkle && (
         <div className="absolute top-1.5 left-1.5 animate-sparkle">
           <Sparkles className="w-3 h-3 text-amber-400" />
+        </div>
+      )}
+
+      {/* Recommended badge */}
+      {isRecommended && !showSparkle && (
+        <div className="absolute top-1.5 left-1.5">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowTooltip(!showTooltip);
+            }}
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-medium bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-300 border border-purple-500/30"
+          >
+            <Sparkles className="w-2 h-2" />
+            <span>For You</span>
+          </button>
+          {showTooltip && reasonText && (
+            <div
+              className="absolute z-50 top-full left-0 mt-1 px-2 py-1.5 rounded-lg bg-slate-800 border border-slate-700 shadow-xl whitespace-nowrap animate-in fade-in zoom-in-95 duration-150"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-1.5">
+                <Info className="w-2.5 h-2.5 text-purple-400" />
+                <span className="text-[10px] text-slate-200">{reasonText}</span>
+              </div>
+              {personalizationScore !== undefined && (
+                <div className="mt-0.5 text-[8px] text-slate-500">
+                  Match: {personalizationScore}%
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -140,9 +187,26 @@ export function CompactDealCard({
         </button>
       </div>
 
-      <div className="flex items-center gap-1 mt-1.5">
-        <MapPin className="w-2 h-2 shrink-0 text-slate-600" />
-        <span className="text-[8px] text-slate-600 truncate">{deal.dispensary.name}</span>
+      <div className="flex items-center justify-between gap-1 mt-1.5">
+        <div className="flex items-center gap-1 min-w-0">
+          <MapPin className="w-2 h-2 shrink-0 text-slate-600" />
+          <span className="text-[8px] text-slate-600 truncate">{deal.dispensary.name}</span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Hot deal indicator */}
+          {(deal.save_count ?? 0) >= 10 && (
+            <span className="flex items-center gap-0.5 text-[7px] text-orange-400">
+              <span>🔥</span>
+              <span>{deal.save_count}</span>
+            </span>
+          )}
+          {/* Deal freshness */}
+          {isFreshDeal(deal.created_at, 4) && (
+            <span className="flex items-center gap-0.5 text-[7px] text-green-400">
+              <Clock className="w-2 h-2" />
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
