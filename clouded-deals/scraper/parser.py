@@ -132,41 +132,150 @@ def extract_weight(text: str) -> dict[str, Any]:
 # =====================================================================
 
 KNOWN_BRANDS: list[str] = [
-    "STIIIZY",
+    # -- Premium Tier --
     "Cookies",
-    "Wyld",
-    "CAMP",
-    "OLD PAL",
-    "Select",
+    "Runtz",
+    "Connected",
+    "Alien Labs",
+    "Jungle Boys",
+    "Packwoods",
+    "Doja",
+    "STIIIZY",
     "Raw Garden",
-    "Kiva",
-    "PLUS",
-    "Wana",
     "Heavy Hitters",
-    "Rove",
-    "Fleur",
-    "Trendi",
-    "AMA",
-    "Aether Gardens",
-    "Binske",
+    "Kingpen",
+    "Select",
+    "Plug Play",
+    "PAX",
+    "Jeeter",
+    "Backpack Boyz",
+    "Wonderbrett",
+    "Ember Valley",
+    # -- Mid-Tier / Popular --
+    "Kynd",
+    "Verano",
+    "MPX",
+    "Tsunami",
+    "Virtue",
+    "Matrix",
+    "Tahoe Hydro",
+    "The Clear",
     "City Trees",
+    "Trendi",
+    "Qualcan",
+    "NLVO",
+    "Vapen",
+    "SVC",
+    "Crumbs",
+    "Cannabiotix",
+    "Rove",
+    "Cresco",
+    "Wyld",
+    "Kiva",
+    "Wana",
+    "PLUS",
+    # -- Value / Regional --
+    "PANNA",
+    "Reina",
+    "Remedy",
+    "Fuze",
+    "Srene",
+    "Aether Gardens",
+    "Taproots",
+    "DGF",
+    "Polaris",
+    "Mojave",
+    "Vada",
+    "SIP",
+    "Exhale",
+    "OLD PAL",
+    # -- House / Dispensary Brands --
+    "Planet 13",
+    "The Sanctuary",
+    "The Source",
+    "Cultivate",
+    "Essence",
+    "Thrive",
+    "Zen Leaf",
+    "NuLeaf",
+    "Oasis",
+    # -- Additional well-known brands --
+    "CAMP",
+    "Fleur",
+    "AMA",
+    "Binske",
     "Dzyne",
     "Fumeur",
     "Greenway Medical",
     "Highly Edible",
     "Huxton",
-    "Kynd",
-    "Matrix",
     "Mellow Vibes",
-    "MPX",
     "Nature's Chemistry",
-    "Qualcan",
-    "Remedy",
     "State Flower",
     "TWE",
-    "Verano",
-    "Virtue",
+    "Incredibles",
+    "Bhang",
+    "CANN",
+    "Camino",
+    "Dosist",
+    "Encore",
+    "Grön",
+    "Lost Farm",
+    "MÜV",
+    "Phat Panda",
+    "Punch Edibles",
+    "Robhots",
+    "Stillwater",
+    "Toast",
+    "Almora",
+    "Glass House",
+    "Lowell",
+    "Stone Road",
+    "WYLD CBD",
+    "Fig Farms",
+    "Gelato",
+    "Lemonnade",
+    "Grandiflora",
+    "Blaze",
+    "Bouquet",
+    "Cheeba Chews",
+    "Chews",
+    "Curaleaf",
+    "GTI",
+    "Harvest",
+    "Holistic",
+    "IGO",
+    "Leaf & Vine",
+    "Local Cannabis",
+    "Medizin",
+    "MedMen",
+    "MM",
+    "Nuvaria",
+    "Roots",
+    "Shango",
+    "Terra",
+    "Trulieve",
+    "Tumbleweed",
+    "Tyson 2.0",
+    "Khalifa Kush",
+    "Garcia Hand Picked",
+    "Dr. Zodiak",
+    "Presidential",
 ]
+
+# Brand name variations for fuzzy matching — maps variant spellings
+# to the canonical brand name used in KNOWN_BRANDS above.
+BRAND_VARIATIONS: dict[str, list[str]] = {
+    "MPX": ["M.P.X", "Melting Point Extracts", "Melting Point"],
+    "Kynd": ["K.Y.N.D", "KYND Cannabis", "KYND"],
+    "Cookies": ["Cookies SF", "Cookies Fam"],
+    "Runtz": ["Runtz Brand", "Runtz OG"],
+    "STIIIZY": ["Stiiizy", "STIIZY", "STIZY"],
+    "NLVO": ["N.L.V.O"],
+    "OLD PAL": ["Old Pal", "OLDPAL"],
+    "Tyson 2.0": ["Tyson", "Mike Tyson"],
+    "Khalifa Kush": ["KK", "Wiz Khalifa"],
+}
 
 # Pre-compile a single pattern for speed (case-insensitive).
 _RE_BRAND = re.compile(
@@ -174,22 +283,46 @@ _RE_BRAND = re.compile(
     re.IGNORECASE,
 )
 
+# Build a flattened variation → canonical mapping and compile a pattern.
+_VARIATION_TO_CANONICAL: dict[str, str] = {}
+for _canon, _variants in BRAND_VARIATIONS.items():
+    for _var in _variants:
+        _VARIATION_TO_CANONICAL[_var.lower()] = _canon
+
+_RE_VARIATION = re.compile(
+    "|".join(
+        re.escape(v)
+        for v in sorted(_VARIATION_TO_CANONICAL.keys(), key=len, reverse=True)
+    ),
+    re.IGNORECASE,
+) if _VARIATION_TO_CANONICAL else None
+
 
 def detect_brand(text: str) -> str | None:
     """Return the first known brand found in *text*, or ``None``.
+
+    Checks exact brand names first, then falls back to known
+    brand-name variations (fuzzy matching).
 
     >>> detect_brand("STIIIZY Premium Pod 1g")
     'STIIIZY'
     >>> detect_brand("no brand here")
     """
+    # Strategy 1: exact match against canonical brand names.
     m = _RE_BRAND.search(text)
     if m:
         matched = m.group(0)
-        # Normalise to the canonical casing from KNOWN_BRANDS.
         for brand in KNOWN_BRANDS:
             if brand.lower() == matched.lower():
                 return brand
         return matched
+
+    # Strategy 2: check brand variations.
+    if _RE_VARIATION is not None:
+        m = _RE_VARIATION.search(text)
+        if m:
+            return _VARIATION_TO_CANONICAL[m.group(0).lower()]
+
     return None
 
 
