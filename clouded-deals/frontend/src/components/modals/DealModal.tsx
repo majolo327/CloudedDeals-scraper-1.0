@@ -67,7 +67,13 @@ export function DealModal({
   };
 
   const handleShare = () => {
-    const shareUrl = `${window.location.origin}/deal/${deal.id}`;
+    const params = new URLSearchParams({
+      utm_source: 'share',
+      utm_medium: 'direct',
+      utm_campaign: 'deal_share',
+      utm_content: deal.id,
+    });
+    const shareUrl = `${window.location.origin}/deal/${deal.id}?${params.toString()}`;
     const shareText = formatShareText(deal, shareUrl);
 
     if (typeof navigator !== 'undefined' && navigator.share) {

@@ -1,8 +1,10 @@
 'use client';
 
-import { Heart, BadgeCheck, Star, MapPin, CheckCircle, Clock } from 'lucide-react';
+import { useState } from 'react';
+import { Heart, BadgeCheck, Star, MapPin, CheckCircle, Clock, Share2 } from 'lucide-react';
 import type { Deal } from '@/types';
 import { isFreshDeal } from '@/lib/socialProof';
+import { ShareModal } from './modals/ShareModal';
 
 interface DealCardProps {
   deal: Deal;
@@ -13,6 +15,7 @@ interface DealCardProps {
 }
 
 export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: DealCardProps) {
+  const [showShare, setShowShare] = useState(false);
   return (
     <div
       onClick={onClick}
@@ -63,19 +66,31 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
             </span>
           )}
         </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onSave();
-          }}
-          className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-            isSaved
-              ? 'bg-purple-500/10 text-purple-400'
-              : 'text-slate-500 hover:text-purple-400 hover:bg-purple-500/10'
-          }`}
-        >
-          <Heart className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowShare(true);
+            }}
+            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all text-slate-500 hover:text-purple-400 hover:bg-purple-500/10"
+            title="Share"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSave();
+            }}
+            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+              isSaved
+                ? 'bg-purple-500/10 text-purple-400'
+                : 'text-slate-500 hover:text-purple-400 hover:bg-purple-500/10'
+            }`}
+          >
+            <Heart className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* Brand */}
@@ -106,6 +121,10 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
         <MapPin className="w-2.5 h-2.5 opacity-60 shrink-0" />
         <span className="truncate">{deal.dispensary?.name || 'Unknown Dispensary'}</span>
       </div>
+
+      {showShare && (
+        <ShareModal deal={deal} onClose={() => setShowShare(false)} />
+      )}
     </div>
   );
 }
