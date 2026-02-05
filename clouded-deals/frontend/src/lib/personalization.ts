@@ -19,12 +19,18 @@ export interface UserPreferences {
   preferredPriceMin: number;
   preferredPriceMax: number;
   avgSavedPrice: number;
+  // Price tier (budget < $20, mid $20-75, premium > $75)
+  priceTier: 'budget' | 'mid' | 'premium';
   // Discount preference (avg discount of saved deals)
   preferredMinDiscount: number;
   // Dispensary preferences (dispensary_id -> score)
   dispensaryScores: Record<string, number>;
   // Brand preferences (brand_id -> score)
   brandScores: Record<string, number>;
+  // Top brand (most saved)
+  topBrand: string | null;
+  // Top category
+  topCategory: Category | null;
   // Time-based (hour of day when most active)
   peakHour: number | null;
 }
@@ -73,9 +79,12 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   preferredPriceMin: 0,
   preferredPriceMax: 100,
   avgSavedPrice: 35,
+  priceTier: 'mid',
   preferredMinDiscount: 20,
   dispensaryScores: {},
   brandScores: {},
+  topBrand: null,
+  topCategory: null,
   peakHour: null,
 };
 
@@ -229,6 +238,22 @@ export async function analyzeUserPreferences(
       );
     }
 
+    // Price tier detection
+    let priceTier: 'budget' | 'mid' | 'premium' = 'mid';
+    if (avgSavedPrice < 20) {
+      priceTier = 'budget';
+    } else if (avgSavedPrice > 60) {
+      priceTier = 'premium';
+    }
+
+    // Top brand (most saved)
+    const topBrandEntry = Object.entries(brandCounts).sort((a, b) => b[1] - a[1])[0];
+    const topBrand = topBrandEntry ? topBrandEntry[0] : null;
+
+    // Top category
+    const topCategoryEntry = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0];
+    const topCategory = topCategoryEntry ? (topCategoryEntry[0] as Category) : null;
+
     return {
       userId,
       isNewUser: false,
@@ -238,9 +263,12 @@ export async function analyzeUserPreferences(
       preferredPriceMin,
       preferredPriceMax,
       avgSavedPrice,
+      priceTier,
       preferredMinDiscount: Math.max(0, preferredMinDiscount),
       dispensaryScores,
       brandScores,
+      topBrand,
+      topCategory,
       peakHour,
     };
   } catch {
