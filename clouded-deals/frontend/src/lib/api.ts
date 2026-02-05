@@ -46,7 +46,6 @@ function toDispensary(row: DealRow['dispensary']): Dispensary {
     id: row.id,
     name: row.name,
     slug: row.id,
-    zone: 'strip',
     tier: 'standard',
     address: row.address || '',
     menu_url: row.url || '',

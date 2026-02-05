@@ -1,22 +1,36 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, ChevronDown, ChevronUp, ShieldCheck, Star } from 'lucide-react';
-import { ZoneBadge } from '@/components/badges';
+import { Search, ChevronDown, ChevronUp, ShieldCheck, Star, MapPin } from 'lucide-react';
 import { ALPHABET } from '@/utils/constants';
-import { filterBrandsByQuery, sortBrandsByName, groupBrandsByLetter } from '@/utils/brandUtils';
+import { filterBrandsByQuery, sortBrandsByName, groupBrandsByLetter, countDealsByBrand } from '@/utils/brandUtils';
 import { BRANDS } from '@/data/brands';
 import { DISPENSARIES } from '@/data/dispensaries';
-import type { Zone, Brand } from '@/types';
+import type { Brand, Deal, Dispensary } from '@/types';
 
 type BrowseTab = 'brands' | 'dispensaries';
-type ZoneFilter = 'all' | Zone;
 
-export function BrowsePage() {
+interface BrowsePageProps {
+  deals?: Deal[];
+}
+
+function groupDispensariesByLetter(dispensaries: Dispensary[]): Record<string, Dispensary[]> {
+  const grouped: Record<string, Dispensary[]> = {};
+  for (const disp of dispensaries) {
+    const letter = disp.name[0]?.toUpperCase() || '#';
+    if (!grouped[letter]) grouped[letter] = [];
+    grouped[letter].push(disp);
+  }
+  return grouped;
+}
+
+export function BrowsePage({ deals = [] }: BrowsePageProps) {
   const [activeTab, setActiveTab] = useState<BrowseTab>('brands');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedBrand, setExpandedBrand] = useState<string | null>(null);
-  const [zoneFilter, setZoneFilter] = useState<ZoneFilter>('all');
+
+  // Brand deal counts
+  const brandDealCounts = useMemo(() => countDealsByBrand(deals), [deals]);
 
   // Brands
   const filteredBrands = useMemo(() => {
@@ -26,24 +40,33 @@ export function BrowsePage() {
 
   const groupedBrands = useMemo(() => groupBrandsByLetter(filteredBrands), [filteredBrands]);
 
-  const activeLetter = useMemo(() => {
+  const activeLetters = useMemo(() => {
     return ALPHABET.filter((l) => groupedBrands[l]?.length);
   }, [groupedBrands]);
 
-  // Dispensaries
-  const filteredDispensaries = useMemo(() => {
-    let list = [...DISPENSARIES];
-    if (zoneFilter !== 'all') {
-      list = list.filter((d) => d.zone === zoneFilter);
-    }
-    // Sort: verified first, then premium, then standard
-    const tierOrder = { verified: 0, premium: 1, standard: 2 };
-    list.sort((a, b) => (tierOrder[a.tier] ?? 2) - (tierOrder[b.tier] ?? 2));
-    return list;
-  }, [zoneFilter]);
+  // Dispensaries - sorted alphabetically
+  const sortedDispensaries = useMemo(() => {
+    return [...DISPENSARIES].sort((a, b) => a.name.localeCompare(b.name));
+  }, []);
 
-  const scrollToLetter = (letter: string) => {
-    const el = document.getElementById(`brand-letter-${letter}`);
+  const groupedDispensaries = useMemo(() => groupDispensariesByLetter(sortedDispensaries), [sortedDispensaries]);
+
+  const activeDispLetters = useMemo(() => {
+    return ALPHABET.filter((l) => groupedDispensaries[l]?.length);
+  }, [groupedDispensaries]);
+
+  // Dispensary deal counts (by dispensary name)
+  const dispensaryDealCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const deal of deals) {
+      const name = deal.dispensary.name;
+      counts[name] = (counts[name] || 0) + 1;
+    }
+    return counts;
+  }, [deals]);
+
+  const scrollToLetter = (letter: string, prefix: string) => {
+    const el = document.getElementById(`${prefix}-letter-${letter}`);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
@@ -89,16 +112,18 @@ export function BrowsePage() {
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             groupedBrands={groupedBrands}
-            activeLetters={activeLetter}
+            activeLetters={activeLetters}
             expandedBrand={expandedBrand}
             onToggleBrand={toggleBrand}
-            onScrollToLetter={scrollToLetter}
+            onScrollToLetter={(l) => scrollToLetter(l, 'brand')}
+            brandDealCounts={brandDealCounts}
           />
         ) : (
           <DispensariesTab
-            dispensaries={filteredDispensaries}
-            zoneFilter={zoneFilter}
-            onZoneChange={setZoneFilter}
+            groupedDispensaries={groupedDispensaries}
+            activeLetters={activeDispLetters}
+            onScrollToLetter={(l) => scrollToLetter(l, 'disp')}
+            dispensaryDealCounts={dispensaryDealCounts}
           />
         )}
       </main>
@@ -116,6 +141,7 @@ interface BrandsTabProps {
   expandedBrand: string | null;
   onToggleBrand: (id: string) => void;
   onScrollToLetter: (letter: string) => void;
+  brandDealCounts: Record<string, number>;
 }
 
 function BrandsTab({
@@ -126,6 +152,7 @@ function BrandsTab({
   expandedBrand,
   onToggleBrand,
   onScrollToLetter,
+  brandDealCounts,
 }: BrandsTabProps) {
   return (
     <div className="space-y-4">
@@ -142,24 +169,26 @@ function BrandsTab({
       </div>
 
       {/* Letter navigation */}
-      <div className="flex flex-wrap gap-1">
-        {ALPHABET.map((letter) => {
-          const isActive = activeLetters.includes(letter);
-          return (
-            <button
-              key={letter}
-              onClick={() => isActive && onScrollToLetter(letter)}
-              disabled={!isActive}
-              className={`w-7 h-7 rounded text-xs font-medium transition-colors ${
-                isActive
-                  ? 'bg-slate-800 text-white hover:bg-purple-500/20 hover:text-purple-400'
-                  : 'text-slate-700 cursor-not-allowed'
-              }`}
-            >
-              {letter}
-            </button>
-          );
-        })}
+      <div className="sticky top-12 z-30 bg-slate-950/95 backdrop-blur-sm py-2 -mx-4 px-4 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-1">
+          {ALPHABET.map((letter) => {
+            const isActive = activeLetters.includes(letter);
+            return (
+              <button
+                key={letter}
+                onClick={() => isActive && onScrollToLetter(letter)}
+                disabled={!isActive}
+                className={`w-7 h-7 shrink-0 rounded text-xs font-medium transition-colors ${
+                  isActive
+                    ? 'bg-slate-800 text-white hover:bg-purple-500/20 hover:text-purple-400'
+                    : 'text-slate-700 cursor-not-allowed'
+                }`}
+              >
+                {letter}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Brand list */}
@@ -169,7 +198,7 @@ function BrandsTab({
           if (!brands?.length) return null;
           return (
             <div key={letter} id={`brand-letter-${letter}`}>
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+              <h3 className="text-lg font-bold text-slate-500 mb-2">
                 {letter}
               </h3>
               <div className="space-y-1">
@@ -179,6 +208,7 @@ function BrandsTab({
                     brand={brand}
                     isExpanded={expandedBrand === brand.id}
                     onToggle={() => onToggleBrand(brand.id)}
+                    dealCount={brandDealCounts[brand.name] || 0}
                   />
                 ))}
               </div>
@@ -194,16 +224,25 @@ function BrandRow({
   brand,
   isExpanded,
   onToggle,
+  dealCount,
 }: {
   brand: Brand;
   isExpanded: boolean;
   onToggle: () => void;
+  dealCount: number;
 }) {
   const tierColor: Record<string, string> = {
     premium: 'text-amber-400',
     established: 'text-emerald-400',
     local: 'text-blue-400',
     value: 'text-slate-400',
+  };
+
+  const tierLabel: Record<string, string> = {
+    premium: 'Premium',
+    established: 'Established',
+    local: 'Local',
+    value: 'Value',
   };
 
   return (
@@ -219,16 +258,20 @@ function BrandRow({
             </span>
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-slate-200 truncate">{brand.name}</p>
-            <p className={`text-[10px] font-medium capitalize ${tierColor[brand.tier] || 'text-slate-500'}`}>
-              {brand.tier}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-slate-200 truncate">{brand.name}</p>
+              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${tierColor[brand.tier] || 'text-slate-500'} bg-slate-800/50`}>
+                {tierLabel[brand.tier] || brand.tier}
+              </span>
+            </div>
+            {dealCount > 0 && (
+              <p className="text-[10px] text-purple-400">
+                {dealCount} deal{dealCount !== 1 ? 's' : ''}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[10px] text-slate-500">
-            {brand.categories.length} {brand.categories.length === 1 ? 'category' : 'categories'}
-          </span>
           {isExpanded ? (
             <ChevronUp className="w-4 h-4 text-slate-500" />
           ) : (
@@ -257,79 +300,100 @@ function BrandRow({
 // ---- Dispensaries Tab ----
 
 interface DispensariesTabProps {
-  dispensaries: typeof DISPENSARIES;
-  zoneFilter: ZoneFilter;
-  onZoneChange: (z: ZoneFilter) => void;
+  groupedDispensaries: Record<string, Dispensary[]>;
+  activeLetters: string[];
+  onScrollToLetter: (letter: string) => void;
+  dispensaryDealCounts: Record<string, number>;
 }
 
-const ZONE_OPTIONS: { key: ZoneFilter; label: string }[] = [
-  { key: 'all', label: 'All Zones' },
-  { key: 'strip', label: 'The Strip' },
-  { key: 'downtown', label: 'Downtown' },
-  { key: 'local', label: 'Local' },
-  { key: 'henderson', label: 'Henderson' },
-  { key: 'north', label: 'North LV' },
-];
-
-function DispensariesTab({ dispensaries, zoneFilter, onZoneChange }: DispensariesTabProps) {
+function DispensariesTab({
+  groupedDispensaries,
+  activeLetters,
+  onScrollToLetter,
+  dispensaryDealCounts,
+}: DispensariesTabProps) {
   return (
     <div className="space-y-4">
-      {/* Zone filter pills */}
-      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-        {ZONE_OPTIONS.map((opt) => (
-          <button
-            key={opt.key}
-            onClick={() => onZoneChange(opt.key)}
-            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-              zoneFilter === opt.key
-                ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                : 'bg-slate-800/50 text-slate-400 border border-slate-700/30 hover:text-white'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
+      {/* Letter navigation */}
+      <div className="sticky top-12 z-30 bg-slate-950/95 backdrop-blur-sm py-2 -mx-4 px-4 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-1">
+          {ALPHABET.map((letter) => {
+            const isActive = activeLetters.includes(letter);
+            return (
+              <button
+                key={letter}
+                onClick={() => isActive && onScrollToLetter(letter)}
+                disabled={!isActive}
+                className={`w-7 h-7 shrink-0 rounded text-xs font-medium transition-colors ${
+                  isActive
+                    ? 'bg-slate-800 text-white hover:bg-purple-500/20 hover:text-purple-400'
+                    : 'text-slate-700 cursor-not-allowed'
+                }`}
+              >
+                {letter}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Dispensary list */}
-      <div className="space-y-2">
-        {dispensaries.map((disp) => (
-          <div
-            key={disp.id}
-            className="glass rounded-lg px-4 py-3 flex items-center justify-between gap-3"
-          >
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-0.5">
-                <p className="text-sm font-medium text-slate-200 truncate">{disp.name}</p>
-                {disp.tier === 'verified' && (
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                )}
-                {disp.tier === 'premium' && (
-                  <Star className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                )}
+      <div className="space-y-6">
+        {ALPHABET.map((letter) => {
+          const dispensaries = groupedDispensaries[letter];
+          if (!dispensaries?.length) return null;
+          return (
+            <div key={letter} id={`disp-letter-${letter}`}>
+              <h3 className="text-lg font-bold text-slate-500 mb-2">
+                {letter}
+              </h3>
+              <div className="space-y-2">
+                {dispensaries.map((disp) => {
+                  const dealCount = dispensaryDealCounts[disp.name] || 0;
+                  return (
+                    <div
+                      key={disp.id}
+                      className="glass rounded-lg px-4 py-3 flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className="text-sm font-medium text-slate-200 truncate">{disp.name}</p>
+                          {disp.tier === 'verified' && (
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          )}
+                          {disp.tier === 'premium' && (
+                            <Star className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="w-2.5 h-2.5 text-slate-600 shrink-0" />
+                          <p className="text-xs text-slate-500 truncate">{disp.address}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {dealCount > 0 && (
+                          <span className="text-xs text-purple-400 font-medium">
+                            {dealCount} deal{dealCount !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                        {disp.menu_url && (
+                          <a
+                            href={disp.menu_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-purple-400 hover:text-purple-300 font-medium"
+                          >
+                            Menu
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <p className="text-xs text-slate-500 truncate">{disp.address}</p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <ZoneBadge zone={disp.zone} />
-              {disp.menu_url && (
-                <a
-                  href={disp.menu_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[10px] text-purple-400 hover:text-purple-300 font-medium"
-                >
-                  Menu
-                </a>
-              )}
-            </div>
-          </div>
-        ))}
-        {dispensaries.length === 0 && (
-          <p className="text-center text-sm text-slate-500 py-10">
-            No dispensaries found for this zone.
-          </p>
-        )}
+          );
+        })}
       </div>
     </div>
   );

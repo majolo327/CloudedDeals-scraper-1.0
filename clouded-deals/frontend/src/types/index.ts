@@ -1,5 +1,3 @@
-export type Zone = 'strip' | 'downtown' | 'local' | 'henderson' | 'north';
-
 export type Tier = 'verified' | 'premium' | 'standard';
 
 export type BrandTier = 'premium' | 'established' | 'local' | 'value';
@@ -16,7 +14,6 @@ export interface Dispensary {
   id: string;
   name: string;
   slug: string;
-  zone: Zone;
   tier: Tier;
   address: string;
   menu_url: string;

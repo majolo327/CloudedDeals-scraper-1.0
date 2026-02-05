@@ -10,6 +10,7 @@ import { DealsPage } from '@/components/DealsPage';
 import { SearchPage } from '@/components/SearchPage';
 import { BrowsePage } from '@/components/BrowsePage';
 import { SavedPage } from '@/components/SavedPage';
+import { LandingPage } from '@/components/LandingPage';
 import { LocationSelector } from '@/components/LocationSelector';
 import { DealModal } from '@/components/modals';
 import { DealCardSkeleton, TopPickSkeleton } from '@/components/Skeleton';
@@ -18,16 +19,23 @@ import type { ToastData } from '@/components/Toast';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { useStreak } from '@/hooks/useStreak';
 import { useBrandAffinity } from '@/hooks/useBrandAffinity';
-import { touchSession, trackEvent, trackSavedDeal, trackUnsavedDeal } from '@/lib/analytics';
+import { initializeAnonUser, trackEvent } from '@/lib/analytics';
 
-type AppPage = 'home' | 'search' | 'browse' | 'saved';
+type AppPage = 'landing' | 'home' | 'search' | 'browse' | 'saved';
+
+const LANDING_SEEN_KEY = 'clouded_landing_seen';
 
 export default function Home() {
   const [isAgeVerified, setIsAgeVerified] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activePage, setActivePage] = useState<AppPage>('home');
+  const [activePage, setActivePage] = useState<AppPage>(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem(LANDING_SEEN_KEY) === 'true') {
+      return 'home';
+    }
+    return 'landing';
+  });
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [highlightSaved, setHighlightSaved] = useState(false);
@@ -37,12 +45,13 @@ export default function Home() {
   const { streak, isNewMilestone, clearMilestone } = useStreak();
   const { trackBrand, topBrands, totalSaves } = useBrandAffinity();
 
-  // Age verification
+  // Age verification & anonymous tracking
   useEffect(() => {
     const verified = localStorage.getItem('clouded_age_verified');
     if (verified === 'true') {
       setIsAgeVerified(true);
-      touchSession();
+      initializeAnonUser();
+      trackEvent('app_loaded', undefined, { referrer: document.referrer });
     }
   }, []);
 
@@ -118,11 +127,8 @@ export default function Home() {
         const deal = deals.find((d) => d.id === dealId);
         if (deal) trackBrand(deal.brand.name);
         addToast('Deal saved!', 'saved');
-        trackEvent('deal_save', dealId);
-        trackSavedDeal(dealId);
       } else {
         addToast('Removed from saved', 'removed');
-        trackUnsavedDeal(dealId);
       }
     },
     [savedDeals, toggleSavedDeal, deals, trackBrand, addToast]
@@ -133,9 +139,44 @@ export default function Home() {
     setTimeout(() => setHighlightSaved(false), 1500);
   }, []);
 
+  const handleEnterApp = useCallback(() => {
+    localStorage.setItem(LANDING_SEEN_KEY, 'true');
+    setActivePage('home');
+  }, []);
+
   // AgeGate
   if (!isAgeVerified) {
     return <AgeGate onVerify={handleAgeVerify} />;
+  }
+
+  // Landing page for first-time visitors
+  if (activePage === 'landing') {
+    return (
+      <>
+        <LandingPage
+          deals={todaysDeals}
+          dealCount={todaysDeals.length}
+          onBrowseDeals={handleEnterApp}
+          savedDeals={savedDeals}
+          toggleSavedDeal={handleToggleSave}
+          setSelectedDeal={setSelectedDeal}
+        />
+        {selectedDeal && (
+          <DealModal
+            deal={selectedDeal}
+            onClose={() => setSelectedDeal(null)}
+            isSaved={savedDeals.has(selectedDeal.id)}
+            onToggleSave={() => handleToggleSave(selectedDeal.id)}
+            isUsed={isDealUsed(selectedDeal.id)}
+            onMarkUsed={() => {
+              markDealUsed(selectedDeal.id);
+              addToast('Marked as used', 'success');
+            }}
+          />
+        )}
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      </>
+    );
   }
 
   return (
@@ -271,7 +312,7 @@ export default function Home() {
                 onNavigateToBrands={() => setActivePage('browse')}
               />
             )}
-            {activePage === 'browse' && <BrowsePage />}
+            {activePage === 'browse' && <BrowsePage deals={deals} />}
             {activePage === 'saved' && <SavedPage deals={deals} />}
           </>
         )}

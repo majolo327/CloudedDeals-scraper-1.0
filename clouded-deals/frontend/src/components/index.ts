@@ -22,10 +22,11 @@ export {
 } from './modals';
 
 // Badges
-export { VerifiedBadge, StaffPickBadge, CategoryBadge, ZoneBadge } from './badges';
+export { VerifiedBadge, StaffPickBadge, CategoryBadge } from './badges';
 
 // Pages
 export { DealsPage } from './DealsPage';
 export { SearchPage } from './SearchPage';
 export { BrowsePage } from './BrowsePage';
 export { SavedPage } from './SavedPage';
+export { LandingPage } from './LandingPage';

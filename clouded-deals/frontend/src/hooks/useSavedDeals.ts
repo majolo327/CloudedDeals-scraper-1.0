@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { trackEvent, trackSavedDeal, trackUnsavedDeal } from '@/lib/analytics';
 
 const SAVED_KEY = 'clouded_saved_v1';
 const USED_KEY = 'clouded_used_v1';
@@ -82,8 +83,12 @@ export function useSavedDeals() {
       const newSet = new Set(prev);
       if (newSet.has(dealId)) {
         newSet.delete(dealId);
+        trackEvent('deal_saved', dealId, { action: 'unsave' });
+        trackUnsavedDeal(dealId);
       } else {
         newSet.add(dealId);
+        trackEvent('deal_saved', dealId, { action: 'save' });
+        trackSavedDeal(dealId);
       }
       return newSet;
     });
