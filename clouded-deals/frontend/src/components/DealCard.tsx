@@ -2,7 +2,7 @@
 
 import { Heart, BadgeCheck, Star, MapPin, CheckCircle, Clock } from 'lucide-react';
 import type { Deal } from '@/types';
-import { getDealAge, isFreshDeal } from '@/lib/socialProof';
+import { isFreshDeal } from '@/lib/socialProof';
 
 interface DealCardProps {
   deal: Deal;
@@ -101,13 +101,10 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
         )}
       </div>
 
-      {/* Footer: Dispensary + Age */}
-      <div className="flex items-center justify-between gap-2 text-[10px] text-slate-500">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <MapPin className="w-2.5 h-2.5 opacity-60 shrink-0" />
-          <span className="truncate">{deal.dispensary?.name || 'Unknown Dispensary'}</span>
-        </div>
-        <span className="shrink-0 text-slate-600">{getDealAge(deal.created_at)}</span>
+      {/* Footer: Dispensary */}
+      <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+        <MapPin className="w-2.5 h-2.5 opacity-60 shrink-0" />
+        <span className="truncate">{deal.dispensary?.name || 'Unknown Dispensary'}</span>
       </div>
     </div>
   );

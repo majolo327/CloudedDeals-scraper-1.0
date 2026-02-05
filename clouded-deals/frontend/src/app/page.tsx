@@ -85,14 +85,21 @@ export default function Home() {
     };
   }, []);
 
-  // Derived deal lists
+  // Filter to only show today's deals (after midnight)
+  const todaysDeals = useMemo(() => {
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    return deals.filter((d) => new Date(d.created_at) >= todayMidnight);
+  }, [deals]);
+
+  // Derived deal lists (from today's deals only)
   const verifiedDeals = useMemo(
-    () => deals.filter((d) => d.is_verified),
-    [deals]
+    () => todaysDeals.filter((d) => d.is_verified),
+    [todaysDeals]
   );
   const featuredDeals = useMemo(
-    () => deals.filter((d) => d.is_featured),
-    [deals]
+    () => todaysDeals.filter((d) => d.is_featured),
+    [todaysDeals]
   );
   const brands = useMemo(() => {
     const seen = new Map<string, Deal['brand']>();
@@ -167,7 +174,7 @@ export default function Home() {
                 <span className="h-3 w-px bg-slate-800" />
               </>
             )}
-            <span>{deals.length} deals</span>
+            <span>{todaysDeals.length} deals</span>
           </div>
         </div>
       </header>
@@ -239,7 +246,7 @@ export default function Home() {
           <>
             {activePage === 'home' && (
               <DealsPage
-                deals={deals}
+                deals={todaysDeals}
                 verifiedDeals={verifiedDeals}
                 featuredDeals={featuredDeals}
                 savedDeals={savedDeals}
@@ -256,7 +263,7 @@ export default function Home() {
             )}
             {activePage === 'search' && (
               <SearchPage
-                deals={deals}
+                deals={todaysDeals}
                 brands={brands}
                 savedDeals={savedDeals}
                 toggleSavedDeal={handleToggleSave}

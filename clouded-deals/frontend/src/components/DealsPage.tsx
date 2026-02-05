@@ -406,6 +406,16 @@ export function DealsPage({
               </div>
             )}
 
+            {/* Today's Deals Header */}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-medium text-slate-300">
+                Today&apos;s Deals
+              </h2>
+              <span className="text-xs text-slate-500">
+                Updated at 8:30am
+              </span>
+            </div>
+
             {/* Progress Bar */}
             <div>
               <div className="mb-4">
