@@ -11,6 +11,8 @@ import { StickyStatsBar } from './layout';
 import { DailyCompleteModal, NineClearModal } from './modals';
 import { DealCardSkeleton } from './Skeleton';
 import { getDailyDeals, sortDealsWithPinnedPriority, filterDeals, DISCOVERY_MILESTONES } from '@/utils';
+import { usePersonalization } from '@/hooks';
+import type { ScoredDeal } from '@/lib/personalization';
 
 type DealsTab = 'today' | 'swipe' | 'verified';
 type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'preroll';
@@ -100,6 +102,18 @@ export function DealsPage({
     }
     return result;
   }, [dailyRotatedDeals, filters, hasActiveFilters]);
+
+  // Personalization: score and rank deals based on user behavior
+  const { personalizedDeals, isRecommended } = usePersonalization(deals);
+
+  // Create a lookup map for personalization scores
+  const personalizationMap = useMemo(() => {
+    const map = new Map<string, ScoredDeal>();
+    for (const deal of personalizedDeals) {
+      map.set(deal.id, deal);
+    }
+    return map;
+  }, [personalizedDeals]);
 
   // Initialize grid
   useEffect(() => {
@@ -431,22 +445,28 @@ export function DealsPage({
                     isClearing ? 'opacity-0' : 'opacity-100'
                   }`}
                 >
-                  {gridDeals.map((deal) => (
-                    <CompactDealCard
-                      key={deal.id}
-                      deal={deal}
-                      isSaved={savedDeals.has(deal.id)}
-                      isDismissing={dismissingId === deal.id}
-                      isAppearing={appearingId === deal.id}
-                      showSparkle={appearingId === deal.id}
-                      onSave={() => handleSave(deal.id)}
-                      onDismiss={() => handleDismiss(deal.id)}
-                      onClick={() => setSelectedDeal(deal)}
-                      onShare={() =>
-                        addToast('Copied! Paste in a text to share', 'info')
-                      }
-                    />
-                  ))}
+                  {gridDeals.map((deal) => {
+                    const scoredDeal = personalizationMap.get(deal.id);
+                    return (
+                      <CompactDealCard
+                        key={deal.id}
+                        deal={deal}
+                        isSaved={savedDeals.has(deal.id)}
+                        isDismissing={dismissingId === deal.id}
+                        isAppearing={appearingId === deal.id}
+                        showSparkle={appearingId === deal.id}
+                        onSave={() => handleSave(deal.id)}
+                        onDismiss={() => handleDismiss(deal.id)}
+                        onClick={() => setSelectedDeal(deal)}
+                        onShare={() =>
+                          addToast('Copied! Paste in a text to share', 'info')
+                        }
+                        isRecommended={isRecommended(deal.id)}
+                        recommendationReason={scoredDeal?.recommendationReason}
+                        personalizationScore={scoredDeal?.personalizationScore}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </div>
