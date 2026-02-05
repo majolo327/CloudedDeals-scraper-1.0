@@ -62,7 +62,7 @@ export function CompactTopPick({
                   e.stopPropagation();
                   onSave();
                 }}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-gentle ${
+                className={`w-10 h-10 sm:w-8 sm:h-8 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 rounded-lg flex items-center justify-center transition-gentle ${
                   isSaved
                     ? 'bg-purple-500/20 text-purple-400'
                     : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
@@ -77,7 +77,7 @@ export function CompactTopPick({
                   e.stopPropagation();
                   onDismiss();
                 }}
-                className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/5 text-slate-500 hover:text-slate-300 hover:bg-white/10 transition-gentle"
+                className="w-10 h-10 sm:w-8 sm:h-8 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 rounded-lg flex items-center justify-center bg-white/5 text-slate-500 hover:text-slate-300 hover:bg-white/10 transition-gentle"
               >
                 <X className="w-4 h-4" />
               </button>

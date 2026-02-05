@@ -85,7 +85,7 @@ export function FilterSheet({ deals, filters, onFiltersChange }: FilterSheetProp
       {/* Trigger button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="relative flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+        className="relative flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
       >
         <SlidersHorizontal className="w-4 h-4" />
         <span className="hidden sm:inline">Filters</span>
@@ -137,7 +137,7 @@ export function FilterSheet({ deals, filters, onFiltersChange }: FilterSheetProp
                     <button
                       key={cat.id}
                       onClick={() => updateFilter('category', cat.id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                      className={`px-3 py-2 min-h-[40px] rounded-full text-xs font-medium transition-all ${
                         filters.category === cat.id
                           ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
                           : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'

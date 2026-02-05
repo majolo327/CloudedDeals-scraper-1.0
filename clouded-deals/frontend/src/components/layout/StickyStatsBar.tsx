@@ -44,7 +44,7 @@ export function StickyStatsBar({
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                className={`px-4 py-2 min-h-[44px] rounded-full text-sm font-medium whitespace-nowrap transition-all flex items-center ${
                   activeTab === tab.id
                     ? 'bg-slate-800 text-slate-100'
                     : 'text-slate-500 hover:text-slate-300'
@@ -61,7 +61,7 @@ export function StickyStatsBar({
               <button
                 key={category.id}
                 onClick={() => onCategoryChange(category.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                className={`px-3 py-2 min-h-[40px] rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center ${
                   activeCategory === category.id
                     ? 'bg-slate-700/80 text-slate-200 border border-slate-600/50'
                     : 'bg-white/5 text-slate-400 hover:text-slate-300 hover:bg-white/10'

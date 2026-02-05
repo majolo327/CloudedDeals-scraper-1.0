@@ -72,7 +72,7 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
               e.stopPropagation();
               setShowShare(true);
             }}
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all text-slate-500 hover:text-purple-400 hover:bg-purple-500/10"
+            className="w-10 h-10 min-w-[44px] min-h-[44px] sm:w-8 sm:h-8 sm:min-w-0 sm:min-h-0 rounded-lg flex items-center justify-center transition-all text-slate-500 hover:text-purple-400 hover:bg-purple-500/10"
             title="Share"
           >
             <Share2 className="w-3.5 h-3.5" />
@@ -82,7 +82,7 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
               e.stopPropagation();
               onSave();
             }}
-            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+            className={`w-10 h-10 min-w-[44px] min-h-[44px] sm:w-8 sm:h-8 sm:min-w-0 sm:min-h-0 rounded-lg flex items-center justify-center transition-all ${
               isSaved
                 ? 'bg-purple-500/10 text-purple-400'
                 : 'text-slate-500 hover:text-purple-400 hover:bg-purple-500/10'

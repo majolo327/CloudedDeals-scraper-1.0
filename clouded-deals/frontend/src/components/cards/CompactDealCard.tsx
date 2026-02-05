@@ -138,7 +138,7 @@ export function CompactDealCard({
             e.stopPropagation();
             onDismiss();
           }}
-          className="p-0.5 -mt-0.5 rounded text-slate-700 hover:text-slate-500 transition-colors shrink-0"
+          className="p-2 -mt-1 -mr-1 rounded text-slate-700 hover:text-slate-500 transition-colors shrink-0"
           title="Pass"
         >
           <X className="w-2.5 h-2.5" />
