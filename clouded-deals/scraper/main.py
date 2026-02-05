@@ -96,6 +96,26 @@ def _complete_run(
     logger.info("Run %s finished — status=%s", run_id, status)
 
 
+def _seed_dispensaries() -> None:
+    """Ensure all configured dispensaries exist in the DB.
+
+    Upserts dispensary rows so that the foreign-key constraint on
+    products.dispensary_id is satisfied before any products are inserted.
+    """
+    rows = [
+        {
+            "id": d["slug"],
+            "name": d["name"],
+            "url": d["url"],
+            "platform": d["platform"],
+            "is_active": True,
+        }
+        for d in DISPENSARIES
+    ]
+    db.table("dispensaries").upsert(rows, on_conflict="id").execute()
+    logger.info("Seeded %d dispensaries into DB", len(rows))
+
+
 def _upsert_products(
     dispensary_id: str, products: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
@@ -125,9 +145,12 @@ def _upsert_products(
     if not rows:
         return []
 
+    # The DB unique constraint includes scraped_at which defaults to NOW(),
+    # making true upserts impossible within the same run.  Use plain insert
+    # instead and ignore conflicts so re-runs within the same second are safe.
     result = (
         db.table("products")
-        .upsert(rows, on_conflict="dispensary_id,name,sale_price")
+        .insert(rows)
         .execute()
     )
     return result.data
@@ -166,9 +189,7 @@ def _insert_deals(
     if not deal_rows:
         return 0
 
-    db.table("deals").upsert(
-        deal_rows, on_conflict="product_id,dispensary_id"
-    ).execute()
+    db.table("deals").insert(deal_rows).execute()
     return len(deal_rows)
 
 
@@ -177,11 +198,11 @@ def _insert_deals(
 # ---------------------------------------------------------------------------
 
 
-async def scrape_site(dispensary: dict[str, Any]) -> dict[str, Any]:
-    """Scrape a single dispensary site end-to-end.
+_SITE_TIMEOUT_SEC = 120  # 2 minutes max per site
 
-    Returns a summary dict with product/deal counts or error info.
-    """
+
+async def _scrape_site_inner(dispensary: dict[str, Any]) -> dict[str, Any]:
+    """Core scrape logic for a single site (no timeout wrapper)."""
     slug = dispensary["slug"]
     platform = dispensary["platform"]
     scraper_cls = SCRAPER_MAP.get(platform)
@@ -189,28 +210,40 @@ async def scrape_site(dispensary: dict[str, Any]) -> dict[str, Any]:
     if scraper_cls is None:
         return {"slug": slug, "error": f"Unknown platform: {platform}"}
 
+    async with scraper_cls(dispensary) as scraper:
+        raw_products = await scraper.scrape()
+
+    # Parse and detect deals
+    parsed = [parse_product(rp) for rp in raw_products]
+    deals = detect_deals(parsed)
+
+    # Insert to DB
+    product_rows = _upsert_products(slug, parsed)
+    deal_count = _insert_deals(slug, deals, product_rows)
+
+    logger.info(
+        "[%s] %d products, %d deals", slug, len(parsed), deal_count
+    )
+    return {
+        "slug": slug,
+        "products": len(parsed),
+        "deals": deal_count,
+        "error": None,
+    }
+
+
+async def scrape_site(dispensary: dict[str, Any]) -> dict[str, Any]:
+    """Scrape a single dispensary with a timeout guard."""
+    slug = dispensary["slug"]
+    logger.info("[%s] Starting scrape (%s)", slug, dispensary["platform"])
     try:
-        async with scraper_cls(dispensary) as scraper:
-            raw_products = await scraper.scrape()
-
-        # Parse and detect deals
-        parsed = [parse_product(rp) for rp in raw_products]
-        deals = detect_deals(parsed)
-
-        # Upsert to DB
-        product_rows = _upsert_products(slug, parsed)
-        deal_count = _insert_deals(slug, deals, product_rows)
-
-        logger.info(
-            "[%s] %d products, %d deals", slug, len(parsed), deal_count
+        return await asyncio.wait_for(
+            _scrape_site_inner(dispensary),
+            timeout=_SITE_TIMEOUT_SEC,
         )
-        return {
-            "slug": slug,
-            "products": len(parsed),
-            "deals": deal_count,
-            "error": None,
-        }
-
+    except asyncio.TimeoutError:
+        logger.error("[%s] Timed out after %ds", slug, _SITE_TIMEOUT_SEC)
+        return {"slug": slug, "error": f"Timed out after {_SITE_TIMEOUT_SEC}s"}
     except Exception as exc:
         logger.error("[%s] Failed: %s", slug, exc, exc_info=True)
         return {"slug": slug, "error": str(exc)}
@@ -249,6 +282,8 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
 
 async def run(slug_filter: str | None = None) -> None:
     """Run the full scrape pipeline."""
+    _seed_dispensaries()
+
     dispensaries = _get_active_dispensaries(slug_filter)
     if not dispensaries:
         logger.error("No dispensaries to scrape")
