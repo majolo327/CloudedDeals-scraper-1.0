@@ -39,6 +39,13 @@ export function getTimeUntilMidnight(): string {
   return `${minutes}m`;
 }
 
+export function getMapsUrl(address: string): string {
+  const encoded = encodeURIComponent(address);
+  // iOS Safari will intercept google.com/maps and open Apple Maps, or the user
+  // gets the Google Maps web page — works universally across all platforms.
+  return `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+}
+
 export function getDiscountPercent(original: number | null, deal: number): number {
   if (!original || original <= deal) return 0;
   return Math.round(((original - deal) / original) * 100);

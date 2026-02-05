@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Heart, BadgeCheck, Star, MapPin, ExternalLink, MessageCircle, CheckCircle } from 'lucide-react';
+import { X, Heart, BadgeCheck, Star, MapPin, ExternalLink, MessageCircle, CheckCircle, Navigation } from 'lucide-react';
 import { ShareModal } from './ShareModal';
 import { AccuracyModal } from './AccuracyModal';
 import type { Deal } from '@/types';
+import { getMapsUrl } from '@/utils';
 
 interface DealModalProps {
   deal: Deal;
@@ -178,6 +179,17 @@ export function DealModal({
                 <p className="text-sm text-slate-400 truncate">{deal.dispensary?.address || 'Las Vegas, NV'}</p>
               </div>
             </div>
+            {deal.dispensary?.address && (
+              <a
+                href={getMapsUrl(deal.dispensary.address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 w-full py-2.5 min-h-[44px] rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-sm font-medium transition-all flex items-center justify-center gap-2"
+              >
+                <Navigation className="w-4 h-4" />
+                Get Directions
+              </a>
+            )}
           </div>
 
           {/* Action buttons */}
