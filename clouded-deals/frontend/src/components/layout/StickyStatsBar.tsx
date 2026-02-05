@@ -1,6 +1,6 @@
 'use client';
 
-type DealsTab = 'today' | 'verified';
+type DealsTab = 'today' | 'swipe' | 'verified';
 type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'preroll';
 
 interface StickyStatsBarProps {
@@ -10,6 +10,7 @@ interface StickyStatsBarProps {
   onTabChange?: (tab: DealsTab) => void;
   activeCategory?: DealCategory;
   onCategoryChange?: (category: DealCategory) => void;
+  children?: React.ReactNode;
 }
 
 export function StickyStatsBar({
@@ -17,9 +18,11 @@ export function StickyStatsBar({
   onTabChange,
   activeCategory = 'all',
   onCategoryChange,
+  children,
 }: StickyStatsBarProps) {
   const tabs: { id: DealsTab; label: string }[] = [
     { id: 'today', label: "Today's Picks" },
+    { id: 'swipe', label: 'Swipe' },
     { id: 'verified', label: 'Verified' },
   ];
 
@@ -33,7 +36,7 @@ export function StickyStatsBar({
   ];
 
   return (
-    <div className="sticky top-14 sm:top-16 z-40 bg-slate-900/95 backdrop-blur-xl border-b border-slate-800/50">
+    <div className="sticky top-14 sm:top-[104px] z-40 bg-slate-900/95 backdrop-blur-xl border-b border-slate-800/50">
       <div className="max-w-6xl mx-auto px-4 h-12 flex items-center justify-between gap-4 overflow-x-auto scrollbar-hide">
         {activeTab && onTabChange && (
           <div className="flex items-center gap-1 flex-shrink-0">
@@ -69,6 +72,7 @@ export function StickyStatsBar({
             ))}
           </div>
         )}
+        {children && <div className="flex-shrink-0">{children}</div>}
       </div>
     </div>
   );

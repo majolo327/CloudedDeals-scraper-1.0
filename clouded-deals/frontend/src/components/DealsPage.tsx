@@ -5,12 +5,14 @@ import { Star, BadgeCheck } from 'lucide-react';
 import type { Deal } from '@/types';
 import type { ToastData } from './Toast';
 import { CompactDealCard, CompactTopPick, StaffPickMiniCard, DealCard } from './cards';
+import { DealStack } from './DealStack';
+import { FilterSheet, FilterState, DEFAULT_FILTERS } from './FilterSheet';
 import { StickyStatsBar } from './layout';
 import { DailyCompleteModal, NineClearModal } from './modals';
 import { DealCardSkeleton } from './Skeleton';
-import { getDailyDeals, sortDealsWithPinnedPriority, DISCOVERY_MILESTONES } from '@/utils';
+import { getDailyDeals, sortDealsWithPinnedPriority, filterDeals, DISCOVERY_MILESTONES } from '@/utils';
 
-type DealsTab = 'today' | 'verified';
+type DealsTab = 'today' | 'swipe' | 'verified';
 type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'preroll';
 
 interface DealsPageProps {
@@ -58,6 +60,7 @@ export function DealsPage({
   const [showNineClearModal, setShowNineClearModal] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [hasSeenNineClearFTUE] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('clouded_nine_clear_ftue') === 'true';
@@ -73,6 +76,30 @@ export function DealsPage({
     if (activeCategory === 'all') return rotated;
     return rotated.filter((deal) => deal.category.toLowerCase() === activeCategory);
   }, [deals, dayOffset, activeCategory]);
+
+  const hasActiveFilters = filters.category !== 'all' || filters.dispensaryId !== 'all' ||
+    filters.minPrice > 0 || filters.maxPrice < 200 || filters.minDiscount > 0;
+
+  const filteredDailyDeals = useMemo(() => {
+    if (!hasActiveFilters && filters.sortBy === 'discount') return dailyRotatedDeals;
+    let result = filterDeals(dailyRotatedDeals, {
+      category: filters.category === 'all' ? undefined : filters.category,
+      dispensaryId: filters.dispensaryId === 'all' ? undefined : filters.dispensaryId,
+      minPrice: filters.minPrice > 0 ? filters.minPrice : undefined,
+      maxPrice: filters.maxPrice < 200 ? filters.maxPrice : undefined,
+      minDiscount: filters.minDiscount > 0 ? filters.minDiscount : undefined,
+    });
+    if (filters.sortBy === 'price_asc') {
+      result = [...result].sort((a, b) => a.deal_price - b.deal_price);
+    } else if (filters.sortBy === 'price_desc') {
+      result = [...result].sort((a, b) => b.deal_price - a.deal_price);
+    } else if (filters.sortBy === 'newest') {
+      result = [...result].sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    }
+    return result;
+  }, [dailyRotatedDeals, filters, hasActiveFilters]);
 
   // Initialize grid
   useEffect(() => {
@@ -288,12 +315,32 @@ export function DealsPage({
     (d) => d.is_staff_pick && !dismissedDeals.has(d.id)
   );
 
-  const sortedVerifiedDeals = verifiedDeals
-    .filter((d) => d.is_verified)
-    .filter(
-      (d) => activeCategory === 'all' || d.category.toLowerCase() === activeCategory
-    )
-    .sort((a, b) => a.deal_price - b.deal_price);
+  const sortedVerifiedDeals = useMemo(() => {
+    let result = verifiedDeals
+      .filter((d) => d.is_verified)
+      .filter(
+        (d) => activeCategory === 'all' || d.category.toLowerCase() === activeCategory
+      );
+    if (hasActiveFilters) {
+      result = filterDeals(result, {
+        category: filters.category === 'all' ? undefined : filters.category,
+        dispensaryId: filters.dispensaryId === 'all' ? undefined : filters.dispensaryId,
+        minPrice: filters.minPrice > 0 ? filters.minPrice : undefined,
+        maxPrice: filters.maxPrice < 200 ? filters.maxPrice : undefined,
+        minDiscount: filters.minDiscount > 0 ? filters.minDiscount : undefined,
+      });
+    }
+    if (filters.sortBy === 'price_asc') {
+      return result.sort((a, b) => a.deal_price - b.deal_price);
+    } else if (filters.sortBy === 'price_desc') {
+      return result.sort((a, b) => b.deal_price - a.deal_price);
+    } else if (filters.sortBy === 'newest') {
+      return result.sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    }
+    return result.sort((a, b) => a.deal_price - b.deal_price);
+  }, [verifiedDeals, activeCategory, filters, hasActiveFilters]);
 
   return (
     <>
@@ -304,7 +351,9 @@ export function DealsPage({
         onTabChange={setActiveTab}
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
-      />
+      >
+        <FilterSheet deals={deals} filters={filters} onFiltersChange={setFilters} />
+      </StickyStatsBar>
 
       <div className="max-w-6xl mx-auto px-4 py-4">
         {activeTab === 'today' && (
@@ -420,6 +469,19 @@ export function DealsPage({
                 </div>
               </section>
             )}
+          </div>
+        )}
+
+        {/* Swipe Tab */}
+        {activeTab === 'swipe' && (
+          <div className="animate-in fade-in py-2">
+            <DealStack
+              deals={filteredDailyDeals}
+              savedDeals={savedDeals}
+              onSave={(id) => handleSave(id)}
+              onDismiss={(id) => handleDismiss(id)}
+              onSelectDeal={(deal) => setSelectedDeal(deal)}
+            />
           </div>
         )}
 
