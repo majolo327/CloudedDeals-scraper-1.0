@@ -10,7 +10,7 @@ import { FilterSheet, FilterState, DEFAULT_FILTERS } from './FilterSheet';
 import { StickyStatsBar } from './layout';
 import { DailyCompleteModal, NineClearModal } from './modals';
 import { DealCardSkeleton } from './Skeleton';
-import { getDailyDeals, sortDealsWithPinnedPriority, filterDeals, DISCOVERY_MILESTONES } from '@/utils';
+import { getDailyDeals, sortDealsWithPinnedPriority, filterDeals, DISCOVERY_MILESTONES, formatUpdateTime, getTimeUntilMidnight } from '@/utils';
 import { usePersonalization } from '@/hooks';
 import type { ScoredDeal } from '@/lib/personalization';
 
@@ -67,6 +67,15 @@ export function DealsPage({
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('clouded_nine_clear_ftue') === 'true';
   });
+  const [countdown, setCountdown] = useState(() => getTimeUntilMidnight());
+
+  // Update countdown every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCountdown(getTimeUntilMidnight());
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   const discoveryToastShownRef = useRef(false);
   const initializedRef = useRef(false);
@@ -411,9 +420,16 @@ export function DealsPage({
               <h2 className="text-sm font-medium text-slate-300">
                 Today&apos;s Deals
               </h2>
-              <span className="text-xs text-slate-500">
-                Updated at 8:30am
-              </span>
+              <div className="flex items-center gap-3">
+                {deals.length > 0 && (
+                  <span className="text-xs text-slate-500">
+                    {formatUpdateTime(deals)}
+                  </span>
+                )}
+                <span className="text-xs text-slate-600">
+                  Refreshes in {countdown}
+                </span>
+              </div>
             </div>
 
             {/* Progress Bar */}
