@@ -84,6 +84,7 @@ class JaneScraper(BaseScraper):
                 )
             else:
                 logger.warning("[%s] No iframe found either — 0 products", self.slug)
+                await self.save_debug_info("no_products_no_iframe")
                 return []
 
         # --- Progressive loading via "View More" -----------------------

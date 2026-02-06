@@ -38,23 +38,23 @@ function setCachedDeals(deals: Deal[]): void {
 }
 
 // --------------------------------------------------------------------------
-// Raw row shape returned by the Supabase join query
+// Raw row shape returned by the Supabase query on `products`
 // --------------------------------------------------------------------------
 
-interface DealRow {
+interface ProductRow {
   id: string;
+  name: string;
+  brand: string | null;
+  category: string | null;
+  original_price: number | null;
+  sale_price: number | null;
+  discount_percent: number | null;
+  weight_value: number | null;
+  weight_unit: string | null;
   deal_score: number;
+  product_url: string | null;
+  scraped_at: string;
   created_at: string;
-  product: {
-    id: string;
-    name: string;
-    brand: string | null;
-    category: string | null;
-    original_price: number | null;
-    sale_price: number | null;
-    weight_value: number | null;
-    weight_unit: string | null;
-  };
   dispensary: {
     id: string;
     name: string;
@@ -77,7 +77,7 @@ function toCategory(raw: string | null): Category {
   return 'flower';
 }
 
-function toDispensary(row: DealRow['dispensary']): Dispensary {
+function toDispensary(row: ProductRow['dispensary']): Dispensary {
   return {
     id: row.id,
     name: row.name,
@@ -101,23 +101,23 @@ function toBrand(raw: string | null): Brand {
   };
 }
 
-function normalizeDeal(row: DealRow): Deal {
-  const weight = row.product.weight_value
-    ? `${row.product.weight_value}${row.product.weight_unit || 'g'}`
+function normalizeDeal(row: ProductRow): Deal {
+  const weight = row.weight_value
+    ? `${row.weight_value}${row.weight_unit || 'g'}`
     : '';
 
   return {
     id: row.id,
-    product_name: row.product.name,
-    category: toCategory(row.product.category),
+    product_name: row.name,
+    category: toCategory(row.category),
     weight,
-    original_price: row.product.original_price,
-    deal_price: row.product.sale_price || 0,
+    original_price: row.original_price,
+    deal_price: row.sale_price || 0,
     dispensary: toDispensary(row.dispensary),
-    brand: toBrand(row.product.brand),
-    deal_score: row.deal_score,
-    is_verified: row.deal_score >= 70,
-    created_at: new Date(row.created_at),
+    brand: toBrand(row.brand),
+    deal_score: row.deal_score || 0,
+    is_verified: (row.deal_score || 0) >= 70,
+    created_at: new Date(row.scraped_at),
   };
 }
 
@@ -147,23 +147,24 @@ export async function fetchDeals(): Promise<FetchDealsResult> {
   const start = performance.now();
 
   try {
-    // Fetch deals and save counts in parallel
-    const [dealsResult, countsResult] = await Promise.all([
+    // Fetch active products directly (joined to dispensaries) and save counts
+    const [productsResult, countsResult] = await Promise.all([
       supabase
-        .from('deals')
+        .from('products')
         .select(
-          `id, deal_score, created_at,
-           product:products!inner(id, name, brand, category, original_price, sale_price, weight_value, weight_unit),
+          `id, name, brand, category, original_price, sale_price, discount_percent,
+           weight_value, weight_unit, deal_score, product_url, scraped_at, created_at,
            dispensary:dispensaries!inner(id, name, address, city, state, platform, url)`
         )
+        .eq('is_active', true)
         .order('deal_score', { ascending: false })
-        .limit(100),
+        .limit(200),
       supabase
         .from('deal_save_counts')
         .select('deal_id, save_count'),
     ]);
 
-    if (dealsResult.error) throw dealsResult.error;
+    if (productsResult.error) throw productsResult.error;
 
     // Build lookup map of deal_id → save_count
     const saveCountMap = new Map<string, number>();
@@ -173,8 +174,8 @@ export async function fetchDeals(): Promise<FetchDealsResult> {
       }
     }
 
-    const deals = dealsResult.data
-      ? (dealsResult.data as unknown as DealRow[]).map((row) => {
+    const deals = productsResult.data
+      ? (productsResult.data as unknown as ProductRow[]).map((row) => {
           const deal = normalizeDeal(row);
           deal.save_count = saveCountMap.get(row.id) ?? 0;
           return deal;

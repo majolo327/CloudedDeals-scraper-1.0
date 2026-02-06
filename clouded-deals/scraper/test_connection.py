@@ -64,7 +64,7 @@ except Exception as e:
 # --- Test 4: Write + delete scrape_runs ---
 try:
     row = supabase.table("scrape_runs").insert(
-        {"status": "connection_test", "total_products": 0}
+        {"status": "running", "total_products": 0}
     ).execute()
     test_id = row.data[0]["id"]
     log("OK", f"Write test passed — created scrape_runs row {test_id[:8]}...")

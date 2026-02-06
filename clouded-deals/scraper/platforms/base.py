@@ -10,18 +10,23 @@ from __future__ import annotations
 
 import abc
 import logging
+import os
+from pathlib import Path
 from typing import Any
 
 from playwright.async_api import (
     async_playwright,
     Browser,
     BrowserContext,
+    Frame,
     Page,
     Playwright,
 )
 
 from config.dispensaries import BROWSER_ARGS, GOTO_TIMEOUT_MS, USER_AGENT, VIEWPORT, WAIT_UNTIL
 from handlers import dismiss_age_gate
+
+DEBUG_DIR = Path(os.getenv("DEBUG_DIR", "debug_screenshots"))
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +102,78 @@ class BaseScraper(abc.ABC):
             self.page,
             post_dismiss_wait_sec=post_wait_sec,
         )
+
+    # ------------------------------------------------------------------
+    # Debug helpers
+    # ------------------------------------------------------------------
+
+    async def save_debug_info(self, label: str, target: Page | Frame | None = None) -> None:
+        """Save a screenshot, HTML, and diagnostic logs for debugging.
+
+        Creates files under ``DEBUG_DIR/<slug>_<label>.png`` and
+        ``<slug>_<label>.html``.  Also logs the current URL, page title,
+        all iframes, and counts for common product selectors.
+        Errors are caught so this never breaks the scrape.
+        """
+        target = target or self.page
+        prefix = f"{self.slug}_{label}"
+        try:
+            DEBUG_DIR.mkdir(parents=True, exist_ok=True)
+
+            # Log URL and title
+            if isinstance(target, Page):
+                logger.info("[%s] DEBUG url=%s", self.slug, target.url)
+                title = await target.title()
+                logger.info("[%s] DEBUG title=%s", self.slug, title)
+            else:
+                logger.info("[%s] DEBUG frame url=%s", self.slug, target.url)
+                parent = target.page
+                if parent:
+                    logger.info("[%s] DEBUG parent page url=%s", self.slug, parent.url)
+
+            # Screenshot
+            if isinstance(target, Page):
+                await target.screenshot(path=str(DEBUG_DIR / f"{prefix}.png"), full_page=True)
+            else:
+                parent = target.page
+                if parent:
+                    await parent.screenshot(path=str(DEBUG_DIR / f"{prefix}.png"), full_page=True)
+
+            # HTML dump (first 50 KB)
+            html = await target.content()
+            (DEBUG_DIR / f"{prefix}.html").write_text(html[:50_000], encoding="utf-8")
+
+            # Log first 3000 chars of HTML to the log stream
+            logger.info("[%s] DEBUG html[:3000]=%s", self.slug, html[:3000])
+
+            # Log all iframes on the page
+            page_for_iframes = target if isinstance(target, Page) else (target.page or target)
+            iframes = await page_for_iframes.query_selector_all("iframe")
+            logger.info("[%s] DEBUG %d iframe(s) found on page", self.slug, len(iframes))
+            for i, iframe in enumerate(iframes):
+                src = await iframe.get_attribute("src") or "(no src)"
+                logger.info("[%s] DEBUG iframe[%d]: src=%s", self.slug, i, src)
+
+            # Count common product-like elements
+            probe_selectors = [
+                '[data-testid*="product"]',
+                'div[class*="product"]',
+                'div[class*="ProductCard"]',
+                'a[href*="/product/"]',
+                'article',
+                '[class*="card"]',
+            ]
+            for sel in probe_selectors:
+                try:
+                    count = await target.locator(sel).count()
+                    if count > 0:
+                        logger.info("[%s] DEBUG selector %r → %d elements", self.slug, sel, count)
+                except Exception:
+                    pass
+
+            logger.info("[%s] Debug artifacts saved: %s", self.slug, DEBUG_DIR / prefix)
+        except Exception as exc:
+            logger.warning("[%s] Failed to save debug info: %s", self.slug, exc)
 
     # ------------------------------------------------------------------
     # Abstract interface
