@@ -14,7 +14,8 @@ from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 logger = logging.getLogger(__name__)
 
 # How long to wait for content to settle after a page change.
-_POST_NAV_SETTLE_SEC = 2
+# PRD: 5 s between pages for Dutchie, 3 s for Curaleaf.
+_POST_NAV_SETTLE_SEC = 5
 
 
 # ------------------------------------------------------------------
@@ -118,7 +119,7 @@ async def navigate_curaleaf_page(
 
         await locator.click()
         logger.info("Navigated to Curaleaf page %d via %s", page_number, selector)
-        await asyncio.sleep(_POST_NAV_SETTLE_SEC)
+        await asyncio.sleep(3)  # PRD: 3 s between Curaleaf pages
         return True
 
     logger.info(
@@ -132,7 +133,7 @@ async def navigate_curaleaf_page(
 # ------------------------------------------------------------------
 
 _JANE_MAX_LOAD_MORE = 10
-_JANE_LOAD_MORE_SETTLE_SEC = 3
+_JANE_LOAD_MORE_SETTLE_SEC = 1.5  # PRD: 1.5 s between View More clicks
 
 async def handle_jane_view_more(
     target: Page | Frame,

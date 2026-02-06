@@ -6,9 +6,10 @@ Flow:
   2. Dismiss the age gate (with a **45-second** post-dismiss wait so the
      Dutchie iframe has time to fully load behind the overlay).
   3. Locate the Dutchie iframe and switch into it.
-  4. Extract products from ``[data-testid*="product"]`` elements.
-  5. Paginate via ``aria-label="go to page N"`` buttons, collecting
-     products from each page until pagination is exhausted.
+  4. Dismiss any age gate inside the iframe (some sites double-gate).
+  5. Extract products from ``[data-testid*="product"]`` elements.
+  6. Paginate via ``aria-label="go to page N"`` buttons, re-checking
+     the parent page age gate after each page change (it can reappear).
 """
 
 from __future__ import annotations
@@ -19,13 +20,14 @@ from typing import Any
 from playwright.async_api import Frame, TimeoutError as PlaywrightTimeout
 
 from config.dispensaries import PLATFORM_DEFAULTS
-from handlers import dismiss_age_gate, get_iframe, navigate_dutchie_page
+from handlers import dismiss_age_gate, force_remove_age_gate, get_iframe, navigate_dutchie_page
 from .base import BaseScraper
 
 logger = logging.getLogger(__name__)
 
 _DUTCHIE_CFG = PLATFORM_DEFAULTS["dutchie"]
 _POST_AGE_GATE_WAIT = _DUTCHIE_CFG["wait_after_age_gate_sec"]  # 45 s
+_BETWEEN_PAGES_SEC = _DUTCHIE_CFG["between_pages_sec"]          # 5 s
 _PRODUCT_SELECTOR = '[data-testid*="product"]'
 
 
@@ -60,6 +62,11 @@ class DutchieScraper(BaseScraper):
             )
 
             page_num += 1
+
+            # Re-check parent-page age gate before pagination (it can
+            # reappear after scrolling / page changes on TD sites).
+            await force_remove_age_gate(self.page)
+
             if not await navigate_dutchie_page(frame, page_num):
                 break
 

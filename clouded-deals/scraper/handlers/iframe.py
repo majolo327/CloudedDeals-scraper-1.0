@@ -6,6 +6,7 @@ served by dutchie.com (or a white-label domain).  This module locates
 that frame and waits for it to be interactive before returning.
 """
 
+import asyncio
 import logging
 
 from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
@@ -13,8 +14,10 @@ from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 logger = logging.getLogger(__name__)
 
 # Selectors tried in order — the first match wins.
+# Use broad "dutchie" match (not just "dutchie.com") to catch subdomains
+# and white-label variants.
 IFRAME_SELECTORS = [
-    'iframe[src*="dutchie.com"]',
+    'iframe[src*="dutchie"]',
     'iframe[src*="menu"]',
 ]
 
@@ -25,6 +28,7 @@ async def get_iframe(
     page: Page,
     *,
     timeout_ms: int = _IFRAME_READY_TIMEOUT_MS,
+    post_wait_sec: float = 5,
 ) -> Frame | None:
     """Locate and return the dispensary menu iframe on *page*.
 
@@ -35,6 +39,9 @@ async def get_iframe(
     timeout_ms:
         Maximum time (ms) to wait for the iframe element to appear and
         its inner frame to become ready.
+    post_wait_sec:
+        Seconds to sleep after the iframe is found before returning,
+        giving embedded content time to render.
 
     Returns
     -------
@@ -74,6 +81,11 @@ async def get_iframe(
             # Return the frame anyway — partial content is better than nothing.
 
         logger.info("Iframe found via %r — frame URL: %s", selector, frame.url)
+
+        # Wait for iframe content to settle (PRD: 5 s after finding iframe).
+        if post_wait_sec > 0:
+            await asyncio.sleep(post_wait_sec)
+
         return frame
 
     logger.warning("No menu iframe found on page %s", page.url)

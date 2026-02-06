@@ -20,7 +20,7 @@ from playwright.async_api import (
     Playwright,
 )
 
-from config.dispensaries import BROWSER_ARGS, USER_AGENT, VIEWPORT, WAIT_UNTIL
+from config.dispensaries import BROWSER_ARGS, GOTO_TIMEOUT_MS, USER_AGENT, VIEWPORT, WAIT_UNTIL
 from handlers import dismiss_age_gate
 
 logger = logging.getLogger(__name__)
@@ -86,10 +86,10 @@ class BaseScraper(abc.ABC):
 
     async def goto(self, url: str | None = None) -> None:
         """Navigate to *url* (defaults to ``self.url``) using the
-        configured ``WAIT_UNTIL`` strategy."""
+        configured ``WAIT_UNTIL`` strategy and ``GOTO_TIMEOUT_MS``."""
         target = url or self.url
         logger.info("[%s] Navigating to %s", self.slug, target)
-        await self.page.goto(target, wait_until=WAIT_UNTIL)
+        await self.page.goto(target, wait_until=WAIT_UNTIL, timeout=GOTO_TIMEOUT_MS)
 
     async def handle_age_gate(self, *, post_wait_sec: float = 0) -> bool:
         """Try to dismiss any age-verification overlay on the current page."""
