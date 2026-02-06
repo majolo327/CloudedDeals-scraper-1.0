@@ -41,7 +41,14 @@ export function CompactTopPick({
             <h3 className="text-sm font-medium text-slate-100 truncate group-hover:text-amber-400 transition-gentle">
               {deal.product_name}
             </h3>
-            <span className="text-[10px] text-slate-500">{deal.weight}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-500">{deal.weight}</span>
+              {(deal.save_count ?? 0) >= 20 ? (
+                <span className="text-[10px] text-orange-400">🔥 {deal.save_count} saved</span>
+              ) : (deal.save_count ?? 0) > 0 ? (
+                <span className="text-[10px] text-slate-500">{deal.save_count} saved</span>
+              ) : null}
+            </div>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">

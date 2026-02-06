@@ -102,20 +102,38 @@ export async function fetchDeals(): Promise<FetchDealsResult> {
   }
 
   try {
-    const { data, error } = await supabase
-      .from('deals')
-      .select(
-        `id, deal_score, created_at,
-         product:products!inner(id, name, brand, category, original_price, sale_price, weight_value, weight_unit),
-         dispensary:dispensaries!inner(id, name, address, city, state, platform, url)`
-      )
-      .order('deal_score', { ascending: false })
-      .limit(100);
+    // Fetch deals and save counts in parallel
+    const [dealsResult, countsResult] = await Promise.all([
+      supabase
+        .from('deals')
+        .select(
+          `id, deal_score, created_at,
+           product:products!inner(id, name, brand, category, original_price, sale_price, weight_value, weight_unit),
+           dispensary:dispensaries!inner(id, name, address, city, state, platform, url)`
+        )
+        .order('deal_score', { ascending: false })
+        .limit(100),
+      supabase
+        .from('deal_save_counts')
+        .select('deal_id, save_count'),
+    ]);
 
-    if (error) throw error;
+    if (dealsResult.error) throw dealsResult.error;
 
-    const deals = data
-      ? (data as unknown as DealRow[]).map(normalizeDeal)
+    // Build lookup map of deal_id → save_count
+    const saveCountMap = new Map<string, number>();
+    if (countsResult.data) {
+      for (const row of countsResult.data as { deal_id: string; save_count: number }[]) {
+        saveCountMap.set(row.deal_id, row.save_count);
+      }
+    }
+
+    const deals = dealsResult.data
+      ? (dealsResult.data as unknown as DealRow[]).map((row) => {
+          const deal = normalizeDeal(row);
+          deal.save_count = saveCountMap.get(row.id) ?? 0;
+          return deal;
+        })
       : [];
 
     return { deals, error: null };

@@ -193,13 +193,17 @@ export function CompactDealCard({
           <span className="text-[8px] text-slate-600 truncate">{deal.dispensary.name}</span>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Hot deal indicator */}
-          {(deal.save_count ?? 0) >= 10 && (
+          {/* Save count indicator */}
+          {(deal.save_count ?? 0) >= 20 ? (
             <span className="flex items-center gap-0.5 text-[7px] text-orange-400">
               <span>🔥</span>
               <span>{deal.save_count}</span>
             </span>
-          )}
+          ) : (deal.save_count ?? 0) > 0 ? (
+            <span className="text-[7px] text-slate-500">
+              {deal.save_count} saved
+            </span>
+          ) : null}
           {/* Deal freshness */}
           {isFreshDeal(deal.created_at, 4) && (
             <span className="flex items-center gap-0.5 text-[7px] text-green-400">

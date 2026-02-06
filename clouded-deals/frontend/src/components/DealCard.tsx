@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Heart, BadgeCheck, Star, MapPin, CheckCircle, Clock, Share2 } from 'lucide-react';
+import { Heart, BadgeCheck, Star, MapPin, CheckCircle, Clock, Share2, Users } from 'lucide-react';
 import type { Deal } from '@/types';
 import { isFreshDeal } from '@/lib/socialProof';
 import { ShareModal } from './modals/ShareModal';
@@ -52,12 +52,17 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
               Featured
             </span>
           )}
-          {/* Hot deal - many saves */}
-          {(deal.save_count ?? 0) >= 10 && (
+          {/* Save count / trending */}
+          {(deal.save_count ?? 0) >= 20 ? (
             <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-orange-500/10 text-orange-400">
-              🔥 {deal.save_count} grabbed
+              🔥 Trending &middot; {deal.save_count} saved
             </span>
-          )}
+          ) : (deal.save_count ?? 0) > 0 ? (
+            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-slate-500/10 text-slate-400">
+              <Users className="w-2.5 h-2.5" />
+              {deal.save_count} saved
+            </span>
+          ) : null}
           {/* Fresh deal */}
           {isFreshDeal(deal.created_at, 4) && (
             <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-green-500/10 text-green-400">

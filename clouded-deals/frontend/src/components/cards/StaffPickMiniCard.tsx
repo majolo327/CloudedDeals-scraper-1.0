@@ -58,6 +58,11 @@ export function StaffPickMiniCard({
           </span>
         )}
       </div>
+      {(deal.save_count ?? 0) > 0 && (
+        <span className="text-[8px] text-slate-500 mt-1">
+          {(deal.save_count ?? 0) >= 20 ? `🔥 ${deal.save_count}` : deal.save_count} saved
+        </span>
+      )}
     </div>
   );
 }
