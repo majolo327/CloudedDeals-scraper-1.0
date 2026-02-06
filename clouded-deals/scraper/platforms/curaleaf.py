@@ -102,7 +102,7 @@ class CuraleafScraper(BaseScraper):
 
         logger.info("[%s] Detected Curaleaf age-gate redirect: %s", self.slug, current_url)
 
-        # Try to find and interact with state selector
+        # Step 1: Select state from dropdown
         state_selectors = [
             'select',                           # standard <select>
             '[data-testid*="state"]',
@@ -123,14 +123,12 @@ class CuraleafScraper(BaseScraper):
                 else:
                     await locator.click()
                     await asyncio.sleep(1)
-                    # Try to find "Nevada" in the dropdown options
                     nv_option = self.page.locator('text="Nevada"').first
                     try:
                         await nv_option.wait_for(state="visible", timeout=3_000)
                         await nv_option.click()
                         logger.info("[%s] Clicked 'Nevada' option in dropdown", self.slug)
                     except PlaywrightTimeout:
-                        # Try "NV" instead
                         nv_option = self.page.locator('text="NV"').first
                         try:
                             await nv_option.wait_for(state="visible", timeout=2_000)
@@ -146,21 +144,30 @@ class CuraleafScraper(BaseScraper):
                 logger.debug("[%s] State selector %r failed", self.slug, selector, exc_info=True)
                 continue
 
-        # Try to submit / click confirm button
+        # Step 2: Wait for page to update after state selection
+        # The page transitions from state picker to age confirmation
+        logger.info("[%s] Waiting 3s for page to update after state selection…", self.slug)
+        await asyncio.sleep(3)
+
+        # Step 3: Click the "I'm over 21" button (or similar)
         submit_selectors = [
+            "button:has-text(\"I'm over 21\")",
+            'button:has-text("over 21")',
+            'button:has-text("21 or older")',
+            'button:has-text("I am 21")',
             'button:has-text("Enter")',
             'button:has-text("Submit")',
             'button:has-text("Confirm")',
             'button:has-text("Yes")',
             'button[type="submit"]',
+            'a:has-text("over 21")',
             'a:has-text("Enter")',
-            'a:has-text("Submit")',
         ]
 
         for selector in submit_selectors:
             try:
                 locator = self.page.locator(selector).first
-                await locator.wait_for(state="visible", timeout=3_000)
+                await locator.wait_for(state="visible", timeout=5_000)
                 await locator.click()
                 logger.info("[%s] Clicked age gate submit via %r", self.slug, selector)
                 break

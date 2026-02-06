@@ -16,10 +16,17 @@ from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 
 logger = logging.getLogger(__name__)
 
-# Ordered from most-specific to least-specific so we hit the real button
-# before falling through to generic text matches.
-AGE_GATE_SELECTORS = [
+# TD-specific selectors — these get a LONGER timeout (10 s) because the
+# TD age gate renders late (after heavy JS bundles load).
+TD_AGE_GATE_SELECTORS = [
     "button#agc_yes",
+    "#agc_form button",
+    "#agc_form a",
+]
+TD_SELECTOR_TIMEOUT_MS = 10_000
+
+# Generic selectors tried AFTER the TD-specific ones.
+AGE_GATE_SELECTORS = [
     "button:has-text('I am 21 or older')",
     "button:has-text('over 21')",
     "button:has-text('21+')",
@@ -30,7 +37,6 @@ AGE_GATE_SELECTORS = [
     "a:has-text('21+')",
     "a:has-text('Enter')",
     "a:has-text('Yes')",
-    "#agc_form button",
 ]
 
 SELECTOR_TIMEOUT_MS = 4_000
@@ -88,12 +94,20 @@ async def dismiss_age_gate(
     bool
         ``True`` if a gate was found and dismissed, ``False`` otherwise.
     """
-    for selector in AGE_GATE_SELECTORS:
+    # Try TD-specific selectors first with a longer timeout — these are
+    # the real age gate buttons that trigger the Dutchie embed callback.
+    all_selectors = [
+        (s, TD_SELECTOR_TIMEOUT_MS) for s in TD_AGE_GATE_SELECTORS
+    ] + [
+        (s, SELECTOR_TIMEOUT_MS) for s in AGE_GATE_SELECTORS
+    ]
+
+    for selector, timeout in all_selectors:
         try:
             locator = target.locator(selector).first
-            await locator.wait_for(state="visible", timeout=SELECTOR_TIMEOUT_MS)
+            await locator.wait_for(state="visible", timeout=timeout)
             await locator.click()
-            logger.info("Age gate dismissed via selector: %s", selector)
+            logger.info("Age gate dismissed via selector: %s (timeout=%dms)", selector, timeout)
 
             if post_dismiss_wait_sec > 0:
                 logger.info(
