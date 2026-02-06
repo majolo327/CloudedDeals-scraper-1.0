@@ -31,3 +31,4 @@ export { BrowsePage } from './BrowsePage';
 export { SavedPage } from './SavedPage';
 export { LandingPage } from './LandingPage';
 export { AuthPrompt } from './AuthPrompt';
+export { Onboarding, isOnboardingSeen, markOnboardingSeen } from './Onboarding';

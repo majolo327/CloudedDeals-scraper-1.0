@@ -23,6 +23,7 @@ import { useStreak } from '@/hooks/useStreak';
 import { useBrandAffinity } from '@/hooks/useBrandAffinity';
 import { initializeAnonUser, trackEvent } from '@/lib/analytics';
 import { isAuthPromptDismissed, dismissAuthPrompt } from '@/lib/auth';
+import { Onboarding, isOnboardingSeen, markOnboardingSeen } from '@/components/Onboarding';
 
 type AppPage = 'landing' | 'home' | 'search' | 'browse' | 'saved';
 
@@ -44,6 +45,10 @@ export default function Home() {
   const [highlightSaved, setHighlightSaved] = useState(false);
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return !isOnboardingSeen();
+  });
 
   const { savedDeals, usedDeals, toggleSavedDeal, markDealUsed, isDealUsed, savedCount } =
     useSavedDeals();
@@ -178,9 +183,22 @@ export default function Home() {
     setActivePage('home');
   }, []);
 
+  const handleOnboardingComplete = useCallback(() => {
+    markOnboardingSeen();
+    setShowOnboarding(false);
+    // Also skip the landing page — go straight to deals
+    localStorage.setItem(LANDING_SEEN_KEY, 'true');
+    setActivePage('home');
+  }, []);
+
   // AgeGate
   if (!isAgeVerified) {
     return <AgeGate onVerify={handleAgeVerify} />;
+  }
+
+  // Onboarding for brand-new users
+  if (showOnboarding) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
   }
 
   // Landing page for first-time visitors
