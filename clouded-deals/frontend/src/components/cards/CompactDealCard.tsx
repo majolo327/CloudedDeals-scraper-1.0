@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Heart, X, MapPin, Sparkles, Star, Info, Clock } from 'lucide-react';
+import { Heart, X, MapPin, Sparkles, Info, Clock } from 'lucide-react';
 import type { Deal } from '@/types';
+import { getBadge } from '@/utils';
+import { DealBadge } from '../badges/DealBadge';
 import type { RecommendationReason } from '@/lib/personalization';
 import { getRecommendationText } from '@/lib/personalization';
 import { isFreshDeal } from '@/lib/socialProof';
@@ -124,11 +126,7 @@ export function CompactDealCard({
 
       <div className="flex items-start justify-between gap-0.5 mb-0.5">
         <div className="flex items-center gap-1 min-w-0 flex-1">
-          {deal.is_featured && (
-            <span className="flex items-center px-1 py-0.5 rounded text-[8px] font-medium bg-amber-500/10 text-amber-400 shrink-0">
-              <Star className="w-2 h-2 fill-current" />
-            </span>
-          )}
+          {(() => { const badge = getBadge(deal); return badge ? <DealBadge type={badge} compact /> : null; })()}
           <span className="text-[9px] text-purple-400 uppercase tracking-wide font-bold truncate">
             {deal.brand.name}
           </span>
@@ -138,7 +136,7 @@ export function CompactDealCard({
             e.stopPropagation();
             onDismiss();
           }}
-          className="p-0.5 -mt-0.5 rounded text-slate-700 hover:text-slate-500 transition-colors shrink-0"
+          className="p-2 -mt-1 -mr-1 rounded text-slate-700 hover:text-slate-500 transition-colors shrink-0"
           title="Pass"
         >
           <X className="w-2.5 h-2.5" />
@@ -193,13 +191,17 @@ export function CompactDealCard({
           <span className="text-[8px] text-slate-600 truncate">{deal.dispensary.name}</span>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Hot deal indicator */}
-          {(deal.save_count ?? 0) >= 10 && (
+          {/* Save count indicator */}
+          {(deal.save_count ?? 0) >= 20 ? (
             <span className="flex items-center gap-0.5 text-[7px] text-orange-400">
               <span>🔥</span>
               <span>{deal.save_count}</span>
             </span>
-          )}
+          ) : (deal.save_count ?? 0) > 0 ? (
+            <span className="text-[7px] text-slate-500">
+              {deal.save_count} saved
+            </span>
+          ) : null}
           {/* Deal freshness */}
           {isFreshDeal(deal.created_at, 4) && (
             <span className="flex items-center gap-0.5 text-[7px] text-green-400">

@@ -26,33 +26,33 @@ export function Footer({ onNavigateToForBusiness, onNavigate }: FooterProps) {
         </p>
 
         <div className="mt-8 pt-6 border-t border-slate-800/50">
-          <div className="flex flex-wrap items-center justify-center gap-4 text-[10px] text-slate-600 mb-3">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-600 mb-3">
             <button
               onClick={() => onNavigate?.('terms')}
-              className="hover:text-slate-400 transition-colors"
+              className="py-2 px-1 min-h-[44px] flex items-center hover:text-slate-400 transition-colors"
             >
               Terms of Service
             </button>
             <span>·</span>
             <button
               onClick={() => onNavigate?.('privacy')}
-              className="hover:text-slate-400 transition-colors"
+              className="py-2 px-1 min-h-[44px] flex items-center hover:text-slate-400 transition-colors"
             >
               Privacy Policy
             </button>
             <span>·</span>
             <a
               href="mailto:hello@cloudeddeals.com"
-              className="hover:text-slate-400 transition-colors"
+              className="py-2 px-1 min-h-[44px] flex items-center hover:text-slate-400 transition-colors"
             >
               Contact
             </a>
           </div>
-          <p className="text-[10px] text-slate-600 text-center leading-relaxed max-w-md mx-auto">
+          <p className="text-xs text-slate-600 text-center leading-relaxed max-w-md mx-auto">
             For entertainment and informational purposes only. Prices and availability
             subject to change. Please consume responsibly. Must be 21+ to use this site.
           </p>
-          <p className="text-[10px] text-slate-700 text-center mt-3">
+          <p className="text-xs text-slate-700 text-center mt-3">
             &copy; {new Date().getFullYear()} Clouded Deals. Las Vegas, NV.
           </p>
         </div>

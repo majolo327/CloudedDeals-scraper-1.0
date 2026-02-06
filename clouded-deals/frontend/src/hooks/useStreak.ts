@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { trackEvent } from '@/lib/analytics';
 
 interface StreakData {
   lastVisit: string;
@@ -35,6 +36,7 @@ export function useStreak() {
             lastVisit: today,
             streak: newStreak
           }));
+          trackEvent('daily_visit', undefined, { streak: newStreak, consecutive: true });
           if ([3, 7, 14, 30].includes(newStreak)) {
             setIsNewMilestone(newStreak);
           }
@@ -44,6 +46,7 @@ export function useStreak() {
             lastVisit: today,
             streak: 1
           }));
+          trackEvent('daily_visit', undefined, { streak: 1, consecutive: false, gap_days: diffDays });
         }
       } catch {
         localStorage.setItem('clouded_streak', JSON.stringify({

@@ -172,8 +172,8 @@ export function getSocialProofBadges(
     }
   }
 
-  // Popular at dispensary
-  if (deal.is_top_pick || deal.is_staff_pick) {
+  // Popular at dispensary (high deal score)
+  if (deal.deal_score >= 70) {
     badges.push({
       type: 'popular_dispensary',
       text: `Trending at ${deal.dispensary.name}`,

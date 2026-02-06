@@ -2,12 +2,12 @@
 
 import { supabase } from './supabase';
 
-const USER_ID_KEY = 'clouded_user_id';
+const ANON_ID_KEY = 'clouded_anon_id';
 
 /**
  * Generate a random anonymous user ID (UUID v4-like).
  */
-function generateUserId(): string {
+function generateAnonId(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
@@ -18,16 +18,19 @@ function generateUserId(): string {
  * Retrieve the existing anonymous user ID from localStorage, or
  * generate and persist a new one.
  */
-export function getOrCreateUserId(): string {
+export function getOrCreateAnonId(): string {
   if (typeof window === 'undefined') return '';
 
-  let userId = localStorage.getItem(USER_ID_KEY);
-  if (!userId) {
-    userId = generateUserId();
-    localStorage.setItem(USER_ID_KEY, userId);
+  let anonId = localStorage.getItem(ANON_ID_KEY);
+  if (!anonId) {
+    anonId = generateAnonId();
+    localStorage.setItem(ANON_ID_KEY, anonId);
   }
-  return userId;
+  return anonId;
 }
+
+// Keep backward-compatible alias
+export const getOrCreateUserId = getOrCreateAnonId;
 
 /** Wrap Supabase PromiseLike into a real Promise for safe fire-and-forget. */
 function fireAndForget(fn: () => PromiseLike<unknown> | undefined): void {
@@ -40,28 +43,72 @@ function fireAndForget(fn: () => PromiseLike<unknown> | undefined): void {
 }
 
 export type EventType =
+  | 'app_loaded'
+  | 'deal_viewed'
+  | 'deal_saved'
+  | 'deal_shared'
+  | 'deal_dismissed'
+  | 'search_performed'
+  | 'category_filtered'
   | 'deal_view'
   | 'deal_save'
   | 'deal_dismiss'
   | 'deal_click'
   | 'search'
-  | 'filter_change';
+  | 'filter_change'
+  | 'referral_click'
+  | 'referral_conversion'
+  | 'daily_visit'
+  | 'error'
+  | 'slow_load';
 
 /**
- * Fire-and-forget event tracking. Inserts a row into user_events via
- * the Supabase anon client. Failures are silently ignored.
+ * Initialize anonymous user on app load. Sets up the anon_id and
+ * registers/updates the session.
+ */
+export function initializeAnonUser(): void {
+  const anonId = getOrCreateAnonId();
+  if (!anonId) return;
+  touchSession();
+}
+
+const isDev = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+
+/**
+ * Fire-and-forget event tracking. Inserts a row into analytics_events
+ * and the legacy user_events table. Failures are silently ignored.
  */
 export function trackEvent(
   eventType: EventType,
   dealId?: string,
   metadata?: Record<string, unknown>
 ): void {
-  const userId = getOrCreateUserId();
-  if (!userId) return;
+  const anonId = getOrCreateAnonId();
+  if (!anonId) return;
 
+  const properties = {
+    ...(metadata ?? {}),
+    ...(dealId ? { deal_id: dealId } : {}),
+  };
+
+  // Dev-mode console logging for debugging
+  if (isDev) {
+    console.log(`[analytics] ${eventType}`, dealId ?? '', properties);
+  }
+
+  // Write to analytics_events table
+  fireAndForget(() =>
+    supabase?.from('analytics_events')?.insert({
+      anon_id: anonId,
+      event_name: eventType,
+      properties,
+    })
+  );
+
+  // Also write to legacy user_events for backward compat
   fireAndForget(() =>
     supabase?.from('user_events')?.insert({
-      user_id: userId,
+      user_id: anonId,
       event_type: eventType,
       deal_id: dealId ?? null,
       metadata: metadata ?? null,
@@ -73,11 +120,11 @@ export function trackEvent(
  * Record a saved deal in user_saved_deals.
  */
 export function trackSavedDeal(dealId: string): void {
-  const userId = getOrCreateUserId();
-  if (!userId) return;
+  const anonId = getOrCreateAnonId();
+  if (!anonId) return;
 
   fireAndForget(() =>
-    supabase?.from('user_saved_deals')?.insert({ user_id: userId, deal_id: dealId })
+    supabase?.from('user_saved_deals')?.insert({ user_id: anonId, deal_id: dealId })
   );
 }
 
@@ -85,11 +132,11 @@ export function trackSavedDeal(dealId: string): void {
  * Remove a deal from user_saved_deals (unsave).
  */
 export function trackUnsavedDeal(dealId: string): void {
-  const userId = getOrCreateUserId();
-  if (!userId) return;
+  const anonId = getOrCreateAnonId();
+  if (!anonId) return;
 
   fireAndForget(() =>
-    supabase?.from('user_saved_deals')?.delete()?.eq('user_id', userId)?.eq('deal_id', dealId)
+    supabase?.from('user_saved_deals')?.delete()?.eq('user_id', anonId)?.eq('deal_id', dealId)
   );
 }
 
@@ -97,11 +144,11 @@ export function trackUnsavedDeal(dealId: string): void {
  * Record a dismissed deal.
  */
 export function trackDismissedDeal(dealId: string): void {
-  const userId = getOrCreateUserId();
-  if (!userId) return;
+  const anonId = getOrCreateAnonId();
+  if (!anonId) return;
 
   fireAndForget(() =>
-    supabase?.from('user_dismissed_deals')?.insert({ user_id: userId, deal_id: dealId })
+    supabase?.from('user_dismissed_deals')?.insert({ user_id: anonId, deal_id: dealId })
   );
 }
 
@@ -110,15 +157,15 @@ export function trackDismissedDeal(dealId: string): void {
  * Called once on page load.
  */
 export function touchSession(): void {
-  const userId = getOrCreateUserId();
-  if (!userId) return;
+  const anonId = getOrCreateAnonId();
+  if (!anonId) return;
 
   const zip = localStorage.getItem('clouded_zip') ?? null;
 
   fireAndForget(() =>
     supabase?.from('user_sessions')?.upsert(
       {
-        user_id: userId,
+        user_id: anonId,
         zip_code: zip,
         last_seen: new Date().toISOString(),
       },

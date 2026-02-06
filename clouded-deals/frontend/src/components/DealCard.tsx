@@ -1,8 +1,12 @@
 'use client';
 
-import { Heart, BadgeCheck, Star, MapPin, CheckCircle, Clock } from 'lucide-react';
+import { useState } from 'react';
+import { Heart, BadgeCheck, MapPin, CheckCircle, Clock, Share2, Users } from 'lucide-react';
 import type { Deal } from '@/types';
 import { isFreshDeal } from '@/lib/socialProof';
+import { getBadge } from '@/utils';
+import { DealBadge } from './badges/DealBadge';
+import { ShareModal } from './modals/ShareModal';
 
 interface DealCardProps {
   deal: Deal;
@@ -13,6 +17,7 @@ interface DealCardProps {
 }
 
 export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: DealCardProps) {
+  const [showShare, setShowShare] = useState(false);
   return (
     <div
       onClick={onClick}
@@ -37,22 +42,12 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
               Verified
             </span>
           )}
-          {deal.is_staff_pick && (
-            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-cyan-500/10 text-cyan-400">
-              <Star className="w-2.5 h-2.5 fill-current" />
-              Staff Pick
-            </span>
-          )}
-          {deal.is_featured && (
-            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-amber-500/10 text-amber-400">
-              <Star className="w-2.5 h-2.5 fill-current" />
-              Featured
-            </span>
-          )}
-          {/* Hot deal - many saves */}
-          {(deal.save_count ?? 0) >= 10 && (
-            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-orange-500/10 text-orange-400">
-              🔥 {deal.save_count} grabbed
+          {(() => { const badge = getBadge(deal); return badge ? <DealBadge type={badge} /> : null; })()}
+          {/* Save count */}
+          {(deal.save_count ?? 0) > 0 && (
+            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-slate-500/10 text-slate-400">
+              <Users className="w-2.5 h-2.5" />
+              {deal.save_count} saved
             </span>
           )}
           {/* Fresh deal */}
@@ -63,19 +58,33 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
             </span>
           )}
         </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onSave();
-          }}
-          className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-            isSaved
-              ? 'bg-purple-500/10 text-purple-400'
-              : 'text-slate-500 hover:text-purple-400 hover:bg-purple-500/10'
-          }`}
-        >
-          <Heart className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowShare(true);
+            }}
+            className="w-10 h-10 min-w-[44px] min-h-[44px] sm:w-8 sm:h-8 sm:min-w-0 sm:min-h-0 rounded-lg flex items-center justify-center transition-all text-slate-500 hover:text-purple-400 hover:bg-purple-500/10"
+            aria-label="Share deal"
+            title="Share"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSave();
+            }}
+            className={`w-10 h-10 min-w-[44px] min-h-[44px] sm:w-8 sm:h-8 sm:min-w-0 sm:min-h-0 rounded-lg flex items-center justify-center transition-all ${
+              isSaved
+                ? 'bg-purple-500/10 text-purple-400'
+                : 'text-slate-500 hover:text-purple-400 hover:bg-purple-500/10'
+            }`}
+            aria-label={isSaved ? 'Remove from saved' : 'Save deal'}
+          >
+            <Heart className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* Brand */}
@@ -106,6 +115,10 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
         <MapPin className="w-2.5 h-2.5 opacity-60 shrink-0" />
         <span className="truncate">{deal.dispensary?.name || 'Unknown Dispensary'}</span>
       </div>
+
+      {showShare && (
+        <ShareModal deal={deal} onClose={() => setShowShare(false)} />
+      )}
     </div>
   );
 }

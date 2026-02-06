@@ -1,5 +1,41 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+import { trackEvent } from './analytics';
 import type { Deal, Category, Dispensary, Brand } from '@/types';
+
+// --------------------------------------------------------------------------
+// Deal cache for offline support
+// --------------------------------------------------------------------------
+
+const DEALS_CACHE_KEY = 'clouded_deals_cache';
+
+interface DealCache {
+  deals: Deal[];
+  timestamp: number;
+}
+
+function getCachedDeals(): Deal[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(DEALS_CACHE_KEY);
+    if (!raw) return null;
+    const cache: DealCache = JSON.parse(raw);
+    // Cache valid for 24 hours
+    if (Date.now() - cache.timestamp > 24 * 60 * 60 * 1000) return null;
+    // Restore Date objects
+    return cache.deals.map(d => ({ ...d, created_at: new Date(d.created_at) }));
+  } catch {
+    return null;
+  }
+}
+
+function setCachedDeals(deals: Deal[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(DEALS_CACHE_KEY, JSON.stringify({ deals, timestamp: Date.now() }));
+  } catch {
+    // Storage full — ignore
+  }
+}
 
 // --------------------------------------------------------------------------
 // Raw row shape returned by the Supabase join query
@@ -46,7 +82,6 @@ function toDispensary(row: DealRow['dispensary']): Dispensary {
     id: row.id,
     name: row.name,
     slug: row.id,
-    zone: 'strip',
     tier: 'standard',
     address: row.address || '',
     menu_url: row.url || '',
@@ -80,10 +115,8 @@ function normalizeDeal(row: DealRow): Deal {
     deal_price: row.product.sale_price || 0,
     dispensary: toDispensary(row.dispensary),
     brand: toBrand(row.product.brand),
-    is_top_pick: row.deal_score >= 80,
-    is_staff_pick: row.deal_score >= 65 && row.deal_score < 80,
+    deal_score: row.deal_score,
     is_verified: row.deal_score >= 70,
-    is_featured: row.deal_score >= 75,
     created_at: new Date(row.created_at),
   };
 }
@@ -102,26 +135,72 @@ export async function fetchDeals(): Promise<FetchDealsResult> {
     return { deals: [], error: null };
   }
 
+  // Offline check — serve cached deals
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    const cached = getCachedDeals();
+    if (cached) {
+      return { deals: cached, error: null };
+    }
+    return { deals: [], error: 'You\'re offline. Check your connection and try again.' };
+  }
+
+  const start = performance.now();
+
   try {
-    const { data, error } = await supabase
-      .from('deals')
-      .select(
-        `id, deal_score, created_at,
-         product:products!inner(id, name, brand, category, original_price, sale_price, weight_value, weight_unit),
-         dispensary:dispensaries!inner(id, name, address, city, state, platform, url)`
-      )
-      .order('deal_score', { ascending: false })
-      .limit(100);
+    // Fetch deals and save counts in parallel
+    const [dealsResult, countsResult] = await Promise.all([
+      supabase
+        .from('deals')
+        .select(
+          `id, deal_score, created_at,
+           product:products!inner(id, name, brand, category, original_price, sale_price, weight_value, weight_unit),
+           dispensary:dispensaries!inner(id, name, address, city, state, platform, url)`
+        )
+        .order('deal_score', { ascending: false })
+        .limit(100),
+      supabase
+        .from('deal_save_counts')
+        .select('deal_id, save_count'),
+    ]);
 
-    if (error) throw error;
+    if (dealsResult.error) throw dealsResult.error;
 
-    const deals = data
-      ? (data as unknown as DealRow[]).map(normalizeDeal)
+    // Build lookup map of deal_id → save_count
+    const saveCountMap = new Map<string, number>();
+    if (countsResult.data) {
+      for (const row of countsResult.data as { deal_id: string; save_count: number }[]) {
+        saveCountMap.set(row.deal_id, row.save_count);
+      }
+    }
+
+    const deals = dealsResult.data
+      ? (dealsResult.data as unknown as DealRow[]).map((row) => {
+          const deal = normalizeDeal(row);
+          deal.save_count = saveCountMap.get(row.id) ?? 0;
+          return deal;
+        })
       : [];
+
+    // Cache for offline use
+    setCachedDeals(deals);
+
+    // Track slow loads
+    const duration = performance.now() - start;
+    if (duration > 2000) {
+      trackEvent('slow_load', undefined, { duration: Math.round(duration), source: 'fetchDeals' });
+    }
 
     return { deals, error: null };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to fetch deals';
+    trackEvent('error', undefined, { type: 'deals_fetch_failed', message });
+
+    // Fall back to cached deals
+    const cached = getCachedDeals();
+    if (cached) {
+      return { deals: cached, error: null };
+    }
+
     return { deals: [], error: message };
   }
 }

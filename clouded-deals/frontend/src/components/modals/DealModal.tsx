@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Heart, BadgeCheck, Star, MapPin, ExternalLink, MessageCircle, CheckCircle } from 'lucide-react';
+import { X, Heart, BadgeCheck, MapPin, ExternalLink, MessageCircle, CheckCircle, Navigation } from 'lucide-react';
 import { ShareModal } from './ShareModal';
 import { AccuracyModal } from './AccuracyModal';
+import { DealBadge } from '../badges/DealBadge';
 import type { Deal } from '@/types';
+import { getMapsUrl, getBadge } from '@/utils';
 
 interface DealModalProps {
   deal: Deal;
@@ -67,7 +69,13 @@ export function DealModal({
   };
 
   const handleShare = () => {
-    const shareUrl = `${window.location.origin}/deal/${deal.id}`;
+    const params = new URLSearchParams({
+      utm_source: 'share',
+      utm_medium: 'direct',
+      utm_campaign: 'deal_share',
+      utm_content: deal.id,
+    });
+    const shareUrl = `${window.location.origin}/deal/${deal.id}?${params.toString()}`;
     const shareText = formatShareText(deal, shareUrl);
 
     if (typeof navigator !== 'undefined' && navigator.share) {
@@ -107,17 +115,7 @@ export function DealModal({
                   Verified
                 </span>
               )}
-              {deal.is_top_pick && (
-                <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-500/20">
-                  <Star className="w-3.5 h-3.5 fill-current" />
-                  Top Pick
-                </span>
-              )}
-              {deal.is_staff_pick && (
-                <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
-                  Staff Pick
-                </span>
-              )}
+              {(() => { const badge = getBadge(deal); return badge ? <DealBadge type={badge} /> : null; })()}
             </div>
             <button
               onClick={onClose}
@@ -172,6 +170,17 @@ export function DealModal({
                 <p className="text-sm text-slate-400 truncate">{deal.dispensary?.address || 'Las Vegas, NV'}</p>
               </div>
             </div>
+            {deal.dispensary?.address && (
+              <a
+                href={getMapsUrl(deal.dispensary.address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 w-full py-2.5 min-h-[44px] rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-sm font-medium transition-all flex items-center justify-center gap-2"
+              >
+                <Navigation className="w-4 h-4" />
+                Get Directions
+              </a>
+            )}
           </div>
 
           {/* Action buttons */}

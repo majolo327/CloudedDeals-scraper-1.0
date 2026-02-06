@@ -217,42 +217,8 @@ export const sortDealsWithPinnedPriority = (
 ): Deal[] => {
   if (deals.length === 0) return deals;
 
-  const pinnedDeals = deals
-    .filter((d) => d.is_pinned && d.pinned_position !== null && d.pinned_position !== undefined)
-    .sort((a, b) => (a.pinned_position || 0) - (b.pinned_position || 0));
-
-  const nonPinnedDeals = deals.filter((d) => !d.is_pinned);
-  const sortedNonPinned = sortDealsForDisplay(nonPinnedDeals);
-
-  const result: (Deal | null)[] = new Array(maxResults).fill(null);
-  const usedIds = new Set<string>();
-
-  for (const pinnedDeal of pinnedDeals) {
-    const position = (pinnedDeal.pinned_position || 1) - 1;
-    if (position >= 0 && position < maxResults) {
-      result[position] = pinnedDeal;
-      usedIds.add(pinnedDeal.id);
-    }
-  }
-
-  let nonPinnedIndex = 0;
-  for (let i = 0; i < maxResults; i++) {
-    if (result[i] === null) {
-      while (
-        nonPinnedIndex < sortedNonPinned.length &&
-        usedIds.has(sortedNonPinned[nonPinnedIndex].id)
-      ) {
-        nonPinnedIndex++;
-      }
-      if (nonPinnedIndex < sortedNonPinned.length) {
-        result[i] = sortedNonPinned[nonPinnedIndex];
-        usedIds.add(sortedNonPinned[nonPinnedIndex].id);
-        nonPinnedIndex++;
-      }
-    }
-  }
-
-  return result.filter((d): d is Deal => d !== null);
+  const sorted = sortDealsForDisplay(deals);
+  return sorted.slice(0, maxResults);
 };
 
 export const getDailyDeals = (
@@ -262,12 +228,5 @@ export const getDailyDeals = (
 ): Deal[] => {
   void _count;
   const seed = getDailySeed(dayOffset);
-
-  const topPicks = allDeals.filter((d) => d.is_top_pick);
-  const staffPicks = allDeals.filter((d) => d.is_staff_pick && !d.is_top_pick);
-  const regularDeals = allDeals.filter((d) => !d.is_top_pick && !d.is_staff_pick);
-
-  const shuffled = shuffleWithSeed(regularDeals, seed);
-
-  return [...topPicks, ...staffPicks, ...shuffled];
+  return shuffleWithSeed(allDeals, seed);
 };

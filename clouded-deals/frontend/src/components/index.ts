@@ -6,7 +6,7 @@ export { ToastContainer } from './Toast';
 export type { ToastData } from './Toast';
 
 // Cards
-export { CompactDealCard, CompactTopPick, StaffPickMiniCard } from './cards';
+export { CompactDealCard } from './cards';
 
 // Layout
 export { AgeGate, Footer, StickyStatsBar } from './layout';
@@ -22,10 +22,13 @@ export {
 } from './modals';
 
 // Badges
-export { VerifiedBadge, StaffPickBadge, CategoryBadge, ZoneBadge } from './badges';
+export { VerifiedBadge, CategoryBadge, DealBadge } from './badges';
 
 // Pages
 export { DealsPage } from './DealsPage';
 export { SearchPage } from './SearchPage';
 export { BrowsePage } from './BrowsePage';
 export { SavedPage } from './SavedPage';
+export { LandingPage } from './LandingPage';
+export { AuthPrompt } from './AuthPrompt';
+export { Onboarding, isOnboardingSeen, markOnboardingSeen } from './Onboarding';

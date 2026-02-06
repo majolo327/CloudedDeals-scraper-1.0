@@ -7,12 +7,14 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: "grid" },
+  { href: "/admin/analytics", label: "Analytics", icon: "chart" },
   { href: "/admin/scraper", label: "Scraper", icon: "terminal" },
   { href: "/admin/settings", label: "Settings", icon: "sliders" },
 ] as const;
 
 const ICONS: Record<string, string> = {
   grid: "M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5Zm10 0a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5ZM4 15a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4Zm10 0a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-4Z",
+  chart: "M3 3v18h18M7 16l4-4 4 4 5-6",
   terminal:
     "M5.5 7.5 9 11l-3.5 3.5M12 17h6",
   sliders:

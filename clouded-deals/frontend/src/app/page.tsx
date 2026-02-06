@@ -1,15 +1,18 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Star, Heart, Search, Bookmark, AlertCircle } from 'lucide-react';
-import { isSupabaseConfigured } from '@/lib/supabase';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { fetchDeals } from '@/lib/api';
 import type { Deal } from '@/types';
+import type { User } from '@supabase/supabase-js';
 import { AgeGate, Footer } from '@/components/layout';
 import { DealsPage } from '@/components/DealsPage';
 import { SearchPage } from '@/components/SearchPage';
 import { BrowsePage } from '@/components/BrowsePage';
 import { SavedPage } from '@/components/SavedPage';
+import { LandingPage } from '@/components/LandingPage';
+import { AuthPrompt } from '@/components/AuthPrompt';
 import { LocationSelector } from '@/components/LocationSelector';
 import { DealModal } from '@/components/modals';
 import { DealCardSkeleton, TopPickSkeleton } from '@/components/Skeleton';
@@ -18,32 +21,64 @@ import type { ToastData } from '@/components/Toast';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { useStreak } from '@/hooks/useStreak';
 import { useBrandAffinity } from '@/hooks/useBrandAffinity';
-import { touchSession, trackEvent, trackSavedDeal, trackUnsavedDeal } from '@/lib/analytics';
+import { initializeAnonUser, trackEvent } from '@/lib/analytics';
+import { isAuthPromptDismissed, dismissAuthPrompt } from '@/lib/auth';
+import { Onboarding, isOnboardingSeen, markOnboardingSeen } from '@/components/Onboarding';
 
-type AppPage = 'home' | 'search' | 'browse' | 'saved';
+type AppPage = 'landing' | 'home' | 'search' | 'browse' | 'saved';
+
+const LANDING_SEEN_KEY = 'clouded_landing_seen';
 
 export default function Home() {
   const [isAgeVerified, setIsAgeVerified] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activePage, setActivePage] = useState<AppPage>('home');
+  const [activePage, setActivePage] = useState<AppPage>(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem(LANDING_SEEN_KEY) === 'true') {
+      return 'home';
+    }
+    return 'landing';
+  });
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [highlightSaved, setHighlightSaved] = useState(false);
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return !isOnboardingSeen();
+  });
 
   const { savedDeals, usedDeals, toggleSavedDeal, markDealUsed, isDealUsed, savedCount } =
     useSavedDeals();
   const { streak, isNewMilestone, clearMilestone } = useStreak();
   const { trackBrand, topBrands, totalSaves } = useBrandAffinity();
 
-  // Age verification
+  // Age verification & anonymous tracking
   useEffect(() => {
     const verified = localStorage.getItem('clouded_age_verified');
     if (verified === 'true') {
       setIsAgeVerified(true);
-      touchSession();
+      initializeAnonUser();
+      trackEvent('app_loaded', undefined, { referrer: document.referrer });
     }
+  }, []);
+
+  // Listen for Supabase auth state changes
+  useEffect(() => {
+    if (!supabase?.auth) return;
+
+    // Check for existing session
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setAuthUser(data.user);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleAgeVerify = () => {
@@ -68,6 +103,37 @@ export default function Home() {
       clearMilestone();
     }
   }, [isNewMilestone, clearMilestone, addToast]);
+
+  // Handle ?auth=success redirect from magic link
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('auth') === 'success') {
+      addToast('Logged in! Your saves are synced.', 'success');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [addToast]);
+
+  // Track referral clicks from share links
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const referrer = params.get('ref');
+    if (referrer) {
+      trackEvent('referral_click', undefined, {
+        referrer,
+        deal_id: params.get('utm_content') || undefined,
+      });
+      sessionStorage.setItem('clouded_referrer', referrer);
+    }
+  }, []);
+
+  // Show auth prompt after 3+ saves (only if not authenticated and not dismissed)
+  useEffect(() => {
+    if (savedCount >= 3 && !authUser && !isAuthPromptDismissed()) {
+      setShowAuthPrompt(true);
+    }
+  }, [savedCount, authUser]);
 
   // Fetch deals
   useEffect(() => {
@@ -97,10 +163,6 @@ export default function Home() {
     () => todaysDeals.filter((d) => d.is_verified),
     [todaysDeals]
   );
-  const featuredDeals = useMemo(
-    () => todaysDeals.filter((d) => d.is_featured),
-    [todaysDeals]
-  );
   const brands = useMemo(() => {
     const seen = new Map<string, Deal['brand']>();
     for (const d of deals) {
@@ -109,20 +171,29 @@ export default function Home() {
     return Array.from(seen.values());
   }, [deals]);
 
-  // Save handler with brand tracking
+  // Save handler with brand tracking, haptic feedback, and rate limiting
+  const lastSaveRef = useRef(0);
   const handleToggleSave = useCallback(
     (dealId: string) => {
+      // Rate limit: 500ms between saves
+      const now = Date.now();
+      if (now - lastSaveRef.current < 500) return;
+      lastSaveRef.current = now;
+
       const wasSaved = savedDeals.has(dealId);
       toggleSavedDeal(dealId);
+
+      // Haptic feedback on mobile
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(wasSaved ? 10 : 30);
+      }
+
       if (!wasSaved) {
         const deal = deals.find((d) => d.id === dealId);
         if (deal) trackBrand(deal.brand.name);
         addToast('Deal saved!', 'saved');
-        trackEvent('deal_save', dealId);
-        trackSavedDeal(dealId);
       } else {
         addToast('Removed from saved', 'removed');
-        trackUnsavedDeal(dealId);
       }
     },
     [savedDeals, toggleSavedDeal, deals, trackBrand, addToast]
@@ -133,9 +204,57 @@ export default function Home() {
     setTimeout(() => setHighlightSaved(false), 1500);
   }, []);
 
+  const handleEnterApp = useCallback(() => {
+    localStorage.setItem(LANDING_SEEN_KEY, 'true');
+    setActivePage('home');
+  }, []);
+
+  const handleOnboardingComplete = useCallback(() => {
+    markOnboardingSeen();
+    setShowOnboarding(false);
+    // Also skip the landing page — go straight to deals
+    localStorage.setItem(LANDING_SEEN_KEY, 'true');
+    setActivePage('home');
+  }, []);
+
   // AgeGate
   if (!isAgeVerified) {
     return <AgeGate onVerify={handleAgeVerify} />;
+  }
+
+  // Onboarding for brand-new users
+  if (showOnboarding) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
+
+  // Landing page for first-time visitors
+  if (activePage === 'landing') {
+    return (
+      <>
+        <LandingPage
+          deals={todaysDeals}
+          dealCount={todaysDeals.length}
+          onBrowseDeals={handleEnterApp}
+          savedDeals={savedDeals}
+          toggleSavedDeal={handleToggleSave}
+          setSelectedDeal={setSelectedDeal}
+        />
+        {selectedDeal && (
+          <DealModal
+            deal={selectedDeal}
+            onClose={() => setSelectedDeal(null)}
+            isSaved={savedDeals.has(selectedDeal.id)}
+            onToggleSave={() => handleToggleSave(selectedDeal.id)}
+            isUsed={isDealUsed(selectedDeal.id)}
+            onMarkUsed={() => {
+              markDealUsed(selectedDeal.id);
+              addToast('Marked as used', 'success');
+            }}
+          />
+        )}
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      </>
+    );
   }
 
   return (
@@ -248,7 +367,6 @@ export default function Home() {
               <DealsPage
                 deals={todaysDeals}
                 verifiedDeals={verifiedDeals}
-                featuredDeals={featuredDeals}
                 savedDeals={savedDeals}
                 usedDeals={usedDeals}
                 toggleSavedDeal={handleToggleSave}
@@ -271,7 +389,7 @@ export default function Home() {
                 onNavigateToBrands={() => setActivePage('browse')}
               />
             )}
-            {activePage === 'browse' && <BrowsePage />}
+            {activePage === 'browse' && <BrowsePage deals={deals} />}
             {activePage === 'saved' && <SavedPage deals={deals} />}
           </>
         )}
@@ -295,12 +413,23 @@ export default function Home() {
         />
       )}
 
+      {/* Auth prompt — triggered after 3+ saves */}
+      {showAuthPrompt && (
+        <AuthPrompt
+          savedCount={savedCount}
+          onClose={() => {
+            setShowAuthPrompt(false);
+            dismissAuthPrompt();
+          }}
+        />
+      )}
+
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       {/* Mobile bottom nav bar */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/50">
-        <div className="flex items-center justify-around px-2 pb-[env(safe-area-inset-bottom)]">
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/50" aria-label="Main navigation">
+        <div className="flex items-center justify-around px-2 pb-[env(safe-area-inset-bottom)]" role="tablist">
           {[
             { id: 'home' as const, label: 'Deals', icon: Star },
             { id: 'search' as const, label: 'Search', icon: Search },
@@ -309,6 +438,9 @@ export default function Home() {
           ].map((tab) => (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={activePage === tab.id}
+              aria-label={tab.label}
               onClick={() => setActivePage(tab.id)}
               className={`flex flex-col items-center gap-0.5 px-3 py-2 min-w-[56px] min-h-[48px] text-[10px] font-medium transition-colors ${
                 activePage === tab.id

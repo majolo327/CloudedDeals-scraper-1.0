@@ -41,7 +41,14 @@ export function CompactTopPick({
             <h3 className="text-sm font-medium text-slate-100 truncate group-hover:text-amber-400 transition-gentle">
               {deal.product_name}
             </h3>
-            <span className="text-[10px] text-slate-500">{deal.weight}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-500">{deal.weight}</span>
+              {(deal.save_count ?? 0) >= 20 ? (
+                <span className="text-[10px] text-orange-400">🔥 {deal.save_count} saved</span>
+              ) : (deal.save_count ?? 0) > 0 ? (
+                <span className="text-[10px] text-slate-500">{deal.save_count} saved</span>
+              ) : null}
+            </div>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
@@ -62,7 +69,7 @@ export function CompactTopPick({
                   e.stopPropagation();
                   onSave();
                 }}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-gentle ${
+                className={`w-10 h-10 sm:w-8 sm:h-8 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 rounded-lg flex items-center justify-center transition-gentle ${
                   isSaved
                     ? 'bg-purple-500/20 text-purple-400'
                     : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
@@ -77,7 +84,7 @@ export function CompactTopPick({
                   e.stopPropagation();
                   onDismiss();
                 }}
-                className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/5 text-slate-500 hover:text-slate-300 hover:bg-white/10 transition-gentle"
+                className="w-10 h-10 sm:w-8 sm:h-8 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 rounded-lg flex items-center justify-center bg-white/5 text-slate-500 hover:text-slate-300 hover:bg-white/10 transition-gentle"
               >
                 <X className="w-4 h-4" />
               </button>

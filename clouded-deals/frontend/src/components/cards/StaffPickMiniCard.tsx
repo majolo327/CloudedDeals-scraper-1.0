@@ -34,12 +34,12 @@ export function StaffPickMiniCard({
             e.stopPropagation();
             onSave();
           }}
-          className={`w-5 h-5 rounded flex items-center justify-center transition-gentle shrink-0 ${
+          className={`w-8 h-8 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 rounded flex items-center justify-center transition-gentle shrink-0 ${
             isSaved ? 'text-purple-400' : 'text-slate-500 hover:text-white'
           }`}
         >
           <Heart
-            className={`w-3 h-3 transition-gentle ${isSaved ? 'fill-current' : ''}`}
+            className={`w-4 h-4 transition-gentle ${isSaved ? 'fill-current' : ''}`}
           />
         </button>
       </div>
@@ -58,6 +58,11 @@ export function StaffPickMiniCard({
           </span>
         )}
       </div>
+      {(deal.save_count ?? 0) > 0 && (
+        <span className="text-[8px] text-slate-500 mt-1">
+          {(deal.save_count ?? 0) >= 20 ? `🔥 ${deal.save_count}` : deal.save_count} saved
+        </span>
+      )}
     </div>
   );
 }

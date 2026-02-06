@@ -1,5 +1,3 @@
-export type Zone = 'strip' | 'downtown' | 'local' | 'henderson' | 'north';
-
 export type Tier = 'verified' | 'premium' | 'standard';
 
 export type BrandTier = 'premium' | 'established' | 'local' | 'value';
@@ -16,7 +14,6 @@ export interface Dispensary {
   id: string;
   name: string;
   slug: string;
-  zone: Zone;
   tier: Tier;
   address: string;
   menu_url: string;
@@ -33,6 +30,8 @@ export interface Brand {
   logo_url?: string;
 }
 
+export type BadgeType = 'fire' | 'trending' | 'steal';
+
 export interface Deal {
   id: string;
   product_name: string;
@@ -42,12 +41,8 @@ export interface Deal {
   deal_price: number;
   dispensary: Dispensary;
   brand: Brand;
-  is_top_pick: boolean;
-  is_staff_pick: boolean;
+  deal_score: number;
   is_verified: boolean;
-  is_featured?: boolean;
-  is_pinned?: boolean;
-  pinned_position?: number | null;
   editorial_note?: string;
   save_count?: number;
   created_at: Date;
