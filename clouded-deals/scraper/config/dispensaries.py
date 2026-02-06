@@ -51,16 +51,19 @@ PLATFORM_DEFAULTS = {
         "pagination": "aria-label",       # paginate via aria-label buttons
         "between_pages_sec": 5,
         "embed_type": "iframe",
+        "wait_until": "load",             # scripts must fully execute to create iframe
     },
     "curaleaf": {
         "wait_after_age_gate_sec": 30,
         "embed_type": "direct",
+        "wait_until": "domcontentloaded",
     },
     "jane": {
         "wait_after_age_gate_sec": 10,
         "pagination": "view_more",        # click "View More" button
         "between_view_more_sec": 1.5,
         "embed_type": "hybrid",           # iframe or direct depending on site
+        "wait_until": "domcontentloaded",
     },
 }
 

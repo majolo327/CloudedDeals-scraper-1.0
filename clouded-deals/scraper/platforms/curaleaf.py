@@ -34,13 +34,20 @@ _POST_AGE_GATE_WAIT = _CURALEAF_CFG["wait_after_age_gate_sec"]  # 30 s
 # Curaleaf product card selectors (tried in order).
 _PRODUCT_SELECTORS = [
     '[data-testid*="product"]',
+    '[data-testid*="Product"]',
+    '[data-testid*="Card"]',
     '[class*="ProductCard"]',
     '[class*="product-card"]',
     'a[href*="/product/"]',
     "article[class*='product']",
     ".product-tile",
+    # Curaleaf uses Next.js — try common React component patterns
+    'div[class*="ProductItem"]',
+    'div[class*="Item_"]',
+    'li[class*="product"]',
     # Broad fallback: any card-like container with a "$" price inside
     '[class*="card"]',
+    'article',
 ]
 
 
@@ -76,6 +83,30 @@ class CuraleafScraper(BaseScraper):
             # CRITICAL: navigate_curaleaf_page checks is_enabled() internally.
             if not await navigate_curaleaf_page(self.page, page_num):
                 break
+
+        # --- Fallback: if /specials returned 0 products, try the base menu ---
+        if not all_products and "/specials" in self.url:
+            base_url = self.url.replace("/specials", "")
+            logger.warning(
+                "[%s] /specials returned 0 products — retrying base menu: %s",
+                self.slug, base_url,
+            )
+            await self.save_debug_info("zero_products_specials")
+            await self.goto(base_url)
+            await self._handle_curaleaf_age_gate()
+            logger.info("[%s] Waiting %ds for product cards on base menu…", self.slug, _POST_AGE_GATE_WAIT)
+            await asyncio.sleep(_POST_AGE_GATE_WAIT)
+            page_num = 1
+            while True:
+                products = await self._extract_products()
+                all_products.extend(products)
+                logger.info(
+                    "[%s] Base menu page %d → %d products (total %d)",
+                    self.slug, page_num, len(products), len(all_products),
+                )
+                page_num += 1
+                if not await navigate_curaleaf_page(self.page, page_num):
+                    break
 
         if not all_products:
             await self.save_debug_info("zero_products")

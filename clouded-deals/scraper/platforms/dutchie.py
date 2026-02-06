@@ -1,19 +1,21 @@
 """
 Scraper for Dutchie / The Dispensary NV (TD) iframe-embedded menus.
 
-Flow:
-  1. Navigate to the dispensary page.
-  2. Dismiss the age gate (with a **45-second** post-dismiss wait so the
-     Dutchie iframe has time to fully load behind the overlay).
-  3. Locate the Dutchie iframe and switch into it.
-  4. Dismiss any age gate inside the iframe (some sites double-gate).
-  5. Extract products from ``[data-testid*="product"]`` elements.
-  6. Paginate via ``aria-label="go to page N"`` buttons, re-checking
+Flow (proven working):
+  1. Navigate to the dispensary page with ``wait_until='load'`` so all
+     scripts execute and the Dutchie embed creates the iframe.
+  2. Force-remove the age gate overlay via JS (no button click needed —
+     the iframe already exists behind the overlay after full page load).
+  3. Locate the Dutchie iframe (``src`` contains ``dutchie``) and switch
+     into it.
+  4. Extract products from ``[data-testid*="product"]`` elements.
+  5. Paginate via ``aria-label="go to page N"`` buttons, re-checking
      the parent page age gate after each page change (it can reappear).
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -26,25 +28,58 @@ from .base import BaseScraper
 logger = logging.getLogger(__name__)
 
 _DUTCHIE_CFG = PLATFORM_DEFAULTS["dutchie"]
-_POST_AGE_GATE_WAIT = _DUTCHIE_CFG["wait_after_age_gate_sec"]  # 45 s
 _BETWEEN_PAGES_SEC = _DUTCHIE_CFG["between_pages_sec"]          # 5 s
 _PRODUCT_SELECTORS = [
     '[data-testid*="product"]',
     'div[class*="product"]',
 ]
 
+# Age gate cookie to set if the site's own JS doesn't set one after overlay removal.
+_AGE_GATE_COOKIE_JS = """
+() => {
+    document.cookie = 'agc=1; path=/; max-age=86400';
+    document.cookie = 'age_verified=true; path=/; max-age=86400';
+    document.cookie = 'ageGateConfirmed=1; path=/; max-age=86400';
+}
+"""
+
 
 class DutchieScraper(BaseScraper):
     """Scraper for sites powered by the Dutchie embedded iframe menu."""
 
     async def scrape(self) -> list[dict[str, Any]]:
+        # --- Navigate with wait_until='load' (scripts fully execute) ------
         await self.goto()
 
-        # --- Age gate (45 s wait for iframe to load behind it) ----------
-        await self.handle_age_gate(post_wait_sec=_POST_AGE_GATE_WAIT)
+        # --- Remove age gate overlay + set cookies ------------------------
+        # The Dutchie embed script creates the iframe during page load.
+        # The age gate is just a CSS overlay on top.  Force-remove it so
+        # we can interact with the iframe underneath.
+        await self.page.evaluate(_AGE_GATE_COOKIE_JS)
+        removed = await force_remove_age_gate(self.page)
+        if removed > 0:
+            logger.info("[%s] Removed %d age gate overlay(s) via JS", self.slug, removed)
+        else:
+            # If no overlay found via JS, try clicking the button as fallback
+            await self.handle_age_gate(post_wait_sec=0)
 
-        # --- Locate the Dutchie iframe ----------------------------------
+        # Give the page a moment after overlay removal for any UI updates
+        await asyncio.sleep(5)
+
+        # --- Locate the Dutchie iframe ------------------------------------
         frame = await get_iframe(self.page)
+
+        if frame is None:
+            # Fallback: the embed script might need the age gate to be clicked
+            # properly (not just removed).  Try clicking + waiting + reload.
+            logger.warning("[%s] No iframe after overlay removal — trying button click + reload", self.slug)
+            await self.handle_age_gate(post_wait_sec=10)
+            await self.page.evaluate(_AGE_GATE_COOKIE_JS)
+            await self.page.reload(wait_until="load", timeout=60_000)
+            await force_remove_age_gate(self.page)
+            await asyncio.sleep(5)
+            frame = await get_iframe(self.page)
+
         if frame is None:
             logger.error("[%s] Could not find Dutchie iframe — aborting", self.slug)
             await self.save_debug_info("no_iframe")
@@ -53,7 +88,7 @@ class DutchieScraper(BaseScraper):
         # Also try age gate inside the iframe itself (some sites double-gate).
         await dismiss_age_gate(frame)
 
-        # --- Paginate and collect products ------------------------------
+        # --- Paginate and collect products --------------------------------
         all_products: list[dict[str, Any]] = []
         page_num = 1
 
