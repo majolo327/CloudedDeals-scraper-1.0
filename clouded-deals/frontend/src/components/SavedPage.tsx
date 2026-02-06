@@ -3,23 +3,14 @@
 import { Heart, DollarSign, Trash2 } from 'lucide-react';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { getDiscountPercent } from '@/utils';
-
-interface SavedDeal {
-  id: string;
-  product_name: string;
-  category: string;
-  weight: string;
-  original_price: number | null;
-  deal_price: number;
-  dispensary: { id: string; name: string };
-  brand: { id: string; name: string };
-}
+import type { Deal } from '@/types';
 
 interface SavedPageProps {
-  deals: SavedDeal[];
+  deals: Deal[];
+  onSelectDeal?: (deal: Deal) => void;
 }
 
-export function SavedPage({ deals }: SavedPageProps) {
+export function SavedPage({ deals, onSelectDeal }: SavedPageProps) {
   const { savedDeals, toggleSavedDeal, isDealUsed, markDealUsed } = useSavedDeals();
 
   const savedDealsList = deals.filter((d) => savedDeals.has(d.id));
@@ -75,6 +66,7 @@ export function SavedPage({ deals }: SavedPageProps) {
                   deal={deal}
                   onRemove={() => toggleSavedDeal(deal.id)}
                   onMarkUsed={() => markDealUsed(deal.id)}
+                  onClick={onSelectDeal ? () => onSelectDeal(deal) : undefined}
                 />
               ))}
             </div>
@@ -92,6 +84,7 @@ export function SavedPage({ deals }: SavedPageProps) {
                   deal={deal}
                   isUsed
                   onRemove={() => toggleSavedDeal(deal.id)}
+                  onClick={onSelectDeal ? () => onSelectDeal(deal) : undefined}
                 />
               ))}
             </div>
@@ -120,16 +113,21 @@ function SavedDealCard({
   isUsed = false,
   onRemove,
   onMarkUsed,
+  onClick,
 }: {
-  deal: SavedDeal;
+  deal: Deal;
   isUsed?: boolean;
   onRemove: () => void;
   onMarkUsed?: () => void;
+  onClick?: () => void;
 }) {
   const discount = getDiscountPercent(deal.original_price, deal.deal_price);
 
   return (
-    <div className="glass rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+    <div
+      className={`glass rounded-lg px-4 py-3 flex items-center justify-between gap-3 ${onClick ? 'cursor-pointer hover:bg-slate-800/30 transition-colors' : ''}`}
+      onClick={onClick}
+    >
       <div className="min-w-0">
         <p className="text-sm font-medium text-slate-200 truncate">{deal.product_name}</p>
         <div className="flex items-center gap-2 mt-0.5">
@@ -152,7 +150,7 @@ function SavedDealCard({
         <div className="flex items-center gap-1">
           {!isUsed && onMarkUsed && (
             <button
-              onClick={onMarkUsed}
+              onClick={(e) => { e.stopPropagation(); onMarkUsed(); }}
               className="p-2.5 min-w-[44px] min-h-[44px] rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors flex items-center justify-center"
               aria-label="Mark deal as used"
               title="Mark as used"
@@ -161,7 +159,7 @@ function SavedDealCard({
             </button>
           )}
           <button
-            onClick={onRemove}
+            onClick={(e) => { e.stopPropagation(); onRemove(); }}
             className="p-2.5 min-w-[44px] min-h-[44px] rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors flex items-center justify-center"
             aria-label="Remove saved deal"
             title="Remove"

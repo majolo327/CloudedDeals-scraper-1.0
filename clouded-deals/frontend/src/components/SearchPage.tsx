@@ -42,6 +42,8 @@ interface SearchPageProps {
   toggleSavedDeal: (id: string) => void;
   setSelectedDeal: (deal: Deal | null) => void;
   onNavigateToBrands: () => void;
+  initialQuery?: string;
+  onQueryConsumed?: () => void;
 }
 
 export function SearchPage({
@@ -51,9 +53,11 @@ export function SearchPage({
   toggleSavedDeal,
   setSelectedDeal,
   onNavigateToBrands,
+  initialQuery,
+  onQueryConsumed,
 }: SearchPageProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialQuery || '');
+  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery || '');
   const [activeCategory, setActiveCategory] = useState<FilterCategory>('all');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -64,6 +68,15 @@ export function SearchPage({
   useEffect(() => {
     setRecentSearches(loadRecentSearches());
   }, []);
+
+  // Consume initialQuery from parent (e.g. Browse → brand click)
+  useEffect(() => {
+    if (initialQuery) {
+      setSearchQuery(initialQuery);
+      setDebouncedQuery(initialQuery);
+      onQueryConsumed?.();
+    }
+  }, [initialQuery, onQueryConsumed]);
 
   // Debounce search input (300ms)
   useEffect(() => {

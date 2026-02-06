@@ -9,6 +9,10 @@ scrape_runs for the admin dashboard.
 Usage:
     python main.py                # scrape all active dispensaries
     python main.py td-gibson      # scrape a single site by slug
+
+Environment variables (for CI):
+    DRY_RUN=true              # scrape only, skip all DB writes
+    LIMIT_DISPENSARIES=true   # scrape only 3 sites (1 per platform)
 """
 
 from __future__ import annotations
@@ -17,6 +21,7 @@ import asyncio
 import logging
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -38,11 +43,14 @@ logging.basicConfig(
 logger = logging.getLogger("orchestrator")
 
 # ---------------------------------------------------------------------------
-# Supabase client (service-role key for writes)
+# Configuration from environment
 # ---------------------------------------------------------------------------
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
+
+DRY_RUN = os.getenv("DRY_RUN", "false").lower() == "true"
+LIMIT_DISPENSARIES = os.getenv("LIMIT_DISPENSARIES", "false").lower() == "true"
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     logger.error("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set")
@@ -68,6 +76,9 @@ SCRAPER_MAP = {
 
 def _create_run() -> str:
     """Insert a new scrape_runs row and return its id."""
+    if DRY_RUN:
+        logger.info("[DRY RUN] Would create scrape_runs entry")
+        return "dry-run"
     row = db.table("scrape_runs").insert({"status": "running"}).execute()
     run_id: str = row.data[0]["id"]
     logger.info("Scrape run started: %s", run_id)
@@ -83,6 +94,12 @@ def _complete_run(
     sites_scraped: list[str],
     sites_failed: list[dict[str, str]],
 ) -> None:
+    if DRY_RUN:
+        logger.info(
+            "[DRY RUN] Would update run — status=%s, products=%d, deals=%d",
+            status, total_products, qualifying_deals,
+        )
+        return
     db.table("scrape_runs").update(
         {
             "status": status,
@@ -97,11 +114,10 @@ def _complete_run(
 
 
 def _seed_dispensaries() -> None:
-    """Ensure all configured dispensaries exist in the DB.
-
-    Upserts dispensary rows so that the foreign-key constraint on
-    products.dispensary_id is satisfied before any products are inserted.
-    """
+    """Ensure all configured dispensaries exist in the DB."""
+    if DRY_RUN:
+        logger.info("[DRY RUN] Would seed %d dispensaries", len(DISPENSARIES))
+        return
     rows = [
         {
             "id": d["slug"],
@@ -119,10 +135,7 @@ def _seed_dispensaries() -> None:
 def _upsert_products(
     dispensary_id: str, products: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Upsert parsed products into the products table.
-
-    Returns the rows as returned by Supabase (including generated ids).
-    """
+    """Upsert parsed products into the products table."""
     rows = []
     for p in products:
         rows.append(
@@ -145,12 +158,17 @@ def _upsert_products(
     if not rows:
         return []
 
+    if DRY_RUN:
+        logger.info("[DRY RUN] Would insert %d products for %s", len(rows), dispensary_id)
+        # Return fake rows with ids so deal matching still works in logs
+        return [{"id": f"dry-{i}", **r} for i, r in enumerate(rows)]
+
     # The DB unique constraint includes scraped_at which defaults to NOW(),
-    # making true upserts impossible within the same run.  Use plain insert
-    # instead and ignore conflicts so re-runs within the same second are safe.
+    # making true upserts impossible within the same run.  Use upsert with
+    # ignoreDuplicates so re-runs within the same second are safe.
     result = (
         db.table("products")
-        .insert(rows)
+        .upsert(rows, on_conflict="dispensary_id,name,sale_price,scraped_at", ignore_duplicates=True)
         .execute()
     )
     return result.data
@@ -161,22 +179,21 @@ def _insert_deals(
     deals: list[dict[str, Any]],
     product_rows: list[dict[str, Any]],
 ) -> int:
-    """Insert qualifying deals into the deals table.
-
-    Matches deals back to their upserted product rows by name + sale_price.
-    Returns the number of deals inserted.
-    """
-    # Build lookup: (name, sale_price) → product_id
+    """Insert qualifying deals into the deals table."""
+    # Build lookup: (name, sale_price) -> product_id
     product_lookup: dict[tuple[str, float | None], str] = {}
     for pr in product_rows:
         key = (pr["name"], pr.get("sale_price"))
         product_lookup[key] = pr["id"]
 
     deal_rows = []
+    skipped = 0
     for d in deals:
         key = (d.get("name", ""), d.get("sale_price"))
         product_id = product_lookup.get(key)
         if not product_id:
+            logger.warning("No product match for deal: %s @ $%s", d.get("name"), d.get("sale_price"))
+            skipped += 1
             continue
         deal_rows.append(
             {
@@ -186,19 +203,28 @@ def _insert_deals(
             }
         )
 
+    if skipped > 0:
+        logger.warning("[%s] %d deals skipped (no product match)", dispensary_id, skipped)
+
     if not deal_rows:
         return 0
+
+    if DRY_RUN:
+        logger.info("[DRY RUN] Would insert %d deals for %s", len(deal_rows), dispensary_id)
+        return len(deal_rows)
 
     db.table("deals").insert(deal_rows).execute()
     return len(deal_rows)
 
 
 # ---------------------------------------------------------------------------
-# Per-site scrape
+# Per-site scrape with retry
 # ---------------------------------------------------------------------------
 
 
 _SITE_TIMEOUT_SEC = 120  # 2 minutes max per site
+_MAX_RETRIES = 2
+_RETRY_DELAY_SEC = 5
 
 
 async def _scrape_site_inner(dispensary: dict[str, Any]) -> dict[str, Any]:
@@ -233,20 +259,34 @@ async def _scrape_site_inner(dispensary: dict[str, Any]) -> dict[str, Any]:
 
 
 async def scrape_site(dispensary: dict[str, Any]) -> dict[str, Any]:
-    """Scrape a single dispensary with a timeout guard."""
+    """Scrape a single dispensary with timeout and retry."""
     slug = dispensary["slug"]
-    logger.info("[%s] Starting scrape (%s)", slug, dispensary["platform"])
-    try:
-        return await asyncio.wait_for(
-            _scrape_site_inner(dispensary),
-            timeout=_SITE_TIMEOUT_SEC,
+
+    for attempt in range(1, _MAX_RETRIES + 1):
+        logger.info(
+            "[%s] Starting scrape (%s) — attempt %d/%d",
+            slug, dispensary["platform"], attempt, _MAX_RETRIES,
         )
-    except asyncio.TimeoutError:
-        logger.error("[%s] Timed out after %ds", slug, _SITE_TIMEOUT_SEC)
-        return {"slug": slug, "error": f"Timed out after {_SITE_TIMEOUT_SEC}s"}
-    except Exception as exc:
-        logger.error("[%s] Failed: %s", slug, exc, exc_info=True)
-        return {"slug": slug, "error": str(exc)}
+        try:
+            result = await asyncio.wait_for(
+                _scrape_site_inner(dispensary),
+                timeout=_SITE_TIMEOUT_SEC,
+            )
+            # Success — return immediately
+            return result
+        except asyncio.TimeoutError:
+            logger.error("[%s] Timed out after %ds (attempt %d)", slug, _SITE_TIMEOUT_SEC, attempt)
+            if attempt < _MAX_RETRIES:
+                logger.info("[%s] Retrying in %ds...", slug, _RETRY_DELAY_SEC)
+                await asyncio.sleep(_RETRY_DELAY_SEC)
+        except Exception as exc:
+            logger.error("[%s] Failed (attempt %d): %s", slug, attempt, exc, exc_info=True)
+            if attempt < _MAX_RETRIES:
+                logger.info("[%s] Retrying in %ds...", slug, _RETRY_DELAY_SEC)
+                await asyncio.sleep(_RETRY_DELAY_SEC)
+
+    # All attempts exhausted
+    return {"slug": slug, "error": f"Failed after {_MAX_RETRIES} attempts"}
 
 
 # ---------------------------------------------------------------------------
@@ -255,13 +295,30 @@ async def scrape_site(dispensary: dict[str, Any]) -> dict[str, Any]:
 
 
 def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
-    """Return dispensary configs to scrape.
-
-    If *slug_filter* is given, return only that single site.
-    Otherwise return all active dispensaries from the DISPENSARIES list.
-    """
+    """Return dispensary configs to scrape."""
     if slug_filter:
         return [d for d in DISPENSARIES if d["slug"] == slug_filter]
+
+    if LIMIT_DISPENSARIES:
+        # Pick 1 per platform for quick testing
+        picked: list[dict] = []
+        seen_platforms: set[str] = set()
+        for d in DISPENSARIES:
+            if d["platform"] not in seen_platforms:
+                picked.append(d)
+                seen_platforms.add(d["platform"])
+            if len(picked) >= 3:
+                break
+        logger.info(
+            "TEST MODE: Limited to %d dispensaries (%s)",
+            len(picked),
+            ", ".join(d["slug"] for d in picked),
+        )
+        return picked
+
+    if DRY_RUN:
+        # In dry run, just use the config list — don't query DB
+        return list(DISPENSARIES)
 
     # Fetch active slugs from Supabase so the admin can disable sites.
     result = (
@@ -282,6 +339,15 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
 
 async def run(slug_filter: str | None = None) -> None:
     """Run the full scrape pipeline."""
+    start = time.time()
+
+    logger.info("=" * 60)
+    logger.info("CloudedDeals Scraper Starting")
+    logger.info("  DRY_RUN:    %s", DRY_RUN)
+    logger.info("  LIMITED:    %s", LIMIT_DISPENSARIES)
+    logger.info("  SINGLE:     %s", slug_filter or "(all)")
+    logger.info("=" * 60)
+
     _seed_dispensaries()
 
     dispensaries = _get_active_dispensaries(slug_filter)
@@ -297,17 +363,23 @@ async def run(slug_filter: str | None = None) -> None:
     total_products = 0
     total_deals = 0
 
-    for dispensary in dispensaries:
+    for i, dispensary in enumerate(dispensaries, 1):
+        logger.info("--- [%d/%d] %s ---", i, len(dispensaries), dispensary["name"])
         result = await scrape_site(dispensary)
 
         if result.get("error"):
             sites_failed.append(
                 {"slug": result["slug"], "error": result["error"]}
             )
+            logger.error("[%s] FAILED: %s", result["slug"], result["error"])
         else:
             sites_scraped.append(result["slug"])
             total_products += result.get("products", 0)
             total_deals += result.get("deals", 0)
+            logger.info(
+                "[%s] OK — %d products, %d deals",
+                result["slug"], result.get("products", 0), result.get("deals", 0),
+            )
 
     status = "completed" if sites_scraped else "failed"
     _complete_run(
@@ -319,13 +391,20 @@ async def run(slug_filter: str | None = None) -> None:
         sites_failed=sites_failed,
     )
 
-    logger.info(
-        "Done — %d products, %d deals, %d/%d sites OK",
-        total_products,
-        total_deals,
-        len(sites_scraped),
-        len(sites_scraped) + len(sites_failed),
-    )
+    elapsed = time.time() - start
+
+    logger.info("=" * 60)
+    logger.info("SCRAPE COMPLETE")
+    logger.info("  Status:     %s", status)
+    logger.info("  Products:   %d", total_products)
+    logger.info("  Deals:      %d", total_deals)
+    logger.info("  Sites OK:   %d/%d", len(sites_scraped), len(dispensaries))
+    logger.info("  Duration:   %.1fs", elapsed)
+    if sites_failed:
+        logger.info("  Failed:")
+        for f in sites_failed:
+            logger.info("    - %s: %s", f["slug"], f["error"])
+    logger.info("=" * 60)
 
 
 if __name__ == "__main__":

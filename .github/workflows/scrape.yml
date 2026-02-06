@@ -1,10 +1,26 @@
-name: Daily Scrape
+name: Daily Scraper
 
 on:
   schedule:
-    # 8:45 AM EST = 13:45 UTC
-    - cron: "45 13 * * *"
+    # 8:30 AM Pacific = 16:30 UTC (15:30 during PDT)
+    - cron: "30 16 * * *"
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (scrape but don't write to DB)"
+        required: false
+        type: boolean
+        default: false
+      limit_dispensaries:
+        description: "Test with only 3 dispensaries (1 per platform)"
+        required: false
+        type: boolean
+        default: false
+      single_site:
+        description: "Scrape a single site by slug (e.g. td-gibson)"
+        required: false
+        type: string
+        default: ""
 
 jobs:
   scrape:
@@ -12,80 +28,55 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # =========================================================================
-      # SUPABASE MIGRATIONS
-      # =========================================================================
-      # Runs all pending SQL migrations from clouded-deals/supabase/migrations/
-      # Requires SUPABASE_DB_URL secret in format:
-      #   postgresql://postgres:[password]@db.[project-ref].supabase.co:5432/postgres
-      #
-      # To get your DB URL:
-      # 1. Go to Supabase Dashboard > Project Settings > Database
-      # 2. Copy the "Connection string" (URI format)
-      # 3. Add as repository secret named SUPABASE_DB_URL
-      # =========================================================================
-      - name: Run Supabase migrations
-        if: ${{ secrets.SUPABASE_DB_URL != '' }}
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: |
-          # Install PostgreSQL client
-          sudo apt-get update && sudo apt-get install -y postgresql-client
-
-          # Run each migration file in order
-          MIGRATIONS_DIR="clouded-deals/supabase/migrations"
-
-          if [ -d "$MIGRATIONS_DIR" ]; then
-            echo "📦 Found migrations directory"
-
-            # Get list of migration files sorted by name
-            MIGRATION_FILES=$(find "$MIGRATIONS_DIR" -name "*.sql" -type f | sort)
-
-            if [ -z "$MIGRATION_FILES" ]; then
-              echo "ℹ️  No migration files found, skipping"
-            else
-              echo "🔄 Running migrations..."
-
-              for file in $MIGRATION_FILES; do
-                echo "  → Running: $(basename $file)"
-                # Run migration, continue on error (idempotent migrations)
-                psql "$SUPABASE_DB_URL" -f "$file" 2>&1 || echo "    ⚠️  Migration may have already been applied"
-              done
-
-              echo "✅ Migrations complete"
-            fi
-          else
-            echo "ℹ️  No migrations directory found at $MIGRATIONS_DIR"
-          fi
-
-      - name: Skip migrations (no DB URL configured)
-        if: ${{ secrets.SUPABASE_DB_URL == '' }}
-        run: |
-          echo "⚠️  SUPABASE_DB_URL secret not configured, skipping migrations"
-          echo "   To enable automatic migrations, add SUPABASE_DB_URL secret"
-          echo "   See workflow comments for setup instructions"
-
-      - name: Install Python dependencies
+      - name: Install dependencies
         working-directory: clouded-deals/scraper
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          echo "--- Installing Playwright ---"
+          playwright install-deps
+          playwright install chromium
 
-      - name: Install Playwright system dependencies
-        run: playwright install-deps
-
-      - name: Install Playwright Chromium
-        run: playwright install chromium
+      - name: Test Supabase connection
+        working-directory: clouded-deals/scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python test_connection.py
 
       - name: Run scraper
         working-directory: clouded-deals/scraper
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python main.py
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          LIMIT_DISPENSARIES: ${{ github.event.inputs.limit_dispensaries || 'false' }}
+          SINGLE_SITE: ${{ github.event.inputs.single_site || '' }}
+        run: |
+          echo "=== Scraper Configuration ==="
+          echo "Dry run:    $DRY_RUN"
+          echo "Limited:    $LIMIT_DISPENSARIES"
+          echo "Single:     $SINGLE_SITE"
+          echo "============================="
+
+          if [ -n "$SINGLE_SITE" ]; then
+            python main.py "$SINGLE_SITE"
+          else
+            python main.py
+          fi
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scraper-logs-${{ github.run_id }}
+          path: |
+            clouded-deals/scraper/*.log
+          retention-days: 7
