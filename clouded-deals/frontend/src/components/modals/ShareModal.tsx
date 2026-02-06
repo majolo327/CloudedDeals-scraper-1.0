@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { X, MessageCircle, Check, Link, Send } from 'lucide-react';
 import type { Deal } from '@/types';
-import { trackEvent } from '@/lib/analytics';
+import { trackEvent, getOrCreateAnonId } from '@/lib/analytics';
 
 interface ShareModalProps {
   deal: Deal;
@@ -12,12 +12,14 @@ interface ShareModalProps {
 
 function buildShareUrl(deal: Deal): string {
   if (typeof window === 'undefined') return '';
+  const anonId = getOrCreateAnonId();
   const base = `${window.location.origin}/deal/${deal.id}`;
   const params = new URLSearchParams({
     utm_source: 'share',
     utm_medium: 'direct',
     utm_campaign: 'deal_share',
     utm_content: deal.id,
+    ...(anonId ? { ref: anonId } : {}),
   });
   return `${base}?${params.toString()}`;
 }

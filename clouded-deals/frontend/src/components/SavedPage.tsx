@@ -154,6 +154,7 @@ function SavedDealCard({
             <button
               onClick={onMarkUsed}
               className="p-2.5 min-w-[44px] min-h-[44px] rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors flex items-center justify-center"
+              aria-label="Mark deal as used"
               title="Mark as used"
             >
               <DollarSign className="w-4 h-4" />
@@ -162,6 +163,7 @@ function SavedDealCard({
           <button
             onClick={onRemove}
             className="p-2.5 min-w-[44px] min-h-[44px] rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors flex items-center justify-center"
+            aria-label="Remove saved deal"
             title="Remove"
           >
             <Trash2 className="w-4 h-4" />

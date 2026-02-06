@@ -120,6 +120,31 @@ body {
   50% { transform: scale(1.05); }
 }
 
+/* ===== FOCUS & ACCESSIBILITY ===== */
+
+/* Visible focus ring for keyboard-only navigation */
+*:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.7);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Remove focus ring on mouse/touch (browsers that support :focus-visible) */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* ===== UTILITIES ===== */
 
 @layer utilities {

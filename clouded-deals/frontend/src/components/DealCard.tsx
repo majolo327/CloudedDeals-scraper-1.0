@@ -65,6 +65,7 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
               setShowShare(true);
             }}
             className="w-10 h-10 min-w-[44px] min-h-[44px] sm:w-8 sm:h-8 sm:min-w-0 sm:min-h-0 rounded-lg flex items-center justify-center transition-all text-slate-500 hover:text-purple-400 hover:bg-purple-500/10"
+            aria-label="Share deal"
             title="Share"
           >
             <Share2 className="w-3.5 h-3.5" />
@@ -79,6 +80,7 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
                 ? 'bg-purple-500/10 text-purple-400'
                 : 'text-slate-500 hover:text-purple-400 hover:bg-purple-500/10'
             }`}
+            aria-label={isSaved ? 'Remove from saved' : 'Save deal'}
           >
             <Heart className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
           </button>

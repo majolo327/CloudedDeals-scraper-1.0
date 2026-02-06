@@ -1,5 +1,41 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+import { trackEvent } from './analytics';
 import type { Deal, Category, Dispensary, Brand } from '@/types';
+
+// --------------------------------------------------------------------------
+// Deal cache for offline support
+// --------------------------------------------------------------------------
+
+const DEALS_CACHE_KEY = 'clouded_deals_cache';
+
+interface DealCache {
+  deals: Deal[];
+  timestamp: number;
+}
+
+function getCachedDeals(): Deal[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(DEALS_CACHE_KEY);
+    if (!raw) return null;
+    const cache: DealCache = JSON.parse(raw);
+    // Cache valid for 24 hours
+    if (Date.now() - cache.timestamp > 24 * 60 * 60 * 1000) return null;
+    // Restore Date objects
+    return cache.deals.map(d => ({ ...d, created_at: new Date(d.created_at) }));
+  } catch {
+    return null;
+  }
+}
+
+function setCachedDeals(deals: Deal[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(DEALS_CACHE_KEY, JSON.stringify({ deals, timestamp: Date.now() }));
+  } catch {
+    // Storage full — ignore
+  }
+}
 
 // --------------------------------------------------------------------------
 // Raw row shape returned by the Supabase join query
@@ -99,6 +135,17 @@ export async function fetchDeals(): Promise<FetchDealsResult> {
     return { deals: [], error: null };
   }
 
+  // Offline check — serve cached deals
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    const cached = getCachedDeals();
+    if (cached) {
+      return { deals: cached, error: null };
+    }
+    return { deals: [], error: 'You\'re offline. Check your connection and try again.' };
+  }
+
+  const start = performance.now();
+
   try {
     // Fetch deals and save counts in parallel
     const [dealsResult, countsResult] = await Promise.all([
@@ -134,9 +181,26 @@ export async function fetchDeals(): Promise<FetchDealsResult> {
         })
       : [];
 
+    // Cache for offline use
+    setCachedDeals(deals);
+
+    // Track slow loads
+    const duration = performance.now() - start;
+    if (duration > 2000) {
+      trackEvent('slow_load', undefined, { duration: Math.round(duration), source: 'fetchDeals' });
+    }
+
     return { deals, error: null };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to fetch deals';
+    trackEvent('error', undefined, { type: 'deals_fetch_failed', message });
+
+    // Fall back to cached deals
+    const cached = getCachedDeals();
+    if (cached) {
+      return { deals: cached, error: null };
+    }
+
     return { deals: [], error: message };
   }
 }

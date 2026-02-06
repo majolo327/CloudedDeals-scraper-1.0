@@ -55,7 +55,12 @@ export type EventType =
   | 'deal_dismiss'
   | 'deal_click'
   | 'search'
-  | 'filter_change';
+  | 'filter_change'
+  | 'referral_click'
+  | 'referral_conversion'
+  | 'daily_visit'
+  | 'error'
+  | 'slow_load';
 
 /**
  * Initialize anonymous user on app load. Sets up the anon_id and
@@ -66,6 +71,8 @@ export function initializeAnonUser(): void {
   if (!anonId) return;
   touchSession();
 }
+
+const isDev = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
 
 /**
  * Fire-and-forget event tracking. Inserts a row into analytics_events
@@ -83,6 +90,11 @@ export function trackEvent(
     ...(metadata ?? {}),
     ...(dealId ? { deal_id: dealId } : {}),
   };
+
+  // Dev-mode console logging for debugging
+  if (isDev) {
+    console.log(`[analytics] ${eventType}`, dealId ?? '', properties);
+  }
 
   // Write to analytics_events table
   fireAndForget(() =>

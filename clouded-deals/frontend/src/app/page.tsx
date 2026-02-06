@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Star, Heart, Search, Bookmark, AlertCircle } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { fetchDeals } from '@/lib/api';
@@ -114,6 +114,20 @@ export default function Home() {
     }
   }, [addToast]);
 
+  // Track referral clicks from share links
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const referrer = params.get('ref');
+    if (referrer) {
+      trackEvent('referral_click', undefined, {
+        referrer,
+        deal_id: params.get('utm_content') || undefined,
+      });
+      sessionStorage.setItem('clouded_referrer', referrer);
+    }
+  }, []);
+
   // Show auth prompt after 3+ saves (only if not authenticated and not dismissed)
   useEffect(() => {
     if (savedCount >= 3 && !authUser && !isAuthPromptDismissed()) {
@@ -157,11 +171,23 @@ export default function Home() {
     return Array.from(seen.values());
   }, [deals]);
 
-  // Save handler with brand tracking
+  // Save handler with brand tracking, haptic feedback, and rate limiting
+  const lastSaveRef = useRef(0);
   const handleToggleSave = useCallback(
     (dealId: string) => {
+      // Rate limit: 500ms between saves
+      const now = Date.now();
+      if (now - lastSaveRef.current < 500) return;
+      lastSaveRef.current = now;
+
       const wasSaved = savedDeals.has(dealId);
       toggleSavedDeal(dealId);
+
+      // Haptic feedback on mobile
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(wasSaved ? 10 : 30);
+      }
+
       if (!wasSaved) {
         const deal = deals.find((d) => d.id === dealId);
         if (deal) trackBrand(deal.brand.name);
@@ -402,8 +428,8 @@ export default function Home() {
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       {/* Mobile bottom nav bar */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/50">
-        <div className="flex items-center justify-around px-2 pb-[env(safe-area-inset-bottom)]">
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/50" aria-label="Main navigation">
+        <div className="flex items-center justify-around px-2 pb-[env(safe-area-inset-bottom)]" role="tablist">
           {[
             { id: 'home' as const, label: 'Deals', icon: Star },
             { id: 'search' as const, label: 'Search', icon: Search },
@@ -412,6 +438,9 @@ export default function Home() {
           ].map((tab) => (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={activePage === tab.id}
+              aria-label={tab.label}
               onClick={() => setActivePage(tab.id)}
               className={`flex flex-col items-center gap-0.5 px-3 py-2 min-w-[56px] min-h-[48px] text-[10px] font-medium transition-colors ${
                 activePage === tab.id

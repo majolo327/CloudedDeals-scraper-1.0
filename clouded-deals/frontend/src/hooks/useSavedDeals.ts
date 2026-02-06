@@ -89,6 +89,15 @@ export function useSavedDeals() {
         newSet.add(dealId);
         trackEvent('deal_saved', dealId, { action: 'save' });
         trackSavedDeal(dealId);
+
+        // Track referral conversion if user came from a share link
+        if (typeof window !== 'undefined') {
+          const referrer = sessionStorage.getItem('clouded_referrer');
+          if (referrer) {
+            trackEvent('referral_conversion', dealId, { referrer });
+            sessionStorage.removeItem('clouded_referrer');
+          }
+        }
       }
       return newSet;
     });
