@@ -326,88 +326,93 @@ export default function Home() {
 
       {/* Main content — bottom padding on mobile for bottom nav */}
       <main className="relative pb-20 sm:pb-0">
-        {loading ? (
-          <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
-            <TopPickSkeleton />
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <DealCardSkeleton key={i} />
-              ))}
+        {/* Deals tab: shows loading/error states */}
+        {activePage === 'home' && (
+          loading ? (
+            <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
+              <TopPickSkeleton />
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <DealCardSkeleton key={i} />
+                ))}
+              </div>
             </div>
-          </div>
-        ) : error ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center max-w-6xl mx-auto px-4">
-            <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mb-4">
-              <AlertCircle className="w-8 h-8 text-red-400" />
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center max-w-6xl mx-auto px-4">
+              <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mb-4">
+                <AlertCircle className="w-8 h-8 text-red-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-300 mb-2">
+                Something went wrong
+              </h2>
+              <p className="text-sm text-slate-500 max-w-sm mb-4">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-purple-500/20 text-purple-400 rounded-lg text-sm font-medium hover:bg-purple-500/30 transition-colors"
+              >
+                Try again
+              </button>
             </div>
-            <h2 className="text-lg font-semibold text-slate-300 mb-2">
-              Something went wrong
-            </h2>
-            <p className="text-sm text-slate-500 max-w-sm mb-4">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-purple-500/20 text-purple-400 rounded-lg text-sm font-medium hover:bg-purple-500/30 transition-colors"
-            >
-              Try again
-            </button>
-          </div>
-        ) : deals.length === 0 && !isSupabaseConfigured ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center max-w-6xl mx-auto px-4">
-            <div className="w-16 h-16 rounded-2xl bg-slate-800/50 flex items-center justify-center mb-4">
-              <Star className="w-8 h-8 text-slate-600" />
+          ) : deals.length === 0 && !isSupabaseConfigured ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center max-w-6xl mx-auto px-4">
+              <div className="w-16 h-16 rounded-2xl bg-slate-800/50 flex items-center justify-center mb-4">
+                <Star className="w-8 h-8 text-slate-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-300 mb-2">No deals yet</h2>
+              <p className="text-sm text-slate-500 max-w-sm">
+                Database not connected. Set NEXT_PUBLIC_SUPABASE_URL and
+                NEXT_PUBLIC_SUPABASE_ANON_KEY to see live deals.
+              </p>
             </div>
-            <h2 className="text-lg font-semibold text-slate-300 mb-2">No deals yet</h2>
-            <p className="text-sm text-slate-500 max-w-sm">
-              Database not connected. Set NEXT_PUBLIC_SUPABASE_URL and
-              NEXT_PUBLIC_SUPABASE_ANON_KEY to see live deals.
-            </p>
-          </div>
-        ) : (
-          <>
-            {activePage === 'home' && (
-              <DealsPage
-                deals={todaysDeals}
-                verifiedDeals={verifiedDeals}
-                savedDeals={savedDeals}
-                usedDeals={usedDeals}
-                toggleSavedDeal={handleToggleSave}
-                setSelectedDeal={setSelectedDeal}
-                savedCount={savedCount}
-                streak={streak}
-                topBrands={topBrands}
-                totalBrandSaves={totalSaves}
-                addToast={addToast}
-                onHighlightSavedIcon={handleHighlightSaved}
-              />
-            )}
-            {activePage === 'search' && (
-              <SearchPage
-                deals={todaysDeals}
-                brands={brands}
-                savedDeals={savedDeals}
-                toggleSavedDeal={handleToggleSave}
-                setSelectedDeal={setSelectedDeal}
-                onNavigateToBrands={() => setActivePage('browse')}
-                initialQuery={searchInitialQuery}
-                onQueryConsumed={() => setSearchInitialQuery('')}
-              />
-            )}
-            {activePage === 'browse' && (
-              <BrowsePage
-                deals={deals}
-                onSelectBrand={(brandName) => {
-                  setSearchInitialQuery(brandName);
-                  setActivePage('search');
-                }}
-              />
-            )}
-            {activePage === 'saved' && (
-              <SavedPage
-                deals={deals}
-                onSelectDeal={setSelectedDeal}
-              />
-            )}
-          </>
+          ) : (
+            <DealsPage
+              deals={todaysDeals}
+              verifiedDeals={verifiedDeals}
+              savedDeals={savedDeals}
+              usedDeals={usedDeals}
+              toggleSavedDeal={handleToggleSave}
+              setSelectedDeal={setSelectedDeal}
+              savedCount={savedCount}
+              streak={streak}
+              topBrands={topBrands}
+              totalBrandSaves={totalSaves}
+              addToast={addToast}
+              onHighlightSavedIcon={handleHighlightSaved}
+            />
+          )
+        )}
+
+        {/* Search tab: always renders (works with empty deals) */}
+        {activePage === 'search' && (
+          <SearchPage
+            deals={todaysDeals}
+            brands={brands}
+            savedDeals={savedDeals}
+            toggleSavedDeal={handleToggleSave}
+            setSelectedDeal={setSelectedDeal}
+            onNavigateToBrands={() => setActivePage('browse')}
+            initialQuery={searchInitialQuery}
+            onQueryConsumed={() => setSearchInitialQuery('')}
+          />
+        )}
+
+        {/* Browse tab: always renders (uses static brand/dispensary data) */}
+        {activePage === 'browse' && (
+          <BrowsePage
+            deals={deals}
+            onSelectBrand={(brandName) => {
+              setSearchInitialQuery(brandName);
+              setActivePage('search');
+            }}
+          />
+        )}
+
+        {/* Saved tab: always renders */}
+        {activePage === 'saved' && (
+          <SavedPage
+            deals={deals}
+            onSelectDeal={setSelectedDeal}
+          />
         )}
       </main>
 
