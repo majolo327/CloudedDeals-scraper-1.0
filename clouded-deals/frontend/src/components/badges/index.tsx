@@ -1,6 +1,8 @@
 'use client';
 
-import { ShieldCheck, Star, Tag } from 'lucide-react';
+import { ShieldCheck, Tag } from 'lucide-react';
+
+export { DealBadge } from './DealBadge';
 
 export function VerifiedBadge({ className = '' }: { className?: string }) {
   return (
@@ -9,17 +11,6 @@ export function VerifiedBadge({ className = '' }: { className?: string }) {
     >
       <ShieldCheck className="w-3 h-3" />
       Verified
-    </span>
-  );
-}
-
-export function StaffPickBadge({ className = '' }: { className?: string }) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-400 ${className}`}
-    >
-      <Star className="w-3 h-3" />
-      Staff Pick
     </span>
   );
 }

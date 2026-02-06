@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Heart, BadgeCheck, Star, MapPin, CheckCircle, Clock, Share2, Users } from 'lucide-react';
+import { Heart, BadgeCheck, MapPin, CheckCircle, Clock, Share2, Users } from 'lucide-react';
 import type { Deal } from '@/types';
 import { isFreshDeal } from '@/lib/socialProof';
+import { getBadge } from '@/utils';
+import { DealBadge } from './badges/DealBadge';
 import { ShareModal } from './modals/ShareModal';
 
 interface DealCardProps {
@@ -40,29 +42,14 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
               Verified
             </span>
           )}
-          {deal.is_staff_pick && (
-            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-cyan-500/10 text-cyan-400">
-              <Star className="w-2.5 h-2.5 fill-current" />
-              Staff Pick
-            </span>
-          )}
-          {deal.is_featured && (
-            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-amber-500/10 text-amber-400">
-              <Star className="w-2.5 h-2.5 fill-current" />
-              Featured
-            </span>
-          )}
-          {/* Save count / trending */}
-          {(deal.save_count ?? 0) >= 20 ? (
-            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-orange-500/10 text-orange-400">
-              🔥 Trending &middot; {deal.save_count} saved
-            </span>
-          ) : (deal.save_count ?? 0) > 0 ? (
+          {(() => { const badge = getBadge(deal); return badge ? <DealBadge type={badge} /> : null; })()}
+          {/* Save count */}
+          {(deal.save_count ?? 0) > 0 && (
             <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-slate-500/10 text-slate-400">
               <Users className="w-2.5 h-2.5" />
               {deal.save_count} saved
             </span>
-          ) : null}
+          )}
           {/* Fresh deal */}
           {isFreshDeal(deal.created_at, 4) && (
             <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-green-500/10 text-green-400">

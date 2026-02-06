@@ -387,15 +387,15 @@ export function scoreDeals(
     }
 
     // ------------------------------------
-    // Bonus for top/staff picks
+    // Bonus for high deal_score
     // ------------------------------------
-    if (deal.is_top_pick) score += 10;
-    if (deal.is_staff_pick) score += 5;
+    if (deal.deal_score >= 80) score += 10;
+    else if (deal.deal_score >= 60) score += 5;
     if (deal.is_verified) score += 3;
 
     // New user special handling
     if (preferences.isNewUser && !topReason) {
-      if (deal.is_top_pick || deal.is_staff_pick) {
+      if (deal.deal_score >= 70) {
         topReason = 'new_user_top_pick';
       }
     }

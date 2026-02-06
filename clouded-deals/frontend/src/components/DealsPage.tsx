@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Star, BadgeCheck } from 'lucide-react';
+import { BadgeCheck } from 'lucide-react';
 import type { Deal } from '@/types';
 import type { ToastData } from './Toast';
-import { CompactDealCard, CompactTopPick, StaffPickMiniCard, DealCard } from './cards';
+import { CompactDealCard, DealCard } from './cards';
 import { DealStack } from './DealStack';
 import { FilterSheet, FilterState, DEFAULT_FILTERS } from './FilterSheet';
 import { StickyStatsBar } from './layout';
@@ -20,7 +20,6 @@ type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'prer
 interface DealsPageProps {
   deals: Deal[];
   verifiedDeals: Deal[];
-  featuredDeals: Deal[];
   savedDeals: Set<string>;
   usedDeals: Map<string, number>;
   toggleSavedDeal: (id: string) => void;
@@ -137,9 +136,7 @@ export function DealsPage({
 
     initializedRef.current = true;
 
-    const eligible = dailyRotatedDeals.filter(
-      (d) => !d.is_top_pick && !d.is_staff_pick
-    );
+    const eligible = dailyRotatedDeals;
 
     let storedDismissed = new Set<string>();
     if (!isDemoMode) {
@@ -197,10 +194,7 @@ export function DealsPage({
     }
   }, [currentBoardSaves.size, hasSeenNineClearFTUE, showNineClearModal]);
 
-  const allDailyDeals = dailyRotatedDeals.filter(
-    (d) => !d.is_top_pick && !d.is_staff_pick
-  );
-  const totalDeals = allDailyDeals.length;
+  const totalDeals = dailyRotatedDeals.length;
   const discoveredCount = dismissedDeals.size;
 
   // Discovery milestones
@@ -331,13 +325,6 @@ export function DealsPage({
     };
   }, [dailyRotatedDeals, dismissedDeals, savedDeals]);
 
-  const topPick = dailyRotatedDeals.find(
-    (d) => d.is_top_pick && !dismissedDeals.has(d.id)
-  );
-  const staffPicks = dailyRotatedDeals.filter(
-    (d) => d.is_staff_pick && !dismissedDeals.has(d.id)
-  );
-
   const sortedVerifiedDeals = useMemo(() => {
     let result = verifiedDeals
       .filter((d) => d.is_verified)
@@ -381,40 +368,6 @@ export function DealsPage({
       <div className="max-w-6xl mx-auto px-4 py-4">
         {activeTab === 'today' && (
           <div className="animate-in fade-in">
-            {topPick && (
-              <div className="mb-4">
-                <CompactTopPick
-                  deal={topPick}
-                  isSaved={savedDeals.has(topPick.id)}
-                  onSave={() => handleSave(topPick.id)}
-                  onDismiss={() => handleDismiss(topPick.id)}
-                  onClick={() => setSelectedDeal(topPick)}
-                />
-              </div>
-            )}
-
-            {staffPicks.length > 0 && (
-              <div className="mb-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Star className="w-4 h-4 text-cyan-400 fill-cyan-400" />
-                  <span className="text-sm font-medium text-slate-300">
-                    Staff Picks
-                  </span>
-                </div>
-                <div className="flex gap-2.5 overflow-x-auto scrollbar-hide pb-1 -mx-4 px-4">
-                  {staffPicks.map((deal) => (
-                    <StaffPickMiniCard
-                      key={deal.id}
-                      deal={deal}
-                      isSaved={savedDeals.has(deal.id)}
-                      onSave={() => handleSave(deal.id)}
-                      onClick={() => setSelectedDeal(deal)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Today's Deals Header */}
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-medium text-slate-300">

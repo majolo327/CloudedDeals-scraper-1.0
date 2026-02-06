@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Heart, X, MapPin, Sparkles, Star, Info, Clock } from 'lucide-react';
+import { Heart, X, MapPin, Sparkles, Info, Clock } from 'lucide-react';
 import type { Deal } from '@/types';
+import { getBadge } from '@/utils';
+import { DealBadge } from '../badges/DealBadge';
 import type { RecommendationReason } from '@/lib/personalization';
 import { getRecommendationText } from '@/lib/personalization';
 import { isFreshDeal } from '@/lib/socialProof';
@@ -124,11 +126,7 @@ export function CompactDealCard({
 
       <div className="flex items-start justify-between gap-0.5 mb-0.5">
         <div className="flex items-center gap-1 min-w-0 flex-1">
-          {deal.is_featured && (
-            <span className="flex items-center px-1 py-0.5 rounded text-[8px] font-medium bg-amber-500/10 text-amber-400 shrink-0">
-              <Star className="w-2 h-2 fill-current" />
-            </span>
-          )}
+          {(() => { const badge = getBadge(deal); return badge ? <DealBadge type={badge} compact /> : null; })()}
           <span className="text-[9px] text-purple-400 uppercase tracking-wide font-bold truncate">
             {deal.brand.name}
           </span>

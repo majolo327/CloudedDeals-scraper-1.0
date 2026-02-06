@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Heart, BadgeCheck, Star, MapPin, ExternalLink, MessageCircle, CheckCircle, Navigation } from 'lucide-react';
+import { X, Heart, BadgeCheck, MapPin, ExternalLink, MessageCircle, CheckCircle, Navigation } from 'lucide-react';
 import { ShareModal } from './ShareModal';
 import { AccuracyModal } from './AccuracyModal';
+import { DealBadge } from '../badges/DealBadge';
 import type { Deal } from '@/types';
-import { getMapsUrl } from '@/utils';
+import { getMapsUrl, getBadge } from '@/utils';
 
 interface DealModalProps {
   deal: Deal;
@@ -114,17 +115,7 @@ export function DealModal({
                   Verified
                 </span>
               )}
-              {deal.is_top_pick && (
-                <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-500/20">
-                  <Star className="w-3.5 h-3.5 fill-current" />
-                  Top Pick
-                </span>
-              )}
-              {deal.is_staff_pick && (
-                <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
-                  Staff Pick
-                </span>
-              )}
+              {(() => { const badge = getBadge(deal); return badge ? <DealBadge type={badge} /> : null; })()}
             </div>
             <button
               onClick={onClose}

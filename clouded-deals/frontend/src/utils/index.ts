@@ -52,6 +52,7 @@ export function getDiscountPercent(original: number | null, deal: number): numbe
 }
 
 export { getDailyDeals, sortDealsForDisplay, sortDealsWithPinnedPriority } from './dailyDeals';
+export { getBadge } from './dealBadge';
 export * from './constants';
 export * from './brandUtils';
 export * from './dealFilters';

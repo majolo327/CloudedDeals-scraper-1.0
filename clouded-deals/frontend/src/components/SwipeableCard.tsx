@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import { animated, useSpring } from 'react-spring';
 import { useDrag } from '@use-gesture/react';
-import { Heart, X, ExternalLink, MapPin, Star, BadgeCheck } from 'lucide-react';
+import { Heart, X, ExternalLink, MapPin, BadgeCheck } from 'lucide-react';
 import type { Deal } from '@/types';
+import { getBadge } from '@/utils';
+import { DealBadge } from './badges/DealBadge';
 
 interface SwipeableCardProps {
   deal: Deal;
@@ -169,12 +171,7 @@ export function SwipeableCard({
                 Verified
               </span>
             )}
-            {deal.is_staff_pick && (
-              <span className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-cyan-500/15 text-cyan-400">
-                <Star className="w-3.5 h-3.5 fill-current" />
-                Staff Pick
-              </span>
-            )}
+            {(() => { const badge = getBadge(deal); return badge ? <DealBadge type={badge} /> : null; })()}
             {discount && (
               <span className="ml-auto px-2 py-1 rounded-lg text-xs font-bold bg-green-500/15 text-green-400">
                 {discount}% OFF

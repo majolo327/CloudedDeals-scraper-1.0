@@ -6,7 +6,7 @@ export { ToastContainer } from './Toast';
 export type { ToastData } from './Toast';
 
 // Cards
-export { CompactDealCard, CompactTopPick, StaffPickMiniCard } from './cards';
+export { CompactDealCard } from './cards';
 
 // Layout
 export { AgeGate, Footer, StickyStatsBar } from './layout';
@@ -22,7 +22,7 @@ export {
 } from './modals';
 
 // Badges
-export { VerifiedBadge, StaffPickBadge, CategoryBadge } from './badges';
+export { VerifiedBadge, CategoryBadge, DealBadge } from './badges';
 
 // Pages
 export { DealsPage } from './DealsPage';

@@ -144,10 +144,6 @@ export default function Home() {
     () => todaysDeals.filter((d) => d.is_verified),
     [todaysDeals]
   );
-  const featuredDeals = useMemo(
-    () => todaysDeals.filter((d) => d.is_featured),
-    [todaysDeals]
-  );
   const brands = useMemo(() => {
     const seen = new Map<string, Deal['brand']>();
     for (const d of deals) {
@@ -327,7 +323,6 @@ export default function Home() {
               <DealsPage
                 deals={todaysDeals}
                 verifiedDeals={verifiedDeals}
-                featuredDeals={featuredDeals}
                 savedDeals={savedDeals}
                 usedDeals={usedDeals}
                 toggleSavedDeal={handleToggleSave}

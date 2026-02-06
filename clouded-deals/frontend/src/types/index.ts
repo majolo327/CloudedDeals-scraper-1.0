@@ -30,6 +30,8 @@ export interface Brand {
   logo_url?: string;
 }
 
+export type BadgeType = 'fire' | 'trending' | 'steal';
+
 export interface Deal {
   id: string;
   product_name: string;
@@ -39,12 +41,8 @@ export interface Deal {
   deal_price: number;
   dispensary: Dispensary;
   brand: Brand;
-  is_top_pick: boolean;
-  is_staff_pick: boolean;
+  deal_score: number;
   is_verified: boolean;
-  is_featured?: boolean;
-  is_pinned?: boolean;
-  pinned_position?: number | null;
   editorial_note?: string;
   save_count?: number;
   created_at: Date;

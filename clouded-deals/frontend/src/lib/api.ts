@@ -79,10 +79,8 @@ function normalizeDeal(row: DealRow): Deal {
     deal_price: row.product.sale_price || 0,
     dispensary: toDispensary(row.dispensary),
     brand: toBrand(row.product.brand),
-    is_top_pick: row.deal_score >= 80,
-    is_staff_pick: row.deal_score >= 65 && row.deal_score < 80,
+    deal_score: row.deal_score,
     is_verified: row.deal_score >= 70,
-    is_featured: row.deal_score >= 75,
     created_at: new Date(row.created_at),
   };
 }
