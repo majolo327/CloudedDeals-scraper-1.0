@@ -44,6 +44,7 @@ class DutchieScraper(BaseScraper):
         frame = await get_iframe(self.page)
         if frame is None:
             logger.error("[%s] Could not find Dutchie iframe — aborting", self.slug)
+            await self.save_debug_info("no_iframe")
             return []
 
         # Also try age gate inside the iframe itself (some sites double-gate).
@@ -70,6 +71,8 @@ class DutchieScraper(BaseScraper):
             if not await navigate_dutchie_page(frame, page_num):
                 break
 
+        if not all_products:
+            await self.save_debug_info("zero_products", frame)
         logger.info("[%s] Scrape complete — %d products", self.slug, len(all_products))
         return all_products
 

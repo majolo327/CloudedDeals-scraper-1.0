@@ -10,18 +10,23 @@ from __future__ import annotations
 
 import abc
 import logging
+import os
+from pathlib import Path
 from typing import Any
 
 from playwright.async_api import (
     async_playwright,
     Browser,
     BrowserContext,
+    Frame,
     Page,
     Playwright,
 )
 
 from config.dispensaries import BROWSER_ARGS, GOTO_TIMEOUT_MS, USER_AGENT, VIEWPORT, WAIT_UNTIL
 from handlers import dismiss_age_gate
+
+DEBUG_DIR = Path(os.getenv("DEBUG_DIR", "debug_screenshots"))
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +102,46 @@ class BaseScraper(abc.ABC):
             self.page,
             post_dismiss_wait_sec=post_wait_sec,
         )
+
+    # ------------------------------------------------------------------
+    # Debug helpers
+    # ------------------------------------------------------------------
+
+    async def save_debug_info(self, label: str, target: Page | Frame | None = None) -> None:
+        """Save a screenshot and HTML snippet for debugging.
+
+        Creates files under ``DEBUG_DIR/<slug>_<label>.png`` and
+        ``<slug>_<label>.html``.  Errors are caught so this never
+        breaks the scrape.
+        """
+        target = target or self.page
+        prefix = f"{self.slug}_{label}"
+        try:
+            DEBUG_DIR.mkdir(parents=True, exist_ok=True)
+
+            # Screenshot
+            if isinstance(target, Page):
+                await target.screenshot(path=str(DEBUG_DIR / f"{prefix}.png"), full_page=True)
+            else:
+                # Frame — screenshot the parent page instead
+                parent = target.page
+                if parent:
+                    await parent.screenshot(path=str(DEBUG_DIR / f"{prefix}.png"), full_page=True)
+
+            # HTML snippet (first 50 KB to avoid huge files)
+            html = await target.content()
+            (DEBUG_DIR / f"{prefix}.html").write_text(html[:50_000], encoding="utf-8")
+
+            # Log all iframes on the page
+            if isinstance(target, Page):
+                iframes = await target.query_selector_all("iframe")
+                for i, iframe in enumerate(iframes):
+                    src = await iframe.get_attribute("src") or "(no src)"
+                    logger.info("[%s] DEBUG iframe[%d]: src=%s", self.slug, i, src)
+
+            logger.info("[%s] Debug artifacts saved: %s", self.slug, DEBUG_DIR / prefix)
+        except Exception as exc:
+            logger.warning("[%s] Failed to save debug info: %s", self.slug, exc)
 
     # ------------------------------------------------------------------
     # Abstract interface

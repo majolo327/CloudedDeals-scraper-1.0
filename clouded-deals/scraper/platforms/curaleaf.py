@@ -67,6 +67,8 @@ class CuraleafScraper(BaseScraper):
             if not await navigate_curaleaf_page(self.page, page_num):
                 break
 
+        if not all_products:
+            await self.save_debug_info("zero_products")
         logger.info("[%s] Scrape complete — %d products", self.slug, len(all_products))
         return all_products
 
