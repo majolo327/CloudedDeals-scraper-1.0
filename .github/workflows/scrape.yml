@@ -2,8 +2,8 @@ name: Daily Scraper
 
 on:
   schedule:
-    # 8:30 AM EST = 13:30 UTC
-    - cron: "30 13 * * *"
+    # 8:30 AM Pacific = 16:30 UTC (15:30 during PDT)
+    - cron: "30 16 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
