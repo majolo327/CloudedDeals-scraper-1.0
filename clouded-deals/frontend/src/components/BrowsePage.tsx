@@ -12,6 +12,7 @@ type BrowseTab = 'brands' | 'dispensaries';
 
 interface BrowsePageProps {
   deals?: Deal[];
+  onSelectBrand?: (brandName: string) => void;
 }
 
 function groupDispensariesByLetter(dispensaries: Dispensary[]): Record<string, Dispensary[]> {
@@ -24,7 +25,7 @@ function groupDispensariesByLetter(dispensaries: Dispensary[]): Record<string, D
   return grouped;
 }
 
-export function BrowsePage({ deals = [] }: BrowsePageProps) {
+export function BrowsePage({ deals = [], onSelectBrand }: BrowsePageProps) {
   const [activeTab, setActiveTab] = useState<BrowseTab>('brands');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedBrand, setExpandedBrand] = useState<string | null>(null);
@@ -117,6 +118,7 @@ export function BrowsePage({ deals = [] }: BrowsePageProps) {
             onToggleBrand={toggleBrand}
             onScrollToLetter={(l) => scrollToLetter(l, 'brand')}
             brandDealCounts={brandDealCounts}
+            onSelectBrand={onSelectBrand}
           />
         ) : (
           <DispensariesTab
@@ -142,6 +144,7 @@ interface BrandsTabProps {
   onToggleBrand: (id: string) => void;
   onScrollToLetter: (letter: string) => void;
   brandDealCounts: Record<string, number>;
+  onSelectBrand?: (brandName: string) => void;
 }
 
 function BrandsTab({
@@ -153,6 +156,7 @@ function BrandsTab({
   onToggleBrand,
   onScrollToLetter,
   brandDealCounts,
+  onSelectBrand,
 }: BrandsTabProps) {
   return (
     <div className="space-y-4">
@@ -209,6 +213,7 @@ function BrandsTab({
                     isExpanded={expandedBrand === brand.id}
                     onToggle={() => onToggleBrand(brand.id)}
                     dealCount={brandDealCounts[brand.name] || 0}
+                    onViewDeals={onSelectBrand ? () => onSelectBrand(brand.name) : undefined}
                   />
                 ))}
               </div>
@@ -225,11 +230,13 @@ function BrandRow({
   isExpanded,
   onToggle,
   dealCount,
+  onViewDeals,
 }: {
   brand: Brand;
   isExpanded: boolean;
   onToggle: () => void;
   dealCount: number;
+  onViewDeals?: () => void;
 }) {
   const tierColor: Record<string, string> = {
     premium: 'text-amber-400',
@@ -281,15 +288,28 @@ function BrandRow({
       </button>
       {isExpanded && (
         <div className="px-3 pb-3 pt-1 border-t border-slate-800/50">
-          <div className="flex flex-wrap gap-1.5">
-            {brand.categories.map((cat) => (
-              <span
-                key={cat}
-                className="rounded-full bg-slate-800/50 px-2 py-0.5 text-[10px] text-slate-400 capitalize"
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-1.5">
+              {brand.categories.map((cat) => (
+                <span
+                  key={cat}
+                  className="rounded-full bg-slate-800/50 px-2 py-0.5 text-[10px] text-slate-400 capitalize"
+                >
+                  {cat}
+                </span>
+              ))}
+            </div>
+            {dealCount > 0 && onViewDeals && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewDeals();
+                }}
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 text-xs font-medium hover:bg-purple-500/20 transition-colors"
               >
-                {cat}
-              </span>
-            ))}
+                View Deals
+              </button>
+            )}
           </div>
         </div>
       )}

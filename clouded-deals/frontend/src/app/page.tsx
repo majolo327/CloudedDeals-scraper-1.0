@@ -45,6 +45,7 @@ export default function Home() {
   const [highlightSaved, setHighlightSaved] = useState(false);
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [searchInitialQuery, setSearchInitialQuery] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(() => {
     if (typeof window === 'undefined') return false;
     return !isOnboardingSeen();
@@ -387,10 +388,25 @@ export default function Home() {
                 toggleSavedDeal={handleToggleSave}
                 setSelectedDeal={setSelectedDeal}
                 onNavigateToBrands={() => setActivePage('browse')}
+                initialQuery={searchInitialQuery}
+                onQueryConsumed={() => setSearchInitialQuery('')}
               />
             )}
-            {activePage === 'browse' && <BrowsePage deals={deals} />}
-            {activePage === 'saved' && <SavedPage deals={deals} />}
+            {activePage === 'browse' && (
+              <BrowsePage
+                deals={deals}
+                onSelectBrand={(brandName) => {
+                  setSearchInitialQuery(brandName);
+                  setActivePage('search');
+                }}
+              />
+            )}
+            {activePage === 'saved' && (
+              <SavedPage
+                deals={deals}
+                onSelectDeal={setSelectedDeal}
+              />
+            )}
           </>
         )}
       </main>
