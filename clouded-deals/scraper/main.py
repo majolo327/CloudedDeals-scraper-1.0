@@ -146,11 +146,11 @@ def _upsert_products(
         return []
 
     # The DB unique constraint includes scraped_at which defaults to NOW(),
-    # making true upserts impossible within the same run.  Use plain insert
-    # instead and ignore conflicts so re-runs within the same second are safe.
+    # making true upserts impossible within the same run.  Use upsert with
+    # ignoreDuplicates so re-runs within the same second are safe.
     result = (
         db.table("products")
-        .insert(rows)
+        .upsert(rows, on_conflict="dispensary_id,name,sale_price,scraped_at", ignore_duplicates=True)
         .execute()
     )
     return result.data
@@ -177,6 +177,7 @@ def _insert_deals(
         key = (d.get("name", ""), d.get("sale_price"))
         product_id = product_lookup.get(key)
         if not product_id:
+            logger.warning("No product match for deal: %s @ $%s", d.get("name"), d.get("sale_price"))
             continue
         deal_rows.append(
             {
