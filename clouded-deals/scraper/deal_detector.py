@@ -10,7 +10,7 @@ Scoring breakdown (max 100):
   - Discount bonus  : discount% × 0.8, capped at 40 pts
   - Brand bonus     : +25 for premium brands, +15 for mid-tier
   - Category bonus  : +10 for flower / vape / edible
-  - Price sweet spot: +10 when sale price is $15–$40
+  - Price sweet spot: +15 when sale price is $15–$40
   - THC bonus       : +15 for 25 %+ THC
 """
 
@@ -20,15 +20,16 @@ from typing import Any
 
 # =====================================================================
 # Category-specific price caps — maximum sale price to qualify as a deal
+# (from PRD Section 9.1)
 # =====================================================================
 
 PRICE_CAPS: dict[str, dict[str, float]] = {
     "flower": {
         "1g": 10.0,
-        "3.5g": 25.0,   # eighth
-        "7g": 45.0,     # quarter
-        "14g": 80.0,    # half
-        "28g": 140.0,   # ounce
+        "3.5g": 19.0,   # eighth
+        "7g": 30.0,      # quarter
+        "14g": 40.0,     # half
+        "28g": 79.0,     # ounce
     },
     "concentrate": {
         "0.5g": 15.0,
@@ -36,14 +37,14 @@ PRICE_CAPS: dict[str, dict[str, float]] = {
         "2g": 45.0,
     },
     "edible": {
-        "default": 15.0,
+        "default": 9.0,
     },
     "vape": {
         "0.5g": 25.0,
         "1g": 40.0,
     },
     "preroll": {
-        "1g": 8.0,
+        "1g": 6.0,
         "default": 25.0,
     },
 }
@@ -52,9 +53,9 @@ PRICE_CAPS: dict[str, dict[str, float]] = {
 # Qualification thresholds (fallback when no category cap matches)
 # =====================================================================
 
-MIN_DISCOUNT_PCT: float = 15.0
+MIN_DISCOUNT_PCT: float = 20.0   # PRD: must be at least 20% off
 PRICE_MIN: float = 5.0
-PRICE_MAX: float = 150.0
+PRICE_MAX: float = 100.0         # PRD: scoring range (5, 100)
 
 # =====================================================================
 # Brand tiers for scoring
@@ -87,7 +88,7 @@ DISCOUNT_MULTIPLIER: float = 0.8
 PREMIUM_BRAND_PTS: float = 25.0
 MID_TIER_BRAND_PTS: float = 15.0
 CATEGORY_PTS: float = 10.0
-PRICE_SWEET_SPOT_PTS: float = 10.0
+PRICE_SWEET_SPOT_PTS: float = 15.0   # PRD: +15 (was +10)
 THC_PTS: float = 15.0
 
 
@@ -127,7 +128,7 @@ def qualifies_as_deal(product: dict[str, Any]) -> bool:
 
     A product qualifies when:
 
-    1. ``discount_percent`` is present and >= ``MIN_DISCOUNT_PCT`` (15 %).
+    1. ``discount_percent`` is present and >= ``MIN_DISCOUNT_PCT`` (20 %).
     2. ``sale_price`` is present and within ``PRICE_MIN``–``PRICE_MAX``.
     3. If a category-specific price cap exists, the sale price must be
        at or below that cap.
@@ -157,7 +158,7 @@ def score_deal(product: dict[str, Any]) -> float:
       1. **Discount bonus** — ``discount_percent × 0.8``, max 40 pts.
       2. **Brand bonus** — +25 for premium brands, +15 for mid-tier.
       3. **Category bonus** — +10 if category is flower, vape, or edible.
-      4. **Price sweet spot** — +10 if sale price is $15–$40.
+      4. **Price sweet spot** — +15 if sale price is $15–$40.
       5. **THC bonus** — +15 if THC >= 25%.
     """
     score: float = 0.0
@@ -179,7 +180,7 @@ def score_deal(product: dict[str, Any]) -> float:
     if category is not None and category in BONUS_CATEGORIES:
         score += CATEGORY_PTS
 
-    # 4. Price sweet spot (+10)
+    # 4. Price sweet spot (+15)
     sale_price = product.get("sale_price")
     if sale_price is not None and PRICE_SWEET_SPOT_LO <= sale_price <= PRICE_SWEET_SPOT_HI:
         score += PRICE_SWEET_SPOT_PTS

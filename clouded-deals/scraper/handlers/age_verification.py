@@ -3,6 +3,10 @@ Universal age-gate dismissal handler.
 
 Tries a sequence of common selectors found across dispensary sites.
 Falls back to JavaScript overlay removal when no clickable button is found.
+
+The JS fallback explicitly targets TD's ``<aside id="agc_form">`` overlay
+which persists even after the button click and intercepts pointer events
+on pagination controls.
 """
 
 import asyncio
@@ -26,22 +30,32 @@ AGE_GATE_SELECTORS = [
     "a:has-text('21+')",
     "a:has-text('Enter')",
     "a:has-text('Yes')",
+    "#agc_form button",
 ]
 
 SELECTOR_TIMEOUT_MS = 4_000
 
 # JavaScript fallback: remove any fixed/absolute overlay that covers the page.
+# Explicitly targets TD's #agc_form / .agc_screen overlay, plus generic
+# age-gate / modal selectors.
 _JS_REMOVE_OVERLAY = """
 () => {
     const candidates = document.querySelectorAll(
-        '[class*="age"], [class*="gate"], [class*="verify"], '
+        '#agc_form, #agc_container, .agc_screen, '
+        + '.age-gate, .age-verification, .overlay, .modal-backdrop, '
+        + '[class*="age"], [class*="gate"], [class*="verify"], '
         + '[class*="modal"], [class*="overlay"], [id*="age"], '
         + '[id*="gate"], [id*="verify"]'
     );
     let removed = 0;
     for (const el of candidates) {
         const style = window.getComputedStyle(el);
-        if (style.position === 'fixed' || style.position === 'absolute') {
+        if (
+            style.position === 'fixed' ||
+            style.position === 'absolute' ||
+            el.id === 'agc_form' ||
+            el.classList.contains('agc_screen')
+        ) {
             el.remove();
             removed++;
         }
@@ -88,6 +102,10 @@ async def dismiss_age_gate(
                 )
                 await asyncio.sleep(post_dismiss_wait_sec)
 
+            # Always run the JS fallback after clicking to clean up any
+            # lingering overlays (e.g. TD's #agc_form that reappears).
+            await force_remove_age_gate(target)
+
             return True
         except PlaywrightTimeout:
             continue
@@ -98,17 +116,29 @@ async def dismiss_age_gate(
     # ---------------------------------------------------------------
     # Fallback: nuke the overlay via JavaScript
     # ---------------------------------------------------------------
-    try:
-        removed = await target.evaluate(_JS_REMOVE_OVERLAY)
-        if removed > 0:
-            logger.info(
-                "Age gate dismissed via JS fallback (%d element(s) removed)", removed
-            )
-            if post_dismiss_wait_sec > 0:
-                await asyncio.sleep(post_dismiss_wait_sec)
-            return True
-    except Exception:
-        logger.debug("JS overlay removal failed", exc_info=True)
+    removed = await force_remove_age_gate(target)
+    if removed > 0:
+        logger.info(
+            "Age gate dismissed via JS fallback (%d element(s) removed)", removed
+        )
+        if post_dismiss_wait_sec > 0:
+            await asyncio.sleep(post_dismiss_wait_sec)
+        return True
 
     logger.debug("No age gate detected — continuing normally")
     return False
+
+
+async def force_remove_age_gate(target: Page | Frame) -> int:
+    """JavaScript fallback to forcibly remove age-gate overlays.
+
+    Returns the number of elements removed.
+    """
+    try:
+        removed = await target.evaluate(_JS_REMOVE_OVERLAY)
+        if removed > 0:
+            logger.debug("JS overlay removal cleared %d element(s)", removed)
+        return removed
+    except Exception:
+        logger.debug("JS overlay removal failed", exc_info=True)
+        return 0
