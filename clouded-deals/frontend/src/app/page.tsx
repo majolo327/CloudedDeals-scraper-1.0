@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Star, Heart, Search, Bookmark, AlertCircle } from 'lucide-react';
+import { Star, Heart, Search, Bookmark, Compass, AlertCircle } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { fetchDeals } from '@/lib/api';
 import type { Deal } from '@/types';
@@ -129,6 +129,28 @@ export default function Home() {
     }
   }, []);
 
+  // Auto-open DealModal from shared link (?deal=<id>)
+  const pendingDealId = useRef<string | null>(
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('deal')
+      : null
+  );
+  useEffect(() => {
+    if (!pendingDealId.current || loading || deals.length === 0) return;
+    const match = deals.find((d) => d.id === pendingDealId.current);
+    if (match) {
+      setSelectedDeal(match);
+      // Skip landing page for shared links
+      if (activePage === 'landing') {
+        localStorage.setItem(LANDING_SEEN_KEY, 'true');
+        setActivePage('home');
+      }
+    }
+    pendingDealId.current = null;
+    // Clean up URL params
+    window.history.replaceState({}, '', window.location.pathname);
+  }, [deals, loading, activePage]);
+
   // Show auth prompt after 3+ saves (only if not authenticated and not dismissed)
   useEffect(() => {
     if (savedCount >= 3 && !authUser && !isAuthPromptDismissed()) {
@@ -152,12 +174,10 @@ export default function Home() {
     };
   }, []);
 
-  // Filter to only show today's deals (after midnight)
-  const todaysDeals = useMemo(() => {
-    const todayMidnight = new Date();
-    todayMidnight.setHours(0, 0, 0, 0);
-    return deals.filter((d) => new Date(d.created_at) >= todayMidnight);
-  }, [deals]);
+  // Show all active deals — the server-side is_active=true filter already
+  // ensures we only get the latest scrape run's products. A client-side
+  // midnight filter would incorrectly hide deals due to UTC/PST offsets.
+  const todaysDeals = deals;
 
   // Derived deal lists (from today's deals only)
   const verifiedDeals = useMemo(
@@ -305,7 +325,7 @@ export default function Home() {
           {[
             { id: 'home' as const, label: 'Deals', icon: Star },
             { id: 'search' as const, label: 'Search', icon: Search },
-            { id: 'browse' as const, label: 'Browse', icon: Star },
+            { id: 'browse' as const, label: 'Browse', icon: Compass },
             { id: 'saved' as const, label: 'Saved', icon: Bookmark },
           ].map((tab) => (
             <button
@@ -454,7 +474,7 @@ export default function Home() {
           {[
             { id: 'home' as const, label: 'Deals', icon: Star },
             { id: 'search' as const, label: 'Search', icon: Search },
-            { id: 'browse' as const, label: 'Browse', icon: Star },
+            { id: 'browse' as const, label: 'Browse', icon: Compass },
             { id: 'saved' as const, label: 'Saved', icon: Bookmark },
           ].map((tab) => (
             <button

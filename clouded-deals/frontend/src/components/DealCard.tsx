@@ -105,8 +105,13 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
       {/* Price */}
       <div className="flex items-baseline gap-2 mb-3">
         <span className="text-base sm:text-lg font-mono font-bold text-purple-400">${deal.deal_price}</span>
-        {deal.original_price && (
-          <span className="text-[10px] text-slate-500 line-through">${deal.original_price}</span>
+        {deal.original_price && deal.original_price > deal.deal_price && (
+          <>
+            <span className="text-[10px] text-slate-500 line-through">${deal.original_price}</span>
+            <span className="text-[10px] font-semibold text-emerald-400">
+              -{Math.round(((deal.original_price - deal.deal_price) / deal.original_price) * 100)}%
+            </span>
+          </>
         )}
       </div>
 
