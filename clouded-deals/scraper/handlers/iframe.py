@@ -99,11 +99,15 @@ async def get_iframe(
         src = await el.get_attribute("src") or "(no src)"
         logger.info("  iframe[%d] src=%s", i, src)
 
-    # Filter to iframes with a real src
+    # Filter to iframes with a real src, excluding known tracking/analytics
+    _TRACKING_DOMAINS = ["crwdcntrl.net", "doubleclick", "google-analytics", "facebook", "twitter"]
     real_iframes = []
     for el in iframes:
         src = await el.get_attribute("src") or ""
         if src and src != "about:blank":
+            if any(domain in src for domain in _TRACKING_DOMAINS):
+                logger.debug("  Skipping tracking iframe: %s", src[:100])
+                continue
             real_iframes.append(el)
 
     if len(real_iframes) == 1:
