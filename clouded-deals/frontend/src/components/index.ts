@@ -30,3 +30,4 @@ export { SearchPage } from './SearchPage';
 export { BrowsePage } from './BrowsePage';
 export { SavedPage } from './SavedPage';
 export { LandingPage } from './LandingPage';
+export { AuthPrompt } from './AuthPrompt';

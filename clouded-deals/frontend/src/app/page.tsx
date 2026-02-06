@@ -2,15 +2,17 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Star, Heart, Search, Bookmark, AlertCircle } from 'lucide-react';
-import { isSupabaseConfigured } from '@/lib/supabase';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { fetchDeals } from '@/lib/api';
 import type { Deal } from '@/types';
+import type { User } from '@supabase/supabase-js';
 import { AgeGate, Footer } from '@/components/layout';
 import { DealsPage } from '@/components/DealsPage';
 import { SearchPage } from '@/components/SearchPage';
 import { BrowsePage } from '@/components/BrowsePage';
 import { SavedPage } from '@/components/SavedPage';
 import { LandingPage } from '@/components/LandingPage';
+import { AuthPrompt } from '@/components/AuthPrompt';
 import { LocationSelector } from '@/components/LocationSelector';
 import { DealModal } from '@/components/modals';
 import { DealCardSkeleton, TopPickSkeleton } from '@/components/Skeleton';
@@ -20,6 +22,7 @@ import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { useStreak } from '@/hooks/useStreak';
 import { useBrandAffinity } from '@/hooks/useBrandAffinity';
 import { initializeAnonUser, trackEvent } from '@/lib/analytics';
+import { isAuthPromptDismissed, dismissAuthPrompt } from '@/lib/auth';
 
 type AppPage = 'landing' | 'home' | 'search' | 'browse' | 'saved';
 
@@ -39,6 +42,8 @@ export default function Home() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [highlightSaved, setHighlightSaved] = useState(false);
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
 
   const { savedDeals, usedDeals, toggleSavedDeal, markDealUsed, isDealUsed, savedCount } =
     useSavedDeals();
@@ -53,6 +58,22 @@ export default function Home() {
       initializeAnonUser();
       trackEvent('app_loaded', undefined, { referrer: document.referrer });
     }
+  }, []);
+
+  // Listen for Supabase auth state changes
+  useEffect(() => {
+    if (!supabase?.auth) return;
+
+    // Check for existing session
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setAuthUser(data.user);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleAgeVerify = () => {
@@ -77,6 +98,23 @@ export default function Home() {
       clearMilestone();
     }
   }, [isNewMilestone, clearMilestone, addToast]);
+
+  // Handle ?auth=success redirect from magic link
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('auth') === 'success') {
+      addToast('Logged in! Your saves are synced.', 'success');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [addToast]);
+
+  // Show auth prompt after 3+ saves (only if not authenticated and not dismissed)
+  useEffect(() => {
+    if (savedCount >= 3 && !authUser && !isAuthPromptDismissed()) {
+      setShowAuthPrompt(true);
+    }
+  }, [savedCount, authUser]);
 
   // Fetch deals
   useEffect(() => {
@@ -332,6 +370,17 @@ export default function Home() {
           onMarkUsed={() => {
             markDealUsed(selectedDeal.id);
             addToast('Marked as used', 'success');
+          }}
+        />
+      )}
+
+      {/* Auth prompt — triggered after 3+ saves */}
+      {showAuthPrompt && (
+        <AuthPrompt
+          savedCount={savedCount}
+          onClose={() => {
+            setShowAuthPrompt(false);
+            dismissAuthPrompt();
           }}
         />
       )}
