@@ -28,7 +28,10 @@ logger = logging.getLogger(__name__)
 _DUTCHIE_CFG = PLATFORM_DEFAULTS["dutchie"]
 _POST_AGE_GATE_WAIT = _DUTCHIE_CFG["wait_after_age_gate_sec"]  # 45 s
 _BETWEEN_PAGES_SEC = _DUTCHIE_CFG["between_pages_sec"]          # 5 s
-_PRODUCT_SELECTOR = '[data-testid*="product"]'
+_PRODUCT_SELECTORS = [
+    '[data-testid*="product"]',
+    'div[class*="product"]',
+]
 
 
 class DutchieScraper(BaseScraper):
@@ -85,15 +88,23 @@ class DutchieScraper(BaseScraper):
         """Pull product data out of the current Dutchie page view."""
         products: list[dict[str, Any]] = []
 
-        try:
-            await frame.locator(_PRODUCT_SELECTOR).first.wait_for(
-                state="attached", timeout=10_000,
-            )
-        except PlaywrightTimeout:
-            logger.debug("No products found with selector %s", _PRODUCT_SELECTOR)
-            return products
+        # Try each selector until one yields results
+        elements = []
+        for selector in _PRODUCT_SELECTORS:
+            try:
+                await frame.locator(selector).first.wait_for(
+                    state="attached", timeout=10_000,
+                )
+            except PlaywrightTimeout:
+                logger.debug("No products found with selector %s", selector)
+                continue
+            elements = await frame.locator(selector).all()
+            if elements:
+                logger.debug("Dutchie products matched via %r (%d)", selector, len(elements))
+                break
 
-        elements = await frame.locator(_PRODUCT_SELECTOR).all()
+        if not elements:
+            return products
 
         for el in elements:
             try:
