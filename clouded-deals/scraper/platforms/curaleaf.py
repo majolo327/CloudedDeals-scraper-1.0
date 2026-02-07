@@ -24,6 +24,7 @@ from playwright.async_api import TimeoutError as PlaywrightTimeout
 
 from config.dispensaries import PLATFORM_DEFAULTS
 from handlers import dismiss_age_gate, navigate_curaleaf_page
+from handlers.pagination import _JS_DISMISS_OVERLAYS
 from .base import BaseScraper
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,14 @@ class CuraleafScraper(BaseScraper):
         logger.info("[%s] Waiting %ds for product cards to render…", self.slug, _POST_AGE_GATE_WAIT)
         await asyncio.sleep(_POST_AGE_GATE_WAIT)
 
+        # --- Dismiss overlays that block interaction --------------------
+        try:
+            removed = await self.page.evaluate(_JS_DISMISS_OVERLAYS)
+            if removed:
+                logger.info("[%s] Dismissed %d overlay(s) after age gate", self.slug, removed)
+        except Exception:
+            pass
+
         # --- Paginate and collect products ------------------------------
         all_products: list[dict[str, Any]] = []
         page_num = 1
@@ -81,7 +90,15 @@ class CuraleafScraper(BaseScraper):
 
             page_num += 1
             # CRITICAL: navigate_curaleaf_page checks is_enabled() internally.
-            if not await navigate_curaleaf_page(self.page, page_num):
+            try:
+                if not await navigate_curaleaf_page(self.page, page_num):
+                    break
+            except Exception as exc:
+                # Gracefully stop pagination — keep products we already have.
+                logger.warning(
+                    "[%s] Pagination to page %d failed (%s) — keeping %d products from earlier pages",
+                    self.slug, page_num, exc, len(all_products),
+                )
                 break
 
         # --- Fallback: if /specials returned 0 products, try the base menu ---

@@ -28,6 +28,7 @@ from .base import BaseScraper
 logger = logging.getLogger(__name__)
 
 _DUTCHIE_CFG = PLATFORM_DEFAULTS["dutchie"]
+_POST_AGE_GATE_WAIT = _DUTCHIE_CFG["wait_after_age_gate_sec"]  # 60 s
 _BETWEEN_PAGES_SEC = _DUTCHIE_CFG["between_pages_sec"]          # 5 s
 _PRODUCT_SELECTORS = [
     '[data-testid*="product"]',
@@ -106,7 +107,14 @@ class DutchieScraper(BaseScraper):
             # reappear after scrolling / page changes on TD sites).
             await force_remove_age_gate(self.page)
 
-            if not await navigate_dutchie_page(frame, page_num):
+            try:
+                if not await navigate_dutchie_page(frame, page_num):
+                    break
+            except Exception as exc:
+                logger.warning(
+                    "[%s] Pagination to page %d failed (%s) — keeping %d products from earlier pages",
+                    self.slug, page_num, exc, len(all_products),
+                )
                 break
 
         if not all_products:

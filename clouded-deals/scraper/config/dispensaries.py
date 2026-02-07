@@ -36,9 +36,9 @@ WAIT_UNTIL = "domcontentloaded"
 # Navigation timeout in milliseconds (PRD: 60 000).
 GOTO_TIMEOUT_MS = 60_000
 
-# Per-site scrape timeout in seconds.  Must accommodate the 45 s
+# Per-site scrape timeout in seconds.  Must accommodate the 60 s
 # post-age-gate wait for Dutchie sites plus iframe loading + pagination.
-SITE_TIMEOUT_SEC = 180
+SITE_TIMEOUT_SEC = 240
 
 # ---------------------------------------------------------------------------
 # Platform-level configuration
@@ -46,7 +46,7 @@ SITE_TIMEOUT_SEC = 180
 
 PLATFORM_DEFAULTS = {
     "dutchie": {
-        "wait_after_age_gate_sec": 45,
+        "wait_after_age_gate_sec": 60,
         "wait_after_iframe_found_sec": 5,
         "pagination": "aria-label",       # paginate via aria-label buttons
         "between_pages_sec": 5,

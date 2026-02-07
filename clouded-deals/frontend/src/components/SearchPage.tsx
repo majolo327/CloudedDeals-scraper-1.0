@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Search, Package, ChevronRight, X, Clock } from 'lucide-react';
+import { Search, Package, MapPin, ChevronRight, X, Clock, Store, ExternalLink } from 'lucide-react';
 import type { Deal, Brand } from '@/types';
 import { DealCard } from './DealCard';
-import { CATEGORY_FILTERS, countDealsByBrand, filterDeals } from '@/utils';
+import { CATEGORY_FILTERS, countDealsByBrand, filterDeals, getMapsUrl } from '@/utils';
+import { DISPENSARIES } from '@/data/dispensaries';
 import { trackEvent } from '@/lib/analytics';
 
 type FilterCategory = 'all' | 'flower' | 'vape' | 'edible' | 'concentrate' | 'preroll';
@@ -33,6 +34,15 @@ function saveRecentSearch(query: string): string[] {
   const updated = [trimmed, ...prev].slice(0, MAX_RECENT);
   localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
   return updated;
+}
+
+/** Count deals per dispensary id */
+function countDealsByDispensary(deals: Deal[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const d of deals) {
+    counts[d.dispensary.id] = (counts[d.dispensary.id] || 0) + 1;
+  }
+  return counts;
 }
 
 interface SearchPageProps {
@@ -109,13 +119,27 @@ export function SearchPage({
   }, []);
 
   const brandDealCounts = useMemo(() => countDealsByBrand(deals), [deals]);
+  const dispensaryDealCounts = useMemo(() => countDealsByDispensary(deals), [deals]);
 
+  // ---- Matching brands ----
   const matchingBrands = useMemo(() => {
     if (!debouncedQuery || debouncedQuery.length < 2) return [];
-    const query = debouncedQuery.toLowerCase();
-    return brands.filter((b) => b.name.toLowerCase().includes(query)).slice(0, 5);
+    const q = debouncedQuery.toLowerCase();
+    return brands.filter((b) => b.name.toLowerCase().includes(q)).slice(0, 6);
   }, [brands, debouncedQuery]);
 
+  // ---- Matching dispensaries ----
+  const matchingDispensaries = useMemo(() => {
+    if (!debouncedQuery || debouncedQuery.length < 2) return [];
+    const q = debouncedQuery.toLowerCase();
+    return DISPENSARIES.filter(
+      (d) =>
+        d.name.toLowerCase().includes(q) ||
+        d.address.toLowerCase().includes(q)
+    ).slice(0, 6);
+  }, [debouncedQuery]);
+
+  // ---- Matching deals ----
   const filteredDeals = useMemo(
     () =>
       filterDeals(deals, {
@@ -124,6 +148,8 @@ export function SearchPage({
       }),
     [deals, activeCategory, debouncedQuery]
   );
+
+  const totalResults = matchingBrands.length + matchingDispensaries.length + filteredDeals.length;
 
   const clearSearch = () => {
     setSearchQuery('');
@@ -141,6 +167,24 @@ export function SearchPage({
     setRecentSearches([]);
   };
 
+  const tierLabel: Record<string, string> = {
+    premium: 'Premium',
+    established: 'Established',
+    local: 'Local',
+    value: 'Value',
+    verified: 'Verified',
+    standard: '',
+  };
+
+  const tierColor: Record<string, string> = {
+    premium: 'text-amber-400 bg-amber-500/10',
+    established: 'text-emerald-400 bg-emerald-500/10',
+    local: 'text-blue-400 bg-blue-500/10',
+    value: 'text-slate-400 bg-slate-500/10',
+    verified: 'text-purple-400 bg-purple-500/10',
+    standard: 'text-slate-500 bg-slate-500/10',
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
       {/* Search Input */}
@@ -152,7 +196,7 @@ export function SearchPage({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search products, brands, dispensaries..."
+            placeholder="Search brands, dispensaries, products..."
             autoFocus
             className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 sm:pl-12 pr-10 py-3 sm:py-4 min-h-[48px] text-white placeholder:text-slate-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all text-base sm:text-lg"
           />
@@ -198,31 +242,125 @@ export function SearchPage({
 
           {!isSearching && (
             <>
-              {/* Matching Brands */}
+              {/* Summary */}
+              {totalResults > 0 && (
+                <p className="text-sm text-slate-500 mb-5">
+                  {totalResults} result{totalResults !== 1 ? 's' : ''} for &ldquo;{debouncedQuery}&rdquo;
+                </p>
+              )}
+
+              {/* ---- Dispensary Results ---- */}
+              {matchingDispensaries.length > 0 && (
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Store className="w-4 h-4 text-purple-400" />
+                    <span className="text-sm font-medium text-slate-300">Dispensaries</span>
+                  </div>
+                  <div className="space-y-2">
+                    {matchingDispensaries.map((disp) => {
+                      const dealCount = dispensaryDealCounts[disp.id] || 0;
+                      return (
+                        <div
+                          key={disp.id}
+                          className="glass frost rounded-xl p-3 flex items-center gap-3"
+                        >
+                          <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
+                            <MapPin className="w-5 h-5 text-slate-400" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-white truncate">{disp.name}</p>
+                              {tierLabel[disp.tier] && (
+                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${tierColor[disp.tier]}`}>
+                                  {tierLabel[disp.tier]}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 truncate">{disp.address}</p>
+                            <div className="flex items-center gap-3 mt-1">
+                              {dealCount > 0 && (
+                                <span className="text-[10px] text-purple-400 font-medium">
+                                  {dealCount} deal{dealCount !== 1 ? 's' : ''} today
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <a
+                              href={getMapsUrl(disp.address)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="p-2 rounded-lg bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                              aria-label="Get directions"
+                              title="Directions"
+                            >
+                              <MapPin className="w-4 h-4" />
+                            </a>
+                            <a
+                              href={disp.menu_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="p-2 rounded-lg bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                              aria-label="View menu"
+                              title="Menu"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ---- Brand Results ---- */}
               {matchingBrands.length > 0 && (
                 <div className="mb-6">
                   <div className="flex items-center gap-2 mb-3">
                     <Package className="w-4 h-4 text-purple-400" />
                     <span className="text-sm font-medium text-slate-300">Brands</span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="space-y-2">
                     {matchingBrands.map((brand) => {
                       const dealCount = brandDealCounts[brand.name] || 0;
                       return (
                         <button
                           key={brand.id}
                           onClick={onNavigateToBrands}
-                          className="flex items-center gap-2 px-3 py-2 bg-slate-800/80 border border-slate-700/50 rounded-lg hover:bg-slate-800 hover:border-purple-500/30 transition-all group"
+                          className="w-full glass frost rounded-xl p-3 flex items-center gap-3 text-left hover:bg-slate-800/70 transition-colors"
                         >
-                          <span className="text-sm font-medium text-white">
-                            {brand.name}
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            {dealCount > 0
-                              ? `${dealCount} deal${dealCount !== 1 ? 's' : ''}`
-                              : 'No deals'}
-                          </span>
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-purple-400 transition-colors" />
+                          <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
+                            <span className="text-sm font-bold text-slate-400">
+                              {brand.name[0]}
+                            </span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-white truncate">{brand.name}</p>
+                              {tierLabel[brand.tier] && (
+                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${tierColor[brand.tier]}`}>
+                                  {tierLabel[brand.tier]}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-xs text-slate-500 capitalize">
+                                {brand.categories.join(', ')}
+                              </span>
+                              {dealCount > 0 && (
+                                <>
+                                  <span className="text-slate-700">·</span>
+                                  <span className="text-[10px] text-purple-400 font-medium">
+                                    {dealCount} deal{dealCount !== 1 ? 's' : ''}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-slate-600 shrink-0" />
                         </button>
                       );
                     })}
@@ -230,13 +368,15 @@ export function SearchPage({
                 </div>
               )}
 
-              {/* Search Results */}
-              {filteredDeals.length > 0 ? (
-                <div>
-                  <p className="text-sm text-slate-500 mb-4">
-                    {filteredDeals.length} deal{filteredDeals.length !== 1 ? 's' : ''}{' '}
-                    for &ldquo;{debouncedQuery}&rdquo;
-                  </p>
+              {/* ---- Deal Results ---- */}
+              {filteredDeals.length > 0 && (
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Search className="w-4 h-4 text-purple-400" />
+                    <span className="text-sm font-medium text-slate-300">
+                      Deals ({filteredDeals.length})
+                    </span>
+                  </div>
                   <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                     {filteredDeals.map((deal, index) => (
                       <div
@@ -264,14 +404,17 @@ export function SearchPage({
                     ))}
                   </div>
                 </div>
-              ) : (
+              )}
+
+              {/* No results */}
+              {totalResults === 0 && (
                 <div className="text-center py-16">
                   <Search className="w-16 h-16 mx-auto mb-4 text-slate-700" />
                   <p className="text-slate-400 text-lg mb-2">
-                    No deals for &ldquo;{debouncedQuery}&rdquo;
+                    No results for &ldquo;{debouncedQuery}&rdquo;
                   </p>
                   <p className="text-slate-500 text-sm">
-                    Try a different search term, check spelling, or browse by category
+                    Try a different search term or browse by category
                   </p>
                 </div>
               )}
@@ -312,7 +455,7 @@ export function SearchPage({
           <div className="text-center">
             <Search className="w-20 h-20 mx-auto mb-4 text-slate-700" />
             <p className="text-slate-400 text-lg mb-2">
-              Search for products, brands, or dispensaries
+              Search brands, dispensaries, or products
             </p>
             <p className="text-slate-500 text-sm">
               Find the best deals across Las Vegas

@@ -25,7 +25,7 @@ IFRAME_SELECTORS = [
     'iframe[src*="embed"]',
 ]
 
-_IFRAME_READY_TIMEOUT_MS = 30_000
+_IFRAME_READY_TIMEOUT_MS = 60_000
 
 
 async def _resolve_frame(
