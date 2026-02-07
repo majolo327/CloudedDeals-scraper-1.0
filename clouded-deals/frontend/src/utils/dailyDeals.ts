@@ -23,8 +23,10 @@ const shuffleWithSeed = <T>(array: T[], seed: number): T[] => {
 
 const BRAND_SPACING_WINDOW = 4;
 const CATEGORY_SPACING_WINDOW = 3;
+const DISPENSARY_SPACING_WINDOW = 3;
 
 const getBrandName = (deal: Deal): string => deal.brand?.name || 'Unknown';
+const getDispensaryId = (deal: Deal): string => deal.dispensary?.id || 'unknown';
 
 const hasBrandConflict = (sorted: Deal[], index: number, brandName: string): boolean => {
   const start = Math.max(0, index - BRAND_SPACING_WINDOW + 1);
@@ -38,6 +40,14 @@ const hasCategoryConflict = (sorted: Deal[], index: number, category: Category):
   const start = Math.max(0, index - CATEGORY_SPACING_WINDOW + 1);
   for (let i = start; i < index; i++) {
     if (sorted[i].category === category) return true;
+  }
+  return false;
+};
+
+const hasDispensaryConflict = (sorted: Deal[], index: number, dispensaryId: string): boolean => {
+  const start = Math.max(0, index - DISPENSARY_SPACING_WINDOW + 1);
+  for (let i = start; i < index; i++) {
+    if (getDispensaryId(sorted[i]) === dispensaryId) return true;
   }
   return false;
 };
@@ -121,32 +131,40 @@ const applySpacingConstraints = (deals: Deal[]): Deal[] => {
     for (let i = 1; i < sorted.length; i++) {
       const currentBrand = getBrandName(sorted[i]);
       const currentCategory = sorted[i].category;
+      const currentDispensary = getDispensaryId(sorted[i]);
 
       const brandConflict = hasBrandConflict(sorted, i, currentBrand);
       const categoryConflict = hasCategoryConflict(sorted, i, currentCategory);
+      const dispensaryConflict = hasDispensaryConflict(sorted, i, currentDispensary);
 
-      if (brandConflict || categoryConflict) {
+      if (brandConflict || categoryConflict || dispensaryConflict) {
         let bestSwap = -1;
         let bestScore = -1;
 
         for (let j = i + 1; j < sorted.length; j++) {
           const candidateBrand = getBrandName(sorted[j]);
           const candidateCategory = sorted[j].category;
+          const candidateDispensary = getDispensaryId(sorted[j]);
 
           const wouldFixBrand = !brandConflict || !hasBrandConflict(sorted, i, candidateBrand);
           const wouldFixCategory =
             !categoryConflict || !hasCategoryConflict(sorted, i, candidateCategory);
+          const wouldFixDispensary =
+            !dispensaryConflict || !hasDispensaryConflict(sorted, i, candidateDispensary);
 
           const wouldCreateBrandConflict = hasBrandConflict(sorted, j, currentBrand);
           const wouldCreateCategoryConflict = hasCategoryConflict(sorted, j, currentCategory);
+          const wouldCreateDispensaryConflict = hasDispensaryConflict(sorted, j, currentDispensary);
 
           let score = 0;
           if (wouldFixBrand) score += 2;
+          if (wouldFixDispensary) score += 2;
           if (wouldFixCategory) score += 1;
           if (!wouldCreateBrandConflict) score += 1;
+          if (!wouldCreateDispensaryConflict) score += 1;
           if (!wouldCreateCategoryConflict) score += 0.5;
 
-          if (score > bestScore && (wouldFixBrand || wouldFixCategory)) {
+          if (score > bestScore && (wouldFixBrand || wouldFixCategory || wouldFixDispensary)) {
             bestScore = score;
             bestSwap = j;
           }

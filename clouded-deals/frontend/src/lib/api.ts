@@ -117,6 +117,7 @@ function normalizeDeal(row: ProductRow): Deal {
     brand: toBrand(row.brand),
     deal_score: row.deal_score || 0,
     is_verified: (row.deal_score || 0) >= 70,
+    product_url: row.product_url,
     created_at: new Date(row.scraped_at),
   };
 }
@@ -157,6 +158,7 @@ export async function fetchDeals(): Promise<FetchDealsResult> {
            dispensary:dispensaries!inner(id, name, address, city, state, platform, url)`
         )
         .eq('is_active', true)
+        .gt('deal_score', 0)
         .order('deal_score', { ascending: false })
         .limit(200),
       supabase

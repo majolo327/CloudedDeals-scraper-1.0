@@ -161,7 +161,22 @@ class JaneScraper(BaseScraper):
                     product: dict[str, Any] = {
                         "name": lines[0] if lines else "Unknown",
                         "raw_text": text_block.strip(),
+                        "product_url": self.url,  # fallback: dispensary menu URL
                     }
+
+                    # Try to extract a product link from an <a> ancestor or child
+                    try:
+                        href = await el.evaluate(
+                            """el => {
+                                if (el.tagName === 'A') return el.href;
+                                const a = el.closest('a') || el.querySelector('a');
+                                return a ? a.href : null;
+                            }"""
+                        )
+                        if href:
+                            product["product_url"] = href
+                    except Exception:
+                        pass
 
                     for line in lines:
                         if "$" in line:

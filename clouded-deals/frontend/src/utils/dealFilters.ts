@@ -41,7 +41,9 @@ export function filterDeals(deals: Deal[], options: FilterOptions): Deal[] {
       const matchesProduct = deal.product_name.toLowerCase().includes(q);
       const matchesBrand = deal.brand.name.toLowerCase().includes(q);
       const matchesDispensary = deal.dispensary.name.toLowerCase().includes(q);
-      if (!matchesProduct && !matchesBrand && !matchesDispensary) return false;
+      const matchesCategory = deal.category.toLowerCase().includes(q);
+      const matchesWeight = (deal.weight || '').toLowerCase().includes(q);
+      if (!matchesProduct && !matchesBrand && !matchesDispensary && !matchesCategory && !matchesWeight) return false;
     }
     return true;
   });

@@ -196,7 +196,7 @@ export function SearchPage({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search brands, dispensaries, products..."
+            placeholder="Search deals, brands, stores..."
             autoFocus
             className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 sm:pl-12 pr-10 py-3 sm:py-4 min-h-[48px] text-white placeholder:text-slate-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all text-base sm:text-lg"
           />
@@ -411,10 +411,10 @@ export function SearchPage({
                 <div className="text-center py-16">
                   <Search className="w-16 h-16 mx-auto mb-4 text-slate-700" />
                   <p className="text-slate-400 text-lg mb-2">
-                    No results for &ldquo;{debouncedQuery}&rdquo;
+                    Nothing for &ldquo;{debouncedQuery}&rdquo;
                   </p>
                   <p className="text-slate-500 text-sm">
-                    Try a different search term or browse by category
+                    Try a brand name, category (flower, vape), or dispensary
                   </p>
                 </div>
               )}
@@ -455,10 +455,10 @@ export function SearchPage({
           <div className="text-center">
             <Search className="w-20 h-20 mx-auto mb-4 text-slate-700" />
             <p className="text-slate-400 text-lg mb-2">
-              Search brands, dispensaries, or products
+              Find exactly what you&apos;re looking for
             </p>
             <p className="text-slate-500 text-sm">
-              Find the best deals across Las Vegas
+              Search by brand, dispensary, category, or weight
             </p>
           </div>
         </div>

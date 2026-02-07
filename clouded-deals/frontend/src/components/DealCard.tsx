@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Heart, BadgeCheck, MapPin, CheckCircle, Clock, Share2, Users } from 'lucide-react';
+import { Heart, BadgeCheck, MapPin, CheckCircle, Clock, Share2, Users, ExternalLink } from 'lucide-react';
 import type { Deal } from '@/types';
 import { isFreshDeal } from '@/lib/socialProof';
 import { getBadge } from '@/utils';
@@ -115,10 +115,22 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
         )}
       </div>
 
-      {/* Footer: Dispensary */}
-      <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-        <MapPin className="w-2.5 h-2.5 opacity-60 shrink-0" />
-        <span className="truncate">{deal.dispensary?.name || 'Unknown Dispensary'}</span>
+      {/* Footer: Dispensary + Get Deal */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-[10px] text-slate-500 min-w-0">
+          <MapPin className="w-2.5 h-2.5 opacity-60 shrink-0" />
+          <span className="truncate">{deal.dispensary?.name || 'Unknown Dispensary'}</span>
+        </div>
+        <a
+          href={deal.product_url || deal.dispensary?.menu_url || '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="shrink-0 flex items-center gap-1 px-2 py-1 min-h-[28px] rounded-md text-[10px] font-semibold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 transition-colors"
+        >
+          Get Deal
+          <ExternalLink className="w-2.5 h-2.5" />
+        </a>
       </div>
 
       {showShare && (

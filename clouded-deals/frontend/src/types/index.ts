@@ -43,6 +43,7 @@ export interface Deal {
   brand: Brand;
   deal_score: number;
   is_verified: boolean;
+  product_url?: string | null;
   editorial_note?: string;
   save_count?: number;
   created_at: Date;
