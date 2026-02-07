@@ -155,7 +155,7 @@ export function DealModal({
               )}
             </div>
             {savings > 0 && (
-              <p className="text-sm sm:text-base text-purple-400/80 font-medium">You save ${savings.toFixed(2)}</p>
+              <p className="text-sm sm:text-base text-purple-400/80 font-medium">You save ${savings.toFixed(2)} vs menu price</p>
             )}
           </div>
 
@@ -206,12 +206,12 @@ export function DealModal({
                 <span className="text-sm sm:text-base">{isSaved ? 'Saved' : 'Save'}</span>
               </button>
               <a
-                href={deal.dispensary?.menu_url || '#'}
+                href={deal.product_url || deal.dispensary?.menu_url || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 py-3 sm:py-3.5 min-h-[48px] bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-purple-500/20 flex items-center justify-center gap-2"
               >
-                <span className="text-sm sm:text-base">Get Deal</span>
+                <span className="text-sm sm:text-base">Get This Deal</span>
                 <ExternalLink className="w-4 h-4" />
               </a>
             </div>

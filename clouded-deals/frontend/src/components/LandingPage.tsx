@@ -40,21 +40,21 @@ export function LandingPage({
       {/* Hero Section */}
       <section className="relative z-10 max-w-6xl mx-auto px-4 pt-8 sm:pt-16 pb-10 sm:pb-16 text-center">
         <h2 className="text-3xl sm:text-5xl font-bold tracking-tight mb-4 leading-tight">
-          Vegas Cannabis Deals.
+          Fresh Cannabis Deals.
           <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-purple-400">
-            Updated Daily.
+            Every Morning.
           </span>
         </h2>
         <p className="text-lg sm:text-xl text-slate-400 mb-8 max-w-md mx-auto">
-          Never overpay for weed again.
+          We scan every menu in Vegas so you don&apos;t have to.
         </p>
 
         <button
           onClick={onBrowseDeals}
           className="inline-flex items-center gap-2 px-8 py-4 min-h-[56px] bg-gradient-to-r from-emerald-500 to-purple-500 text-white font-semibold text-lg rounded-2xl shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] transition-all"
         >
-          Browse Today&apos;s Deals
+          See Today&apos;s Deals
           <ArrowRight className="w-5 h-5" />
         </button>
 
@@ -63,12 +63,12 @@ export function LandingPage({
           {dealCount > 0 && (
             <span className="flex items-center gap-1.5">
               <TrendingUp className="w-4 h-4 text-emerald-400" />
-              {dealCount} deals found today
+              {dealCount} deals live right now
             </span>
           )}
           <span className="flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4 text-purple-400" />
-            Trusted by Vegas locals
+            Real prices, verified daily
           </span>
         </div>
       </section>
@@ -104,19 +104,19 @@ export function LandingPage({
               {
                 step: '1',
                 icon: Search,
-                title: 'We scan 27+ dispensaries daily',
+                title: 'We scan every dispensary menu in Vegas',
                 color: 'text-emerald-400 bg-emerald-500/10',
               },
               {
                 step: '2',
                 icon: TrendingUp,
-                title: 'Find deals 20%+ off',
+                title: 'Only deals 20%+ off make the cut',
                 color: 'text-purple-400 bg-purple-500/10',
               },
               {
                 step: '3',
                 icon: ShieldCheck,
-                title: 'You save money',
+                title: 'You grab the deal, keep the savings',
                 color: 'text-amber-400 bg-amber-500/10',
               },
             ].map((item) => (
@@ -140,7 +140,7 @@ export function LandingPage({
           onClick={onBrowseDeals}
           className="inline-flex items-center gap-2 px-8 py-4 min-h-[56px] bg-gradient-to-r from-purple-500 to-emerald-500 text-white font-semibold text-lg rounded-2xl shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.02] transition-all"
         >
-          See All {dealCount > 0 ? dealCount : ''} Deals Today
+          Browse All {dealCount > 0 ? dealCount : ''} Deals
           <ArrowRight className="w-5 h-5" />
         </button>
       </section>

@@ -20,14 +20,46 @@ export function groupBrandsByLetter(brands: Brand[]): Record<string, Brand[]> {
 }
 
 export function getTopDealsByDiscount(deals: Deal[], limit = 5): Deal[] {
-  return [...deals]
+  const sorted = [...deals]
     .filter((d) => d.original_price && d.original_price > d.deal_price)
     .sort((a, b) => {
       const discA = ((a.original_price! - a.deal_price) / a.original_price!) * 100;
       const discB = ((b.original_price! - b.deal_price) / b.original_price!) * 100;
       return discB - discA;
-    })
-    .slice(0, limit);
+    });
+
+  // Ensure dispensary + category diversity in featured deals
+  const picks: Deal[] = [];
+  const usedDispensaries = new Set<string>();
+  const usedCategories = new Set<string>();
+
+  // Pass 1: unique dispensary + unique category
+  for (const deal of sorted) {
+    if (picks.length >= limit) break;
+    const dispId = deal.dispensary?.id || '';
+    if (!usedDispensaries.has(dispId) && !usedCategories.has(deal.category)) {
+      picks.push(deal);
+      usedDispensaries.add(dispId);
+      usedCategories.add(deal.category);
+    }
+  }
+  // Pass 2: unique dispensary (relax category)
+  for (const deal of sorted) {
+    if (picks.length >= limit) break;
+    if (!picks.some(p => p.id === deal.id) && !usedDispensaries.has(deal.dispensary?.id || '')) {
+      picks.push(deal);
+      usedDispensaries.add(deal.dispensary?.id || '');
+    }
+  }
+  // Pass 3: fill remaining by best discount
+  for (const deal of sorted) {
+    if (picks.length >= limit) break;
+    if (!picks.some(p => p.id === deal.id)) {
+      picks.push(deal);
+    }
+  }
+
+  return picks;
 }
 
 export function filterBrandsByQuery(brands: Brand[], query: string): Brand[] {

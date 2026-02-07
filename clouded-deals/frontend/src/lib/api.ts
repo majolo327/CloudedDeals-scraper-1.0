@@ -117,6 +117,7 @@ function normalizeDeal(row: ProductRow): Deal {
     brand: toBrand(row.brand),
     deal_score: row.deal_score || 0,
     is_verified: (row.deal_score || 0) >= 70,
+    product_url: row.product_url,
     created_at: new Date(row.scraped_at),
   };
 }

@@ -226,7 +226,7 @@ def _insert_deals(
             {
                 "product_id": product_id,
                 "dispensary_id": dispensary_id,
-                "deal_score": round(d["deal_score"], 1),
+                "deal_score": int(round(d["deal_score"])),
             }
         )
 
@@ -278,7 +278,7 @@ async def _scrape_site_inner(dispensary: dict[str, Any]) -> dict[str, Any]:
     }
     for p in parsed:
         key = (p.get("name", ""), p.get("sale_price"))
-        p["deal_score"] = round(deal_score_lookup.get(key, 0), 1)
+        p["deal_score"] = int(round(deal_score_lookup.get(key, 0)))
 
     # Insert to DB
     product_rows = _upsert_products(slug, parsed)

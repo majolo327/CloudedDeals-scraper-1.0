@@ -414,8 +414,11 @@ export function DealsPage({
                 </div>
               ) : gridDeals.length === 0 ? (
                 <div className="text-center py-16">
-                  <p className="text-slate-400 text-sm">
-                    You&apos;ve seen all today&apos;s deals!
+                  <p className="text-slate-400 text-sm mb-1">
+                    You&apos;ve seen every deal today
+                  </p>
+                  <p className="text-slate-600 text-xs">
+                    New deals drop tomorrow morning
                   </p>
                 </div>
               ) : (
@@ -491,9 +494,9 @@ export function DealsPage({
               <div className="text-center py-20">
                 <BadgeCheck className="w-20 h-20 mx-auto mb-6 text-slate-700" />
                 <p className="text-slate-300 text-xl font-medium mb-2">
-                  No verified deals
+                  No verified deals yet today
                 </p>
-                <p className="text-slate-500">Check back soon</p>
+                <p className="text-slate-500">New deals drop every morning — check back soon</p>
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
