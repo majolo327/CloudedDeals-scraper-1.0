@@ -176,6 +176,8 @@ def _upsert_products(
                 "thc_percent": p.get("thc_percent"),
                 "cbd_percent": p.get("cbd_percent"),
                 "raw_text": (p.get("raw_text") or "")[:4000],
+                "deal_score": p.get("deal_score", 0),
+                "product_url": p.get("product_url"),
             }
         )
 
@@ -187,12 +189,13 @@ def _upsert_products(
         # Return fake rows with ids so deal matching still works in logs
         return [{"id": f"dry-{i}", **r} for i, r in enumerate(rows)]
 
-    # The DB unique constraint includes scraped_at which defaults to NOW(),
-    # making true upserts impossible within the same run.  Use upsert with
-    # ignoreDuplicates so re-runs within the same second are safe.
+    # Upsert on the stable dedup key: same product at the same price from
+    # the same dispensary at the same weight is the same row.  Re-runs
+    # within a day will UPDATE the existing row (refreshing scraped_at,
+    # deal_score, etc.) instead of creating duplicates.
     result = (
         db.table("products")
-        .upsert(rows, on_conflict="dispensary_id,name,sale_price,scraped_at", ignore_duplicates=True)
+        .upsert(rows, on_conflict="dispensary_id,name,weight_value,sale_price")
         .execute()
     )
     return result.data
@@ -266,6 +269,16 @@ async def _scrape_site_inner(dispensary: dict[str, Any]) -> dict[str, Any]:
     # Parse and detect deals
     parsed = [parse_product(rp) for rp in raw_products]
     deals = detect_deals(parsed)
+
+    # Write deal_score back onto parsed products so it's upserted into the
+    # products table (the frontend reads deal_score from products directly).
+    deal_score_lookup: dict[tuple[str, float | None], float] = {
+        (d.get("name", ""), d.get("sale_price")): d["deal_score"]
+        for d in deals
+    }
+    for p in parsed:
+        key = (p.get("name", ""), p.get("sale_price"))
+        p["deal_score"] = round(deal_score_lookup.get(key, 0), 1)
 
     # Insert to DB
     product_rows = _upsert_products(slug, parsed)

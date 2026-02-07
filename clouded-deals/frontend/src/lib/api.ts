@@ -157,6 +157,7 @@ export async function fetchDeals(): Promise<FetchDealsResult> {
            dispensary:dispensaries!inner(id, name, address, city, state, platform, url)`
         )
         .eq('is_active', true)
+        .gt('deal_score', 0)
         .order('deal_score', { ascending: false })
         .limit(200),
       supabase
