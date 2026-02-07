@@ -15,10 +15,11 @@ logger = logging.getLogger(__name__)
 # Selectors tried in order — the first match wins.
 IFRAME_SELECTORS = [
     'iframe[src*="dutchie.com"]',
+    'iframe[src*="dutchie"]',
     'iframe[src*="menu"]',
 ]
 
-_IFRAME_READY_TIMEOUT_MS = 30_000
+_IFRAME_READY_TIMEOUT_MS = 60_000
 
 
 async def get_iframe(

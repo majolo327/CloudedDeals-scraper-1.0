@@ -222,7 +222,7 @@ def _insert_deals(
 # ---------------------------------------------------------------------------
 
 
-_SITE_TIMEOUT_SEC = 120  # 2 minutes max per site
+_SITE_TIMEOUT_SEC = 240  # 4 minutes max per site (Dutchie iframe can take 2+ min)
 _MAX_RETRIES = 2
 _RETRY_DELAY_SEC = 5
 

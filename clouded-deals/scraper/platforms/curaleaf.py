@@ -75,7 +75,15 @@ class CuraleafScraper(BaseScraper):
 
             page_num += 1
             # CRITICAL: navigate_curaleaf_page checks is_enabled() internally.
-            if not await navigate_curaleaf_page(self.page, page_num):
+            try:
+                if not await navigate_curaleaf_page(self.page, page_num):
+                    break
+            except Exception as exc:
+                # Gracefully stop pagination — keep products we already have.
+                logger.warning(
+                    "[%s] Pagination to page %d failed (%s) — keeping %d products from earlier pages",
+                    self.slug, page_num, exc, len(all_products),
+                )
                 break
 
         logger.info("[%s] Scrape complete — %d products", self.slug, len(all_products))

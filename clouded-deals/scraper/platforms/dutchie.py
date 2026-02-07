@@ -40,6 +40,15 @@ class DutchieScraper(BaseScraper):
 
         # --- Locate the Dutchie iframe ----------------------------------
         frame = await get_iframe(self.page)
+
+        # If no iframe found, try a page reload — some TD sites need a
+        # second page load before the Dutchie embed appears.
+        if frame is None:
+            logger.warning("[%s] No iframe on first try — reloading page", self.slug)
+            await self.page.reload(wait_until="domcontentloaded")
+            await self.handle_age_gate(post_wait_sec=_POST_AGE_GATE_WAIT)
+            frame = await get_iframe(self.page)
+
         if frame is None:
             logger.error("[%s] Could not find Dutchie iframe — aborting", self.slug)
             return []

@@ -13,6 +13,35 @@ from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 
 logger = logging.getLogger(__name__)
 
+# JavaScript to dismiss overlays that block pagination clicks on Curaleaf.
+# Targets: OneTrust cookie consent banner, Curaleaf cart drawer, and any
+# other modal overlays that intercept pointer events.
+_JS_DISMISS_OVERLAYS = """
+() => {
+    let dismissed = 0;
+
+    // 1. OneTrust cookie consent banner
+    const onetrust = document.getElementById('onetrust-consent-sdk');
+    if (onetrust) { onetrust.remove(); dismissed++; }
+
+    // 2. Curaleaf cart drawer (MUI modal overlay)
+    const drawers = document.querySelectorAll(
+        '.MuiDrawer-root, .MuiDrawer-modal, [class*="cart-dropdown"]'
+    );
+    for (const d of drawers) { d.remove(); dismissed++; }
+
+    // 3. Any remaining MUI backdrop / overlay
+    const backdrops = document.querySelectorAll('.MuiBackdrop-root');
+    for (const b of backdrops) { b.remove(); dismissed++; }
+
+    // 4. Re-enable scrolling
+    document.body.style.overflow = 'auto';
+    document.documentElement.style.overflow = 'auto';
+
+    return dismissed;
+}
+"""
+
 # How long to wait for content to settle after a page change.
 _POST_NAV_SETTLE_SEC = 2
 
@@ -92,6 +121,18 @@ async def navigate_curaleaf_page(
         ``True`` if navigation succeeded, ``False`` if pagination is
         complete (button missing or disabled).
     """
+    # Dismiss overlays (cart drawer, cookie banner) that block clicks.
+    try:
+        removed = await page.evaluate(_JS_DISMISS_OVERLAYS)
+        if removed:
+            logger.info(
+                "Dismissed %d overlay(s) before Curaleaf page %d click",
+                removed, page_number,
+            )
+            await asyncio.sleep(0.5)
+    except Exception:
+        logger.debug("Overlay dismissal JS failed", exc_info=True)
+
     # Try exact page-number button first, then fall back to "Next" style.
     for selector in (
         f'button[aria-label="Go to page {page_number}"]',
@@ -116,7 +157,7 @@ async def navigate_curaleaf_page(
             )
             return False
 
-        await locator.click()
+        await locator.click(force=True)
         logger.info("Navigated to Curaleaf page %d via %s", page_number, selector)
         await asyncio.sleep(_POST_NAV_SETTLE_SEC)
         return True
