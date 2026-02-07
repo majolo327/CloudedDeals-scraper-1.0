@@ -23,10 +23,10 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
   return (
     <div
       onClick={onClick}
-      className={`group glass frost rounded-xl p-4 cursor-pointer transition-all duration-300 ${
+      className={`group glass frost rounded-xl p-4 cursor-pointer transition-gentle ${
         isSaved
           ? 'card-saved'
-          : 'hover:bg-slate-800/70 hover:border-white/10'
+          : 'hover:border-[rgba(99,115,171,0.22)] hover:bg-[rgba(28,35,56,0.8)]'
       }`}
     >
       {/* Badges row */}

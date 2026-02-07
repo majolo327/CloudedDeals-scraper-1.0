@@ -22,7 +22,6 @@ export function StickyStatsBar({
 }: StickyStatsBarProps) {
   const tabs: { id: DealsTab; label: string }[] = [
     { id: 'today', label: "Today's Picks" },
-    { id: 'swipe', label: 'Swipe' },
     { id: 'verified', label: 'Verified' },
   ];
 
@@ -36,7 +35,10 @@ export function StickyStatsBar({
   ];
 
   return (
-    <div className="sticky top-14 sm:top-[104px] z-40 bg-slate-900/95 backdrop-blur-xl border-b border-slate-800/50">
+    <div
+      className="sticky top-14 sm:top-16 z-40 backdrop-blur-xl border-b"
+      style={{ backgroundColor: 'rgba(10, 14, 26, 0.92)', borderColor: 'var(--border-subtle)' }}
+    >
       <div className="max-w-6xl mx-auto px-4 h-12 flex items-center justify-between gap-4 overflow-x-auto scrollbar-hide">
         {activeTab && onTabChange && (
           <div className="flex items-center gap-1 flex-shrink-0">
@@ -44,10 +46,10 @@ export function StickyStatsBar({
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                className={`px-4 py-2 min-h-[44px] rounded-full text-sm font-medium whitespace-nowrap transition-all flex items-center ${
+                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
                   activeTab === tab.id
-                    ? 'bg-slate-800 text-slate-100'
-                    : 'text-slate-500 hover:text-slate-300'
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20'
+                    : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
                 {tab.label}
@@ -61,10 +63,10 @@ export function StickyStatsBar({
               <button
                 key={category.id}
                 onClick={() => onCategoryChange(category.id)}
-                className={`px-3 py-2 min-h-[40px] rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center ${
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
                   activeCategory === category.id
-                    ? 'bg-slate-700/80 text-slate-200 border border-slate-600/50'
-                    : 'bg-white/5 text-slate-400 hover:text-slate-300 hover:bg-white/10'
+                    ? 'bg-white/10 text-white border border-white/20'
+                    : 'text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10'
                 }`}
               >
                 {category.label}

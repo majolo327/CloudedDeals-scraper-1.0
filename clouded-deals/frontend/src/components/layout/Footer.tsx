@@ -7,7 +7,7 @@ interface FooterProps {
 
 export function Footer({ onNavigateToForBusiness, onNavigate }: FooterProps) {
   return (
-    <footer className="relative border-t border-slate-800/50 bg-slate-900/50 mt-8">
+    <footer className="relative border-t mt-8" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'rgba(10, 14, 26, 0.6)' }}>
       <div className="max-w-6xl mx-auto px-4 py-6">
         {onNavigateToForBusiness && (
           <div className="flex justify-center mb-4">
