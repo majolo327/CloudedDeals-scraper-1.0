@@ -316,25 +316,10 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
         )
         return picked
 
-    if DRY_RUN:
-        # In dry run, just use the config list — don't query DB
-        return list(DISPENSARIES)
-
-    # Fetch active slugs from Supabase so the admin can disable sites.
-    result = (
-        db.table("dispensaries")
-        .select("id")
-        .eq("is_active", True)
-        .execute()
-    )
-    active_slugs = {row["id"] for row in result.data}
-
-    # If the DB has no dispensary rows yet, fall back to the full config.
-    if not active_slugs:
-        logger.warning("No dispensaries in DB — using full config list")
-        return list(DISPENSARIES)
-
-    return [d for d in DISPENSARIES if d["slug"] in active_slugs]
+    # Use the full config list.  _seed_dispensaries() already set all
+    # rows to is_active=True, so there is no need for a separate DB
+    # query that might return stale results.
+    return list(DISPENSARIES)
 
 
 async def run(slug_filter: str | None = None) -> None:

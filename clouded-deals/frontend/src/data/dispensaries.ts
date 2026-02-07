@@ -1,87 +1,62 @@
 import type { Dispensary, Tier, DealSource } from '@/types';
 
+/**
+ * Static dispensary data for Browse and Search pages.
+ *
+ * IMPORTANT: These 27 entries are the dispensaries we actively scrape.
+ * Their `id` and `slug` fields MUST match the scraper config slugs in
+ * `scraper/config/dispensaries.py` so that search results link correctly
+ * to deals fetched from Supabase.
+ */
+
 function d(
+  id: string,
   name: string,
   tier: Tier,
   address: string,
   platform: DealSource,
   menu_url: string
 ): Dispensary {
-  return {
-    id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-    name,
-    slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-    tier,
-    address,
-    menu_url,
-    platform,
-    is_active: true,
-  };
+  return { id, name, slug: id, tier, address, menu_url, platform, is_active: true };
 }
 
 export const DISPENSARIES: Dispensary[] = [
-  d('Planet 13', 'verified', '2548 W Desert Inn Rd, Las Vegas, NV 89109', 'jane', 'https://www.planet13lasvegas.com/menu'),
-  d('The Dispensary West', 'premium', '5347 S Decatur Blvd, Las Vegas, NV 89118', 'dutchie', 'https://thedispensarylv.com'),
-  d('Reef Dispensaries (Strip)', 'verified', '3400 Western Ave, Las Vegas, NV 89109', 'dutchie', 'https://reefdispensaries.com'),
-  d('Essence (Strip)', 'verified', '2307 S Las Vegas Blvd, Las Vegas, NV 89104', 'jane', 'https://essencevegas.com'),
-  d('The Source+ (Strip)', 'premium', '2550 S Rainbow Blvd, Las Vegas, NV 89146', 'dutchie', 'https://thesourcenv.com'),
-  d('Curaleaf (Strip)', 'verified', '1736 S Las Vegas Blvd, Las Vegas, NV 89104', 'curaleaf', 'https://curaleaf.com/shop/nevada'),
-  d('MedMen (Strip)', 'premium', '3025 S Las Vegas Blvd, Las Vegas, NV 89109', 'dutchie', 'https://medmen.com'),
-  d('ShowGrow', 'standard', '4850 W Sunset Rd, Las Vegas, NV 89118', 'dutchie', 'https://showgrow.com'),
-  d('NuWu Cannabis', 'premium', '1235 Paiute Cir, Las Vegas, NV 89106', 'jane', 'https://nuwucannabis.com'),
-  d('Jardin', 'verified', '2900 E Desert Inn Rd, Las Vegas, NV 89121', 'dutchie', 'https://jardincannabis.com'),
-  d('Exhale Nevada', 'premium', '4310 W Flamingo Rd, Las Vegas, NV 89103', 'dutchie', 'https://exhalenv.com'),
-  d('Zen Leaf (Strip)', 'premium', '3375 Pepper Ln, Las Vegas, NV 89120', 'dutchie', 'https://zenleafdispensaries.com'),
-  d('Oasis Cannabis', 'verified', '1800 Industrial Rd, Las Vegas, NV 89102', 'jane', 'https://oasisnv.com'),
-  d('The Apothecary Shoppe', 'premium', '4240 W Flamingo Rd, Las Vegas, NV 89103', 'dutchie', 'https://theapothecaryshopppe.com'),
-  d('Acres Cannabis', 'standard', '2320 Western Ave, Las Vegas, NV 89102', 'dutchie', 'https://acrescannabis.com'),
+  // ==================================================================
+  // DUTCHIE / THE DISPENSARY NV  (10)
+  // ==================================================================
+  d('td-gibson',          'The Dispensary NV - Gibson',              'premium',  '50 N Gibson Rd, Henderson, NV 89014',          'dutchie', 'https://thedispensarynv.com/shop-gibson/'),
+  d('td-eastern',         'The Dispensary NV - Eastern',             'premium',  '5765 S Eastern Ave, Las Vegas, NV 89119',      'dutchie', 'https://thedispensarynv.com/shop-eastern/'),
+  d('td-decatur',         'The Dispensary NV - Decatur',             'premium',  '5347 S Decatur Blvd, Las Vegas, NV 89118',     'dutchie', 'https://thedispensarynv.com/shop-decatur/'),
+  d('td-henderson',       'The Dispensary NV - Henderson',           'premium',  '50 N Gibson Rd, Henderson, NV 89014',          'dutchie', 'https://thedispensarynv.com/shop-henderson/'),
+  d('td-reno',            'The Dispensary NV - Reno',                'premium',  '1085 S Virginia St, Reno, NV 89502',           'dutchie', 'https://thedispensarynv.com/shop-reno/'),
+  d('jardin',             'Jardín Premium Cannabis Dispensary',       'verified', '2900 E Desert Inn Rd, Las Vegas, NV 89121',    'dutchie', 'https://jardinlasvegas.com/shop/'),
+  d('essence-strip',      'Essence Cannabis Dispensary - The Strip',  'verified', '2307 S Las Vegas Blvd, Las Vegas, NV 89104',   'dutchie', 'https://essencevegas.com/strip/'),
+  d('essence-tropicana',  'Essence Cannabis Dispensary - Tropicana',  'verified', '5765 W Tropicana Ave, Las Vegas, NV 89103',    'dutchie', 'https://essencevegas.com/tropicana/'),
+  d('essence-henderson',  'Essence Cannabis Dispensary - Henderson',  'verified', '4300 E Sunset Rd #A1, Henderson, NV 89014',    'dutchie', 'https://essencevegas.com/henderson/'),
+  d('thrive',             'Thrive Cannabis Marketplace',              'verified', '2020 Western Ave, Las Vegas, NV 89102',        'dutchie', 'https://thrivecannabismarketplace.com/shop/'),
 
-  d('Thrive Cannabis', 'verified', '2020 Western Ave, Las Vegas, NV 89102', 'dutchie', 'https://thrivecannabis.com'),
-  d('Inyo Fine Cannabis', 'premium', '2520 S Maryland Pkwy, Las Vegas, NV 89109', 'dutchie', 'https://inyocannabis.com'),
-  d('NuLeaf (Downtown)', 'verified', '430 E Twain Ave, Las Vegas, NV 89169', 'jane', 'https://nuleafnv.com'),
-  d('Essence (Downtown)', 'verified', '4347 W Flamingo Rd, Las Vegas, NV 89103', 'jane', 'https://essencevegas.com'),
-  d('Green (Downtown)', 'standard', '3650 S Decatur Blvd, Las Vegas, NV 89103', 'dutchie', 'https://greendispensary.com'),
-  d('Pisos', 'premium', '4110 S Maryland Pkwy, Las Vegas, NV 89119', 'dutchie', 'https://pisosclub.com'),
-  d('The Grove', 'standard', '4647 Swenson St, Las Vegas, NV 89119', 'dutchie', 'https://thegrovenv.com'),
-  d('Silver Sage Wellness', 'standard', '3420 Spring Mountain Rd, Las Vegas, NV 89102', 'dutchie', 'https://silversagewellness.com'),
+  // ==================================================================
+  // CURALEAF  (4)
+  // ==================================================================
+  d('curaleaf-western',   'Curaleaf - Western Ave',   'verified', '1736 S Las Vegas Blvd, Las Vegas, NV 89104',  'curaleaf', 'https://curaleaf.com/stores/curaleaf-las-vegas-western-ave-(formerly-acres)/specials'),
+  d('curaleaf-north-lv',  'Curaleaf - North Las Vegas','verified', '1736 N Rancho Dr, Las Vegas, NV 89106',      'curaleaf', 'https://curaleaf.com/stores/curaleaf-north-las-vegas/specials'),
+  d('curaleaf-the-reef',  'Curaleaf - The Reef',       'verified', '3400 Western Ave, Las Vegas, NV 89109',      'curaleaf', 'https://curaleaf.com/stores/reef-dispensary-las-vegas-strip/specials'),
+  d('curaleaf-strip',     'Curaleaf - Las Vegas Strip', 'verified', '1736 S Las Vegas Blvd, Las Vegas, NV 89104', 'curaleaf', 'https://curaleaf.com/stores/curaleaf-nv-las-vegas/specials'),
 
-  d('Greenmart', 'standard', '3650 S Decatur Blvd #7, Las Vegas, NV 89103', 'dutchie', 'https://greenmartlv.com'),
-  d('The Dispensary Henderson', 'premium', '50 N Gibson Rd, Henderson, NV 89014', 'dutchie', 'https://thedispensarylv.com'),
-  d('Shango (Decatur)', 'premium', '4380 S Decatur Blvd, Las Vegas, NV 89103', 'dutchie', 'https://goshango.com'),
-  d('Shango (Eastern)', 'premium', '7885 S Eastern Ave, Las Vegas, NV 89123', 'dutchie', 'https://goshango.com'),
-  d('Nevada Made Marijuana', 'standard', '7740 S Jones Blvd, Las Vegas, NV 89139', 'dutchie', 'https://nevadamademarijuana.com'),
-  d('Jenny\'s Dispensary', 'standard', '8560 W Sunset Rd, Las Vegas, NV 89113', 'dutchie', 'https://jennysnv.com'),
-  d('The Source+ (Sahara)', 'premium', '9480 S Eastern Ave #170, Las Vegas, NV 89123', 'dutchie', 'https://thesourcenv.com'),
-  d('Sierra Well', 'standard', '3375 Pepper Ln, Las Vegas, NV 89120', 'dutchie', 'https://sierrawellnv.com'),
-  d('Medizin', 'verified', '4850 W Sunset Rd, Las Vegas, NV 89118', 'dutchie', 'https://medizin.vegas'),
-  d('MMJ America', 'standard', '4745 W Tropicana Ave, Las Vegas, NV 89103', 'dutchie', 'https://mmjamerica.com'),
-  d('Euphoria Wellness', 'standard', '7780 S Jones Blvd, Las Vegas, NV 89139', 'dutchie', 'https://euphoriawellnesslv.com'),
-  d('Jade Cannabis', 'standard', '1130 E Desert Inn Rd, Las Vegas, NV 89109', 'dutchie', 'https://jadecannabisco.com'),
-  d('LivFree Wellness', 'standard', '1130 W Sunset Rd, Henderson, NV 89014', 'dutchie', 'https://livfreewellness.com'),
-  d('Tree of Life', 'standard', '1740 E Tropicana Ave, Las Vegas, NV 89119', 'dutchie', 'https://treeoflifelv.com'),
-  d('Top Notch the Dispensary', 'standard', '7885 W Sahara Ave #112, Las Vegas, NV 89117', 'dutchie', 'https://topnotchthed.com'),
-  d('Cultivate', 'premium', '4055 S Buffalo Dr, Las Vegas, NV 89147', 'dutchie', 'https://cultivatenv.com'),
-  d('Mynt Cannabis', 'standard', '3650 S Decatur Blvd, Las Vegas, NV 89103', 'dutchie', 'https://myntcannabis.com'),
-
-  d('The Dispensary (Henderson)', 'premium', '50 N Gibson Rd, Henderson, NV 89014', 'dutchie', 'https://thedispensarylv.com'),
-  d('Zen Leaf (Henderson)', 'premium', '9130 S Las Vegas Blvd, Las Vegas, NV 89123', 'dutchie', 'https://zenleafdispensaries.com'),
-  d('Essence (Henderson)', 'verified', '4300 E Sunset Rd #A1, Henderson, NV 89014', 'jane', 'https://essencevegas.com'),
-  d('Deep Roots Henderson', 'premium', '1542 W Warm Springs Rd, Henderson, NV 89014', 'dutchie', 'https://deeprootsharvest.com'),
-  d('Curaleaf (Henderson)', 'verified', '1736 W Horizon Ridge Pkwy, Henderson, NV 89012', 'curaleaf', 'https://curaleaf.com/shop/nevada'),
-  d('Nevada Wellness Center', 'standard', '3200 N Tenaya Way, Las Vegas, NV 89129', 'dutchie', 'https://nevadawellnesscenter.com'),
-  d('NuLeaf (Henderson)', 'verified', '1040 E Flamingo Rd, Las Vegas, NV 89119', 'jane', 'https://nuleafnv.com'),
-  d('GreenMart (Henderson)', 'standard', '4550 S Fort Apache Rd, Las Vegas, NV 89147', 'dutchie', 'https://greenmartlv.com'),
-  d('Las Vegas ReLeaf', 'standard', '2244 Paradise Rd, Las Vegas, NV 89104', 'dutchie', 'https://lvrealeaf.com'),
-  d('Jenny\'s Henderson', 'standard', '10420 S Eastern Ave, Henderson, NV 89052', 'dutchie', 'https://jennysnv.com'),
-
-  d('Thrive North', 'verified', '4440 N Rancho Dr, Las Vegas, NV 89130', 'dutchie', 'https://thrivecannabis.com'),
-  d('Reef North', 'premium', '3900 N Rancho Dr, Las Vegas, NV 89130', 'dutchie', 'https://reefdispensaries.com'),
-  d('Curaleaf (North)', 'verified', '1736 N Rancho Dr, Las Vegas, NV 89106', 'curaleaf', 'https://curaleaf.com/shop/nevada'),
-  d('Deep Roots North', 'premium', '1542 N Las Vegas Blvd, North Las Vegas, NV 89030', 'dutchie', 'https://deeprootsharvest.com'),
-  d('NuLeaf (North)', 'premium', '925 N Nellis Blvd, Las Vegas, NV 89110', 'jane', 'https://nuleafnv.com'),
-  d('The Source+ (North)', 'premium', '2585 S Rainbow Blvd, Las Vegas, NV 89146', 'dutchie', 'https://thesourcenv.com'),
-  d('Oasis North', 'standard', '1800 S Industrial Rd, Las Vegas, NV 89102', 'jane', 'https://oasisnv.com'),
-  d('Essence (North)', 'verified', '5765 W Tropicana Ave, Las Vegas, NV 89103', 'jane', 'https://essencevegas.com'),
-  d('MMJ North', 'standard', '4745 W Tropicana Ave, Las Vegas, NV 89103', 'dutchie', 'https://mmjamerica.com'),
-  d('Bl\u00FCm (Decatur)', 'standard', '1921 Western Ave, Las Vegas, NV 89102', 'dutchie', 'https://liveblum.com'),
+  // ==================================================================
+  // JANE  (13)
+  // ==================================================================
+  d('oasis',              'Oasis Cannabis',                       'verified', '1800 Industrial Rd, Las Vegas, NV 89102',      'jane', 'https://www.oasiscannabis.com/las-vegas-cannabis-dispensary'),
+  d('planet-13',          'Planet 13',                            'verified', '2548 W Desert Inn Rd, Las Vegas, NV 89109',    'jane', 'https://planet13lasvegas.com/menu/'),
+  d('reef',               'Reef Dispensaries',                    'premium',  '3400 Western Ave, Las Vegas, NV 89109',        'jane', 'https://www.reefdispensaries.com/las-vegas-menu/'),
+  d('showgrow',           'ShowGrow',                             'standard', '4850 W Sunset Rd, Las Vegas, NV 89118',        'jane', 'https://showgrow.com/las-vegas-menu/'),
+  d('zen-leaf-lv',        'Zen Leaf - Las Vegas',                 'premium',  '3375 Pepper Ln, Las Vegas, NV 89120',          'jane', 'https://zenleafdispensaries.com/locations/nevada/las-vegas/menu/'),
+  d('nuwu',               'NuWu Cannabis Marketplace',            'premium',  '1235 Paiute Cir, Las Vegas, NV 89106',         'jane', 'https://nuwucannabis.com/menu/'),
+  d('acres',              'Acres Cannabis',                       'standard', '2320 Western Ave, Las Vegas, NV 89102',        'jane', 'https://acrescannabis.com/menu/'),
+  d('jennys-henderson',   "Jenny's Dispensary - Henderson",       'standard', '10420 S Eastern Ave, Henderson, NV 89052',     'jane', 'https://jennysdispensary.com/henderson-menu/'),
+  d('jennys-north-lv',    "Jenny's Dispensary - North Las Vegas", 'standard', '8560 W Sunset Rd, Las Vegas, NV 89113',        'jane', 'https://jennysdispensary.com/north-las-vegas-menu/'),
+  d('silver-sage',        'Silver Sage Wellness',                 'standard', '3420 Spring Mountain Rd, Las Vegas, NV 89102', 'jane', 'https://silversagewellness.com/menu/'),
+  d('pisos',              'Pisos',                                'premium',  '4110 S Maryland Pkwy, Las Vegas, NV 89119',    'jane', 'https://pisoslv.com/menu/'),
+  d('green-therapeutics', 'Green Therapeutics',                    'standard', '4850 W Sunset Rd, Las Vegas, NV 89118',        'jane', 'https://greentherapeutics.com/menu/'),
+  d('lv-releaf',          'Las Vegas ReLeaf',                     'standard', '2244 Paradise Rd, Las Vegas, NV 89104',        'jane', 'https://lasvegasreleaf.com/menu/'),
 ];
