@@ -1,10 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Heart, BadgeCheck, MapPin, CheckCircle, Clock, Share2, Users, ExternalLink } from 'lucide-react';
+import { Heart, BadgeCheck, MapPin, CheckCircle, Share2, Users, ExternalLink, Zap } from 'lucide-react';
 import type { Deal } from '@/types';
-import { isFreshDeal } from '@/lib/socialProof';
-import { getBadge } from '@/utils';
+import { getBadge, getPricePerUnit, isJustDropped } from '@/utils';
 import { DealBadge } from './badges/DealBadge';
 import { ShareModal } from './modals/ShareModal';
 
@@ -18,6 +17,9 @@ interface DealCardProps {
 
 export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: DealCardProps) {
   const [showShare, setShowShare] = useState(false);
+  const pricePerUnit = getPricePerUnit(deal);
+  const justDropped = isJustDropped(deal);
+
   return (
     <div
       onClick={onClick}
@@ -43,18 +45,18 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
             </span>
           )}
           {(() => { const badge = getBadge(deal); return badge ? <DealBadge type={badge} /> : null; })()}
+          {/* Just Dropped badge */}
+          {justDropped && (
+            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-cyan-500/10 text-cyan-400">
+              <Zap className="w-2.5 h-2.5" />
+              Just Dropped
+            </span>
+          )}
           {/* Save count */}
           {(deal.save_count ?? 0) > 0 && (
             <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-slate-500/10 text-slate-400">
               <Users className="w-2.5 h-2.5" />
               {deal.save_count} saved
-            </span>
-          )}
-          {/* Fresh deal */}
-          {isFreshDeal(deal.created_at, 4) && (
-            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-green-500/10 text-green-400">
-              <Clock className="w-2.5 h-2.5" />
-              New
             </span>
           )}
         </div>
@@ -103,15 +105,21 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
       </p>
 
       {/* Price */}
-      <div className="flex items-baseline gap-2 mb-3">
-        <span className="text-base sm:text-lg font-mono font-bold text-purple-400">${deal.deal_price}</span>
-        {deal.original_price && deal.original_price > deal.deal_price && (
-          <>
-            <span className="text-[10px] text-slate-500 line-through">${deal.original_price}</span>
-            <span className="text-[10px] font-semibold text-emerald-400">
-              -{Math.round(((deal.original_price - deal.deal_price) / deal.original_price) * 100)}%
-            </span>
-          </>
+      <div className="mb-3">
+        <div className="flex items-baseline gap-2">
+          <span className="text-base sm:text-lg font-mono font-bold text-purple-400">${deal.deal_price}</span>
+          {deal.original_price && deal.original_price > deal.deal_price && (
+            <>
+              <span className="text-[10px] text-slate-500 line-through">${deal.original_price}</span>
+              <span className="text-[10px] font-semibold text-emerald-400">
+                -{Math.round(((deal.original_price - deal.deal_price) / deal.original_price) * 100)}%
+              </span>
+            </>
+          )}
+        </div>
+        {/* Price per unit */}
+        {pricePerUnit && (
+          <p className="text-[10px] text-slate-500 mt-0.5">{pricePerUnit}</p>
         )}
       </div>
 

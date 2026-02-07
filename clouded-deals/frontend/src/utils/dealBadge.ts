@@ -1,15 +1,17 @@
 import type { Deal, BadgeType } from '@/types';
-import { getDiscountPercent } from './index';
 
 /**
- * Determine the algorithmic badge for a deal.
- * Priority: fire > trending > steal.
- * Returns null if the deal doesn't qualify for any badge.
+ * Determine the score-tier badge for a deal based on deal_score.
+ *   80+  → hot   (HOT DEAL)
+ *   60-79 → great (GREAT DEAL)
+ *   40-59 → good  (GOOD DEAL)
+ *   20-39 → deal  (DEAL)
+ *   <20   → null  (no badge)
  */
 export function getBadge(deal: Deal): BadgeType | null {
-  if (deal.deal_score >= 80) return 'fire';
-  if ((deal.save_count ?? 0) >= 20) return 'trending';
-  const discount = getDiscountPercent(deal.original_price, deal.deal_price);
-  if (discount >= 40) return 'steal';
+  if (deal.deal_score >= 80) return 'hot';
+  if (deal.deal_score >= 60) return 'great';
+  if (deal.deal_score >= 40) return 'good';
+  if (deal.deal_score >= 20) return 'deal';
   return null;
 }
