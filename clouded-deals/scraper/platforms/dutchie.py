@@ -3,7 +3,7 @@ Scraper for Dutchie / The Dispensary NV (TD) iframe-embedded menus.
 
 Flow:
   1. Navigate to the dispensary page.
-  2. Dismiss the age gate (with a **45-second** post-dismiss wait so the
+  2. Dismiss the age gate (with a **60-second** post-dismiss wait so the
      Dutchie iframe has time to fully load behind the overlay).
   3. Locate the Dutchie iframe and switch into it.
   4. Extract products from ``[data-testid*="product"]`` elements.
@@ -25,7 +25,7 @@ from .base import BaseScraper
 logger = logging.getLogger(__name__)
 
 _DUTCHIE_CFG = PLATFORM_DEFAULTS["dutchie"]
-_POST_AGE_GATE_WAIT = _DUTCHIE_CFG["wait_after_age_gate_sec"]  # 45 s
+_POST_AGE_GATE_WAIT = _DUTCHIE_CFG["wait_after_age_gate_sec"]  # 60 s
 _PRODUCT_SELECTOR = '[data-testid*="product"]'
 
 
@@ -35,7 +35,7 @@ class DutchieScraper(BaseScraper):
     async def scrape(self) -> list[dict[str, Any]]:
         await self.goto()
 
-        # --- Age gate (45 s wait for iframe to load behind it) ----------
+        # --- Age gate (60 s wait for iframe to load behind it) ----------
         await self.handle_age_gate(post_wait_sec=_POST_AGE_GATE_WAIT)
 
         # --- Locate the Dutchie iframe ----------------------------------
@@ -69,7 +69,14 @@ class DutchieScraper(BaseScraper):
             )
 
             page_num += 1
-            if not await navigate_dutchie_page(frame, page_num):
+            try:
+                if not await navigate_dutchie_page(frame, page_num):
+                    break
+            except Exception as exc:
+                logger.warning(
+                    "[%s] Pagination to page %d failed (%s) — keeping %d products from earlier pages",
+                    self.slug, page_num, exc, len(all_products),
+                )
                 break
 
         logger.info("[%s] Scrape complete — %d products", self.slug, len(all_products))

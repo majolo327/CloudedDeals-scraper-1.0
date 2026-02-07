@@ -75,13 +75,19 @@ class JaneScraper(BaseScraper):
                 return []
 
         # --- Progressive loading via "View More" -----------------------
-        view_more_clicks = await handle_jane_view_more(target)
-        if view_more_clicks > 0:
-            # Re-extract after new content loaded.
-            products = await self._try_extract(target)
-            logger.info(
-                "[%s] After %d 'View More' clicks → %d products",
-                self.slug, view_more_clicks, len(products),
+        try:
+            view_more_clicks = await handle_jane_view_more(target)
+            if view_more_clicks > 0:
+                # Re-extract after new content loaded.
+                products = await self._try_extract(target)
+                logger.info(
+                    "[%s] After %d 'View More' clicks → %d products",
+                    self.slug, view_more_clicks, len(products),
+                )
+        except Exception as exc:
+            logger.warning(
+                "[%s] 'View More' loading failed (%s) — keeping %d products already collected",
+                self.slug, exc, len(products),
             )
 
         logger.info("[%s] Scrape complete — %d products", self.slug, len(products))
