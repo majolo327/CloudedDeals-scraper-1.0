@@ -28,7 +28,7 @@ from typing import Any
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
-from config.dispensaries import DISPENSARIES
+from config.dispensaries import DISPENSARIES, SITE_TIMEOUT_SEC
 from deal_detector import detect_deals
 from parser import parse_product
 from platforms import CuraleafScraper, DutchieScraper, JaneScraper
@@ -93,6 +93,7 @@ def _complete_run(
     qualifying_deals: int,
     sites_scraped: list[str],
     sites_failed: list[dict[str, str]],
+    runtime_seconds: int,
 ) -> None:
     if DRY_RUN:
         logger.info(
@@ -108,6 +109,7 @@ def _complete_run(
             "qualifying_deals": qualifying_deals,
             "sites_scraped": sites_scraped,
             "sites_failed": sites_failed,
+            "runtime_seconds": runtime_seconds,
         }
     ).eq("id", run_id).execute()
     logger.info("Run %s finished — status=%s", run_id, status)
@@ -124,12 +126,34 @@ def _seed_dispensaries() -> None:
             "name": d["name"],
             "url": d["url"],
             "platform": d["platform"],
-            "is_active": True,
+            "is_active": d.get("is_active", True),
         }
         for d in DISPENSARIES
     ]
     db.table("dispensaries").upsert(rows, on_conflict="id").execute()
     logger.info("Seeded %d dispensaries into DB", len(rows))
+
+
+def _deactivate_old_deals() -> None:
+    """Deactivate previous day's deals so only fresh data is shown."""
+    if DRY_RUN:
+        logger.info("[DRY RUN] Would deactivate old deals")
+        return
+    today_start = (
+        datetime.now(timezone.utc)
+        .replace(hour=0, minute=0, second=0, microsecond=0)
+        .isoformat()
+    )
+    result = (
+        db.table("products")
+        .update({"is_active": False})
+        .lt("scraped_at", today_start)
+        .eq("is_active", True)
+        .execute()
+    )
+    count = len(result.data) if result.data else 0
+    if count > 0:
+        logger.info("Deactivated %d old products", count)
 
 
 def _upsert_products(
@@ -222,7 +246,7 @@ def _insert_deals(
 # ---------------------------------------------------------------------------
 
 
-_SITE_TIMEOUT_SEC = 240  # 4 minutes max per site (Dutchie iframe can take 2+ min)
+_SITE_TIMEOUT_SEC = SITE_TIMEOUT_SEC  # 240 s (from config)
 _MAX_RETRIES = 2
 _RETRY_DELAY_SEC = 5
 
@@ -299,11 +323,14 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
     if slug_filter:
         return [d for d in DISPENSARIES if d["slug"] == slug_filter]
 
+    # Filter by is_active from config first
+    active = [d for d in DISPENSARIES if d.get("is_active", True)]
+
     if LIMIT_DISPENSARIES:
         # Pick 1 per platform for quick testing
         picked: list[dict] = []
         seen_platforms: set[str] = set()
-        for d in DISPENSARIES:
+        for d in active:
             if d["platform"] not in seen_platforms:
                 picked.append(d)
                 seen_platforms.add(d["platform"])
@@ -316,10 +343,25 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
         )
         return picked
 
-    # Use the full config list.  _seed_dispensaries() already set all
-    # rows to is_active=True, so there is no need for a separate DB
-    # query that might return stale results.
-    return list(DISPENSARIES)
+    if DRY_RUN:
+        # In dry run, just use the config list — don't query DB
+        return active
+
+    # Fetch active slugs from Supabase so the admin can disable sites.
+    result = (
+        db.table("dispensaries")
+        .select("id")
+        .eq("is_active", True)
+        .execute()
+    )
+    active_slugs = {row["id"] for row in result.data}
+
+    # If the DB has no dispensary rows yet, fall back to the config list.
+    if not active_slugs:
+        logger.warning("No dispensaries in DB — using config list")
+        return active
+
+    return [d for d in active if d["slug"] in active_slugs]
 
 
 async def run(slug_filter: str | None = None) -> None:
@@ -334,6 +376,9 @@ async def run(slug_filter: str | None = None) -> None:
     logger.info("=" * 60)
 
     _seed_dispensaries()
+
+    # Deactivate previous day's deals before scraping fresh ones
+    _deactivate_old_deals()
 
     dispensaries = _get_active_dispensaries(slug_filter)
     if not dispensaries:
@@ -366,7 +411,16 @@ async def run(slug_filter: str | None = None) -> None:
                 result["slug"], result.get("products", 0), result.get("deals", 0),
             )
 
-    status = "completed" if sites_scraped else "failed"
+    # Determine final status
+    if not sites_failed:
+        status = "completed"
+    elif sites_scraped:
+        status = "completed_with_errors"
+    else:
+        status = "failed"
+
+    elapsed = time.time() - start
+
     _complete_run(
         run_id,
         status=status,
@@ -374,9 +428,8 @@ async def run(slug_filter: str | None = None) -> None:
         qualifying_deals=total_deals,
         sites_scraped=sites_scraped,
         sites_failed=sites_failed,
+        runtime_seconds=int(elapsed),
     )
-
-    elapsed = time.time() - start
 
     logger.info("=" * 60)
     logger.info("SCRAPE COMPLETE")

@@ -76,8 +76,10 @@ def _calc_discount(original: float, sale: float) -> float | None:
 # =====================================================================
 
 # Matches: 3.5g, 100mg, 1oz, etc.
+# CRITICAL: mg must appear before g in the alternation so that "850mg"
+# is not partially matched as "85" + "0g".
 _RE_WEIGHT_METRIC = re.compile(
-    r"(?P<qty>[\d]+(?:\.[\d]+)?)\s*(?P<unit>g|mg|oz)\b", re.IGNORECASE,
+    r"(?P<qty>[\d]+(?:\.[\d]+)?)\s*(?P<unit>mg|g|oz)\b", re.IGNORECASE,
 )
 
 # Common fractional / shorthand names → grams.
@@ -104,8 +106,18 @@ def extract_weight(text: str) -> dict[str, Any]:
     # Explicit numeric weight (3.5g, 100mg, 1oz).
     m = _RE_WEIGHT_METRIC.search(text)
     if m:
-        result["weight_value"] = float(m.group("qty"))
-        result["weight_unit"] = m.group("unit").lower()
+        value = float(m.group("qty"))
+        unit = m.group("unit").lower()
+
+        # Sanity check: vapes/carts should not exceed 2 g. A value like
+        # 5.0 g is almost certainly 0.5 g with a misplaced decimal.
+        if unit == "g" and value > 2:
+            lower_text = text.lower()
+            if any(kw in lower_text for kw in ("vape", "cart", "pod", "disposable")):
+                value = value / 10
+
+        result["weight_value"] = value
+        result["weight_unit"] = unit
         return result
 
     # Fractional "1/8".

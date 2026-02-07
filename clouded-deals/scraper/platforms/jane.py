@@ -21,13 +21,23 @@ from typing import Any
 
 from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 
+from config.dispensaries import PLATFORM_DEFAULTS
 from handlers import dismiss_age_gate, get_iframe, handle_jane_view_more
 from .base import BaseScraper
 
 logger = logging.getLogger(__name__)
 
+_JANE_CFG = PLATFORM_DEFAULTS["jane"]
+
 # Multiple selector strategies — Jane sites are inconsistent.
+# The first entry is a known Jane-specific class pattern from the PRD.
 _PRODUCT_SELECTORS = [
+    '._flex_80y9c_1[style*="--box-height: 100%"]',
+    'div[class*="product-card"]',
+    'div[class*="menu-item"]',
+    'div[class*="product-list-item"]',
+    '.product-card',
+    '.menu-item',
     '[data-testid*="product"]',
     '[class*="ProductCard"]',
     '[class*="product-card"]',
@@ -50,7 +60,9 @@ class JaneScraper(BaseScraper):
 
     async def scrape(self) -> list[dict[str, Any]]:
         await self.goto()
-        await self.handle_age_gate()
+        await self.handle_age_gate(
+            post_wait_sec=_JANE_CFG["wait_after_age_gate_sec"],
+        )
 
         # --- Strategy 1: direct page -----------------------------------
         target: Page | Frame = self.page
@@ -72,6 +84,7 @@ class JaneScraper(BaseScraper):
                 )
             else:
                 logger.warning("[%s] No iframe found either — 0 products", self.slug)
+                await self.save_debug_info("no_products_no_iframe")
                 return []
 
         # --- Progressive loading via "View More" -----------------------
