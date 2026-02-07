@@ -29,8 +29,7 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 
 from config.dispensaries import DISPENSARIES, SITE_TIMEOUT_SEC
-from deal_detector import detect_deals
-from parser import parse_product
+from clouded_logic import CloudedLogic
 from platforms import CuraleafScraper, DutchieScraper, JaneScraper
 
 load_dotenv()
@@ -298,6 +297,22 @@ _MAX_RETRIES = 2
 _RETRY_DELAY_SEC = 5
 
 
+def _split_weight(weight_str: str | None) -> tuple[float | None, str | None]:
+    """Split CloudedLogic weight string into (value, unit) for DB schema.
+
+    '3.5g' → (3.5, 'g'),  '100mg' → (100.0, 'mg'),  None → (None, None)
+    """
+    if not weight_str:
+        return None, None
+    for unit in ("mg", "g"):
+        if weight_str.lower().endswith(unit):
+            try:
+                return float(weight_str[: -len(unit)]), unit
+            except ValueError:
+                pass
+    return None, None
+
+
 async def _scrape_site_inner(dispensary: dict[str, Any]) -> dict[str, Any]:
     """Core scrape logic for a single site (no timeout wrapper)."""
     slug = dispensary["slug"]
@@ -310,9 +325,39 @@ async def _scrape_site_inner(dispensary: dict[str, Any]) -> dict[str, Any]:
     async with scraper_cls(dispensary) as scraper:
         raw_products = await scraper.scrape()
 
-    # Parse and detect deals
-    parsed = [parse_product(rp) for rp in raw_products]
-    deals = detect_deals(parsed)
+    # Parse and detect deals using CloudedLogic (single source of truth)
+    logic = CloudedLogic()
+    parsed: list[dict[str, Any]] = []
+    deals: list[dict[str, Any]] = []
+
+    for rp in raw_products:
+        text = f"{rp.get('name', '')} {rp.get('raw_text', '')} {rp.get('price', '')}"
+        product = logic.parse_product(text, dispensary["name"])
+        if product is None:
+            continue
+
+        weight_value, weight_unit = _split_weight(product.get("weight"))
+
+        # Map CloudedLogic output to the DB schema expected by _upsert_products
+        enriched: dict[str, Any] = {
+            **rp,
+            "name": product.get("product_name") or rp.get("name", "Unknown"),
+            "brand": product.get("brand"),
+            "category": product.get("category"),
+            "original_price": product.get("original_price"),
+            "sale_price": product.get("deal_price"),
+            "discount_percent": product.get("discount_percent"),
+            "weight_value": weight_value,
+            "weight_unit": weight_unit,
+            "thc_percent": product.get("thc_percent"),
+            "cbd_percent": None,
+            "raw_text": rp.get("raw_text", ""),
+        }
+        parsed.append(enriched)
+
+        if logic.is_qualifying(product):
+            score = logic.score_deal(product)
+            deals.append({**enriched, "deal_score": score})
 
     # Write deal_score back onto parsed products so it's upserted into the
     # products table (the frontend reads deal_score from products directly).
