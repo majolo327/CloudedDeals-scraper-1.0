@@ -13,6 +13,7 @@ import { BrowsePage } from '@/components/BrowsePage';
 import { SavedPage } from '@/components/SavedPage';
 import { LandingPage } from '@/components/LandingPage';
 import { AuthPrompt } from '@/components/AuthPrompt';
+import { SmsWaitlist } from '@/components/SmsWaitlist';
 import { LocationSelector } from '@/components/LocationSelector';
 import { DealModal } from '@/components/modals';
 import { DealCardSkeleton, TopPickSkeleton } from '@/components/Skeleton';
@@ -465,6 +466,9 @@ export default function Home() {
           }}
         />
       )}
+
+      {/* SMS deal alerts waitlist CTA */}
+      <SmsWaitlist addToast={addToast} />
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />

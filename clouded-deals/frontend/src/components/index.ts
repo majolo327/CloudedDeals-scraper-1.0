@@ -31,4 +31,5 @@ export { BrowsePage } from './BrowsePage';
 export { SavedPage } from './SavedPage';
 export { LandingPage } from './LandingPage';
 export { AuthPrompt } from './AuthPrompt';
+export { SmsWaitlist } from './SmsWaitlist';
 export { Onboarding, isOnboardingSeen, markOnboardingSeen } from './Onboarding';
