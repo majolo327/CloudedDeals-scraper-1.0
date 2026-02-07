@@ -163,14 +163,14 @@ _UPSERT_CHUNK_SIZE = 500  # max rows per Supabase upsert call
 def _upsert_products(
     dispensary_id: str, products: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-"""Upsert parsed products into the products table.
+    """Upsert parsed products into the products table.
     Deduplicates the batch before sending to Supabase so that no two
     rows share the same conflict key (dispensary_id, name, weight_value,
     sale_price).  PostgreSQL rejects a single INSERT … ON CONFLICT when
     the same conflict key appears twice in the VALUES list.
     Large batches are split into chunks of ``_UPSERT_CHUNK_SIZE`` rows.
     """
-    now_iso = datetime.now(timezone.utc).isoformat() main
+    now_iso = datetime.now(timezone.utc).isoformat()
     rows = []
     for p in products:
         rows.append(
