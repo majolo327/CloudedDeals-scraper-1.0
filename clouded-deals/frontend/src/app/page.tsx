@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Star, Heart, Search, Bookmark, Compass, AlertCircle } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
-import { fetchDeals } from '@/lib/api';
+import { fetchDeals, fetchDispensaries } from '@/lib/api';
+import type { BrowseDispensary } from '@/lib/api';
 import type { Deal } from '@/types';
 import type { User } from '@supabase/supabase-js';
 import { AgeGate, Footer } from '@/components/layout';
@@ -33,6 +34,7 @@ const LANDING_SEEN_KEY = 'clouded_landing_seen';
 export default function Home() {
   const [isAgeVerified, setIsAgeVerified] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [browseDispensaries, setBrowseDispensaries] = useState<BrowseDispensary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activePage, setActivePage] = useState<AppPage>(() => {
@@ -159,14 +161,18 @@ export default function Home() {
     }
   }, [savedCount, authUser]);
 
-  // Fetch deals
+  // Fetch deals and dispensaries
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const result = await fetchDeals();
+      const [dealsResult, dispResult] = await Promise.all([
+        fetchDeals(),
+        fetchDispensaries(),
+      ]);
       if (cancelled) return;
-      setDeals(result.deals);
-      setError(result.error);
+      setDeals(dealsResult.deals);
+      setError(dealsResult.error);
+      setBrowseDispensaries(dispResult.dispensaries);
       setLoading(false);
     }
     load();
@@ -422,8 +428,13 @@ export default function Home() {
         {activePage === 'browse' && (
           <BrowsePage
             deals={deals}
+            dispensaries={browseDispensaries}
             onSelectBrand={(brandName) => {
               setSearchInitialQuery(brandName);
+              setActivePage('search');
+            }}
+            onSelectDispensary={(dispensaryName) => {
+              setSearchInitialQuery(dispensaryName);
               setActivePage('search');
             }}
           />

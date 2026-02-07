@@ -216,3 +216,96 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
     return { deals: [], error: message };
   }
 }
+
+// --------------------------------------------------------------------------
+// Dispensary browsing (all dispensaries, not just active scrapers)
+// --------------------------------------------------------------------------
+
+interface DispensaryRow {
+  id: string;
+  name: string;
+  slug: string;
+  address: string | null;
+  city: string | null;
+  platform: string | null;
+  url: string | null;
+  is_active: boolean;
+  region: string | null;
+}
+
+export interface BrowseDispensary {
+  id: string;
+  name: string;
+  slug: string;
+  address: string;
+  city: string;
+  menu_url: string;
+  platform: string;
+  is_active: boolean;
+  region: string;
+  deal_count: number;
+}
+
+export interface FetchDispensariesResult {
+  dispensaries: BrowseDispensary[];
+  error: string | null;
+}
+
+export async function fetchDispensaries(region?: string): Promise<FetchDispensariesResult> {
+  if (!isSupabaseConfigured) {
+    return { dispensaries: [], error: null };
+  }
+
+  const activeRegion = region ?? getRegion() ?? DEFAULT_REGION;
+
+  try {
+    // Fetch ALL dispensaries in the region (not just is_active)
+    const { data, error } = await supabase
+      .from('dispensaries')
+      .select('id, name, slug, address, city, platform, url, is_active, region')
+      .eq('region', activeRegion)
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+
+    // Count deals per dispensary from the products table
+    const { data: countData } = await supabase
+      .from('products')
+      .select('dispensary_id')
+      .eq('is_active', true)
+      .gt('deal_score', 0);
+
+    const dealCounts: Record<string, number> = {};
+    if (countData) {
+      for (const row of countData as { dispensary_id: string }[]) {
+        dealCounts[row.dispensary_id] = (dealCounts[row.dispensary_id] || 0) + 1;
+      }
+    }
+
+    const dispensaries: BrowseDispensary[] = (data as DispensaryRow[]).map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      address: row.address || '',
+      city: row.city || '',
+      menu_url: row.url || '',
+      platform: row.platform || 'dutchie',
+      is_active: row.is_active,
+      region: row.region || DEFAULT_REGION,
+      deal_count: dealCounts[row.id] || 0,
+    }));
+
+    // Sort: dispensaries with deals first (by count desc), then without deals (alphabetically)
+    dispensaries.sort((a, b) => {
+      if (a.deal_count > 0 && b.deal_count === 0) return -1;
+      if (a.deal_count === 0 && b.deal_count > 0) return 1;
+      if (a.deal_count > 0 && b.deal_count > 0) return b.deal_count - a.deal_count;
+      return a.name.localeCompare(b.name);
+    });
+
+    return { dispensaries, error: null };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to fetch dispensaries';
+    return { dispensaries: [], error: message };
+  }
+}
