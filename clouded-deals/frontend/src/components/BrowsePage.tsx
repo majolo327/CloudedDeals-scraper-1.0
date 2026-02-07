@@ -1,31 +1,23 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, ChevronDown, ChevronUp, ShieldCheck, Star, MapPin } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, ShieldCheck, Star, MapPin, Clock } from 'lucide-react';
 import { ALPHABET } from '@/utils/constants';
 import { filterBrandsByQuery, sortBrandsByName, groupBrandsByLetter, countDealsByBrand } from '@/utils/brandUtils';
 import { BRANDS } from '@/data/brands';
-import { DISPENSARIES } from '@/data/dispensaries';
-import type { Brand, Deal, Dispensary } from '@/types';
+import type { Brand, Deal } from '@/types';
+import type { BrowseDispensary } from '@/lib/api';
 
 type BrowseTab = 'brands' | 'dispensaries';
 
 interface BrowsePageProps {
   deals?: Deal[];
+  dispensaries?: BrowseDispensary[];
   onSelectBrand?: (brandName: string) => void;
+  onSelectDispensary?: (dispensaryName: string) => void;
 }
 
-function groupDispensariesByLetter(dispensaries: Dispensary[]): Record<string, Dispensary[]> {
-  const grouped: Record<string, Dispensary[]> = {};
-  for (const disp of dispensaries) {
-    const letter = disp.name[0]?.toUpperCase() || '#';
-    if (!grouped[letter]) grouped[letter] = [];
-    grouped[letter].push(disp);
-  }
-  return grouped;
-}
-
-export function BrowsePage({ deals = [], onSelectBrand }: BrowsePageProps) {
+export function BrowsePage({ deals = [], dispensaries = [], onSelectBrand, onSelectDispensary }: BrowsePageProps) {
   const [activeTab, setActiveTab] = useState<BrowseTab>('brands');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedBrand, setExpandedBrand] = useState<string | null>(null);
@@ -45,26 +37,9 @@ export function BrowsePage({ deals = [], onSelectBrand }: BrowsePageProps) {
     return ALPHABET.filter((l) => groupedBrands[l]?.length);
   }, [groupedBrands]);
 
-  // Dispensaries - sorted alphabetically
-  const sortedDispensaries = useMemo(() => {
-    return [...DISPENSARIES].sort((a, b) => a.name.localeCompare(b.name));
-  }, []);
-
-  const groupedDispensaries = useMemo(() => groupDispensariesByLetter(sortedDispensaries), [sortedDispensaries]);
-
-  const activeDispLetters = useMemo(() => {
-    return ALPHABET.filter((l) => groupedDispensaries[l]?.length);
-  }, [groupedDispensaries]);
-
-  // Dispensary deal counts (by dispensary name)
-  const dispensaryDealCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const deal of deals) {
-      const name = deal.dispensary.name;
-      counts[name] = (counts[name] || 0) + 1;
-    }
-    return counts;
-  }, [deals]);
+  // Dispensary counts
+  const totalDispensaries = dispensaries.length;
+  const withDeals = dispensaries.filter((d) => d.deal_count > 0).length;
 
   const scrollToLetter = (letter: string, prefix: string) => {
     const el = document.getElementById(`${prefix}-letter-${letter}`);
@@ -99,6 +74,9 @@ export function BrowsePage({ deals = [], onSelectBrand }: BrowsePageProps) {
               }`}
             >
               Dispensaries
+              {totalDispensaries > 0 && (
+                <span className="ml-1.5 text-[10px] text-slate-500 font-normal">{totalDispensaries}</span>
+              )}
               {activeTab === 'dispensaries' && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500 rounded-full" />
               )}
@@ -122,10 +100,10 @@ export function BrowsePage({ deals = [], onSelectBrand }: BrowsePageProps) {
           />
         ) : (
           <DispensariesTab
-            groupedDispensaries={groupedDispensaries}
-            activeLetters={activeDispLetters}
-            onScrollToLetter={(l) => scrollToLetter(l, 'disp')}
-            dispensaryDealCounts={dispensaryDealCounts}
+            dispensaries={dispensaries}
+            totalCount={totalDispensaries}
+            withDealsCount={withDeals}
+            onSelectDispensary={onSelectDispensary}
           />
         )}
       </main>
@@ -320,101 +298,123 @@ function BrandRow({
 // ---- Dispensaries Tab ----
 
 interface DispensariesTabProps {
-  groupedDispensaries: Record<string, Dispensary[]>;
-  activeLetters: string[];
-  onScrollToLetter: (letter: string) => void;
-  dispensaryDealCounts: Record<string, number>;
+  dispensaries: BrowseDispensary[];
+  totalCount: number;
+  withDealsCount: number;
+  onSelectDispensary?: (dispensaryName: string) => void;
 }
 
 function DispensariesTab({
-  groupedDispensaries,
-  activeLetters,
-  onScrollToLetter,
-  dispensaryDealCounts,
+  dispensaries,
+  totalCount,
+  withDealsCount,
+  onSelectDispensary,
 }: DispensariesTabProps) {
+  const [dispSearch, setDispSearch] = useState('');
+
+  const filtered = useMemo(() => {
+    if (!dispSearch.trim()) return dispensaries;
+    const q = dispSearch.toLowerCase();
+    return dispensaries.filter(
+      (d) => d.name.toLowerCase().includes(q) || d.city.toLowerCase().includes(q) || d.address.toLowerCase().includes(q),
+    );
+  }, [dispensaries, dispSearch]);
+
+  const withDeals = filtered.filter((d) => d.deal_count > 0);
+  const comingSoon = filtered.filter((d) => d.deal_count === 0);
+
   return (
     <div className="space-y-4">
-      {/* Letter navigation */}
-      <div className="sticky top-12 z-30 bg-slate-950/95 backdrop-blur-sm py-2 -mx-4 px-4 overflow-x-auto scrollbar-hide">
-        <div className="flex gap-1">
-          {ALPHABET.map((letter) => {
-            const isActive = activeLetters.includes(letter);
-            return (
-              <button
-                key={letter}
-                onClick={() => isActive && onScrollToLetter(letter)}
-                disabled={!isActive}
-                className={`w-7 h-7 shrink-0 rounded text-xs font-medium transition-colors ${
-                  isActive
-                    ? 'bg-slate-800 text-white hover:bg-purple-500/20 hover:text-purple-400'
-                    : 'text-slate-700 cursor-not-allowed'
-                }`}
-              >
-                {letter}
-              </button>
-            );
-          })}
-        </div>
+      {/* Summary bar */}
+      <div className="flex items-center justify-between px-1">
+        <p className="text-sm text-slate-400">
+          <span className="text-white font-semibold">{totalCount}</span> dispensaries across Nevada
+        </p>
+        <p className="text-xs text-purple-400">
+          {withDealsCount} with live deals
+        </p>
       </div>
 
-      {/* Dispensary list */}
-      <div className="space-y-6">
-        {ALPHABET.map((letter) => {
-          const dispensaries = groupedDispensaries[letter];
-          if (!dispensaries?.length) return null;
-          return (
-            <div key={letter} id={`disp-letter-${letter}`}>
-              <h3 className="text-lg font-bold text-slate-500 mb-2">
-                {letter}
-              </h3>
-              <div className="space-y-2">
-                {dispensaries.map((disp) => {
-                  const dealCount = dispensaryDealCounts[disp.name] || 0;
-                  return (
-                    <div
-                      key={disp.id}
-                      className="glass rounded-lg px-4 py-3 flex items-center justify-between gap-3"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <p className="text-sm font-medium text-slate-200 truncate">{disp.name}</p>
-                          {disp.tier === 'verified' && (
-                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          )}
-                          {disp.tier === 'premium' && (
-                            <Star className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <MapPin className="w-2.5 h-2.5 text-slate-600 shrink-0" />
-                          <p className="text-xs text-slate-500 truncate">{disp.address}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        {dealCount > 0 && (
-                          <span className="text-xs text-purple-400 font-medium">
-                            {dealCount} deal{dealCount !== 1 ? 's' : ''}
-                          </span>
-                        )}
-                        {disp.menu_url && (
-                          <a
-                            href={disp.menu_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[10px] text-purple-400 hover:text-purple-300 font-medium"
-                          >
-                            Menu
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+        <input
+          type="text"
+          value={dispSearch}
+          onChange={(e) => setDispSearch(e.target.value)}
+          placeholder="Search dispensaries..."
+          className="w-full rounded-xl bg-slate-800/50 border border-slate-700/50 pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500/50 focus:border-purple-500/50"
+        />
       </div>
+
+      {/* Dispensaries with deals */}
+      {withDeals.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2 px-1">
+            Live Deals
+          </h3>
+          <div className="space-y-2">
+            {withDeals.map((disp) => (
+              <button
+                key={disp.id}
+                onClick={() => onSelectDispensary?.(disp.name)}
+                className="w-full glass rounded-lg px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-slate-800/30 transition-colors"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <p className="text-sm font-medium text-slate-200 truncate">{disp.name}</p>
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-2.5 h-2.5 text-slate-600 shrink-0" />
+                    <p className="text-xs text-slate-500 truncate">
+                      {disp.address}{disp.city ? `, ${disp.city}` : ''}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs text-purple-400 font-medium shrink-0">
+                  {disp.deal_count} deal{disp.deal_count !== 1 ? 's' : ''}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Dispensaries without deals (Coming Soon) */}
+      {comingSoon.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2 px-1">
+            Coming Soon
+          </h3>
+          <div className="space-y-1.5">
+            {comingSoon.map((disp) => (
+              <div
+                key={disp.id}
+                className="glass rounded-lg px-4 py-2.5 flex items-center justify-between gap-3 opacity-70"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm text-slate-300 truncate">{disp.name}</p>
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-2.5 h-2.5 text-slate-600 shrink-0" />
+                    <p className="text-[11px] text-slate-600 truncate">
+                      {disp.address}{disp.city ? `, ${disp.city}` : ''}
+                    </p>
+                  </div>
+                </div>
+                <span className="flex items-center gap-1 text-[10px] text-slate-600 font-medium shrink-0">
+                  <Clock className="w-3 h-3" />
+                  Soon
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {filtered.length === 0 && (
+        <p className="text-center text-sm text-slate-500 py-8">No dispensaries match your search.</p>
+      )}
     </div>
   );
 }
