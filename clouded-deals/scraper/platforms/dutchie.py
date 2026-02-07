@@ -1,16 +1,16 @@
 """
 Scraper for Dutchie / The Dispensary NV (TD) iframe-embedded menus.
 
-Flow (proven working):
-  1. Navigate to the dispensary page with ``wait_until='load'`` so all
-     scripts execute and the Dutchie embed creates the iframe.
-  2. Force-remove the age gate overlay via JS (no button click needed —
-     the iframe already exists behind the overlay after full page load).
-  3. Locate the Dutchie iframe (``src`` contains ``dutchie``) and switch
-     into it.
-  4. Extract products from ``[data-testid*="product"]`` elements.
-  5. Paginate via ``aria-label="go to page N"`` buttons, re-checking
-     the parent page age gate after each page change (it can reappear).
+Flow:
+  1. Navigate to the dispensary page with ``wait_until='load'``.
+  2. Click the age gate button to trigger the Dutchie embed callback
+     that creates the iframe.  The embed script only injects the menu
+     iframe AFTER the button-click callback fires — force-removing the
+     overlay without clicking does NOT trigger it.
+  3. Force-remove any lingering overlay residue so it can't intercept clicks.
+  4. Wait 60 s for the Dutchie iframe to appear and populate.
+  5. Locate the iframe and extract products.
+  6. Paginate via ``aria-label="go to page N"`` buttons.
 """
 
 from __future__ import annotations
