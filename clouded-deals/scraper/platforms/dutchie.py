@@ -8,7 +8,7 @@ Flow:
      iframe AFTER the button-click callback fires — force-removing the
      overlay without clicking does NOT trigger it.
   3. Force-remove any lingering overlay residue so it can't intercept clicks.
-  4. Wait 60 s for the Dutchie iframe to appear and populate.
+  4. Wait 45 s for the Dutchie iframe to appear and populate.
   5. Locate the iframe and extract products.
   6. Paginate via ``aria-label="go to page N"`` buttons.
 """
@@ -52,34 +52,35 @@ class DutchieScraper(BaseScraper):
         # --- Navigate with wait_until='load' (scripts fully execute) ------
         await self.goto()
 
-        # --- Remove age gate overlay + set cookies ------------------------
-        # The Dutchie embed script creates the iframe during page load.
-        # The age gate is just a CSS overlay on top.  Force-remove it so
-        # we can interact with the iframe underneath.
+        # --- Set age gate cookies -----------------------------------------
         await self.page.evaluate(_AGE_GATE_COOKIE_JS)
+
+        # --- CLICK the age gate button FIRST ------------------------------
+        # The Dutchie embed script only injects the menu iframe AFTER the
+        # button-click callback fires — force-removing the overlay via JS
+        # does NOT trigger it.  Click first, then clean up residue.
+        clicked = await self.handle_age_gate(post_wait_sec=3)
+        if clicked:
+            logger.info("[%s] Age gate button clicked — waiting for Dutchie embed", self.slug)
+        else:
+            logger.warning("[%s] No age gate button found — embed may already be loaded", self.slug)
+
+        # --- JS cleanup: remove any lingering overlay residue -------------
         removed = await force_remove_age_gate(self.page)
         if removed > 0:
-            logger.info("[%s] Removed %d age gate overlay(s) via JS", self.slug, removed)
-        else:
-            # If no overlay found via JS, try clicking the button as fallback
-            await self.handle_age_gate(post_wait_sec=0)
+            logger.info("[%s] Cleaned up %d lingering overlay(s) via JS", self.slug, removed)
 
-        # Give the page a moment after overlay removal for any UI updates
-        await asyncio.sleep(5)
-
-        # --- Locate the Dutchie iframe ------------------------------------
-        frame = await get_iframe(self.page)
+        # --- Locate the Dutchie iframe (wait up to 45 s) ------------------
+        frame = await get_iframe(self.page, timeout_ms=45_000)
 
         if frame is None:
-            # Fallback: the embed script might need the age gate to be clicked
-            # properly (not just removed).  Try clicking + waiting + reload.
-            logger.warning("[%s] No iframe after overlay removal — trying button click + reload", self.slug)
-            await self.handle_age_gate(post_wait_sec=10)
+            # Fallback: reload page and retry the full click flow
+            logger.warning("[%s] No iframe after click — trying reload + re-click", self.slug)
             await self.page.evaluate(_AGE_GATE_COOKIE_JS)
             await self.page.reload(wait_until="load", timeout=60_000)
+            await self.handle_age_gate(post_wait_sec=3)
             await force_remove_age_gate(self.page)
-            await asyncio.sleep(5)
-            frame = await get_iframe(self.page)
+            frame = await get_iframe(self.page, timeout_ms=45_000)
 
         if frame is None:
             logger.error("[%s] Could not find Dutchie iframe — aborting", self.slug)

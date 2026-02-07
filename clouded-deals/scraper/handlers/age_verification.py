@@ -16,18 +16,20 @@ from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 
 logger = logging.getLogger(__name__)
 
-# TD-specific selectors — these get a LONGER timeout (10 s) because the
-# TD age gate renders late (after heavy JS bundles load).
-TD_AGE_GATE_SELECTORS = [
+# Primary selectors — tried FIRST with a longer timeout (8 s).
+# The text-based "I am 21 or older" selector is the most common across
+# Dutchie / TD sites and reliably triggers the embed callback that
+# injects the menu iframe.  TD-specific ID/form selectors follow.
+PRIMARY_AGE_GATE_SELECTORS = [
+    "button:has-text('I am 21 or older')",
     "button#agc_yes",
     "#agc_form button",
-    "#agc_form a",
 ]
-TD_SELECTOR_TIMEOUT_MS = 10_000
+PRIMARY_SELECTOR_TIMEOUT_MS = 8_000
 
-# Generic selectors tried AFTER the TD-specific ones.
-AGE_GATE_SELECTORS = [
-    "button:has-text('I am 21 or older')",
+# Secondary selectors tried after primary ones with a shorter timeout.
+SECONDARY_AGE_GATE_SELECTORS = [
+    "#agc_form a",
     "button:has-text('over 21')",
     "button:has-text('21+')",
     "button:has-text('Enter')",
@@ -38,8 +40,7 @@ AGE_GATE_SELECTORS = [
     "a:has-text('Enter')",
     "a:has-text('Yes')",
 ]
-
-SELECTOR_TIMEOUT_MS = 4_000
+SECONDARY_SELECTOR_TIMEOUT_MS = 4_000
 
 # JavaScript fallback: remove any fixed/absolute overlay that covers the page.
 # Explicitly targets TD's #agc_form / .agc_screen overlay, plus generic
@@ -94,20 +95,32 @@ async def dismiss_age_gate(
     bool
         ``True`` if a gate was found and dismissed, ``False`` otherwise.
     """
-    # Try TD-specific selectors first with a longer timeout — these are
-    # the real age gate buttons that trigger the Dutchie embed callback.
+    # Try primary selectors first (text-based "I am 21 or older" then
+    # TD-specific IDs) with a longer timeout, then secondary generics.
     all_selectors = [
-        (s, TD_SELECTOR_TIMEOUT_MS) for s in TD_AGE_GATE_SELECTORS
+        (s, PRIMARY_SELECTOR_TIMEOUT_MS) for s in PRIMARY_AGE_GATE_SELECTORS
     ] + [
-        (s, SELECTOR_TIMEOUT_MS) for s in AGE_GATE_SELECTORS
+        (s, SECONDARY_SELECTOR_TIMEOUT_MS) for s in SECONDARY_AGE_GATE_SELECTORS
     ]
 
     for selector, timeout in all_selectors:
         try:
             locator = target.locator(selector).first
+
+            # Debug: probe whether the button exists / is visible BEFORE waiting
+            try:
+                count = await target.locator(selector).count()
+                is_visible = await locator.is_visible() if count > 0 else False
+                logger.info(
+                    "Age gate probe: %s → %d match(es), visible=%s",
+                    selector, count, is_visible,
+                )
+            except Exception:
+                pass
+
             await locator.wait_for(state="visible", timeout=timeout)
             await locator.click()
-            logger.info("Age gate dismissed via selector: %s (timeout=%dms)", selector, timeout)
+            logger.info("Age gate CLICKED via: %s (timeout=%dms)", selector, timeout)
 
             if post_dismiss_wait_sec > 0:
                 logger.info(

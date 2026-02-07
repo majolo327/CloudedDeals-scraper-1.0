@@ -156,10 +156,21 @@ def _deactivate_old_deals() -> None:
         logger.info("Deactivated %d old products", count)
 
 
+_UPSERT_CHUNK_SIZE = 500  # max rows per Supabase upsert call
+
+
 def _upsert_products(
     dispensary_id: str, products: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Upsert parsed products into the products table."""
+    """Upsert parsed products into the products table.
+
+    Deduplicates the batch before sending to Supabase so that no two
+    rows share the same conflict key (dispensary_id, name, weight_value,
+    sale_price).  PostgreSQL rejects a single INSERT … ON CONFLICT when
+    the same conflict key appears twice in the VALUES list.
+
+    Large batches are split into chunks of ``_UPSERT_CHUNK_SIZE`` rows.
+    """
     rows = []
     for p in products:
         rows.append(
@@ -184,21 +195,51 @@ def _upsert_products(
     if not rows:
         return []
 
+    # --- Deduplicate on the conflict key --------------------------------
+    # Later entries overwrite earlier ones (they likely have more complete
+    # data from later pagination pages).
+    original_count = len(rows)
+    deduped: dict[tuple, dict[str, Any]] = {}
+    for row in rows:
+        key = (
+            row["dispensary_id"],
+            row["name"],
+            row.get("weight_value"),
+            row.get("sale_price"),
+        )
+        deduped[key] = row
+    rows = list(deduped.values())
+
+    if len(rows) < original_count:
+        logger.info(
+            "[%s] Deduped %d → %d products",
+            dispensary_id, original_count, len(rows),
+        )
+
     if DRY_RUN:
         logger.info("[DRY RUN] Would insert %d products for %s", len(rows), dispensary_id)
         # Return fake rows with ids so deal matching still works in logs
         return [{"id": f"dry-{i}", **r} for i, r in enumerate(rows)]
 
-    # Upsert on the stable dedup key: same product at the same price from
-    # the same dispensary at the same weight is the same row.  Re-runs
-    # within a day will UPDATE the existing row (refreshing scraped_at,
-    # deal_score, etc.) instead of creating duplicates.
-    result = (
-        db.table("products")
-        .upsert(rows, on_conflict="dispensary_id,name,weight_value,sale_price")
-        .execute()
-    )
-    return result.data
+    # --- Upsert in chunks -----------------------------------------------
+    # Supabase / PostgREST can choke on very large payloads; chunking
+    # keeps each request well under the payload limit.
+    all_results: list[dict[str, Any]] = []
+    for i in range(0, len(rows), _UPSERT_CHUNK_SIZE):
+        chunk = rows[i : i + _UPSERT_CHUNK_SIZE]
+        result = (
+            db.table("products")
+            .upsert(chunk, on_conflict="dispensary_id,name,weight_value,sale_price")
+            .execute()
+        )
+        all_results.extend(result.data)
+        if len(rows) > _UPSERT_CHUNK_SIZE:
+            logger.info(
+                "[%s] Upserted chunk %d–%d of %d",
+                dispensary_id, i + 1, i + len(chunk), len(rows),
+            )
+
+    return all_results
 
 
 def _insert_deals(
