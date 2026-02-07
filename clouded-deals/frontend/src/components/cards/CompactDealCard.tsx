@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Heart, X, MapPin, Sparkles, Info, Clock } from 'lucide-react';
+import { Heart, X, MapPin, Sparkles, Info, Zap } from 'lucide-react';
 import type { Deal } from '@/types';
-import { getBadge } from '@/utils';
+import { getBadge, getPricePerUnit, isJustDropped } from '@/utils';
 import { DealBadge } from '../badges/DealBadge';
 import type { RecommendationReason } from '@/lib/personalization';
 import { getRecommendationText } from '@/lib/personalization';
-import { isFreshDeal } from '@/lib/socialProof';
 
 interface CompactDealCardProps {
   deal: Deal;
@@ -52,6 +51,8 @@ export function CompactDealCard({
   const prevSavedRef = useRef(isSaved);
 
   const reasonText = getRecommendationText(recommendationReason ?? null);
+  const pricePerUnit = getPricePerUnit(deal);
+  const justDropped = isJustDropped(deal);
 
   useEffect(() => {
     if (isSaved && !prevSavedRef.current) {
@@ -154,14 +155,20 @@ export function CompactDealCard({
       <div className="flex-1 min-h-[8px]" />
 
       <div className="flex items-end justify-between">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-sm font-bold font-mono text-purple-400">
-            ${deal.deal_price}
-          </span>
-          {deal.original_price && (
-            <span className="text-[8px] text-slate-600 line-through">
-              ${deal.original_price}
+        <div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-sm font-bold font-mono text-purple-400">
+              ${deal.deal_price}
             </span>
+            {deal.original_price && (
+              <span className="text-[8px] text-slate-600 line-through">
+                ${deal.original_price}
+              </span>
+            )}
+          </div>
+          {/* Price per unit */}
+          {pricePerUnit && (
+            <p className="text-[7px] text-slate-500">{pricePerUnit}</p>
           )}
         </div>
 
@@ -191,21 +198,17 @@ export function CompactDealCard({
           <span className="text-[8px] text-slate-600 truncate">{deal.dispensary.name}</span>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Save count indicator */}
-          {(deal.save_count ?? 0) >= 20 ? (
-            <span className="flex items-center gap-0.5 text-[7px] text-orange-400">
-              <span>🔥</span>
-              <span>{deal.save_count}</span>
+          {/* Just Dropped indicator */}
+          {justDropped && (
+            <span className="flex items-center gap-0.5 text-[7px] text-cyan-400">
+              <Zap className="w-2 h-2" />
+              <span>New</span>
             </span>
-          ) : (deal.save_count ?? 0) > 0 ? (
+          )}
+          {/* Save count indicator */}
+          {(deal.save_count ?? 0) > 0 && (
             <span className="text-[7px] text-slate-500">
               {deal.save_count} saved
-            </span>
-          ) : null}
-          {/* Deal freshness */}
-          {isFreshDeal(deal.created_at, 4) && (
-            <span className="flex items-center gap-0.5 text-[7px] text-green-400">
-              <Clock className="w-2 h-2" />
             </span>
           )}
         </div>

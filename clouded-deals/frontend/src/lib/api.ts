@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { trackEvent } from './analytics';
+import { applyDispensaryDiversityCap } from '@/utils/dealFilters';
 import type { Deal, Category, Dispensary, Brand } from '@/types';
 
 // --------------------------------------------------------------------------
@@ -119,6 +120,7 @@ function normalizeDeal(row: ProductRow): Deal {
     is_verified: (row.deal_score || 0) >= 70,
     product_url: row.product_url,
     created_at: new Date(row.scraped_at),
+    first_seen_at: new Date(row.created_at),
   };
 }
 
@@ -176,13 +178,16 @@ export async function fetchDeals(): Promise<FetchDealsResult> {
       }
     }
 
-    const deals = productsResult.data
+    const allDeals = productsResult.data
       ? (productsResult.data as unknown as ProductRow[]).map((row) => {
           const deal = normalizeDeal(row);
           deal.save_count = saveCountMap.get(row.id) ?? 0;
           return deal;
         })
       : [];
+
+    // Enforce dispensary diversity: max 5 deals per dispensary
+    const deals = applyDispensaryDiversityCap(allDeals, 5);
 
     // Cache for offline use
     setCachedDeals(deals);

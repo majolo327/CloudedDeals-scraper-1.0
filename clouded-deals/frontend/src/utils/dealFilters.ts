@@ -57,3 +57,57 @@ export function calculateSavings(deal: Deal): number {
 export function calculateTotalSavings(deals: Deal[]): number {
   return deals.reduce((total, deal) => total + calculateSavings(deal), 0);
 }
+
+/**
+ * Cap deals to a maximum per dispensary while preserving sort order.
+ * Walks through the pre-sorted list and keeps only the first N deals
+ * from each dispensary. This naturally keeps the highest-scored ones
+ * when the input is sorted by deal_score DESC.
+ */
+export function applyDispensaryDiversityCap(
+  deals: Deal[],
+  maxPerDispensary: number = 5,
+): Deal[] {
+  const counts = new Map<string, number>();
+  return deals.filter((deal) => {
+    const key = deal.dispensary.id;
+    const current = counts.get(key) ?? 0;
+    if (current >= maxPerDispensary) return false;
+    counts.set(key, current + 1);
+    return true;
+  });
+}
+
+/**
+ * Calculate price per unit for display on deal cards.
+ * - Flower, vape, concentrate, preroll: $/g
+ * - Edible: $/10mg
+ * Returns null if weight data is missing or zero.
+ */
+export function getPricePerUnit(deal: Deal): string | null {
+  const price = deal.deal_price;
+  if (!price || price <= 0) return null;
+
+  const weight = deal.weight;
+  if (!weight) return null;
+
+  // Try grams (flower, vape, concentrate, preroll)
+  const gMatch = weight.match(/(\d+\.?\d*)\s*g\b/i);
+  if (gMatch) {
+    const grams = parseFloat(gMatch[1]);
+    if (grams > 0 && ['flower', 'vape', 'concentrate', 'preroll'].includes(deal.category)) {
+      return `$${(price / grams).toFixed(2)}/g`;
+    }
+  }
+
+  // Try mg (edibles)
+  const mgMatch = weight.match(/(\d+)\s*mg\b/i);
+  if (mgMatch && deal.category === 'edible') {
+    const mg = parseInt(mgMatch[1], 10);
+    if (mg > 0) {
+      return `$${((price / mg) * 10).toFixed(2)}/10mg`;
+    }
+  }
+
+  return null;
+}

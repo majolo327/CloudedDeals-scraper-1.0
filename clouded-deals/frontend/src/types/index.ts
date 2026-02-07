@@ -30,7 +30,7 @@ export interface Brand {
   logo_url?: string;
 }
 
-export type BadgeType = 'fire' | 'trending' | 'steal';
+export type BadgeType = 'hot' | 'great' | 'good' | 'deal';
 
 export interface Deal {
   id: string;
@@ -47,6 +47,7 @@ export interface Deal {
   editorial_note?: string;
   save_count?: number;
   created_at: Date;
+  first_seen_at?: Date;
   updated_at?: Date;
   source?: DealSource;
   status?: DealStatus;
