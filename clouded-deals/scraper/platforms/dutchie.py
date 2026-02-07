@@ -1,15 +1,16 @@
 """
-Scraper for Dutchie / The Dispensary NV (TD) iframe-embedded menus.
+Scraper for Dutchie-powered dispensary menus (iframe *or* JS embed).
 
 Flow:
   1. Navigate to the dispensary page with ``wait_until='load'``.
   2. Click the age gate button to trigger the Dutchie embed callback
-     that creates the iframe.  The embed script only injects the menu
-     iframe AFTER the button-click callback fires — force-removing the
-     overlay without clicking does NOT trigger it.
+     that creates the iframe (or JS-injected content).  The embed script
+     only injects the menu AFTER the button-click callback fires —
+     force-removing the overlay without clicking does NOT trigger it.
   3. Force-remove any lingering overlay residue so it can't intercept clicks.
-  4. Wait 45 s for the Dutchie iframe to appear and populate.
-  5. Locate the iframe and extract products.
+  4. Detect Dutchie content: try iframe first (30 s), fall back to
+     JS embed probing (60 s) for sites that inject into the page DOM.
+  5. Extract products from whichever target was found.
   6. Paginate via ``aria-label="go to page N"`` buttons.
 """
 
@@ -17,12 +18,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, Union
 
-from playwright.async_api import Frame, TimeoutError as PlaywrightTimeout
+from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 
 from config.dispensaries import PLATFORM_DEFAULTS
-from handlers import dismiss_age_gate, force_remove_age_gate, get_iframe, navigate_dutchie_page
+from handlers import dismiss_age_gate, force_remove_age_gate, find_dutchie_content, navigate_dutchie_page
 from .base import BaseScraper
 
 logger = logging.getLogger(__name__)
@@ -70,32 +71,43 @@ class DutchieScraper(BaseScraper):
         if removed > 0:
             logger.info("[%s] Cleaned up %d lingering overlay(s) via JS", self.slug, removed)
 
-        # --- Locate the Dutchie iframe (wait up to 45 s) ------------------
-        frame = await get_iframe(self.page, timeout_ms=45_000)
+        # --- Detect Dutchie content: iframe first, JS embed fallback ------
+        target, embed_type = await find_dutchie_content(
+            self.page,
+            iframe_timeout_ms=30_000,
+            js_embed_timeout_sec=60,
+        )
 
-        if frame is None:
-            # Fallback: reload page and retry the full click flow
-            logger.warning("[%s] No iframe after click — trying reload + re-click", self.slug)
+        if target is None:
+            # Fallback: reload page and retry the full click flow once
+            logger.warning("[%s] No Dutchie content after click — trying reload + re-click", self.slug)
             await self.page.evaluate(_AGE_GATE_COOKIE_JS)
             await self.page.reload(wait_until="load", timeout=60_000)
             await self.handle_age_gate(post_wait_sec=3)
             await force_remove_age_gate(self.page)
-            frame = await get_iframe(self.page, timeout_ms=45_000)
+            target, embed_type = await find_dutchie_content(
+                self.page,
+                iframe_timeout_ms=30_000,
+                js_embed_timeout_sec=60,
+            )
 
-        if frame is None:
-            logger.error("[%s] Could not find Dutchie iframe — aborting", self.slug)
-            await self.save_debug_info("no_iframe")
+        if target is None:
+            logger.error("[%s] Could not find Dutchie content (iframe or JS embed) — aborting", self.slug)
+            await self.save_debug_info("no_dutchie_content")
             return []
 
-        # Also try age gate inside the iframe itself (some sites double-gate).
-        await dismiss_age_gate(frame)
+        logger.info("[%s] Dutchie content found via %s", self.slug, embed_type)
+
+        # Also try age gate inside an iframe (some sites double-gate).
+        if embed_type == "iframe":
+            await dismiss_age_gate(target)
 
         # --- Paginate and collect products --------------------------------
         all_products: list[dict[str, Any]] = []
         page_num = 1
 
         while True:
-            products = await self._extract_products(frame)
+            products = await self._extract_products(target)
             all_products.extend(products)
             logger.info(
                 "[%s] Page %d → %d products (total %d)",
@@ -109,7 +121,7 @@ class DutchieScraper(BaseScraper):
             await force_remove_age_gate(self.page)
 
             try:
-                if not await navigate_dutchie_page(frame, page_num):
+                if not await navigate_dutchie_page(target, page_num):
                     break
             except Exception as exc:
                 logger.warning(
@@ -119,15 +131,15 @@ class DutchieScraper(BaseScraper):
                 break
 
         if not all_products:
-            await self.save_debug_info("zero_products", frame)
-        logger.info("[%s] Scrape complete — %d products", self.slug, len(all_products))
+            await self.save_debug_info("zero_products", target)
+        logger.info("[%s] Scrape complete — %d products (%s mode)", self.slug, len(all_products), embed_type)
         return all_products
 
     # ------------------------------------------------------------------
     # Product extraction
     # ------------------------------------------------------------------
 
-    async def _extract_products(self, frame: Frame) -> list[dict[str, Any]]:
+    async def _extract_products(self, frame: Union[Page, Frame]) -> list[dict[str, Any]]:
         """Pull product data out of the current Dutchie page view."""
         products: list[dict[str, Any]] = []
 
