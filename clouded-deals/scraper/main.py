@@ -51,6 +51,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 
 DRY_RUN = os.getenv("DRY_RUN", "false").lower() == "true"
 LIMIT_DISPENSARIES = os.getenv("LIMIT_DISPENSARIES", "false").lower() == "true"
+FORCE_RUN = os.getenv("FORCE_RUN", "false").lower() == "true"
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     logger.error("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set")
@@ -162,15 +163,14 @@ _UPSERT_CHUNK_SIZE = 500  # max rows per Supabase upsert call
 def _upsert_products(
     dispensary_id: str, products: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Upsert parsed products into the products table.
-
+"""Upsert parsed products into the products table.
     Deduplicates the batch before sending to Supabase so that no two
     rows share the same conflict key (dispensary_id, name, weight_value,
     sale_price).  PostgreSQL rejects a single INSERT … ON CONFLICT when
     the same conflict key appears twice in the VALUES list.
-
     Large batches are split into chunks of ``_UPSERT_CHUNK_SIZE`` rows.
     """
+    now_iso = datetime.now(timezone.utc).isoformat() main
     rows = []
     for p in products:
         rows.append(
@@ -189,6 +189,8 @@ def _upsert_products(
                 "raw_text": (p.get("raw_text") or "")[:4000],
                 "deal_score": p.get("deal_score", 0),
                 "product_url": p.get("product_url"),
+                "is_active": True,
+                "scraped_at": now_iso,
             }
         )
 
@@ -418,14 +420,40 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
     return [d for d in active if d["slug"] in active_slugs]
 
 
+def _already_scraped_today() -> bool:
+    """Check if a completed scrape run already exists for today (UTC)."""
+    if DRY_RUN:
+        return False
+    today_start = (
+        datetime.now(timezone.utc)
+        .replace(hour=0, minute=0, second=0, microsecond=0)
+        .isoformat()
+    )
+    result = (
+        db.table("scrape_runs")
+        .select("id")
+        .eq("status", "completed")
+        .gte("started_at", today_start)
+        .limit(1)
+        .execute()
+    )
+    return bool(result.data)
+
+
 async def run(slug_filter: str | None = None) -> None:
     """Run the full scrape pipeline."""
     start = time.time()
+
+    # Idempotency: skip if already scraped today (unless FORCE_RUN is set).
+    if not FORCE_RUN and _already_scraped_today():
+        logger.info("Already scraped today, skipping")
+        return
 
     logger.info("=" * 60)
     logger.info("CloudedDeals Scraper Starting")
     logger.info("  DRY_RUN:    %s", DRY_RUN)
     logger.info("  LIMITED:    %s", LIMIT_DISPENSARIES)
+    logger.info("  FORCE_RUN:  %s", FORCE_RUN)
     logger.info("  SINGLE:     %s", slug_filter or "(all)")
     logger.info("=" * 60)
 

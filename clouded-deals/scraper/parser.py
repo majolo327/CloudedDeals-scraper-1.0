@@ -28,9 +28,26 @@ _RE_WAS_NOW = re.compile(
 # Any standalone "$XX.XX" token.
 _RE_DOLLAR = re.compile(r"\$\s*(?P<amt>[\d]+(?:\.[\d]{1,2})?)")
 
+# Bundle deal with inline tier price: "2/$55 $35" (qty/bundle_total tier_price)
+_RE_BUNDLE_TIER = re.compile(
+    r"(?P<qty>[2-9])\s*/\s*\$\s*(?P<total>[\d]+(?:\.[\d]{1,2})?)"
+    r"\s+\$\s*(?P<tier>[\d]+(?:\.[\d]{1,2})?)",
+)
+
+# Bundle deal: "2 / $60" or "3/$60" (no inline tier price)
+_RE_BUNDLE = re.compile(
+    r"(?P<qty>[2-9])\s*/\s*\$\s*(?P<total>[\d]+(?:\.[\d]{1,2})?)",
+)
+
+# BOGO (buy one get one)
+_RE_BOGO = re.compile(r"\bBOGO\b", re.IGNORECASE)
+
 
 def extract_prices(text: str) -> dict[str, Any]:
     """Return ``original_price``, ``sale_price``, and ``discount_percent``.
+
+    Handles bundle deals (``2/$60``), tier pricing (``2/$55 $35``), BOGO,
+    explicit was/now, and plain multi-price lines.
 
     >>> extract_prices("was $50.00 now $35.00")
     {'original_price': 50.0, 'sale_price': 35.0, 'discount_percent': 30.0}
@@ -53,7 +70,60 @@ def extract_prices(text: str) -> dict[str, Any]:
         )
         return result
 
-    # Strategy 2 — multiple dollar amounts (first = original, last = sale).
+    # Strategy 2 — Bundle with inline tier price: "2/$55 $35"
+    # The tier price on the same line IS the sale price; bundle total is
+    # treated as the original (regular) price.
+    m = _RE_BUNDLE_TIER.search(text)
+    if m:
+        bundle_total = float(m.group("total"))
+        tier_price = float(m.group("tier"))
+        original = max(bundle_total, tier_price)
+        sale = min(bundle_total, tier_price)
+        result["original_price"] = original
+        result["sale_price"] = sale
+        result["discount_percent"] = _calc_discount(original, sale)
+        return result
+
+    # Strategy 3 — Bundle deal without tier: "N / $X" with separate unit price.
+    # The unit price (standalone "$XX.00") is the original; per-unit bundle
+    # price (total / qty) is the sale price.
+    m = _RE_BUNDLE.search(text)
+    if m:
+        qty = int(m.group("qty"))
+        bundle_total = float(m.group("total"))
+        per_unit = round(bundle_total / qty, 2)
+
+        # Find dollar amounts NOT inside the bundle match.
+        bundle_start = m.start()
+        bundle_end = m.end()
+        unit_prices = [
+            float(x.group("amt"))
+            for x in _RE_DOLLAR.finditer(text)
+            if not (bundle_start <= x.start() < bundle_end)
+        ]
+
+        if unit_prices:
+            unit_price = unit_prices[-1]
+            original = max(unit_price, per_unit)
+            sale = min(unit_price, per_unit)
+            result["original_price"] = original
+            result["sale_price"] = sale
+            result["discount_percent"] = _calc_discount(original, sale)
+        else:
+            result["sale_price"] = per_unit
+        return result
+
+    # Strategy 4 — BOGO: buy one get one free → 50% off.
+    if _RE_BOGO.search(text):
+        amounts = [float(x.group("amt")) for x in _RE_DOLLAR.finditer(text)]
+        if amounts:
+            unit_price = amounts[-1]
+            result["original_price"] = unit_price
+            result["sale_price"] = round(unit_price / 2, 2)
+            result["discount_percent"] = 50.0
+        return result
+
+    # Strategy 5 — multiple dollar amounts (first = original, last = sale).
     amounts = [float(x.group("amt")) for x in _RE_DOLLAR.finditer(text)]
     if len(amounts) >= 2:
         result["original_price"] = amounts[0]
