@@ -128,6 +128,7 @@ def _seed_dispensaries() -> None:
             "url": d["url"],
             "platform": d["platform"],
             "is_active": d.get("is_active", True),
+            "region": d.get("region", "southern-nv"),
         }
         for d in DISPENSARIES
     ]

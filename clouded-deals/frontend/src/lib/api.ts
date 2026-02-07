@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { trackEvent } from './analytics';
 import { applyDispensaryDiversityCap } from '@/utils/dealFilters';
+import { getRegion, DEFAULT_REGION } from './region';
 import type { Deal, Category, Dispensary, Brand } from '@/types';
 
 // --------------------------------------------------------------------------
@@ -133,10 +134,12 @@ export interface FetchDealsResult {
   error: string | null;
 }
 
-export async function fetchDeals(): Promise<FetchDealsResult> {
+export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
   if (!isSupabaseConfigured) {
     return { deals: [], error: null };
   }
+
+  const activeRegion = region ?? getRegion() ?? DEFAULT_REGION;
 
   // Offline check — serve cached deals
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -157,9 +160,10 @@ export async function fetchDeals(): Promise<FetchDealsResult> {
         .select(
           `id, name, brand, category, original_price, sale_price, discount_percent,
            weight_value, weight_unit, deal_score, product_url, scraped_at, created_at,
-           dispensary:dispensaries!inner(id, name, address, city, state, platform, url)`
+           dispensary:dispensaries!inner(id, name, address, city, state, platform, url, region)`
         )
         .eq('is_active', true)
+        .eq('dispensaries.region', activeRegion)
         .gt('deal_score', 0)
         .order('deal_score', { ascending: false })
         .limit(200),

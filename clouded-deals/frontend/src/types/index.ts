@@ -19,6 +19,7 @@ export interface Dispensary {
   menu_url: string;
   platform: DealSource;
   is_active: boolean;
+  region?: string;
 }
 
 export interface Brand {

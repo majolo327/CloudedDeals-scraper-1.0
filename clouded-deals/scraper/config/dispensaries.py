@@ -85,6 +85,7 @@ DISPENSARIES = [
         "platform": "dutchie",
         "url": "https://thedispensarynv.com/shop-gibson/?dtche%5Bpath%5D=specials",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "The Dispensary - Eastern",
@@ -92,6 +93,7 @@ DISPENSARIES = [
         "platform": "dutchie",
         "url": "https://thedispensarynv.com/shop-eastern/?dtche%5Bpath%5D=specials",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "The Dispensary - Decatur",
@@ -99,6 +101,7 @@ DISPENSARIES = [
         "platform": "dutchie",
         "url": "https://thedispensarynv.com/shop-decatur/?dtche%5Bpath%5D=specials",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Planet 13",
@@ -106,6 +109,7 @@ DISPENSARIES = [
         "platform": "dutchie",
         "url": "https://planet13.com/stores/planet-13-dispensary/specials",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Medizin",
@@ -113,6 +117,7 @@ DISPENSARIES = [
         "platform": "dutchie",
         "url": "https://planet13.com/stores/medizin-dispensary/specials",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Greenlight Downtown",
@@ -120,6 +125,7 @@ DISPENSARIES = [
         "platform": "dutchie",
         "url": "https://greenlightdispensary.com/downtown-las-vegas-menu/?dtche%5Bpath%5D=specials",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Greenlight Paradise",
@@ -127,6 +133,7 @@ DISPENSARIES = [
         "platform": "dutchie",
         "url": "https://greenlightdispensary.com/paradise-menu/?dtche%5Bpath%5D=specials",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "The Grove",
@@ -134,6 +141,7 @@ DISPENSARIES = [
         "platform": "dutchie",
         "url": "https://www.thegrovenv.com/lasvegas/?dtche%5Bpath%5D=specials",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Mint Paradise",
@@ -141,6 +149,7 @@ DISPENSARIES = [
         "platform": "dutchie",
         "url": "https://mintdeals.com/paradise-lv/menu/?dtche%5Bpath%5D=specials",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Mint Rainbow",
@@ -148,6 +157,7 @@ DISPENSARIES = [
         "platform": "dutchie",
         "url": "https://mintdeals.com/rainbow-lv/menu/?dtche%5Bpath%5D=specials",
         "is_active": True,
+        "region": "southern-nv",
     },
 
     # ------------------------------------------------------------------
@@ -159,6 +169,7 @@ DISPENSARIES = [
         "platform": "curaleaf",
         "url": "https://curaleaf.com/stores/curaleaf-las-vegas-western-ave/specials",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Curaleaf North LV",
@@ -166,6 +177,7 @@ DISPENSARIES = [
         "platform": "curaleaf",
         "url": "https://curaleaf.com/stores/curaleaf-north-las-vegas/specials",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Curaleaf Strip",
@@ -173,6 +185,7 @@ DISPENSARIES = [
         "platform": "curaleaf",
         "url": "https://curaleaf.com/stores/curaleaf-nv-las-vegas/specials",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Curaleaf The Reef",
@@ -180,6 +193,7 @@ DISPENSARIES = [
         "platform": "curaleaf",
         "url": "https://curaleaf.com/stores/reef-dispensary-las-vegas-strip/specials",
         "is_active": True,
+        "region": "southern-nv",
     },
 
     # ------------------------------------------------------------------
@@ -191,6 +205,7 @@ DISPENSARIES = [
         "platform": "jane",
         "url": "https://oasiscannabis.com/shop/menu/specials",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Deep Roots Harvest Cheyenne",
@@ -198,6 +213,7 @@ DISPENSARIES = [
         "platform": "jane",
         "url": "https://www.deeprootsharvest.com/cheyenne",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Deep Roots Harvest Craig",
@@ -205,6 +221,7 @@ DISPENSARIES = [
         "platform": "jane",
         "url": "https://www.deeprootsharvest.com/craig",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Deep Roots Harvest Blue Diamond",
@@ -212,6 +229,7 @@ DISPENSARIES = [
         "platform": "jane",
         "url": "https://www.deeprootsharvest.com/blue-diamond",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Deep Roots Harvest Parkson",
@@ -219,6 +237,7 @@ DISPENSARIES = [
         "platform": "jane",
         "url": "https://www.deeprootsharvest.com/parkson",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Cultivate Spring Mountain",
@@ -226,6 +245,7 @@ DISPENSARIES = [
         "platform": "jane",
         "url": "https://cultivatelv.com/online-menu/",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Cultivate Durango",
@@ -233,6 +253,7 @@ DISPENSARIES = [
         "platform": "jane",
         "url": "https://cultivatelv.com/online-menu-durango/",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Thrive Sahara",
@@ -240,6 +261,7 @@ DISPENSARIES = [
         "platform": "jane",
         "url": "https://thrivenevada.com/west-sahara-weed-dispensary-menu/",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Thrive Cheyenne",
@@ -247,6 +269,7 @@ DISPENSARIES = [
         "platform": "jane",
         "url": "https://thrivenevada.com/north-las-vegas-dispensary-menu/",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Thrive Strip",
@@ -254,6 +277,7 @@ DISPENSARIES = [
         "platform": "jane",
         "url": "https://thrivenevada.com/las-vegas-strip-dispensary-menu/",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Thrive Main",
@@ -261,6 +285,7 @@ DISPENSARIES = [
         "platform": "jane",
         "url": "https://thrivenevada.com/art-district/",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Beyond/Hello Sahara",
@@ -268,6 +293,7 @@ DISPENSARIES = [
         "platform": "jane",
         "url": "https://beyond-hello.com/nevada-dispensaries/las-vegas-sahara/adult-use-menu/",
         "is_active": True,
+        "region": "southern-nv",
     },
     {
         "name": "Beyond/Hello Twain",
@@ -275,6 +301,7 @@ DISPENSARIES = [
         "platform": "jane",
         "url": "https://nuleafnv.com/dispensaries/las-vegas/menu/",
         "is_active": True,
+        "region": "southern-nv",
     },
 ]
 
