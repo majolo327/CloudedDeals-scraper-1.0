@@ -4,6 +4,8 @@ on:
   schedule:
     # 8:30 AM Pacific = 16:30 UTC (15:30 during PDT)
     - cron: "30 16 * * *"
+    # Backup trigger 15 minutes later in case the first run is skipped
+    - cron: "45 16 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -59,6 +61,7 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
           LIMIT_DISPENSARIES: ${{ github.event.inputs.limit_dispensaries || 'false' }}
           SINGLE_SITE: ${{ github.event.inputs.single_site || '' }}
+          FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
         run: |
           echo "=== Scraper Configuration ==="
           echo "Dry run:    $DRY_RUN"
