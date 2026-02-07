@@ -19,13 +19,13 @@ export function StaffPickMiniCard({
   return (
     <div
       onClick={onClick}
-      className={`w-[140px] shrink-0 glass frost rounded-xl p-2.5 cursor-pointer transition-gentle ${
+      className={`w-[150px] shrink-0 glass frost rounded-xl p-3 cursor-pointer transition-gentle ${
         isSaved
           ? 'card-saved'
-          : 'hover:bg-slate-800/70 hover:border-cyan-500/20'
+          : 'hover:border-[rgba(99,115,171,0.22)] hover:bg-[rgba(28,35,56,0.8)]'
       }`}
     >
-      <div className="flex items-start justify-between gap-1 mb-1">
+      <div className="flex items-start justify-between gap-1 mb-1.5">
         <span className="text-[10px] text-slate-400 uppercase tracking-wide font-medium truncate flex-1">
           {deal.brand.name}
         </span>
@@ -44,7 +44,7 @@ export function StaffPickMiniCard({
         </button>
       </div>
 
-      <h3 className="text-xs font-medium text-slate-100 truncate mb-2">
+      <h3 className="text-xs font-semibold text-slate-100 truncate mb-2">
         {deal.product_name}
       </h3>
 
@@ -52,7 +52,7 @@ export function StaffPickMiniCard({
         <span className="text-sm font-bold font-mono text-purple-400">
           ${deal.deal_price}
         </span>
-        {deal.original_price && (
+        {deal.original_price && deal.original_price > deal.deal_price && (
           <span className="text-[10px] text-slate-500 line-through">
             ${deal.original_price}
           </span>
@@ -60,7 +60,7 @@ export function StaffPickMiniCard({
       </div>
       {(deal.save_count ?? 0) > 0 && (
         <span className="text-[8px] text-slate-500 mt-1">
-          {(deal.save_count ?? 0) >= 20 ? `🔥 ${deal.save_count}` : deal.save_count} saved
+          {(deal.save_count ?? 0) >= 20 ? `${deal.save_count}` : deal.save_count} saved
         </span>
       )}
     </div>

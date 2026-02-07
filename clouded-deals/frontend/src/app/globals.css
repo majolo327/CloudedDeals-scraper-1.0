@@ -8,6 +8,14 @@
   --duration-fast: 200ms;
   --duration-normal: 350ms;
   --duration-slow: 500ms;
+
+  /* Design tokens */
+  --surface-0: #0a0e1a;
+  --surface-1: rgba(15, 20, 35, 0.85);
+  --surface-2: rgba(22, 28, 48, 0.75);
+  --border-subtle: rgba(99, 115, 171, 0.12);
+  --border-glow: rgba(139, 92, 246, 0.15);
+  --border-amber: rgba(251, 191, 36, 0.18);
 }
 
 html {
@@ -17,8 +25,8 @@ html {
 
 body {
   overflow-x: hidden;
-  background-color: #020617;
-  color: white;
+  background-color: var(--surface-0);
+  color: #f1f5f9;
 }
 
 ::selection {
@@ -62,25 +70,13 @@ body {
 }
 
 @keyframes cardAppear {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 @keyframes animateIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes fadeIn {
@@ -89,14 +85,8 @@ body {
 }
 
 @keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes shimmerSoft {
@@ -105,14 +95,8 @@ body {
 }
 
 @keyframes confetti {
-  0% {
-    transform: translateY(0) rotate(0deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(100px) rotate(720deg);
-    opacity: 0;
-  }
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100px) rotate(720deg); opacity: 0; }
 }
 
 @keyframes bounceSubtle {
@@ -122,23 +106,18 @@ body {
 
 /* ===== FOCUS & ACCESSIBILITY ===== */
 
-/* Visible focus ring for keyboard-only navigation */
 *:focus-visible {
   outline: 2px solid rgba(168, 85, 247, 0.7);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-/* Remove focus ring on mouse/touch (browsers that support :focus-visible) */
 *:focus:not(:focus-visible) {
   outline: none;
 }
 
-/* Reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -156,73 +135,40 @@ body {
     display: none;
   }
 
-  .animate-soft-reveal {
-    animation: softReveal var(--duration-normal) var(--ease-smooth) forwards;
-  }
+  .animate-soft-reveal { animation: softReveal var(--duration-normal) var(--ease-smooth) forwards; }
+  .animate-soft-dismiss { animation: softDismiss var(--duration-fast) var(--ease-gentle) forwards; }
+  .animate-gentle-glow { animation: gentleGlow 3s var(--ease-gentle) infinite; }
+  .animate-sparkle { animation: sparkleIn 2s var(--ease-gentle) forwards; }
+  .animate-heart-pulse { animation: heartPulse 200ms var(--ease-smooth); }
+  .animate-save-glow { animation: saveGlow 400ms var(--ease-gentle); }
+  .animate-card-appear { animation: cardAppear 0.3s ease-out forwards; }
+  .animate-in { animation: animateIn 0.3s var(--ease-smooth) forwards; }
+  .animate-confetti { animation: confetti 2s ease-out forwards; }
+  .animate-bounce-subtle { animation: bounceSubtle 1s ease-in-out infinite; }
+  .fade-in { animation: fadeIn 0.4s var(--ease-gentle) forwards; }
+  .slide-in { animation: slideIn 0.3s var(--ease-smooth) forwards; }
 
-  .animate-soft-dismiss {
-    animation: softDismiss var(--duration-fast) var(--ease-gentle) forwards;
-  }
-
-  .animate-gentle-glow {
-    animation: gentleGlow 3s var(--ease-gentle) infinite;
-  }
-
-  .animate-sparkle {
-    animation: sparkleIn 2s var(--ease-gentle) forwards;
-  }
-
-  .animate-heart-pulse {
-    animation: heartPulse 200ms var(--ease-smooth);
-  }
-
-  .animate-save-glow {
-    animation: saveGlow 400ms var(--ease-gentle);
-  }
-
-  .animate-card-appear {
-    animation: cardAppear 0.3s ease-out forwards;
-  }
-
-  .animate-in {
-    animation: animateIn 0.3s var(--ease-smooth) forwards;
-  }
-
-  .animate-confetti {
-    animation: confetti 2s ease-out forwards;
-  }
-
-  .animate-bounce-subtle {
-    animation: bounceSubtle 1s ease-in-out infinite;
-  }
-
-  .fade-in {
-    animation: fadeIn 0.4s var(--ease-gentle) forwards;
-  }
-
-  .slide-in {
-    animation: slideIn 0.3s var(--ease-smooth) forwards;
-  }
+  /* ---- Glass surfaces ---- */
 
   .glass {
-    background: rgba(30, 41, 59, 0.6);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--surface-2);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-subtle);
   }
 
   .glass-subtle {
-    background: rgba(30, 41, 59, 0.4);
+    background: rgba(15, 20, 35, 0.5);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(99, 115, 171, 0.06);
   }
 
   .glass-strong {
-    background: rgba(15, 23, 42, 0.7);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(10, 14, 26, 0.88);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border-subtle);
   }
 
   .frost {
@@ -234,25 +180,30 @@ body {
     position: absolute;
     inset: 0;
     background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.03) 0%,
-      transparent 50%,
-      rgba(255, 255, 255, 0.01) 100%
+      160deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      transparent 40%,
+      transparent 60%,
+      rgba(255, 255, 255, 0.015) 100%
     );
     pointer-events: none;
     border-radius: inherit;
   }
 
+  /* ---- Glow effects ---- */
+
   .soft-glow {
     box-shadow:
-      0 0 0 1px rgba(168, 85, 247, 0.1),
-      0 4px 20px rgba(168, 85, 247, 0.08);
+      0 0 0 1px rgba(168, 85, 247, 0.12),
+      0 4px 24px rgba(168, 85, 247, 0.08),
+      inset 0 1px 0 rgba(168, 85, 247, 0.06);
   }
 
   .soft-glow-amber {
     box-shadow:
-      0 0 0 1px rgba(251, 191, 36, 0.15),
-      0 4px 20px rgba(251, 191, 36, 0.08);
+      0 0 0 1px var(--border-amber),
+      0 4px 24px rgba(251, 191, 36, 0.06),
+      inset 0 1px 0 rgba(251, 191, 36, 0.05);
   }
 
   .transition-gentle {
@@ -275,20 +226,12 @@ body {
     overflow: hidden;
   }
 
-  .scroll-mt-24 {
-    scroll-margin-top: 6rem;
-  }
+  .scroll-mt-24 { scroll-margin-top: 6rem; }
 
-  .slide-in-from-bottom-4 {
-    animation: slideInFromBottom 0.3s var(--ease-smooth) forwards;
-  }
-
-  .slide-in-from-top-4 {
-    animation: slideInFromTop 0.3s var(--ease-smooth) forwards;
-  }
+  .slide-in-from-bottom-4 { animation: slideInFromBottom 0.3s var(--ease-smooth) forwards; }
+  .slide-in-from-top-4 { animation: slideInFromTop 0.3s var(--ease-smooth) forwards; }
 }
 
-/* Slide-in keyframes for utility classes */
 @keyframes slideInFromBottom {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
@@ -303,6 +246,7 @@ body {
 
 @layer components {
   .card-saved {
-    @apply soft-glow border-purple-500/20;
+    @apply soft-glow;
+    border-color: rgba(168, 85, 247, 0.2);
   }
 }

@@ -387,15 +387,15 @@ export function DealsPage({
 
             {/* Progress Bar */}
             <div>
-              <div className="mb-4">
+              <div className="mb-5">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-slate-400 tabular-nums">
+                  <span className="text-xs text-slate-500 tabular-nums">
                     {discoveredCount} of {totalDeals}
                   </span>
                 </div>
-                <div className="h-1.5 bg-slate-800/60 rounded-full overflow-hidden">
+                <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(99, 115, 171, 0.1)' }}>
                   <div
-                    className="h-full rounded-full bg-purple-500/70"
+                    className="h-full rounded-full bg-emerald-500/70"
                     style={{
                       width: `${progressPercent}%`,
                       transition:
@@ -407,7 +407,7 @@ export function DealsPage({
 
               {/* 3x3 Grid */}
               {isLoading ? (
-                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
                   {[...Array(9)].map((_, i) => (
                     <DealCardSkeleton key={i} />
                   ))}
@@ -423,7 +423,7 @@ export function DealsPage({
                 </div>
               ) : (
                 <div
-                  className={`grid grid-cols-3 gap-2 sm:gap-3 transition-opacity duration-300 ${
+                  className={`grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 transition-opacity duration-300 ${
                     isClearing ? 'opacity-0' : 'opacity-100'
                   }`}
                 >
