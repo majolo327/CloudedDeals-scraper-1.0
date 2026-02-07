@@ -23,8 +23,12 @@ from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 logger = logging.getLogger(__name__)
 
 # Selectors tried in order — the first match wins.
+# 'embedded-menu' and 'dutchie.com' cover The Grove and similar sites
+# whose iframe src is e.g. https://dutchie.com/embedded-menu/the-grove-las-vegas/specials
 IFRAME_SELECTORS = [
+    'iframe[src*="dutchie.com"]',
     'iframe[src*="dutchie"]',
+    'iframe[src*="embedded-menu"]',
     'iframe[src*="menu"]',
     'iframe[src*="embed"]',
 ]

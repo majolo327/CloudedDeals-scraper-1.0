@@ -29,8 +29,14 @@ from .base import BaseScraper
 logger = logging.getLogger(__name__)
 
 _DUTCHIE_CFG = PLATFORM_DEFAULTS["dutchie"]
-_POST_AGE_GATE_WAIT = _DUTCHIE_CFG["wait_after_age_gate_sec"]  # 60 s
 _BETWEEN_PAGES_SEC = _DUTCHIE_CFG["between_pages_sec"]          # 5 s
+
+# Proven wait times from months of testing (clouded_logic.py WAIT_TIMES).
+# Dutchie's embed script needs time after the age gate click before it
+# injects the iframe or JS embed.  3 s is NOT enough.
+_TD_SLUGS = {"td-gibson", "td-eastern", "td-decatur"}
+_POST_AGE_GATE_TD = 45        # TD sites need full 45 s
+_POST_AGE_GATE_OTHER = 10     # Other Dutchie sites need 10 s
 _PRODUCT_SELECTORS = [
     '[data-testid*="product"]',
     'div[class*="product"]',
@@ -50,6 +56,9 @@ class DutchieScraper(BaseScraper):
     """Scraper for sites powered by the Dutchie embedded iframe menu."""
 
     async def scrape(self) -> list[dict[str, Any]]:
+        # Per-site post-age-gate wait: 45 s for TD sites, 10 s for others
+        post_age_wait = _POST_AGE_GATE_TD if self.slug in _TD_SLUGS else _POST_AGE_GATE_OTHER
+
         # --- Navigate with wait_until='load' (scripts fully execute) ------
         await self.goto()
 
@@ -59,10 +68,13 @@ class DutchieScraper(BaseScraper):
         # --- CLICK the age gate button FIRST ------------------------------
         # The Dutchie embed script only injects the menu iframe AFTER the
         # button-click callback fires — force-removing the overlay via JS
-        # does NOT trigger it.  Click first, then clean up residue.
-        clicked = await self.handle_age_gate(post_wait_sec=3)
+        # does NOT trigger it.  Click first, then wait the proven duration.
+        clicked = await self.handle_age_gate(post_wait_sec=post_age_wait)
         if clicked:
-            logger.info("[%s] Age gate button clicked — waiting for Dutchie embed", self.slug)
+            logger.info(
+                "[%s] Age gate clicked — waiting %ds for Dutchie embed to inject",
+                self.slug, post_age_wait,
+            )
         else:
             logger.warning("[%s] No age gate button found — embed may already be loaded", self.slug)
 
@@ -72,10 +84,12 @@ class DutchieScraper(BaseScraper):
             logger.info("[%s] Cleaned up %d lingering overlay(s) via JS", self.slug, removed)
 
         # --- Detect Dutchie content: iframe first, JS embed fallback ------
+        # Cap total detection at 60 s (30 s iframe + 30 s JS embed) to
+        # avoid burning 240 s per failed site.
         target, embed_type = await find_dutchie_content(
             self.page,
             iframe_timeout_ms=30_000,
-            js_embed_timeout_sec=60,
+            js_embed_timeout_sec=30,
         )
 
         if target is None:
@@ -83,12 +97,12 @@ class DutchieScraper(BaseScraper):
             logger.warning("[%s] No Dutchie content after click — trying reload + re-click", self.slug)
             await self.page.evaluate(_AGE_GATE_COOKIE_JS)
             await self.page.reload(wait_until="load", timeout=60_000)
-            await self.handle_age_gate(post_wait_sec=3)
+            await self.handle_age_gate(post_wait_sec=post_age_wait)
             await force_remove_age_gate(self.page)
             target, embed_type = await find_dutchie_content(
                 self.page,
                 iframe_timeout_ms=30_000,
-                js_embed_timeout_sec=60,
+                js_embed_timeout_sec=30,
             )
 
         if target is None:
