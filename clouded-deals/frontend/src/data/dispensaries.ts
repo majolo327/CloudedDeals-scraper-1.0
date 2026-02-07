@@ -22,18 +22,18 @@ function d(
 
 export const DISPENSARIES: Dispensary[] = [
   // ==================================================================
-  // DUTCHIE / THE DISPENSARY NV  (10)
+  // DUTCHIE  (10)
   // ==================================================================
-  d('td-gibson',          'The Dispensary NV - Gibson',              'premium',  '50 N Gibson Rd, Henderson, NV 89014',          'dutchie', 'https://thedispensarynv.com/shop-gibson/'),
-  d('td-eastern',         'The Dispensary NV - Eastern',             'premium',  '5765 S Eastern Ave, Las Vegas, NV 89119',      'dutchie', 'https://thedispensarynv.com/shop-eastern/'),
-  d('td-decatur',         'The Dispensary NV - Decatur',             'premium',  '5347 S Decatur Blvd, Las Vegas, NV 89118',     'dutchie', 'https://thedispensarynv.com/shop-decatur/'),
-  d('td-henderson',       'The Dispensary NV - Henderson',           'premium',  '50 N Gibson Rd, Henderson, NV 89014',          'dutchie', 'https://thedispensarynv.com/shop-henderson/'),
-  d('td-reno',            'The Dispensary NV - Reno',                'premium',  '1085 S Virginia St, Reno, NV 89502',           'dutchie', 'https://thedispensarynv.com/shop-reno/'),
-  d('jardin',             'Jardín Premium Cannabis Dispensary',       'verified', '2900 E Desert Inn Rd, Las Vegas, NV 89121',    'dutchie', 'https://jardinlasvegas.com/shop/'),
-  d('essence-strip',      'Essence Cannabis Dispensary - The Strip',  'verified', '2307 S Las Vegas Blvd, Las Vegas, NV 89104',   'dutchie', 'https://essencevegas.com/strip/'),
-  d('essence-tropicana',  'Essence Cannabis Dispensary - Tropicana',  'verified', '5765 W Tropicana Ave, Las Vegas, NV 89103',    'dutchie', 'https://essencevegas.com/tropicana/'),
-  d('essence-henderson',  'Essence Cannabis Dispensary - Henderson',  'verified', '4300 E Sunset Rd #A1, Henderson, NV 89014',    'dutchie', 'https://essencevegas.com/henderson/'),
-  d('thrive',             'Thrive Cannabis Marketplace',              'verified', '2020 Western Ave, Las Vegas, NV 89102',        'dutchie', 'https://thrivecannabismarketplace.com/shop/'),
+  d('td-gibson',           'The Dispensary - Gibson',    'premium',  '50 N Gibson Rd, Henderson, NV 89014',          'dutchie', 'https://thedispensarynv.com/shop-gibson/?dtche%5Bpath%5D=specials'),
+  d('td-eastern',          'The Dispensary - Eastern',   'premium',  '5765 S Eastern Ave, Las Vegas, NV 89119',      'dutchie', 'https://thedispensarynv.com/shop-eastern/?dtche%5Bpath%5D=specials'),
+  d('td-decatur',          'The Dispensary - Decatur',   'premium',  '5347 S Decatur Blvd, Las Vegas, NV 89118',     'dutchie', 'https://thedispensarynv.com/shop-decatur/?dtche%5Bpath%5D=specials'),
+  d('planet13',            'Planet 13',                  'verified', '2548 W Desert Inn Rd, Las Vegas, NV 89109',    'dutchie', 'https://planet13.com/stores/planet-13-dispensary/specials'),
+  d('medizin',             'Medizin',                    'verified', '4850 W Sunset Rd, Las Vegas, NV 89118',        'dutchie', 'https://planet13.com/stores/medizin-dispensary/specials'),
+  d('greenlight-downtown', 'Greenlight Downtown',        'verified', '200 S Main St, Las Vegas, NV 89101',           'dutchie', 'https://greenlightdispensary.com/downtown-las-vegas-menu/?dtche%5Bpath%5D=specials'),
+  d('greenlight-paradise', 'Greenlight Paradise',        'verified', '4155 S Buffalo Dr, Las Vegas, NV 89147',       'dutchie', 'https://greenlightdispensary.com/paradise-menu/?dtche%5Bpath%5D=specials'),
+  d('the-grove',           'The Grove',                  'verified', '4647 Swenson St, Las Vegas, NV 89119',         'dutchie', 'https://www.thegrovenv.com/lasvegas/?dtche%5Bpath%5D=specials'),
+  d('mint-paradise',       'Mint Paradise',              'verified', '4811 E Flamingo Rd, Las Vegas, NV 89121',      'dutchie', 'https://mintdeals.com/paradise-lv/menu/?dtche%5Bpath%5D=specials'),
+  d('mint-rainbow',        'Mint Rainbow',               'verified', '1021 S Rainbow Blvd, Las Vegas, NV 89145',     'dutchie', 'https://mintdeals.com/rainbow-lv/menu/?dtche%5Bpath%5D=specials'),
 
   // ==================================================================
   // CURALEAF  (4)

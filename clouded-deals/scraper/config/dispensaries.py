@@ -77,81 +77,77 @@ PLATFORM_DEFAULTS = {
 
 DISPENSARIES = [
     # ------------------------------------------------------------------
-    # DUTCHIE / TD SITES — core 3 (MVP)
+    # DUTCHIE SITES  (10)
     # ------------------------------------------------------------------
     {
-        "name": "The Dispensary NV - Gibson",
+        "name": "The Dispensary - Gibson",
         "slug": "td-gibson",
         "platform": "dutchie",
         "url": "https://thedispensarynv.com/shop-gibson/?dtche%5Bpath%5D=specials",
         "is_active": True,
     },
     {
-        "name": "The Dispensary NV - Eastern",
+        "name": "The Dispensary - Eastern",
         "slug": "td-eastern",
         "platform": "dutchie",
         "url": "https://thedispensarynv.com/shop-eastern/?dtche%5Bpath%5D=specials",
         "is_active": True,
     },
     {
-        "name": "The Dispensary NV - Decatur",
+        "name": "The Dispensary - Decatur",
         "slug": "td-decatur",
         "platform": "dutchie",
         "url": "https://thedispensarynv.com/shop-decatur/?dtche%5Bpath%5D=specials",
         "is_active": True,
     },
-
-    # ------------------------------------------------------------------
-    # DUTCHIE / TD SITES — expansion (deactivated until verified)
-    # ------------------------------------------------------------------
     {
-        "name": "The Dispensary NV - Henderson",
-        "slug": "td-henderson",
+        "name": "Planet 13",
+        "slug": "planet13",
         "platform": "dutchie",
-        "url": "https://thedispensarynv.com/shop-henderson/?dtche%5Bpath%5D=specials",
-        "is_active": False,  # not in core MVP
+        "url": "https://planet13.com/stores/planet-13-dispensary/specials",
+        "is_active": True,
     },
     {
-        "name": "The Dispensary NV - Reno",
-        "slug": "td-reno",
+        "name": "Medizin",
+        "slug": "medizin",
         "platform": "dutchie",
-        "url": "https://thedispensarynv.com/shop-reno/?dtche%5Bpath%5D=specials",
-        "is_active": False,  # not in core MVP
+        "url": "https://planet13.com/stores/medizin-dispensary/specials",
+        "is_active": True,
     },
     {
-        "name": "Jardín Premium Cannabis Dispensary",
-        "slug": "jardin",
+        "name": "Greenlight Downtown",
+        "slug": "greenlight-downtown",
         "platform": "dutchie",
-        "url": "https://jardinlasvegas.com/shop/?dtche%5Bpath%5D=specials",
-        "is_active": False,  # redirects to different page, no Dutchie iframe
+        "url": "https://greenlightdispensary.com/downtown-las-vegas-menu/?dtche%5Bpath%5D=specials",
+        "is_active": True,
     },
     {
-        "name": "Essence Cannabis Dispensary - The Strip",
-        "slug": "essence-strip",
+        "name": "Greenlight Paradise",
+        "slug": "greenlight-paradise",
         "platform": "dutchie",
-        "url": "https://essencevegas.com/strip/?dtche%5Bpath%5D=specials",
-        "is_active": False,  # redirects to risecannabis.com
+        "url": "https://greenlightdispensary.com/paradise-menu/?dtche%5Bpath%5D=specials",
+        "is_active": True,
     },
     {
-        "name": "Essence Cannabis Dispensary - Tropicana",
-        "slug": "essence-tropicana",
+        "name": "The Grove",
+        "slug": "the-grove",
         "platform": "dutchie",
-        "url": "https://essencevegas.com/tropicana/?dtche%5Bpath%5D=specials",
-        "is_active": False,  # redirects to risecannabis.com
+        "url": "https://www.thegrovenv.com/lasvegas/?dtche%5Bpath%5D=specials",
+        "is_active": True,
     },
     {
-        "name": "Essence Cannabis Dispensary - Henderson",
-        "slug": "essence-henderson",
+        "name": "Mint Paradise",
+        "slug": "mint-paradise",
         "platform": "dutchie",
-        "url": "https://essencevegas.com/henderson/?dtche%5Bpath%5D=specials",
-        "is_active": False,  # redirects to risecannabis.com
+        "url": "https://mintdeals.com/paradise-lv/menu/?dtche%5Bpath%5D=specials",
+        "is_active": True,
     },
     {
-        "name": "Thrive Cannabis Marketplace",
-        "slug": "thrive",
+        "name": "Mint Rainbow",
+        "slug": "mint-rainbow",
         "platform": "dutchie",
-        "url": "https://thrivecannabismarketplace.com/shop/?dtche%5Bpath%5D=specials",
-        "is_active": False,  # times out consistently
+        "url": "https://mintdeals.com/rainbow-lv/menu/?dtche%5Bpath%5D=specials",
+        "is_active": True,
     },
 
     # ------------------------------------------------------------------
