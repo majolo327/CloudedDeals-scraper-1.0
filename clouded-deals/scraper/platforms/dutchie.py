@@ -8,8 +8,8 @@ Flow:
      only injects the menu AFTER the button-click callback fires —
      force-removing the overlay without clicking does NOT trigger it.
   3. Force-remove any lingering overlay residue so it can't intercept clicks.
-  4. Detect Dutchie content: try JS embed first (most sites have
-     migrated), fall back to iframe detection (30 s) for legacy sites.
+  4. Detect Dutchie content: try iframe first (30 s), fall back to
+     JS embed probing (60 s) for sites that inject into the page DOM.
   5. Extract products from whichever target was found.
   6. Paginate via ``aria-label="go to page N"`` buttons.
 """
@@ -71,11 +71,11 @@ class DutchieScraper(BaseScraper):
         if removed > 0:
             logger.info("[%s] Cleaned up %d lingering overlay(s) via JS", self.slug, removed)
 
-        # --- Detect Dutchie content: iframe OR JS embed -------------------
+        # --- Detect Dutchie content: iframe first, JS embed fallback ------
         target, embed_type = await find_dutchie_content(
             self.page,
-            js_embed_timeout_sec=60,
             iframe_timeout_ms=30_000,
+            js_embed_timeout_sec=60,
         )
 
         if target is None:
@@ -87,7 +87,7 @@ class DutchieScraper(BaseScraper):
             await force_remove_age_gate(self.page)
             target, embed_type = await find_dutchie_content(
                 self.page,
-                iframe_timeout_ms=45_000,
+                iframe_timeout_ms=30_000,
                 js_embed_timeout_sec=60,
             )
 

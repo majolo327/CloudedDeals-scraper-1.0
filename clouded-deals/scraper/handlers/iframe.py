@@ -1,14 +1,15 @@
 """
 Iframe and JS-embed detection for Dutchie-powered menus.
 
-As of early 2026, **most** Dutchie-powered dispensary sites have migrated
-from ``<iframe>`` embeds to **JS-injected** menus — product cards are
-rendered directly into the page DOM inside a container such as
-``<div id="dutchie--embed">``.
-
-``find_dutchie_content()`` therefore tries JS embed detection **first**
-(resolves in seconds when present), then falls back to iframe detection
-(capped at 30 s) for any legacy sites that still use iframes.
+Detection order:
+  1. **Iframe** — tried first via ``IFRAME_SELECTORS`` with a 30 s cap.
+     This is the proven path that worked for all 10 Dutchie sites
+     historically and should remain the default.
+  2. **JS embed** — fallback if no iframe is found.  Some sites inject
+     product cards directly into the page DOM inside a known Dutchie
+     container (``#dutchie--embed``, ``[data-dutchie]``).  Detection
+     requires BOTH a Dutchie container AND product cards inside it to
+     avoid false positives from generic page content.
 """
 
 from __future__ import annotations
@@ -28,19 +29,23 @@ IFRAME_SELECTORS = [
     'iframe[src*="embed"]',
 ]
 
-# Selectors for Dutchie JS-embedded menus (no iframe, content in page DOM).
-JS_EMBED_SELECTORS = [
+# Selectors for Dutchie JS-embedded menu containers.
+# These MUST be specific to actual Dutchie embed wrappers — generic
+# selectors like div[class*="product"] cause false positives on the
+# parent page and prevent iframe detection from ever running.
+JS_EMBED_CONTAINERS = [
     '#dutchie--embed',
     '[data-dutchie]',
     '.dutchie--embed',
-    'div[id*="dutchie"]',
+    '#dutchie',
 ]
 
-# Product selectors that confirm the JS embed has loaded content.
+# Product-card selectors to verify the JS embed has loaded real content.
+# These are checked ONLY INSIDE a matched container, not on the full page.
 JS_EMBED_PRODUCT_PROBES = [
     '[data-testid*="product"]',
-    'div[class*="product"]',
     '[class*="ProductCard"]',
+    '[class*="product-card"]',
 ]
 
 _IFRAME_READY_TIMEOUT_MS = 60_000
@@ -152,25 +157,59 @@ async def get_iframe(
 
 
 async def _probe_js_embed(page: Page, timeout_sec: float = 60) -> bool:
-    """Wait up to *timeout_sec* for a Dutchie JS embed container or
-    product elements to appear in the page DOM (not inside an iframe).
+    """Two-phase detection of Dutchie JS-embedded menus.
 
-    Returns ``True`` if any JS embed indicator is found.
+    Phase 1: Wait for a **known Dutchie container** (``#dutchie--embed``,
+             ``[data-dutchie]``, etc.) to appear on the page.
+    Phase 2: Verify that the container has **product cards** inside it
+             (prevents false positives from empty containers or random
+             page elements matching a broad selector).
+
+    Returns ``True`` only if both phases pass.
     """
-    all_selectors = JS_EMBED_SELECTORS + JS_EMBED_PRODUCT_PROBES
-    combined = ", ".join(all_selectors)
+    # Phase 1: find a Dutchie-specific container
+    container_css = ", ".join(JS_EMBED_CONTAINERS)
     try:
-        await page.locator(combined).first.wait_for(
+        await page.locator(container_css).first.wait_for(
             state="attached", timeout=int(timeout_sec * 1000),
         )
-        # Figure out which selector matched for logging
-        for sel in all_selectors:
-            count = await page.locator(sel).count()
-            if count > 0:
-                logger.info("JS embed detected via %r (%d elements)", sel, count)
-        return True
     except PlaywrightTimeout:
+        logger.debug("No Dutchie JS embed container found within %ds", timeout_sec)
         return False
+
+    # Log which container matched
+    matched_container = None
+    for sel in JS_EMBED_CONTAINERS:
+        count = await page.locator(sel).count()
+        if count > 0:
+            logger.info("JS embed container found via %r (%d elements)", sel, count)
+            matched_container = sel
+            break
+
+    if matched_container is None:
+        return False
+
+    # Phase 2: wait for product cards INSIDE the container (up to 30 s)
+    for probe in JS_EMBED_PRODUCT_PROBES:
+        scoped = f"{matched_container} {probe}"
+        try:
+            await page.locator(scoped).first.wait_for(
+                state="attached", timeout=30_000,
+            )
+            product_count = await page.locator(scoped).count()
+            logger.info(
+                "JS embed confirmed — %d product cards via %r", product_count, scoped
+            )
+            return True
+        except PlaywrightTimeout:
+            continue
+
+    # Container exists but no product cards loaded — not a real embed
+    logger.warning(
+        "Dutchie container %r found but no product cards inside — ignoring",
+        matched_container,
+    )
+    return False
 
 
 EmbedType = Literal["iframe", "js_embed"]
@@ -179,14 +218,15 @@ EmbedType = Literal["iframe", "js_embed"]
 async def find_dutchie_content(
     page: Page,
     *,
-    js_embed_timeout_sec: float = 60,
     iframe_timeout_ms: int = 30_000,
+    js_embed_timeout_sec: float = 60,
 ) -> tuple[Page | Frame | None, EmbedType | None]:
-    """Locate Dutchie menu content — JS embed first, iframe fallback.
+    """Locate Dutchie menu content — iframe first, JS embed fallback.
 
-    Most Dutchie sites now use JS-injected menus, so we probe for those
-    first (resolves in seconds when present).  Only if no JS embed is
-    found do we fall back to the slower iframe detection path.
+    Iframe detection is the proven path that has worked historically for
+    all Dutchie sites.  JS embed probing runs only when no iframe is
+    found, and uses a strict two-phase check (container + product cards)
+    to avoid false positives.
 
     Returns
     -------
@@ -195,17 +235,17 @@ async def find_dutchie_content(
         extract products from, or ``None`` if nothing was found.
         *embed_type* is ``"iframe"`` or ``"js_embed"`` accordingly.
     """
-    # --- Try JS embed first (fast path for modern Dutchie sites) ---------
-    logger.info("Probing for Dutchie JS embed on main page …")
-    if await _probe_js_embed(page, timeout_sec=js_embed_timeout_sec):
-        logger.info("JS embed detected — using main page as scrape target")
-        return page, "js_embed"
-
-    # --- Fall back to iframe detection (legacy sites, capped at 30 s) ----
-    logger.info("No JS embed found — trying iframe detection (max %d ms)", iframe_timeout_ms)
+    # --- Try iframe first (proven path, capped at 30 s) ------------------
+    logger.info("Looking for Dutchie iframe (max %d ms) …", iframe_timeout_ms)
     frame = await get_iframe(page, timeout_ms=iframe_timeout_ms)
     if frame is not None:
         return frame, "iframe"
 
-    logger.warning("Neither JS embed nor iframe found on %s", page.url)
+    # --- Fall back to JS embed detection (strict two-phase check) --------
+    logger.info("No iframe found — probing for Dutchie JS embed on main page")
+    if await _probe_js_embed(page, timeout_sec=js_embed_timeout_sec):
+        logger.info("JS embed confirmed — using main page as scrape target")
+        return page, "js_embed"
+
+    logger.warning("Neither iframe nor JS embed found on %s", page.url)
     return None, None
