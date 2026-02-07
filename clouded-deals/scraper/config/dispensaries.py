@@ -86,6 +86,7 @@ DISPENSARIES = [
         "url": "https://thedispensarynv.com/shop-gibson/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",
     },
     {
         "name": "The Dispensary - Eastern",
@@ -94,6 +95,7 @@ DISPENSARIES = [
         "url": "https://thedispensarynv.com/shop-eastern/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",
     },
     {
         "name": "The Dispensary - Decatur",
@@ -102,6 +104,7 @@ DISPENSARIES = [
         "url": "https://thedispensarynv.com/shop-decatur/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",
     },
     {
         "name": "Planet 13",

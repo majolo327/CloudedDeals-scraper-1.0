@@ -1,9 +1,15 @@
 """
-Iframe detection and readiness handler for Dutchie-embedded menus.
+Iframe and JS-embed detection for Dutchie-powered menus.
 
 Many dispensary sites embed their product menu inside an ``<iframe>``
 served by dutchie.com (or a white-label domain).  This module locates
 that frame and waits for it to be interactive before returning.
+
+Some sites (notably TD Gibson and other TD locations) use a **JS embed**
+instead: the Dutchie script injects product cards directly into the page
+DOM via a container like ``<div id="dutchie--embed">``.  When no iframe
+is found, ``find_dutchie_content()`` probes for these containers and
+returns the main ``Page`` as the scrape target.
 
 The Dutchie embed is injected by a ``<script>`` tag, so the iframe
 may not exist immediately on DOMContentLoaded.  The selector list
@@ -11,8 +17,11 @@ includes ``iframe[src*="embed"]`` for white-label variants and a
 **last-resort** strategy that picks the only iframe on the page.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
+from typing import Literal
 
 from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 
@@ -23,6 +32,21 @@ IFRAME_SELECTORS = [
     'iframe[src*="dutchie"]',
     'iframe[src*="menu"]',
     'iframe[src*="embed"]',
+]
+
+# Selectors for Dutchie JS-embedded menus (no iframe, content in page DOM).
+JS_EMBED_SELECTORS = [
+    '#dutchie--embed',
+    '[data-dutchie]',
+    '.dutchie--embed',
+    'div[id*="dutchie"]',
+]
+
+# Product selectors that confirm the JS embed has loaded content.
+JS_EMBED_PRODUCT_PROBES = [
+    '[data-testid*="product"]',
+    'div[class*="product"]',
+    '[class*="ProductCard"]',
 ]
 
 _IFRAME_READY_TIMEOUT_MS = 60_000
@@ -126,3 +150,63 @@ async def get_iframe(
 
     logger.warning("No menu iframe found on page %s (%d iframes seen)", page.url, len(iframes))
     return None
+
+
+# ------------------------------------------------------------------
+# JS-embed detection
+# ------------------------------------------------------------------
+
+
+async def _probe_js_embed(page: Page, timeout_sec: float = 60) -> bool:
+    """Wait up to *timeout_sec* for a Dutchie JS embed container or
+    product elements to appear in the page DOM (not inside an iframe).
+
+    Returns ``True`` if any JS embed indicator is found.
+    """
+    all_selectors = JS_EMBED_SELECTORS + JS_EMBED_PRODUCT_PROBES
+    combined = ", ".join(all_selectors)
+    try:
+        await page.locator(combined).first.wait_for(
+            state="attached", timeout=int(timeout_sec * 1000),
+        )
+        # Figure out which selector matched for logging
+        for sel in all_selectors:
+            count = await page.locator(sel).count()
+            if count > 0:
+                logger.info("JS embed detected via %r (%d elements)", sel, count)
+        return True
+    except PlaywrightTimeout:
+        return False
+
+
+EmbedType = Literal["iframe", "js_embed"]
+
+
+async def find_dutchie_content(
+    page: Page,
+    *,
+    iframe_timeout_ms: int = 45_000,
+    js_embed_timeout_sec: float = 60,
+) -> tuple[Page | Frame | None, EmbedType | None]:
+    """Locate Dutchie menu content — iframe first, then JS embed fallback.
+
+    Returns
+    -------
+    (target, embed_type)
+        *target* is a ``Frame`` (iframe) or ``Page`` (JS embed) to
+        extract products from, or ``None`` if nothing was found.
+        *embed_type* is ``"iframe"`` or ``"js_embed"`` accordingly.
+    """
+    # --- Try iframe first (fast path) ------------------------------------
+    frame = await get_iframe(page, timeout_ms=iframe_timeout_ms)
+    if frame is not None:
+        return frame, "iframe"
+
+    # --- Probe for JS-embedded Dutchie content on the main page ----------
+    logger.info("No iframe found — probing for Dutchie JS embed on main page")
+    if await _probe_js_embed(page, timeout_sec=js_embed_timeout_sec):
+        logger.info("Using main page as scrape target (JS embed mode)")
+        return page, "js_embed"
+
+    logger.warning("Neither iframe nor JS embed found on %s", page.url)
+    return None, None
