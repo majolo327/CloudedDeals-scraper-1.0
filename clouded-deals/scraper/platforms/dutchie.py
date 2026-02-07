@@ -8,9 +8,8 @@ Flow:
      only injects the menu AFTER the button-click callback fires —
      force-removing the overlay without clicking does NOT trigger it.
   3. Force-remove any lingering overlay residue so it can't intercept clicks.
-  4. Detect Dutchie content: try iframe first (45 s), then fall back to
-     JS embed probing (60 s) for sites like TD Gibson that inject product
-     cards directly into the page DOM.
+  4. Detect Dutchie content: try JS embed first (most sites have
+     migrated), fall back to iframe detection (30 s) for legacy sites.
   5. Extract products from whichever target was found.
   6. Paginate via ``aria-label="go to page N"`` buttons.
 """
@@ -75,8 +74,8 @@ class DutchieScraper(BaseScraper):
         # --- Detect Dutchie content: iframe OR JS embed -------------------
         target, embed_type = await find_dutchie_content(
             self.page,
-            iframe_timeout_ms=45_000,
             js_embed_timeout_sec=60,
+            iframe_timeout_ms=30_000,
         )
 
         if target is None:

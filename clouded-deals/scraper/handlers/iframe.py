@@ -1,20 +1,14 @@
 """
 Iframe and JS-embed detection for Dutchie-powered menus.
 
-Many dispensary sites embed their product menu inside an ``<iframe>``
-served by dutchie.com (or a white-label domain).  This module locates
-that frame and waits for it to be interactive before returning.
+As of early 2026, **most** Dutchie-powered dispensary sites have migrated
+from ``<iframe>`` embeds to **JS-injected** menus — product cards are
+rendered directly into the page DOM inside a container such as
+``<div id="dutchie--embed">``.
 
-Some sites (notably TD Gibson and other TD locations) use a **JS embed**
-instead: the Dutchie script injects product cards directly into the page
-DOM via a container like ``<div id="dutchie--embed">``.  When no iframe
-is found, ``find_dutchie_content()`` probes for these containers and
-returns the main ``Page`` as the scrape target.
-
-The Dutchie embed is injected by a ``<script>`` tag, so the iframe
-may not exist immediately on DOMContentLoaded.  The selector list
-includes ``iframe[src*="embed"]`` for white-label variants and a
-**last-resort** strategy that picks the only iframe on the page.
+``find_dutchie_content()`` therefore tries JS embed detection **first**
+(resolves in seconds when present), then falls back to iframe detection
+(capped at 30 s) for any legacy sites that still use iframes.
 """
 
 from __future__ import annotations
@@ -185,10 +179,14 @@ EmbedType = Literal["iframe", "js_embed"]
 async def find_dutchie_content(
     page: Page,
     *,
-    iframe_timeout_ms: int = 45_000,
     js_embed_timeout_sec: float = 60,
+    iframe_timeout_ms: int = 30_000,
 ) -> tuple[Page | Frame | None, EmbedType | None]:
-    """Locate Dutchie menu content — iframe first, then JS embed fallback.
+    """Locate Dutchie menu content — JS embed first, iframe fallback.
+
+    Most Dutchie sites now use JS-injected menus, so we probe for those
+    first (resolves in seconds when present).  Only if no JS embed is
+    found do we fall back to the slower iframe detection path.
 
     Returns
     -------
@@ -197,16 +195,17 @@ async def find_dutchie_content(
         extract products from, or ``None`` if nothing was found.
         *embed_type* is ``"iframe"`` or ``"js_embed"`` accordingly.
     """
-    # --- Try iframe first (fast path) ------------------------------------
+    # --- Try JS embed first (fast path for modern Dutchie sites) ---------
+    logger.info("Probing for Dutchie JS embed on main page …")
+    if await _probe_js_embed(page, timeout_sec=js_embed_timeout_sec):
+        logger.info("JS embed detected — using main page as scrape target")
+        return page, "js_embed"
+
+    # --- Fall back to iframe detection (legacy sites, capped at 30 s) ----
+    logger.info("No JS embed found — trying iframe detection (max %d ms)", iframe_timeout_ms)
     frame = await get_iframe(page, timeout_ms=iframe_timeout_ms)
     if frame is not None:
         return frame, "iframe"
 
-    # --- Probe for JS-embedded Dutchie content on the main page ----------
-    logger.info("No iframe found — probing for Dutchie JS embed on main page")
-    if await _probe_js_embed(page, timeout_sec=js_embed_timeout_sec):
-        logger.info("Using main page as scrape target (JS embed mode)")
-        return page, "js_embed"
-
-    logger.warning("Neither iframe nor JS embed found on %s", page.url)
+    logger.warning("Neither JS embed nor iframe found on %s", page.url)
     return None, None
