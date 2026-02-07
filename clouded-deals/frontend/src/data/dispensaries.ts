@@ -38,10 +38,10 @@ export const DISPENSARIES: Dispensary[] = [
   // ==================================================================
   // CURALEAF  (4)
   // ==================================================================
-  d('curaleaf-western',   'Curaleaf - Western Ave',   'verified', '1736 S Las Vegas Blvd, Las Vegas, NV 89104',  'curaleaf', 'https://curaleaf.com/stores/curaleaf-las-vegas-western-ave-(formerly-acres)/specials'),
-  d('curaleaf-north-lv',  'Curaleaf - North Las Vegas','verified', '1736 N Rancho Dr, Las Vegas, NV 89106',      'curaleaf', 'https://curaleaf.com/stores/curaleaf-north-las-vegas/specials'),
-  d('curaleaf-the-reef',  'Curaleaf - The Reef',       'verified', '3400 Western Ave, Las Vegas, NV 89109',      'curaleaf', 'https://curaleaf.com/stores/reef-dispensary-las-vegas-strip/specials'),
-  d('curaleaf-strip',     'Curaleaf - Las Vegas Strip', 'verified', '1736 S Las Vegas Blvd, Las Vegas, NV 89104', 'curaleaf', 'https://curaleaf.com/stores/curaleaf-nv-las-vegas/specials'),
+  d('curaleaf-western',   'Curaleaf Western',   'verified', '1736 S Las Vegas Blvd, Las Vegas, NV 89104',  'curaleaf', 'https://curaleaf.com/stores/curaleaf-las-vegas-western-ave/specials'),
+  d('curaleaf-north-lv',  'Curaleaf North LV',  'verified', '1736 N Rancho Dr, Las Vegas, NV 89106',      'curaleaf', 'https://curaleaf.com/stores/curaleaf-north-las-vegas/specials'),
+  d('curaleaf-strip',     'Curaleaf Strip',      'verified', '1736 S Las Vegas Blvd, Las Vegas, NV 89104', 'curaleaf', 'https://curaleaf.com/stores/curaleaf-nv-las-vegas/specials'),
+  d('curaleaf-the-reef',  'Curaleaf The Reef',   'verified', '3400 Western Ave, Las Vegas, NV 89109',      'curaleaf', 'https://curaleaf.com/stores/reef-dispensary-las-vegas-strip/specials'),
 
   // ==================================================================
   // JANE  (13)

@@ -151,34 +151,34 @@ DISPENSARIES = [
     },
 
     # ------------------------------------------------------------------
-    # CURALEAF SITES — core 4 (MVP, updated URLs)
+    # CURALEAF SITES  (4)
     # ------------------------------------------------------------------
     {
-        "name": "Curaleaf - Western Ave",
+        "name": "Curaleaf Western",
         "slug": "curaleaf-western",
         "platform": "curaleaf",
-        "url": "https://curaleaf.com/shop/nevada/curaleaf-las-vegas-western-ave-(formerly-acres)/specials",
+        "url": "https://curaleaf.com/stores/curaleaf-las-vegas-western-ave/specials",
         "is_active": True,
     },
     {
-        "name": "Curaleaf - North Las Vegas",
+        "name": "Curaleaf North LV",
         "slug": "curaleaf-north-lv",
         "platform": "curaleaf",
-        "url": "https://curaleaf.com/shop/nevada/curaleaf-north-las-vegas/specials",
+        "url": "https://curaleaf.com/stores/curaleaf-north-las-vegas/specials",
         "is_active": True,
     },
     {
-        "name": "Curaleaf - The Reef",
-        "slug": "curaleaf-the-reef",
-        "platform": "curaleaf",
-        "url": "https://curaleaf.com/shop/nevada/reef-dispensary-las-vegas-strip/specials",
-        "is_active": True,
-    },
-    {
-        "name": "Curaleaf - Las Vegas Strip",
+        "name": "Curaleaf Strip",
         "slug": "curaleaf-strip",
         "platform": "curaleaf",
-        "url": "https://curaleaf.com/shop/nevada/curaleaf-nv-las-vegas/specials",
+        "url": "https://curaleaf.com/stores/curaleaf-nv-las-vegas/specials",
+        "is_active": True,
+    },
+    {
+        "name": "Curaleaf The Reef",
+        "slug": "curaleaf-the-reef",
+        "platform": "curaleaf",
+        "url": "https://curaleaf.com/stores/reef-dispensary-las-vegas-strip/specials",
         "is_active": True,
     },
 
