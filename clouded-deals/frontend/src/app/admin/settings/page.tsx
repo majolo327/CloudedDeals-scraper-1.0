@@ -31,7 +31,7 @@ export default function SettingsPage() {
       try {
         const { data } = await supabase
           .from("dispensaries")
-          .select("id, name, url, platform, address, city, state, is_active")
+          .select("id, name, url, platform, address, city, state, is_active, region")
           .order("platform")
           .order("name");
         if (data) setDispensaries(data as Dispensary[]);

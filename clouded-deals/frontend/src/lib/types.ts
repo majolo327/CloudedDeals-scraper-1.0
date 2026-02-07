@@ -16,6 +16,7 @@ export interface Dispensary {
   city: string | null;
   state: string | null;
   is_active: boolean;
+  region?: string;
 }
 
 export interface Product {

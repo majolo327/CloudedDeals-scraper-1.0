@@ -1,0 +1,1092 @@
+#!/usr/bin/env python3
+"""
+clouded_logic.py - CLOUDED DEALS BUSINESS LOGIC MODULE
+======================================================
+All parsing, validation, category detection, weight fixes, brand DB,
+dispensary configs, price caps, smart stop, and qualification rules.
+
+This is the SINGLE SOURCE OF TRUTH for all business logic.
+Import into any scraper version:
+    from clouded_logic import CloudedLogic
+
+CRITICAL FIXES INCLUDED:
+  🔴 .35g bug: Category-first weight validation
+     - .35g on a vape = 0.35g (valid small disposable)
+     - .35g on flower = 3.5g (eighth, was showing as 0.35g)
+  🔴 Consecutive empty resilience (v102 pattern, lost in v111+)
+  🔴 Edible normalize: 82-118mg → 100mg, 180-220mg → 200mg
+  🔴 Infused preroll detection before standard preroll filter
+  🔴 Concentrate requires BOTH keyword AND weight match
+
+Usage:
+    logic = CloudedLogic()
+    category = logic.detect_category(raw_text)
+    weight = logic.validate_weight('0.35g', category)
+    product = logic.parse_product(raw_text, 'TD-Gibson')
+    qualifies = logic.is_qualifying(product)
+"""
+
+import re
+from collections import defaultdict
+
+# ============================================================================
+# PRICE CAPS & GLOBAL RULES
+# ============================================================================
+
+PRICE_CAP_GLOBAL = 30
+
+PRICE_CAPS = {
+    'edible':          {'min': 3,  'max': 9},
+    'preroll':         {'min': 2,  'max': 6},
+    'vape':            {'min': 10, 'max': 25},
+    'flower_3.5g':     {'min': 10, 'max': 22},
+    'flower_7g':       {'min': 15, 'max': 35},
+    'flower_14g':      {'min': 20, 'max': 50},
+    'concentrate_1g':  {'min': 9,  'max': 25},
+}
+
+MIN_DISCOUNT = 20
+MAX_DISCOUNT = 75
+MIN_SAVINGS = 3
+MAX_BRAND_GLOBAL = 2
+
+# ============================================================================
+# SMART STOP CONFIG (v102 proven pattern)
+# ============================================================================
+
+SMART_STOP_CONFIG = {
+    'wyld_brand_names': ['wyld', 'WYLD', 'Wyld'],
+    'min_pages_before_stop': 10,
+    'min_products_before_stop': 100,
+}
+
+# Consecutive empty = resilience logic from v102
+# DO NOT use break on first nav failure - use continue!
+# Allow 3 consecutive failures before stopping
+CONSECUTIVE_EMPTY_MAX = 3
+
+# ============================================================================
+# CATEGORY ABBREVIATIONS (for tweets)
+# ============================================================================
+
+CATEGORY_ABBREV = {
+    'preroll': 'PR',
+    'flower': 'F',
+    'edible': 'E',
+    'concentrate': 'W',
+    'vape': 'V',
+}
+
+# ============================================================================
+# INFUSED PREROLL KEYWORDS (filter separately from standard prerolls)
+# ============================================================================
+
+INFUSED_KEYWORDS = [
+    'infused', '40s', "40's", 'diamond infused', 'kief roll',
+    'hash infused', 'coated', 'caviar', 'moonrock', 'moon rock',
+    'sunrock', 'sun rock', 'dusted',
+]
+
+# ============================================================================
+# BRAND COMPARISON ROTATION
+# ============================================================================
+
+BRAND_COMPARISON_BRANDS = ['Rove', 'Stiiizy', 'Matrix', 'City Trees', 'Airo']
+
+# ============================================================================
+# COMPLETE BRAND DATABASE (200+)
+# ============================================================================
+
+BRANDS = sorted(set([
+    # A
+    'Advanced Vapor Devices', 'Airo', 'Alien Labs', 'AMA', 'Avexia',
+    # B
+    'Backpack Boyz', 'Bad Batch', 'Bad Boy', 'Ballers', 'Bear Quartz', 'Bic',
+    'Big Chief Extracts', 'BirthJays', 'Bits', 'Blazer', 'Blazy Susan', 'Blink',
+    'BLUEBIRDS', 'BLVD', 'Bonanza Cannabis', 'Boom Town', 'Bounti',
+    'Brass Knuckles', 'Bud Bandz',
+    # C
+    'Cake', 'Cali Traditional', 'Camino', 'Camo', 'CAMP', 'Cannafornia',
+    'Cannabreezy', 'Cannavative', 'Cannavore', 'Cannavore Confections',
+    'Caviar Gold', 'Church', 'Circle S Farms', 'City Trees',
+    'Claybourne Co.', 'Clout King', 'Connected', 'Cookies', 'Cotton Mouth',
+    # D
+    'Dabwoods', 'DADiRRi', 'Dazed!', 'Deep Roots', 'Desert Blaze',
+    'Desert Bloom', 'Dimension Engineering LLC', 'Dime Industries', 'Dipper',
+    "Doctor Solomon's", 'Dogwalkers', 'Doinks', 'Dope Dope', 'Dr. Dabber',
+    'Dreamland', 'Dreamland Chocolates', 'Drink Loud',
+    # E
+    'Edie Parker', 'Element', 'Emperors Choice', 'Encore', 'Encore Edibles',
+    'Entourage', 'EPC', 'Escape Pod', 'Essence', 'The Essence', 'EVOL', 'Eyce',
+    # F
+    'Featured Farms', 'Find.', 'Flora Vega', 'FloraVega', 'Fuze Extracts',
+    # G
+    'GB Sciences', 'Golden Savvy', 'Golden State Banana', 'Good Green',
+    'Good Tide', 'GRAV Labs', 'Green Life Productions', 'Greenway LV',
+    # H
+    'HaHa Edibles', 'Hamilton Devices', 'Haze', 'High Hemp', 'Hippies Peaces',
+    'Hits Blunt', 'Huni Badger', 'Hustlers Ambition', "Hustler's Ambition",
+    # J-K
+    'Jasper', 'KANHA', 'Khalifa Kush', 'Khalifa Yellow', 'Kiva', 'Kiva Lost Farm',
+    'Kynd',
+    # L
+    'Later Days', 'LAVI', 'LEVEL', 'LIT', 'Lost Farm', 'LP Exotics',
+    # M
+    'Matrix', 'Medizin', 'Moxie', 'Mystic Timbers',
+    # N-O
+    "Nature's Chemistry", 'No Brand Name', 'Nordic Goddess',
+    'OCB Rolling Papers & Cones', 'Old Pal', 'OMG THC',
+    # P
+    'Phantom Farms', 'Pheno Exotics', 'Pis WMS', 'Planet 13', 'Poke a Bowl',
+    'Prospectors',
+    # R
+    'Raw Garden', 'REEFORM', 'Rove', 'Royalesque', 'Ruby Pearl Co.',
+    # S
+    'Savvy', 'SELECT', 'Sin City', 'Smokiez Edibles', 'Special Blue',
+    'StackHouse NV', 'State Flower', 'STIIIZY', 'Storz & Bickel',
+    'Sundae Co.', 'Super Good',
+    # T
+    'Tahoe Hydro', 'The Bank', 'The Dispensary', 'The Grower Circle',
+    'Toker Poker', 'Tsunami Labs', 'Twisted Hemp', 'Tyson 2.0',
+    # U-V
+    "Uncle Arnie's", 'Uncle Arnies', 'VERT Unlimited', 'Vegas Valley Growers',
+    'Vlasic Labs',
+    # W-Y
+    'Wyld', 'Your Highness',
+]), key=str.lower)
+
+# Pre-compute lowercase brand set for fast lookup
+BRANDS_LOWER = {b.lower(): b for b in BRANDS}
+
+# ============================================================================
+# DISPENSARY CONFIGURATIONS (ALL 27)
+# ============================================================================
+
+DISPENSARIES = {
+    # ── TD Sites (Dutchie iframe - 45s wait after age gate) ──────────
+    'gibson': {
+        'url': 'https://thedispensarynv.com/shop-gibson/?dtche%5Bpath%5D=specials',
+        'platform': 'td_iframe',
+        'name': 'TD-Gibson',
+        'link': 'https://bit.ly/3JN2i5g',
+        'target_pages': list(range(1, 19)),
+        'smart_stop': True,
+        'expected': 500,
+    },
+    'eastern': {
+        'url': 'https://thedispensarynv.com/shop-eastern/?dtche%5Bpath%5D=specials',
+        'platform': 'td_iframe',
+        'name': 'TD-Eastern',
+        'link': 'https://bit.ly/3JRmkvm',
+        'target_pages': list(range(1, 19)),
+        'smart_stop': True,
+        'expected': 444,
+    },
+    'decatur': {
+        'url': 'https://thedispensarynv.com/shop-decatur/?dtche%5Bpath%5D=specials',
+        'platform': 'td_iframe',
+        'name': 'TD-Decatur',
+        'link': 'https://bit.ly/4njh0PY',
+        'target_pages': list(range(1, 19)),
+        'smart_stop': True,
+        'expected': 486,
+    },
+
+    # ── Direct Sites ─────────────────────────────────────────────────
+    'planet13': {
+        'url': 'https://planet13.com/stores/planet-13-dispensary/specials',
+        'platform': 'direct',
+        'name': 'Planet13',
+        'link': 'https://bit.ly/3VH075H',
+        'target_pages': list(range(1, 11)),
+        'smart_stop': True,
+        'expected': 728,
+    },
+    'medizin': {
+        'url': 'https://planet13.com/stores/medizin-dispensary/specials',
+        'platform': 'direct',
+        'name': 'Medizin',
+        'link': 'https://bit.ly/medizin',
+        'target_pages': list(range(1, 7)),
+        'smart_stop': False,
+        'expected': 247,
+    },
+
+    # ── Other Dutchie Iframe Sites ───────────────────────────────────
+    'greenlight_downtown': {
+        'url': 'https://greenlightnv.com/?dtche%5Bpath%5D=specials',
+        'platform': 'dutchie_iframe',
+        'name': 'Greenlight Downtown',
+        'link': 'https://bit.ly/greenlight-dtc',
+        'target_pages': list(range(1, 6)),
+        'smart_stop': False,
+        'expected': 54,
+    },
+    'greenlight_paradise': {
+        'url': 'https://greenlightnv.com/paradise/?dtche%5Bpath%5D=specials',
+        'platform': 'dutchie_iframe',
+        'name': 'Greenlight Paradise',
+        'link': 'https://bit.ly/greenlight-par',
+        'target_pages': list(range(1, 6)),
+        'smart_stop': False,
+        'expected': 227,
+    },
+    'the_grove': {
+        'url': 'https://thegrovenv.com/?dtche%5Bpath%5D=specials',
+        'platform': 'dutchie_iframe',
+        'name': 'The Grove',
+        'link': 'https://bit.ly/the-grove',
+        'target_pages': list(range(1, 6)),
+        'smart_stop': False,
+        'expected': 130,
+    },
+    'mint_paradise': {
+        'url': 'https://mintcannabis.com/paradise/?dtche%5Bpath%5D=specials',
+        'platform': 'dutchie_iframe',
+        'name': 'Mint Paradise',
+        'link': 'https://bit.ly/mint-paradise',
+        'target_pages': list(range(1, 6)),
+        'smart_stop': False,
+        'expected': 171,
+    },
+    'mint_rainbow': {
+        'url': 'https://mintcannabis.com/rainbow/?dtche%5Bpath%5D=specials',
+        'platform': 'dutchie_iframe',
+        'name': 'Mint Rainbow',
+        'link': 'https://bit.ly/mint-rainbow',
+        'target_pages': list(range(1, 6)),
+        'smart_stop': False,
+        'expected': 152,
+    },
+
+    # ── Curaleaf Sites (state selection + age gate + 45s wait) ───────
+    'curaleaf_western': {
+        'url': 'https://curaleaf.com/shop/nevada/curaleaf-las-vegas-western/categories/specials',
+        'platform': 'curaleaf',
+        'name': 'Curaleaf Western',
+        'link': 'https://bit.ly/curaleaf-west',
+        'target_pages': list(range(1, 11)),
+        'smart_stop': False,
+        'expected': 228,
+    },
+    'curaleaf_north': {
+        'url': 'https://curaleaf.com/shop/nevada/curaleaf-las-vegas-north/categories/specials',
+        'platform': 'curaleaf',
+        'name': 'Curaleaf North',
+        'link': 'https://bit.ly/curaleaf-north',
+        'target_pages': list(range(1, 11)),
+        'smart_stop': False,
+        'expected': 307,
+    },
+    'curaleaf_strip': {
+        'url': 'https://curaleaf.com/shop/nevada/curaleaf-las-vegas-strip/categories/specials',
+        'platform': 'curaleaf',
+        'name': 'Curaleaf Strip',
+        'link': 'https://bit.ly/curaleaf-strip',
+        'target_pages': list(range(1, 11)),
+        'smart_stop': False,
+        'expected': 46,
+    },
+    'curaleaf_reef': {
+        'url': 'https://curaleaf.com/shop/nevada/curaleaf-las-vegas-reef/categories/specials',
+        'platform': 'curaleaf',
+        'name': 'Curaleaf Reef',
+        'link': 'https://bit.ly/curaleaf-reef',
+        'target_pages': list(range(1, 11)),
+        'smart_stop': False,
+        'expected': 276,
+    },
+
+    # ── Jane Sites (scroll/load more - no page numbers) ─────────────
+    'oasis': {
+        'url': 'https://www.oaboratory.com/menu?category=specials',
+        'platform': 'jane',
+        'name': 'Oasis Cannabis',
+        'link': 'https://bit.ly/oasis',
+        'target_pages': [],
+        'smart_stop': False,
+        'expected': 60,
+    },
+    'deep_roots_cheyenne': {
+        'url': 'https://deeprootsharvest.com/cheyenne/menu?category=specials',
+        'platform': 'jane',
+        'name': 'Deep Roots Cheyenne',
+        'link': 'https://bit.ly/dr-chey',
+        'target_pages': [],
+        'smart_stop': False,
+        'expected': 33,
+    },
+    'deep_roots_craig': {
+        'url': 'https://deeprootsharvest.com/craig/menu?category=specials',
+        'platform': 'jane',
+        'name': 'Deep Roots Craig',
+        'link': 'https://bit.ly/dr-craig',
+        'target_pages': [],
+        'smart_stop': False,
+        'expected': 38,
+    },
+    'deep_roots_blue_diamond': {
+        'url': 'https://deeprootsharvest.com/blue-diamond/menu?category=specials',
+        'platform': 'jane',
+        'name': 'Deep Roots Blue Diamond',
+        'link': 'https://bit.ly/dr-bd',
+        'target_pages': [],
+        'smart_stop': False,
+        'expected': 27,
+    },
+    'deep_roots_parkson': {
+        'url': 'https://deeprootsharvest.com/parkson/menu?category=specials',
+        'platform': 'jane',
+        'name': 'Deep Roots Parkson',
+        'link': 'https://bit.ly/dr-park',
+        'target_pages': [],
+        'smart_stop': False,
+        'expected': 20,
+    },
+    'cultivate_spring': {
+        'url': 'https://cultivatelv.com/spring/menu?category=specials',
+        'platform': 'jane',
+        'name': 'Cultivate Spring',
+        'link': 'https://bit.ly/cult-spring',
+        'target_pages': [],
+        'smart_stop': False,
+        'expected': 37,
+    },
+    'cultivate_durango': {
+        'url': 'https://cultivatelv.com/durango/menu?category=specials',
+        'platform': 'jane',
+        'name': 'Cultivate Durango',
+        'link': 'https://bit.ly/cult-dur',
+        'target_pages': [],
+        'smart_stop': False,
+        'expected': 40,
+    },
+    'thrive_sahara': {
+        'url': 'https://thrivecannabis.com/sahara/menu?category=specials',
+        'platform': 'jane',
+        'name': 'Thrive Sahara',
+        'link': 'https://bit.ly/thrive-sah',
+        'target_pages': [],
+        'smart_stop': False,
+        'expected': 12,
+    },
+    'thrive_cheyenne': {
+        'url': 'https://thrivecannabis.com/cheyenne/menu?category=specials',
+        'platform': 'jane',
+        'name': 'Thrive Cheyenne',
+        'link': 'https://bit.ly/thrive-chey',
+        'target_pages': [],
+        'smart_stop': False,
+        'expected': 12,
+    },
+    'thrive_strip': {
+        'url': 'https://thrivecannabis.com/strip/menu?category=specials',
+        'platform': 'jane',
+        'name': 'Thrive Strip',
+        'link': 'https://bit.ly/thrive-strip',
+        'target_pages': [],
+        'smart_stop': False,
+        'expected': 12,
+    },
+    'thrive_main': {
+        'url': 'https://thrivecannabis.com/main/menu?category=specials',
+        'platform': 'jane',
+        'name': 'Thrive Main',
+        'link': 'https://bit.ly/thrive-main',
+        'target_pages': [],
+        'smart_stop': False,
+        'expected': 6,
+    },
+    'beyond_hello_sahara': {
+        'url': 'https://beyondhello.com/sahara/menu?category=specials',
+        'platform': 'jane',
+        'name': 'Beyond Hello Sahara',
+        'link': 'https://bit.ly/bh-sahara',
+        'target_pages': [],
+        'smart_stop': False,
+        'expected': 24,
+    },
+    'beyond_hello_twain': {
+        'url': 'https://beyondhello.com/twain/menu?category=specials',
+        'platform': 'jane',
+        'name': 'Beyond Hello Twain',
+        'link': 'https://bit.ly/bh-twain',
+        'target_pages': [],
+        'smart_stop': False,
+        'expected': 28,
+    },
+}
+
+# ============================================================================
+# WAIT TIMES (proven - DO NOT REDUCE)
+# ============================================================================
+
+WAIT_TIMES = {
+    'td_sites': {
+        'after_age': 45,       # CRITICAL - TD sites need full 45s
+        'between_pages': 5,
+        'initial': 6,
+    },
+    'dutchie_other': {
+        'after_age': 10,
+        'between_pages': 3,
+        'initial': 5,
+    },
+    'jane': {
+        'view_more': 2,
+        'initial': 3,
+        'scroll': 1.5,
+    },
+    'curaleaf': {
+        'after_state': 5,
+        'after_age': 30,       # Curaleaf also needs long wait
+        'between_pages': 3,
+    },
+}
+
+# ============================================================================
+# PRODUCT CARD SELECTORS (for Playwright)
+# ============================================================================
+
+PRODUCT_SELECTORS = [
+    '[data-testid*="product"]',
+    '[style*="min-height: 100%"]',
+    '[data-testid="product-card"]',
+    '._box_qnw0i_1',
+    'div[class*="product"]',
+    'div[class*="card"]',
+    'article',
+]
+
+
+# ============================================================================
+# CORE LOGIC CLASS
+# ============================================================================
+
+class CloudedLogic:
+    """All business logic for Clouded Deals scraper."""
+
+    def __init__(self):
+        self.stats = defaultdict(int)
+
+    # ────────────────────────────────────────────────────────────────
+    # CATEGORY DETECTION
+    # ────────────────────────────────────────────────────────────────
+    # ORDER MATTERS! Check in this exact sequence:
+    #   1. Skip (RSO, tincture, topical, etc.)
+    #   2. Drinks → edible
+    #   3. Preroll
+    #   4. Concentrate (requires BOTH keyword AND weight)
+    #   5. Vape
+    #   6. Flower (by weight pattern 3.5/7/14/28g)
+    #   7. Flower (by keyword)
+    #   8. Edible (gummies, chocolate, candy)
+    #   9. Other (fallback)
+    # ────────────────────────────────────────────────────────────────
+
+    def detect_category(self, text):
+        """Detect product category from raw text. Order is critical."""
+        if not text:
+            return 'other'
+        t = text.lower()
+
+        # 1. SKIP non-qualifying products
+        skip_keywords = ['rso', 'tincture', 'topical', 'capsule', 'cbd only', 'merch']
+        if any(s in t for s in skip_keywords):
+            return 'skip'
+
+        # 2. DRINKS → edible (check early, before preroll "shot" overlap)
+        drink_keywords = ['drink', 'shot', 'elixir', 'mocktail', 'beverage']
+        if any(w in t for w in drink_keywords):
+            return 'edible'
+
+        # 3. PREROLL (check before concentrate - infused prerolls have resin keywords)
+        preroll_keywords = ['preroll', 'pre-roll', 'joint', 'blunt', 'dogwalker']
+        if any(w in t for w in preroll_keywords):
+            return 'preroll'
+
+        # 4. CONCENTRATE (requires BOTH keyword AND weight)
+        concentrate_keywords = [
+            'badder', 'batter', 'budder', 'shatter', 'wax', 'sauce',
+            'diamonds', 'sugar', 'crumble', 'hash', 'rosin', 'dab',
+            'terp sauce', 'thca', 'crystals', 'isolate', 'live resin',
+            'cured resin', 'lr', 'cr',
+        ]
+        has_concentrate = any(kw in t for kw in concentrate_keywords)
+        has_concentrate_weight = any(w in t for w in ['.5g', '1g', '1.0g', '2g', '0.5g'])
+        if has_concentrate and has_concentrate_weight:
+            self.stats['concentrates_found'] += 1
+            return 'concentrate'
+
+        # 5. VAPE (check before flower - some carts mention strain "flower")
+        vape_keywords = ['cart', 'cartridge', 'pod', 'disposable', 'vape', 'pen', 'all-in-one']
+        edible_keywords = ['gummies', 'gummy', 'chocolate', 'candy', 'brownie']
+        if any(c in t for c in vape_keywords):
+            if not any(w in t for w in edible_keywords):
+                return 'vape'
+
+        # 6. FLOWER by weight pattern (3.5g, 7g, 14g, 28g)
+        if re.search(r'\b(3\.5|7|14|28)\s*g\b', t):
+            return 'flower'
+
+        # 7. FLOWER by keyword
+        flower_keywords = ['flower', 'bud', 'eighth', 'quarter', 'half', 'ounce', 'smalls', 'popcorn', 'shake']
+        if any(w in t for w in flower_keywords):
+            return 'flower'
+
+        # 8. EDIBLE fallback
+        if any(w in t for w in edible_keywords):
+            return 'edible'
+
+        # 9. Other
+        return 'other'
+
+    # ────────────────────────────────────────────────────────────────
+    # WEIGHT VALIDATION (CONTEXT-AWARE)
+    # ────────────────────────────────────────────────────────────────
+    # 🔴 CRITICAL: Category MUST be detected FIRST, then passed here.
+    #
+    # THE .35g BUG:
+    #   Regex captures ".35" as 0.35g from raw product text.
+    #   - For VAPES: 0.35g IS valid (small disposable cart)
+    #   - For FLOWER: 0.35g is WRONG → should be 3.5g (eighth)
+    #   - For CONCENTRATE: 0.35g is WRONG → likely mislabeled
+    #
+    # THE FIX: Check category first, then interpret weight in context.
+    # ────────────────────────────────────────────────────────────────
+
+    def validate_weight(self, weight_str, category):
+        """
+        Context-aware weight validation.
+        Returns normalized weight string ('3.5g', '100mg', etc.) or None if invalid.
+        """
+        if not weight_str:
+            return None
+
+        match = re.search(r'([\d.]+)\s*([gG]|[mM][gG])', str(weight_str))
+        if not match:
+            return None
+
+        val = float(match.group(1))
+        unit = match.group(2).lower()
+
+        # ── PREROLL ──────────────────────────────────────────────
+        if category == 'preroll':
+            if unit == 'g' and val == 1.0:
+                return '1g'
+            return None  # Only 1g prerolls qualify
+
+        # ── VAPE ─────────────────────────────────────────────────
+        if category == 'vape':
+            if unit == 'g':
+                if val > 2.0:
+                    return None
+                # 0.3g, 0.35g, 0.5g, 0.85g, 1g are ALL valid vape weights
+                if 0.3 <= val <= 2.0:
+                    formatted = f"{val}g" if val != int(val) else f"{int(val)}g"
+                    return formatted
+            elif unit == 'mg' and 200 <= val <= 1000:
+                return f"{int(val)}mg"
+            return None
+
+        # ── FLOWER ───────────────────────────────────────────────
+        if category == 'flower':
+            if unit == 'g':
+                # 🔴 THE FIX: .35 in flower context → 3.5g (eighth)
+                if val == 0.35:
+                    return '3.5g'
+                # Also catch other common decimal-point drops
+                if val == 0.7:
+                    return '7g'
+                if val >= 0.5 and val <= 28:
+                    formatted = f"{val}g" if val != int(val) else f"{int(val)}g"
+                    return formatted
+            return None
+
+        # ── EDIBLE ───────────────────────────────────────────────
+        if category == 'edible':
+            if unit == 'mg':
+                if val == 100:
+                    return '100mg'
+                if val == 200:
+                    return '200mg'
+                # Fuzzy ranges for slightly off values
+                if 82 <= val <= 118:
+                    return '100mg'
+                if 180 <= val <= 220:
+                    return '200mg'
+            return None
+
+        # ── CONCENTRATE ──────────────────────────────────────────
+        if category == 'concentrate':
+            if unit == 'g' and 0.5 <= val <= 2:
+                formatted = f"{val}g" if val != int(val) else f"{int(val)}g"
+                return formatted
+            return None
+
+        # ── FALLBACK ─────────────────────────────────────────────
+        if unit == 'g' and 0.3 <= val <= 28:
+            formatted = f"{val}g" if val != int(val) else f"{int(val)}g"
+            return formatted
+        if unit == 'mg' and val == 100:
+            return '100mg'
+        return None
+
+    # ────────────────────────────────────────────────────────────────
+    # NORMALIZE WEIGHT (for edibles - handles fuzzy mg values)
+    # ────────────────────────────────────────────────────────────────
+
+    def normalize_weight(self, weight_str):
+        """Normalize weight string, especially for edibles with fuzzy mg values."""
+        if not weight_str:
+            return weight_str
+        w = str(weight_str)
+
+        if 'mg' in w.lower():
+            mg_match = re.search(r'([\d.]+)', w)
+            if mg_match:
+                val = float(mg_match.group(1))
+                if 82 <= val <= 118:
+                    return '100mg'
+                if 180 <= val <= 220:
+                    return '200mg'
+                if val == 100:
+                    return '100mg'
+                if val == 200:
+                    return '200mg'
+                # Reject tiny single-dose edibles
+                if val < 50:
+                    return None
+                return f"{int(val)}mg"
+
+        return weight_str
+
+    # ────────────────────────────────────────────────────────────────
+    # BRAND DETECTION (fuzzy match against 200+ brand DB)
+    # ────────────────────────────────────────────────────────────────
+
+    def detect_brand(self, text):
+        """Detect brand from product text using fuzzy matching against brand DB."""
+        if not text:
+            return None
+        text_lower = text.lower()
+        if text_lower.startswith('none '):
+            return None
+
+        found_brands = []
+        for brand in BRANDS:
+            brand_lower = brand.lower()
+            if brand_lower in text_lower:
+                found_brands.append((brand, len(brand)))
+
+        if not found_brands:
+            return None
+
+        # Return longest match (most specific brand name)
+        found_brands.sort(key=lambda x: x[1], reverse=True)
+        return found_brands[0][0]
+
+    # ────────────────────────────────────────────────────────────────
+    # CLEAN PRODUCT TEXT
+    # ────────────────────────────────────────────────────────────────
+
+    def clean_product_text(self, raw_text):
+        """Clean raw scraped text for parsing."""
+        if not raw_text:
+            return ''
+        # Remove common junk
+        text = re.sub(r'Add to (cart|bag)', '', raw_text, flags=re.IGNORECASE)
+        text = re.sub(r'(Add|Remove)\s*$', '', text, flags=re.IGNORECASE)
+        text = re.sub(r'(Indica|Sativa|Hybrid)\s*$', '', text, flags=re.IGNORECASE)
+        text = re.sub(r'\s+', ' ', text).strip()
+        return text
+
+    # ────────────────────────────────────────────────────────────────
+    # CLEAN PRODUCT NAME (for tweet display)
+    # ────────────────────────────────────────────────────────────────
+
+    def clean_product_name(self, text, brand=None):
+        """Clean product name for display in tweets. Remove brand prefix duplication."""
+        if not text:
+            return ''
+        product = text
+
+        # Remove brand name from start if duplicated
+        if brand:
+            product = re.sub(rf'^{re.escape(brand)}\s*[-:]?\s*', '', product, flags=re.IGNORECASE)
+
+        # Remove trailing junk
+        product = re.sub(r'(Indica|Sativa|Hybrid|Add to cart|Add to bag)', '', product, flags=re.IGNORECASE)
+        product = re.sub(r'\s+', ' ', product).strip()
+        product = product.strip('.,;:-|')
+
+        # Remove duplicate consecutive words
+        product = self.remove_duplicate_words(product)
+
+        # Truncate if too long
+        if len(product) > 60:
+            truncate_point = product[:55].rfind(' ')
+            if truncate_point > 35:
+                product = product[:truncate_point]
+            else:
+                product = product[:55]
+
+        return product if len(product) >= 3 else text[:60]
+
+    def remove_duplicate_words(self, text):
+        """Remove consecutive duplicate words."""
+        words = text.split()
+        result = [words[0]] if words else []
+        for w in words[1:]:
+            if w.lower() != result[-1].lower():
+                result.append(w)
+        return ' '.join(result)
+
+    # ────────────────────────────────────────────────────────────────
+    # INFUSED PREROLL CHECK
+    # ────────────────────────────────────────────────────────────────
+
+    def is_infused_preroll(self, text):
+        """Check if product is an infused preroll (filter separately)."""
+        if not text:
+            return False
+        t = text.lower()
+        return any(kw in t for kw in INFUSED_KEYWORDS)
+
+    # ────────────────────────────────────────────────────────────────
+    # WYLD SMART STOP CHECK
+    # ────────────────────────────────────────────────────────────────
+
+    def check_for_wyld_brand(self, products):
+        """Check if any product is Wyld brand (signals end of specials)."""
+        for product in products:
+            brand = product.get('brand', '').lower()
+            if brand in [w.lower() for w in SMART_STOP_CONFIG['wyld_brand_names']]:
+                return True
+        return False
+
+    # ────────────────────────────────────────────────────────────────
+    # FULL PRODUCT PARSER
+    # ────────────────────────────────────────────────────────────────
+
+    def parse_product(self, raw_text, dispensary_name):
+        """
+        Parse raw product text into structured product dict.
+        Returns product dict or None if invalid/skip.
+        """
+        clean_text = self.clean_product_text(raw_text)
+        if not clean_text or len(clean_text) < 5:
+            return None
+
+        # ── Step 1: Detect category FIRST (before weight!) ───────
+        category = self.detect_category(clean_text)
+        if category == 'skip':
+            self.stats['skipped_products'] += 1
+            return None
+
+        # ── Step 2: Check for infused preroll ────────────────────
+        is_infused = self.is_infused_preroll(clean_text)
+        if is_infused and category == 'preroll':
+            self.stats['infused_prerolls_filtered'] += 1
+            return None
+
+        # ── Step 3: Extract and validate weight WITH category ────
+        weight_match = re.search(r'([\d.]+)\s*(g|mg|oz)\b', clean_text, re.IGNORECASE)
+        weight = None
+        if weight_match:
+            raw_weight = weight_match.group(0)
+            weight = self.validate_weight(raw_weight, category)
+
+            # Special handling for edibles
+            if category == 'edible':
+                normalized = self.normalize_weight(raw_weight)
+                if normalized is None:
+                    self.stats['rejected_tiny_edibles'] += 1
+                    return None
+                weight = normalized
+
+            # Preroll must be exactly 1g
+            if category == 'preroll' and weight != '1g':
+                self.stats['rejected_preroll_filter'] += 1
+                return None
+
+        # ── Step 4: Detect brand ─────────────────────────────────
+        brand = self.detect_brand(clean_text)
+
+        # ── Step 5: Extract prices ───────────────────────────────
+        prices = re.findall(r'\$(\d+\.?\d*)', clean_text)
+        prices = [float(p) for p in prices]
+        prices.sort()
+
+        deal_price = prices[0] if prices else None
+        original_price = prices[-1] if len(prices) > 1 else None
+
+        # Calculate discount
+        discount_percent = None
+        savings = None
+        if deal_price and original_price and original_price > deal_price:
+            savings = original_price - deal_price
+            discount_percent = round((savings / original_price) * 100)
+
+        # Also check for explicit % off in text
+        if discount_percent is None:
+            pct_match = re.search(r'(\d+)%\s*off', clean_text, re.IGNORECASE)
+            if pct_match:
+                discount_percent = int(pct_match.group(1))
+
+        # ── Step 6: Extract THC ──────────────────────────────────
+        thc_percent = None
+        thc_mg = None
+        if category == 'edible' and weight:
+            mg_match = re.search(r'(\d+\.?\d*)\s*mg', weight, re.IGNORECASE)
+            if mg_match:
+                thc_mg = float(mg_match.group(1))
+        else:
+            thc_match = re.search(r'THC:\s*([\d.]+)%?', clean_text, re.IGNORECASE)
+            if thc_match:
+                thc_percent = float(thc_match.group(1))
+
+        # ── Step 7: Extract strain type ──────────────────────────
+        strain_type = None
+        if '(I)' in clean_text or 'Indica' in clean_text:
+            strain_type = 'Indica'
+        elif '(S)' in clean_text or 'Sativa' in clean_text:
+            strain_type = 'Sativa'
+        elif '(H)' in clean_text or 'Hybrid' in clean_text:
+            strain_type = 'Hybrid'
+
+        # ── Build product dict ───────────────────────────────────
+        product = {
+            'raw_text': raw_text,
+            'clean_text': clean_text,
+            'category': category,
+            'brand': brand,
+            'weight': weight,
+            'deal_price': deal_price,
+            'original_price': original_price,
+            'discount_percent': discount_percent,
+            'savings': savings,
+            'thc_percent': thc_percent,
+            'thc_mg': thc_mg,
+            'strain_type': strain_type,
+            'dispensary': dispensary_name,
+            'is_infused': is_infused,
+            'product_name': self.clean_product_name(clean_text, brand),
+        }
+
+        self.stats[f'parsed_{category}'] += 1
+        return product
+
+    # ────────────────────────────────────────────────────────────────
+    # DEAL QUALIFICATION
+    # ────────────────────────────────────────────────────────────────
+
+    def is_qualifying(self, product):
+        """Check if product qualifies as a deal. Returns True/False."""
+        if not product or not product.get('deal_price'):
+            return False
+
+        category = product.get('category')
+        price = product['deal_price']
+        weight = product.get('weight', '')
+
+        # Global price cap
+        if price > PRICE_CAP_GLOBAL:
+            self.stats['rejected_over_global_cap'] += 1
+            return False
+
+        # Category-specific price caps
+        if category == 'edible':
+            caps = PRICE_CAPS['edible']
+            if price < caps['min'] or price > caps['max']:
+                self.stats['rejected_price_cap'] += 1
+                return False
+            # Only 100mg and 200mg qualify
+            if weight and weight not in ['100mg', '200mg']:
+                self.stats['rejected_tiny_edibles'] += 1
+                return False
+
+        elif category == 'preroll':
+            caps = PRICE_CAPS['preroll']
+            if price < caps['min'] or price > caps['max']:
+                self.stats['rejected_price_cap'] += 1
+                return False
+
+        elif category == 'vape':
+            caps = PRICE_CAPS['vape']
+            if price < caps['min'] or price > caps['max']:
+                self.stats['rejected_price_cap'] += 1
+                return False
+
+        elif category == 'flower':
+            if weight and '3.5' in weight:
+                caps = PRICE_CAPS['flower_3.5g']
+            elif weight and '7' in weight and '14' not in weight:
+                caps = PRICE_CAPS['flower_7g']
+            elif weight and '14' in weight:
+                caps = PRICE_CAPS['flower_14g']
+            else:
+                caps = PRICE_CAPS['flower_3.5g']  # Default to eighth
+
+            if price < caps['min'] or price > caps['max']:
+                self.stats['rejected_price_cap'] += 1
+                return False
+
+        elif category == 'concentrate':
+            caps = PRICE_CAPS['concentrate_1g']
+            if weight and '1g' not in weight:
+                self.stats['rejected_weights'] += 1
+                return False
+            if price < caps['min'] or price > caps['max']:
+                self.stats['rejected_price_cap'] += 1
+                return False
+
+        elif category == 'other':
+            self.stats['rejected_other_category'] += 1
+            return False
+
+        # Discount check (if we have discount data)
+        discount = product.get('discount_percent')
+        if discount is not None:
+            if discount < MIN_DISCOUNT:
+                self.stats['rejected_low_discount'] += 1
+                return False
+            if discount > MAX_DISCOUNT:
+                self.stats['rejected_high_discount'] += 1
+                return False
+
+        self.stats['qualified'] += 1
+        return True
+
+    # ────────────────────────────────────────────────────────────────
+    # SCORING (for tweet selection)
+    # ────────────────────────────────────────────────────────────────
+
+    def score_deal(self, product):
+        """Score a deal for ranking. Higher = better deal."""
+        score = 0.0
+
+        discount = product.get('discount_percent') or 0
+        price = product.get('deal_price') or 30
+        savings = product.get('savings') or 0
+
+        # Discount weight: 67% of discount percentage (max 40 points)
+        score += min(40, discount * 0.67)
+
+        # Price bonus: lower prices score higher (max 30 points)
+        score += max(0, 30 - price)
+
+        # Savings bonus (max 20 points)
+        score += min(20, savings)
+
+        return round(score, 1)
+
+
+# ============================================================================
+# STANDALONE TEST
+# ============================================================================
+
+def run_tests():
+    """Run validation tests on all business logic."""
+    logic = CloudedLogic()
+    passed = 0
+    failed = 0
+
+    print("=" * 70)
+    print("CLOUDED LOGIC - VALIDATION TESTS")
+    print("=" * 70)
+
+    # ── Weight validation tests ──────────────────────────────────
+    print("\n🔴 WEIGHT VALIDATION (the .35g fix):")
+    weight_tests = [
+        ('.35g',   'flower',      '3.5g',   '.35 in flower = 3.5g eighth'),
+        ('0.35g',  'flower',      '3.5g',   '0.35g flower → 3.5g'),
+        ('0.35g',  'vape',        '0.35g',  '0.35g IS valid for vape carts'),
+        ('.5g',    'vape',        '0.5g',   'Standard half gram cart'),
+        ('.5g',    'concentrate', '0.5g',   'Half gram wax/shatter'),
+        ('3.5g',   'flower',      '3.5g',   'Standard eighth'),
+        ('1g',     'preroll',     '1g',     'Standard preroll'),
+        ('2g',     'preroll',     None,     '2g preroll = reject'),
+        ('100mg',  'edible',      '100mg',  'Standard edible'),
+        ('95mg',   'edible',      '100mg',  '~100mg edible (fuzzy)'),
+        ('10mg',   'edible',      None,     'Too small, reject'),
+        ('0.85g',  'vape',        '0.85g',  'Stiiizy pod size'),
+        ('7g',     'flower',      '7g',     'Quarter ounce'),
+        ('1g',     'concentrate', '1g',     'Standard concentrate'),
+        ('1g',     'vape',        '1g',     'Full gram cart'),
+    ]
+
+    for input_w, cat, expected, note in weight_tests:
+        result = logic.validate_weight(input_w, cat)
+        ok = result == expected
+        status = '✅' if ok else '❌'
+        print(f"  {status} {input_w:8s} + {cat:12s} → {str(result):8s} (expected {str(expected):8s}) {note}")
+        if ok:
+            passed += 1
+        else:
+            failed += 1
+
+    # ── Category detection tests ─────────────────────────────────
+    print("\n📦 CATEGORY DETECTION:")
+    category_tests = [
+        ('AMA Gary Peyton Live Resin 1.0g',    'concentrate', 'Live resin + 1g'),
+        ('Rove Skywalker OG Cart 0.5g',         'vape',        'Cart keyword'),
+        ('Cookies Gary Payton 3.5g',             'flower',      'Weight pattern 3.5g'),
+        ('Dogwalkers Indica 1g',                 'preroll',     'Dogwalker brand'),
+        ('Kiva Camino Gummies 100mg',            'edible',      'Gummies keyword'),
+        ('Bounti Disposable Vape 0.35g',         'vape',        'Disposable → vape'),
+        ('CAMP Flower Smalls 3.5g',              'flower',      'Flower keyword + 3.5g'),
+        ('City Trees Budder 1g',                 'concentrate', 'Budder keyword + 1g'),
+        ('RSO Syringe 1g',                       'skip',        'RSO = filtered'),
+        ('Drink Loud Pink Lemonade 100mg',       'edible',      'Drink → edible'),
+        ('Diamond Infused Preroll 1g',           'preroll',     'Preroll keyword'),
+        ('Select Essentials Pod 0.5g',           'vape',        'Pod → vape'),
+    ]
+
+    for input_text, expected_cat, note in category_tests:
+        result = logic.detect_category(input_text)
+        ok = result == expected_cat
+        status = '✅' if ok else '❌'
+        print(f"  {status} {expected_cat:12s} ← \"{input_text[:45]}...\" {note}")
+        if ok:
+            passed += 1
+        else:
+            failed += 1
+            print(f"       GOT: {result}")
+
+    # ── Brand detection tests ────────────────────────────────────
+    print("\n🏷️  BRAND DETECTION:")
+    brand_tests = [
+        ('AMA Gary Peyton Live Resin 1.0g',    'AMA'),
+        ('Cookies Gary Payton 3.5g',            'Cookies'),
+        ('STIIIZY SIP Party Hurricane',         'STIIIZY'),
+        ('City Trees Garlic Zoap 1g',           'City Trees'),
+        ('Random Unknown Product 3.5g',          None),
+    ]
+
+    for input_text, expected_brand in brand_tests:
+        result = logic.detect_brand(input_text)
+        ok = result == expected_brand
+        status = '✅' if ok else '❌'
+        print(f"  {status} \"{input_text[:40]}...\" → {result} (expected {expected_brand})")
+        if ok:
+            passed += 1
+        else:
+            failed += 1
+
+    # ── Summary ──────────────────────────────────────────────────
+    total = passed + failed
+    print(f"\n{'=' * 70}")
+    print(f"RESULTS: {passed}/{total} passed ({failed} failed)")
+    print(f"{'=' * 70}")
+
+    if failed == 0:
+        print("🎉 ALL TESTS PASSING - Logic is clean!")
+    else:
+        print(f"⚠️  {failed} FAILURES - Review above")
+
+    return failed == 0
+
+
+if __name__ == "__main__":
+    run_tests()

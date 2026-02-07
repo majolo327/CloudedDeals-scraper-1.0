@@ -27,7 +27,8 @@ on:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # 27 dispensaries × ~4 min avg = ~108 min; 150 gives headroom for retries
+    timeout-minutes: 150
 
     steps:
       - name: Checkout
