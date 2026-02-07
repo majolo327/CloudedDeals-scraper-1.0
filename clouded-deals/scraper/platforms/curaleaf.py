@@ -22,6 +22,7 @@ from playwright.async_api import TimeoutError as PlaywrightTimeout
 
 from config.dispensaries import PLATFORM_DEFAULTS
 from handlers import navigate_curaleaf_page
+from handlers.pagination import _JS_DISMISS_OVERLAYS
 from .base import BaseScraper
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,14 @@ class CuraleafScraper(BaseScraper):
 
         # --- Age gate (30 s wait) ---------------------------------------
         await self.handle_age_gate(post_wait_sec=_POST_AGE_GATE_WAIT)
+
+        # --- Dismiss overlays that block interaction --------------------
+        try:
+            removed = await self.page.evaluate(_JS_DISMISS_OVERLAYS)
+            if removed:
+                logger.info("[%s] Dismissed %d overlay(s) after age gate", self.slug, removed)
+        except Exception:
+            pass
 
         # --- Paginate and collect products ------------------------------
         all_products: list[dict[str, Any]] = []

@@ -34,7 +34,7 @@ WAIT_UNTIL = "domcontentloaded"
 
 PLATFORM_DEFAULTS = {
     "dutchie": {
-        "wait_after_age_gate_sec": 45,
+        "wait_after_age_gate_sec": 60,
         "pagination": "aria-label",       # paginate via aria-label buttons
         "embed_type": "iframe",
     },
@@ -125,25 +125,25 @@ DISPENSARIES = [
         "name": "Curaleaf - Western Ave",
         "slug": "curaleaf-western",
         "platform": "curaleaf",
-        "url": "https://curaleaf.com/stores/curaleaf-las-vegas-western-ave/specials",
+        "url": "https://curaleaf.com/stores/curaleaf-las-vegas-western-ave-(formerly-acres)/specials",
     },
     {
         "name": "Curaleaf - North Las Vegas",
         "slug": "curaleaf-north-lv",
         "platform": "curaleaf",
-        "url": "https://curaleaf.com/stores/curaleaf-las-vegas-north/specials",
+        "url": "https://curaleaf.com/stores/curaleaf-north-las-vegas/specials",
     },
     {
         "name": "Curaleaf - The Reef",
         "slug": "curaleaf-the-reef",
         "platform": "curaleaf",
-        "url": "https://curaleaf.com/stores/curaleaf-the-reef/specials",
+        "url": "https://curaleaf.com/stores/reef-dispensary-las-vegas-strip/specials",
     },
     {
         "name": "Curaleaf - Las Vegas Strip",
         "slug": "curaleaf-strip",
         "platform": "curaleaf",
-        "url": "https://curaleaf.com/stores/curaleaf-las-vegas-strip/specials",
+        "url": "https://curaleaf.com/stores/curaleaf-nv-las-vegas/specials",
     },
 
     # ------------------------------------------------------------------
