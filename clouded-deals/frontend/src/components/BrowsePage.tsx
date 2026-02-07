@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, ChevronDown, ChevronUp, ShieldCheck, Star, MapPin, Clock } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, ShieldCheck, MapPin, Clock } from 'lucide-react';
 import { ALPHABET } from '@/utils/constants';
 import { filterBrandsByQuery, sortBrandsByName, groupBrandsByLetter, countDealsByBrand } from '@/utils/brandUtils';
 import { BRANDS } from '@/data/brands';
