@@ -73,6 +73,7 @@ export function CompactDealCard({
 
   return (
     <div
+      data-coach="deal-card"
       onClick={onClick}
       className={`relative glass frost rounded-xl p-4 cursor-pointer transition-gentle min-h-[170px] flex flex-col ${getAnimationClass()} ${
         saveGlow ? 'animate-save-glow' : ''
@@ -99,6 +100,7 @@ export function CompactDealCard({
           </span>
         </div>
         <button
+          data-coach="save-button"
           onClick={(e) => {
             e.stopPropagation();
             onSave();

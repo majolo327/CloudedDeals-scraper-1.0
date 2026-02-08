@@ -1,14 +1,39 @@
 'use client';
 
+import { useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+
 interface FooterProps {
   onNavigateToForBusiness?: () => void;
   onNavigate?: (page: 'terms' | 'privacy') => void;
 }
 
 export function Footer({ onNavigateToForBusiness, onNavigate }: FooterProps) {
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+
   return (
     <footer className="relative border-t mt-8" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'rgba(10, 14, 26, 0.6)' }}>
       <div className="max-w-6xl mx-auto px-4 py-6">
+        {/* How It Works collapsible section */}
+        <div className="mb-6">
+          <button
+            onClick={() => setShowHowItWorks(!showHowItWorks)}
+            className="flex items-center gap-1.5 mx-auto text-sm text-slate-400 hover:text-purple-400 transition-colors"
+          >
+            How It Works
+            {showHowItWorks ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+          {showHowItWorks && (
+            <div className="mt-4 max-w-md mx-auto p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+              <p className="text-xs text-slate-400 leading-relaxed text-center">
+                We check every dispensary in Vegas every morning. Every deal you see is live today.
+                Tap any deal to go straight to the product page and grab it. Save deals with the{' '}
+                <span className="text-purple-400">&hearts;</span> before midnight &mdash; they refresh daily.
+              </p>
+            </div>
+          )}
+        </div>
+
         {onNavigateToForBusiness && (
           <div className="flex justify-center mb-4">
             <button

@@ -471,10 +471,10 @@ export function DealsPage({
               ) : hasActiveFilters && displayedGridDeals.length === 0 ? (
                 <div className="text-center py-16">
                   <p className="text-slate-400 text-sm mb-2">
-                    No deals match your filters
+                    No deals match your filters right now
                   </p>
                   <p className="text-slate-600 text-xs mb-4">
-                    Try broadening your search
+                    Deals refresh every morning &mdash; try broadening your search or check back tomorrow.
                   </p>
                   <button
                     onClick={() => setFilters(DEFAULT_FILTERS)}
