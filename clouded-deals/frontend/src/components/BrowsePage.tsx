@@ -1,11 +1,19 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, ChevronDown, ChevronUp, ShieldCheck, MapPin, Clock } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, ShieldCheck, MapPin, ExternalLink, Star } from 'lucide-react';
 import { ALPHABET } from '@/utils/constants';
 import { filterBrandsByQuery, sortBrandsByName, groupBrandsByLetter, countDealsByBrand } from '@/utils/brandUtils';
+import {
+  countDealsByDispensary,
+  sortDispensariesByName,
+  filterDispensariesByQuery,
+  filterDispensariesByZone,
+  groupDispensariesByLetter,
+} from '@/utils/dispensaryUtils';
 import { BRANDS } from '@/data/brands';
-import type { Brand, Deal } from '@/types';
+import { DISPENSARIES } from '@/data/dispensaries';
+import type { Brand, Deal, Dispensary, DispensaryZone } from '@/types';
 import type { BrowseDispensary } from '@/lib/api';
 
 type BrowseTab = 'brands' | 'dispensaries';
@@ -17,15 +25,15 @@ interface BrowsePageProps {
   onSelectDispensary?: (dispensaryName: string) => void;
 }
 
-export function BrowsePage({ deals = [], dispensaries = [], onSelectBrand, onSelectDispensary }: BrowsePageProps) {
+export function BrowsePage({ deals = [], onSelectBrand, onSelectDispensary }: BrowsePageProps) {
   const [activeTab, setActiveTab] = useState<BrowseTab>('brands');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedBrand, setExpandedBrand] = useState<string | null>(null);
 
-  // Brand deal counts
+  // Brand deal counts (from live Supabase deals)
   const brandDealCounts = useMemo(() => countDealsByBrand(deals), [deals]);
 
-  // Brands
+  // Brands (static data)
   const filteredBrands = useMemo(() => {
     const sorted = sortBrandsByName(BRANDS);
     return filterBrandsByQuery(sorted, searchQuery);
@@ -37,9 +45,8 @@ export function BrowsePage({ deals = [], dispensaries = [], onSelectBrand, onSel
     return ALPHABET.filter((l) => groupedBrands[l]?.length);
   }, [groupedBrands]);
 
-  // Dispensary counts
-  const totalDispensaries = dispensaries.length;
-  const withDeals = dispensaries.filter((d) => d.deal_count > 0).length;
+  // Dispensary deal counts (from live Supabase deals, same pattern as brands)
+  const dispensaryDealCounts = useMemo(() => countDealsByDispensary(deals), [deals]);
 
   const scrollToLetter = (letter: string, prefix: string) => {
     const el = document.getElementById(`${prefix}-letter-${letter}`);
@@ -74,9 +81,7 @@ export function BrowsePage({ deals = [], dispensaries = [], onSelectBrand, onSel
               }`}
             >
               Dispensaries
-              {totalDispensaries > 0 && (
-                <span className="ml-1.5 text-[10px] text-slate-500 font-normal">{totalDispensaries}</span>
-              )}
+              <span className="ml-1.5 text-[10px] text-slate-500 font-normal">{DISPENSARIES.length}</span>
               {activeTab === 'dispensaries' && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500 rounded-full" />
               )}
@@ -100,10 +105,9 @@ export function BrowsePage({ deals = [], dispensaries = [], onSelectBrand, onSel
           />
         ) : (
           <DispensariesTab
-            dispensaries={dispensaries}
-            totalCount={totalDispensaries}
-            withDealsCount={withDeals}
+            dealCounts={dispensaryDealCounts}
             onSelectDispensary={onSelectDispensary}
+            onScrollToLetter={(l) => scrollToLetter(l, 'disp')}
           />
         )}
       </main>
@@ -297,38 +301,61 @@ function BrandRow({
 
 // ---- Dispensaries Tab ----
 
+const ZONE_FILTERS: { id: DispensaryZone | 'all'; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'strip', label: 'Strip' },
+  { id: 'downtown', label: 'Downtown' },
+  { id: 'local', label: 'Local' },
+];
+
+const ZONE_COLORS: Record<DispensaryZone, { bg: string; text: string }> = {
+  strip: { bg: 'bg-amber-500/10', text: 'text-amber-400' },
+  downtown: { bg: 'bg-cyan-500/10', text: 'text-cyan-400' },
+  local: { bg: 'bg-blue-500/10', text: 'text-blue-400' },
+};
+
 interface DispensariesTabProps {
-  dispensaries: BrowseDispensary[];
-  totalCount: number;
-  withDealsCount: number;
+  dealCounts: Record<string, number>;
   onSelectDispensary?: (dispensaryName: string) => void;
+  onScrollToLetter: (letter: string) => void;
 }
 
 function DispensariesTab({
-  dispensaries,
-  totalCount,
-  withDealsCount,
+  dealCounts,
   onSelectDispensary,
+  onScrollToLetter,
 }: DispensariesTabProps) {
   const [dispSearch, setDispSearch] = useState('');
+  const [activeZone, setActiveZone] = useState<DispensaryZone | 'all'>('all');
+  const [expandedDisp, setExpandedDisp] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
-    if (!dispSearch.trim()) return dispensaries;
-    const q = dispSearch.toLowerCase();
-    return dispensaries.filter(
-      (d) => d.name.toLowerCase().includes(q) || d.city.toLowerCase().includes(q) || d.address.toLowerCase().includes(q),
-    );
-  }, [dispensaries, dispSearch]);
+    let result = sortDispensariesByName(DISPENSARIES);
+    result = filterDispensariesByZone(result, activeZone);
+    result = filterDispensariesByQuery(result, dispSearch);
+    return result;
+  }, [dispSearch, activeZone]);
 
-  const withDeals = filtered.filter((d) => d.deal_count > 0);
-  const comingSoon = filtered.filter((d) => d.deal_count === 0);
+  const grouped = useMemo(() => groupDispensariesByLetter(filtered), [filtered]);
+
+  const activeLetters = useMemo(() => {
+    return ALPHABET.filter((l) => grouped[l]?.length);
+  }, [grouped]);
+
+  const withDealsCount = useMemo(() => {
+    return DISPENSARIES.filter((d) => (dealCounts[d.id] || 0) > 0).length;
+  }, [dealCounts]);
+
+  const toggleDisp = (dispId: string) => {
+    setExpandedDisp((prev) => (prev === dispId ? null : dispId));
+  };
 
   return (
     <div className="space-y-4">
       {/* Summary bar */}
       <div className="flex items-center justify-between px-1">
         <p className="text-sm text-slate-400">
-          <span className="text-white font-semibold">{totalCount}</span> dispensaries across Nevada
+          <span className="text-white font-semibold">{DISPENSARIES.length}</span> dispensaries across Nevada
         </p>
         <p className="text-xs text-purple-400">
           {withDealsCount} with live deals
@@ -347,73 +374,179 @@ function DispensariesTab({
         />
       </div>
 
-      {/* Dispensaries with deals */}
-      {withDeals.length > 0 && (
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2 px-1">
-            Live Deals
-          </h3>
-          <div className="space-y-2">
-            {withDeals.map((disp) => (
-              <button
-                key={disp.id}
-                onClick={() => onSelectDispensary?.(disp.name)}
-                className="w-full glass rounded-lg px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-slate-800/30 transition-colors"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className="text-sm font-medium text-slate-200 truncate">{disp.name}</p>
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-2.5 h-2.5 text-slate-600 shrink-0" />
-                    <p className="text-xs text-slate-500 truncate">
-                      {disp.address}{disp.city ? `, ${disp.city}` : ''}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-xs text-purple-400 font-medium shrink-0">
-                  {disp.deal_count} deal{disp.deal_count !== 1 ? 's' : ''}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Zone filter chips */}
+      <div className="flex gap-2">
+        {ZONE_FILTERS.map((zone) => (
+          <button
+            key={zone.id}
+            onClick={() => setActiveZone(zone.id)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              activeZone === zone.id
+                ? 'bg-purple-500/20 text-purple-400'
+                : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-300'
+            }`}
+          >
+            {zone.label}
+          </button>
+        ))}
+      </div>
 
-      {/* Dispensaries without deals (Coming Soon) */}
-      {comingSoon.length > 0 && (
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2 px-1">
-            Coming Soon
-          </h3>
-          <div className="space-y-1.5">
-            {comingSoon.map((disp) => (
-              <div
-                key={disp.id}
-                className="glass rounded-lg px-4 py-2.5 flex items-center justify-between gap-3 opacity-70"
+      {/* Letter navigation */}
+      <div className="sticky top-12 z-30 bg-slate-950/95 backdrop-blur-sm py-2 -mx-4 px-4 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-1">
+          {ALPHABET.map((letter) => {
+            const isActive = activeLetters.includes(letter);
+            return (
+              <button
+                key={letter}
+                onClick={() => isActive && onScrollToLetter(letter)}
+                disabled={!isActive}
+                className={`w-7 h-7 shrink-0 rounded text-xs font-medium transition-colors ${
+                  isActive
+                    ? 'bg-slate-800 text-white hover:bg-purple-500/20 hover:text-purple-400'
+                    : 'text-slate-700 cursor-not-allowed'
+                }`}
               >
-                <div className="min-w-0">
-                  <p className="text-sm text-slate-300 truncate">{disp.name}</p>
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-2.5 h-2.5 text-slate-600 shrink-0" />
-                    <p className="text-[11px] text-slate-600 truncate">
-                      {disp.address}{disp.city ? `, ${disp.city}` : ''}
-                    </p>
-                  </div>
-                </div>
-                <span className="flex items-center gap-1 text-[10px] text-slate-600 font-medium shrink-0">
-                  <Clock className="w-3 h-3" />
-                  Soon
-                </span>
-              </div>
-            ))}
-          </div>
+                {letter}
+              </button>
+            );
+          })}
         </div>
-      )}
+      </div>
+
+      {/* Dispensary list */}
+      <div className="space-y-6">
+        {ALPHABET.map((letter) => {
+          const disps = grouped[letter];
+          if (!disps?.length) return null;
+          return (
+            <div key={letter} id={`disp-letter-${letter}`}>
+              <h3 className="text-lg font-bold text-slate-500 mb-2">
+                {letter}
+              </h3>
+              <div className="space-y-1">
+                {disps.map((disp) => (
+                  <DispensaryRow
+                    key={disp.id}
+                    dispensary={disp}
+                    dealCount={dealCounts[disp.id] || 0}
+                    isExpanded={expandedDisp === disp.id}
+                    onToggle={() => toggleDisp(disp.id)}
+                    onViewDeals={onSelectDispensary ? () => onSelectDispensary(disp.name) : undefined}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       {filtered.length === 0 && (
         <p className="text-center text-sm text-slate-500 py-8">No dispensaries match your search.</p>
+      )}
+    </div>
+  );
+}
+
+function DispensaryRow({
+  dispensary,
+  dealCount,
+  isExpanded,
+  onToggle,
+  onViewDeals,
+}: {
+  dispensary: Dispensary;
+  dealCount: number;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onViewDeals?: () => void;
+}) {
+  const zone = dispensary.zone || 'local';
+  const zoneStyle = ZONE_COLORS[zone];
+  const isVerified = dispensary.tier === 'verified' || dispensary.tier === 'premium';
+
+  return (
+    <div className="glass rounded-lg overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-slate-800/30 transition-colors"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
+            <span className="text-xs font-bold text-slate-400">
+              {dispensary.name[0]}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-slate-200 truncate">{dispensary.name}</p>
+              {isVerified && (
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              )}
+              {dispensary.tier === 'premium' && (
+                <Star className="w-3 h-3 text-amber-400 shrink-0" />
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <MapPin className="w-2.5 h-2.5 text-slate-600 shrink-0" />
+              <p className="text-[10px] text-slate-500 truncate">{dispensary.address}</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full capitalize ${zoneStyle.bg} ${zoneStyle.text}`}>
+            {zone}
+          </span>
+          <span className={`text-xs font-medium ${dealCount > 0 ? 'text-purple-400' : 'text-slate-600'}`}>
+            {dealCount} deal{dealCount !== 1 ? 's' : ''}
+          </span>
+          {isExpanded ? (
+            <ChevronUp className="w-4 h-4 text-slate-500" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-slate-500" />
+          )}
+        </div>
+      </button>
+      {isExpanded && (
+        <div className="px-3 pb-3 pt-1 border-t border-slate-800/50">
+          {dealCount > 0 && onViewDeals ? (
+            <div className="flex items-center justify-between gap-2">
+              <a
+                href={dispensary.menu_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                <ExternalLink className="w-3 h-3" />
+                View menu
+              </a>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewDeals();
+                }}
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 text-xs font-medium hover:bg-purple-500/20 transition-colors"
+              >
+                View {dealCount} Deal{dealCount !== 1 ? 's' : ''}
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] text-slate-500">No deals today — check back tomorrow morning.</p>
+              <a
+                href={dispensary.menu_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800/50 text-slate-400 text-xs font-medium hover:bg-slate-800 transition-colors"
+              >
+                <ExternalLink className="w-3 h-3" />
+                Menu
+              </a>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

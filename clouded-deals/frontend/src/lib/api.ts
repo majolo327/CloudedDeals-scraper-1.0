@@ -166,7 +166,7 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
         .eq('dispensaries.region', activeRegion)
         .gt('deal_score', 0)
         .order('deal_score', { ascending: false })
-        .limit(200),
+        .limit(100),
       supabase
         .from('deal_save_counts')
         .select('deal_id, save_count'),
