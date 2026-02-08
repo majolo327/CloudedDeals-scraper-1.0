@@ -7,6 +7,7 @@ import { getBadge, getDistanceMiles, getDisplayName } from '@/utils';
 import { getUserCoords } from './ftue';
 import { DealBadge } from './badges/DealBadge';
 import { ShareModal } from './modals/ShareModal';
+import { trackGetDealClick } from '@/lib/analytics';
 
 interface DealCardProps {
   deal: Deal;
@@ -128,7 +129,10 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
           href={deal.product_url || deal.dispensary?.menu_url || '#'}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            trackGetDealClick(deal.id, deal.dispensary?.name || '', deal.product_url || deal.dispensary?.menu_url || '');
+          }}
           className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 transition-colors"
         >
           Get Deal

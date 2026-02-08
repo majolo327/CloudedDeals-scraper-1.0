@@ -23,7 +23,7 @@ import type { ToastData } from '@/components/Toast';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { useStreak } from '@/hooks/useStreak';
 import { useBrandAffinity } from '@/hooks/useBrandAffinity';
-import { initializeAnonUser, trackEvent } from '@/lib/analytics';
+import { initializeAnonUser, trackEvent, trackPageView, trackDealModalOpen } from '@/lib/analytics';
 import { isAuthPromptDismissed, dismissAuthPrompt } from '@/lib/auth';
 import { FTUEFlow, isFTUECompleted, CoachMarks, isCoachMarksSeen } from '@/components/ftue';
 
@@ -112,6 +112,15 @@ export default function Home() {
     }
   }, [addToast]);
 
+  // Track page views when navigating between tabs
+  const prevPageRef = useRef(activePage);
+  useEffect(() => {
+    if (isAgeVerified && activePage !== prevPageRef.current) {
+      trackPageView(activePage);
+      prevPageRef.current = activePage;
+    }
+  }, [activePage, isAgeVerified]);
+
   // Track referral clicks from share links
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -146,6 +155,13 @@ export default function Home() {
     // Clean up URL params
     window.history.replaceState({}, '', window.location.pathname);
   }, [deals, loading, activePage, showFTUE]);
+
+  // Track deal modal opens
+  useEffect(() => {
+    if (selectedDeal) {
+      trackDealModalOpen(selectedDeal.id, activePage);
+    }
+  }, [selectedDeal, activePage]);
 
   // Show auth prompt after 3+ saves (only if not authenticated and not dismissed)
   useEffect(() => {
