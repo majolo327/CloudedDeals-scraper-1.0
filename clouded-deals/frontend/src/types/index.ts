@@ -10,6 +10,8 @@ export type DealSource = 'dutchie' | 'curaleaf' | 'jane';
 
 export type DealStatus = 'active' | 'expired' | 'used';
 
+export type DispensaryZone = 'strip' | 'downtown' | 'local';
+
 export interface Dispensary {
   id: string;
   name: string;
@@ -20,6 +22,7 @@ export interface Dispensary {
   platform: DealSource;
   is_active: boolean;
   region?: string;
+  zone?: DispensaryZone;
 }
 
 export interface Brand {

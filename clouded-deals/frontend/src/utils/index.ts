@@ -57,3 +57,4 @@ export { isJustDropped } from './justDropped';
 export * from './constants';
 export * from './brandUtils';
 export * from './dealFilters';
+export * from './dispensaryUtils';
