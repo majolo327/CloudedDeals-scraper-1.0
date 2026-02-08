@@ -92,8 +92,20 @@ function toDispensary(row: ProductRow['dispensary']): Dispensary {
   };
 }
 
-function toBrand(raw: string | null): Brand {
-  const name = raw || 'Unknown';
+function toBrand(raw: string | null, productName?: string): Brand {
+  let name = raw && raw !== 'Unknown' ? raw : '';
+
+  // If brand is missing, try to extract from the product name.
+  // Common patterns: "BRAND - Product", "BRAND Product 3.5g"
+  if (!name && productName) {
+    const dashMatch = productName.match(/^([A-Za-z][A-Za-z0-9'.& ]{1,20}?)\s*[-–—]/);
+    if (dashMatch) {
+      name = dashMatch[1].trim();
+    }
+  }
+
+  if (!name) name = 'Unknown';
+
   return {
     id: name.toLowerCase().replace(/\s+/g, '-'),
     name,
@@ -103,10 +115,37 @@ function toBrand(raw: string | null): Brand {
   };
 }
 
+/** Try to extract a weight string from the product name as a fallback. */
+function parseWeightFromName(name: string): string {
+  // Match patterns like "3.5g", "3.5G", "1g", "14g", "1/8", "1/4", "1/2 oz"
+  const gMatch = name.match(/\b(\d+(?:\.\d+)?)\s*[gG]\b/);
+  if (gMatch) return `${gMatch[1]}g`;
+  const ozMatch = name.match(/\b(\d+(?:\.\d+)?)\s*oz\b/i);
+  if (ozMatch) return `${ozMatch[1]}oz`;
+  // Fractions: 1/8 = 3.5g, 1/4 = 7g, 1/2 = 14g
+  if (/\b1\/8\b/.test(name)) return '3.5g';
+  if (/\b1\/4\b/.test(name)) return '7g';
+  if (/\b1\/2\b/.test(name)) return '14g';
+  return '';
+}
+
 function normalizeDeal(row: ProductRow): Deal {
-  const weight = row.weight_value
+  let weight = row.weight_value
     ? `${row.weight_value}${row.weight_unit || 'g'}`
     : '';
+
+  // Fix suspicious weight values (e.g. 0.35 that should be 3.5)
+  // Cross-check with product name if possible
+  const nameWeight = parseWeightFromName(row.name);
+  if (nameWeight && (!weight || weight === '0g')) {
+    weight = nameWeight;
+  } else if (row.weight_value && row.weight_value < 1 && nameWeight) {
+    // DB has 0.35 but name says 3.5g — trust the product name
+    const nameVal = parseFloat(nameWeight);
+    if (!isNaN(nameVal) && Math.abs(row.weight_value * 10 - nameVal) < 0.01) {
+      weight = nameWeight;
+    }
+  }
 
   return {
     id: row.id,
@@ -116,7 +155,7 @@ function normalizeDeal(row: ProductRow): Deal {
     original_price: row.original_price,
     deal_price: row.sale_price || 0,
     dispensary: toDispensary(row.dispensary),
-    brand: toBrand(row.brand),
+    brand: toBrand(row.brand, row.name),
     deal_score: row.deal_score || 0,
     is_verified: (row.deal_score || 0) >= 70,
     product_url: row.product_url,
@@ -307,5 +346,63 @@ export async function fetchDispensaries(region?: string): Promise<FetchDispensar
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to fetch dispensaries';
     return { dispensaries: [], error: message };
+  }
+}
+
+// --------------------------------------------------------------------------
+// Extended search — queries ALL scraped products (not just top 100)
+// Returns products with a discount that match the search query.
+// --------------------------------------------------------------------------
+
+export interface SearchExtendedResult {
+  deals: Deal[];
+  error: string | null;
+}
+
+function escapeLike(s: string): string {
+  return s.replace(/%/g, '\\%').replace(/_/g, '\\_');
+}
+
+export async function searchExtendedDeals(
+  query: string,
+  curatedDealIds: Set<string>,
+  region?: string,
+): Promise<SearchExtendedResult> {
+  if (!isSupabaseConfigured || !query || query.trim().length < 2) {
+    return { deals: [], error: null };
+  }
+
+  const activeRegion = region ?? getRegion() ?? DEFAULT_REGION;
+  const escaped = escapeLike(query.trim());
+  const pattern = `%${escaped}%`;
+
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select(
+        `id, name, brand, category, original_price, sale_price, discount_percent,
+         weight_value, weight_unit, deal_score, product_url, scraped_at, created_at,
+         dispensary:dispensaries!inner(id, name, address, city, state, platform, url, region)`
+      )
+      .eq('is_active', true)
+      .eq('dispensaries.region', activeRegion)
+      .gt('discount_percent', 0)
+      .or(`name.ilike.${pattern},brand.ilike.${pattern}`)
+      .order('discount_percent', { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+
+    const allResults = data
+      ? (data as unknown as ProductRow[]).map(normalizeDeal)
+      : [];
+
+    // Filter out deals already in the curated set
+    const extended = allResults.filter((d) => !curatedDealIds.has(d.id));
+
+    return { deals: extended.slice(0, 30), error: null };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Extended search failed';
+    return { deals: [], error: message };
   }
 }
