@@ -63,6 +63,7 @@ export type EventType =
   | 'referral_conversion'
   | 'daily_visit'
   | 'session_heartbeat'
+  | 'challenge_completed'
   | 'error'
   | 'slow_load'
   | 'onboarding_completed'

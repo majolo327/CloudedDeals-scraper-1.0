@@ -1,29 +1,35 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Heart, MapPin, Share2, ExternalLink } from 'lucide-react';
+import { Heart, MapPin, X } from 'lucide-react';
 import type { Deal } from '@/types';
-import { getBadge, getDistanceMiles, getDisplayName } from '@/utils';
+import { getDistanceMiles, getDisplayName } from '@/utils';
 import { getUserCoords } from './ftue';
-import { DealBadge } from './badges/DealBadge';
+import { HeatIndicator } from './HeatIndicator';
+import { getDealHeat } from '@/utils/dealHeat';
 import { ShareModal } from './modals/ShareModal';
-import { trackGetDealClick } from '@/lib/analytics';
 
 interface DealCardProps {
   deal: Deal;
   isSaved: boolean;
   isUsed?: boolean;
   onSave: () => void;
+  onDismiss?: () => void;
   onClick: () => void;
 }
 
-export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: DealCardProps) {
+const categoryLabels: Record<string, string> = {
+  flower: 'Flower',
+  vape: 'Vape',
+  edible: 'Edible',
+  concentrate: 'Concentrate',
+  preroll: 'Pre-Roll',
+};
+
+export function DealCard({ deal, isSaved, isUsed = false, onSave, onDismiss, onClick }: DealCardProps) {
   const [showShare, setShowShare] = useState(false);
 
-  const badge = getBadge(deal);
-  const discountPercent = deal.original_price && deal.original_price > deal.deal_price
-    ? Math.round(((deal.original_price - deal.deal_price) / deal.original_price) * 100)
-    : 0;
+  const heat = getDealHeat(deal);
 
   const distance = useMemo(() => {
     const userCoords = getUserCoords();
@@ -36,6 +42,10 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
     );
   }, [deal.dispensary.latitude, deal.dispensary.longitude]);
 
+  const categoryLabel = deal.product_subtype === 'infused_preroll' ? 'Infused Pre-Roll'
+    : deal.product_subtype === 'preroll_pack' ? 'Pre-Roll Pack'
+    : categoryLabels[deal.category] || deal.category.charAt(0).toUpperCase() + deal.category.slice(1);
+
   return (
     <div
       onClick={onClick}
@@ -45,78 +55,52 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
           : 'hover:border-[rgba(99,115,171,0.22)] hover:bg-[rgba(28,35,56,0.8)]'
       }`}
     >
-      {/* Top row: badge + actions */}
-      <div className="flex items-start justify-between gap-3 mb-3">
+      {/* Top row: heat + brand + save */}
+      <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-center gap-2 min-w-0">
-          {badge && <DealBadge type={badge} />}
+          <HeatIndicator heat={heat} />
+          <span className="text-[11px] sm:text-xs text-purple-400 uppercase tracking-wide font-bold truncate">
+            {deal.brand?.name || 'Unknown'}
+          </span>
           {isUsed && (
             <span className="text-[10px] font-medium text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded-md">
               Used
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowShare(true);
-            }}
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all text-slate-500 hover:text-purple-400 hover:bg-purple-500/10"
-            aria-label="Share deal"
-          >
-            <Share2 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onSave();
-            }}
-            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-              isSaved
-                ? 'bg-purple-500/10 text-purple-400'
-                : 'text-slate-500 hover:text-purple-400 hover:bg-purple-500/10'
-            }`}
-            aria-label={isSaved ? 'Remove from saved' : 'Save deal'}
-          >
-            <Heart className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
-          </button>
-        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onSave();
+          }}
+          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all shrink-0 ${
+            isSaved
+              ? 'bg-purple-500/10 text-purple-400'
+              : 'text-slate-500 hover:text-purple-400 hover:bg-purple-500/10'
+          }`}
+          aria-label={isSaved ? 'Remove from saved' : 'Save deal'}
+        >
+          <Heart className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
+        </button>
       </div>
-
-      {/* Brand */}
-      <p className="text-[11px] sm:text-xs text-purple-400 uppercase tracking-wide font-bold mb-1">
-        {deal.brand?.name || 'Unknown'}
-      </p>
 
       {/* Product name */}
       <h3 className="text-[13px] sm:text-sm font-medium text-slate-100 mb-1 line-clamp-2">
         {getDisplayName(deal.product_name, deal.brand?.name || '')}
       </h3>
 
-      {/* Weight + Category */}
+      {/* Category + Weight */}
       <p className="text-[10px] text-slate-500 mb-3">
-        {deal.weight && <>{deal.weight} &bull; </>}
-        {deal.product_subtype === 'infused_preroll' ? 'Infused Pre-Roll'
-          : deal.product_subtype === 'preroll_pack' ? 'Pre-Roll Pack'
-          : deal.category.charAt(0).toUpperCase() + deal.category.slice(1)}
+        {categoryLabel}
+        {deal.weight && <> &middot; {deal.weight}</>}
       </p>
 
-      {/* Price */}
+      {/* Price — sale price only, big and clean */}
       <div className="mb-3">
-        <div className="flex items-baseline gap-2">
-          <span className="text-lg sm:text-xl font-mono font-bold text-white">${deal.deal_price}</span>
-          {deal.original_price && deal.original_price > deal.deal_price && (
-            <span className="text-[10px] text-slate-500 line-through">${deal.original_price}</span>
-          )}
-          {discountPercent > 0 && (
-            <span className="text-[10px] font-semibold text-emerald-400">
-              -{discountPercent}%
-            </span>
-          )}
-        </div>
+        <span className="text-lg sm:text-xl font-mono font-bold text-white">${deal.deal_price}</span>
       </div>
 
-      {/* Footer: Dispensary + Distance + Get Deal */}
+      {/* Footer: Dispensary + Distance + Dismiss */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-[10px] text-slate-500 min-w-0">
           <MapPin className="w-2.5 h-2.5 opacity-60 shrink-0" />
@@ -125,19 +109,18 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
             <span className="text-slate-600 shrink-0">{distance.toFixed(1)} mi</span>
           )}
         </div>
-        <a
-          href={deal.product_url || deal.dispensary?.menu_url || '#'}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => {
-            e.stopPropagation();
-            trackGetDealClick(deal.id, deal.dispensary?.name || '', deal.product_url || deal.dispensary?.menu_url || '');
-          }}
-          className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 transition-colors"
-        >
-          Get Deal
-          <ExternalLink className="w-2.5 h-2.5" />
-        </a>
+        {onDismiss && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDismiss();
+            }}
+            className="p-1.5 rounded-lg text-slate-700 hover:text-slate-400 hover:bg-white/5 transition-colors shrink-0"
+            aria-label="Dismiss deal"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Watermark for screenshots */}

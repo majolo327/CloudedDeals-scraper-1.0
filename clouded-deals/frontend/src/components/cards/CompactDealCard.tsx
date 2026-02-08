@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Heart, X, MapPin, Sparkles } from 'lucide-react';
 import type { Deal } from '@/types';
-import { getBadge, getDistanceMiles, getDisplayName } from '@/utils';
+import { getDistanceMiles, getDisplayName } from '@/utils';
 import { getUserCoords } from '../ftue';
-import { DealBadge } from '../badges/DealBadge';
+import { HeatIndicator } from '../HeatIndicator';
+import { getDealHeat } from '@/utils/dealHeat';
 import type { RecommendationReason } from '@/lib/personalization';
 
 interface CompactDealCardProps {
@@ -46,11 +47,7 @@ export function CompactDealCard({
   const [saveGlow, setSaveGlow] = useState(false);
   const prevSavedRef = useRef(isSaved);
 
-
-  const badge = getBadge(deal);
-  const discountPercent = deal.original_price && deal.original_price > deal.deal_price
-    ? Math.round(((deal.original_price - deal.deal_price) / deal.original_price) * 100)
-    : 0;
+  const heat = getDealHeat(deal);
   const distance = useMemo(() => {
     const userCoords = getUserCoords();
     if (!userCoords) return null;
@@ -77,6 +74,10 @@ export function CompactDealCard({
     return '';
   };
 
+  const categoryLabel = deal.product_subtype === 'infused_preroll' ? 'Infused Pre-Roll'
+    : deal.product_subtype === 'preroll_pack' ? 'Pre-Roll Pack'
+    : categoryLabels[deal.category] || deal.category;
+
   return (
     <div
       data-coach="deal-card"
@@ -97,10 +98,10 @@ export function CompactDealCard({
         </div>
       )}
 
-      {/* Top row: badge + brand | save heart */}
+      {/* Top row: heat + brand | save heart */}
       <div className="flex items-start justify-between gap-1 mb-1.5">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          {badge && <DealBadge type={badge} compact />}
+          <HeatIndicator heat={heat} compact />
           <span className="text-[10px] text-purple-400 uppercase tracking-wider font-bold truncate">
             {deal.brand.name}
           </span>
@@ -131,32 +132,20 @@ export function CompactDealCard({
         {getDisplayName(deal.product_name, deal.brand.name)}
       </h3>
 
-      {/* Weight + Category */}
+      {/* Category + Weight */}
       <p className="text-[10px] text-slate-500">
-        {deal.weight && <>{deal.weight} &middot; </>}
-        {deal.product_subtype === 'infused_preroll' ? 'Infused Pre-Roll'
-          : deal.product_subtype === 'preroll_pack' ? 'Pre-Roll Pack'
-          : categoryLabels[deal.category] || deal.category}
+        {categoryLabel}
+        {deal.weight && <> &middot; {deal.weight}</>}
       </p>
 
       {/* Spacer */}
       <div className="flex-1 min-h-[8px]" />
 
-      {/* Price row */}
+      {/* Price — sale price only */}
       <div className="flex items-baseline gap-1.5 mb-2">
         <span className="text-lg font-bold font-mono text-white">
           ${deal.deal_price}
         </span>
-        {deal.original_price && deal.original_price > deal.deal_price && (
-          <span className="text-[10px] text-slate-600 line-through">
-            ${deal.original_price}
-          </span>
-        )}
-        {discountPercent > 0 && (
-          <span className="text-[10px] font-semibold text-emerald-400">
-            -{discountPercent}%
-          </span>
-        )}
       </div>
 
       {/* Footer: dispensary + dismiss */}
