@@ -31,7 +31,7 @@ export interface Brand {
   logo_url?: string;
 }
 
-export type BadgeType = 'hot' | 'great' | 'good' | 'deal';
+export type BadgeType = 'steal' | 'fire' | 'solid';
 
 export interface Deal {
   id: string;

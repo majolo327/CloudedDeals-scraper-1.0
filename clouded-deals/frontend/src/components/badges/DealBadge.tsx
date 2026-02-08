@@ -3,10 +3,9 @@
 import type { BadgeType } from '@/types';
 
 const BADGE_CONFIG: Record<BadgeType, { text: string; bgColor: string; textColor: string }> = {
-  hot:   { text: 'Hot Deal',   bgColor: 'bg-red-500/10',    textColor: 'text-red-400' },
-  great: { text: 'Great Deal', bgColor: 'bg-orange-500/10', textColor: 'text-orange-400' },
-  good:  { text: 'Good Deal',  bgColor: 'bg-green-500/10',  textColor: 'text-green-400' },
-  deal:  { text: 'Deal',       bgColor: 'bg-slate-500/10',  textColor: 'text-slate-400' },
+  steal: { text: '\u{1F525} STEAL',      bgColor: 'bg-red-500/10',    textColor: 'text-red-400' },
+  fire:  { text: '\u{1F525} Fire Deal',  bgColor: 'bg-orange-500/10', textColor: 'text-orange-400' },
+  solid: { text: '\u{1F44D} Solid Deal', bgColor: 'bg-green-500/10',  textColor: 'text-green-400' },
 };
 
 interface DealBadgeProps {

@@ -31,6 +31,7 @@ from supabase import create_client, Client
 
 from config.dispensaries import DISPENSARIES, SITE_TIMEOUT_SEC
 from clouded_logic import CloudedLogic
+from deal_detector import detect_deals
 from platforms import CuraleafScraper, DutchieScraper, JaneScraper
 
 load_dotenv()
@@ -356,10 +357,9 @@ async def _scrape_site_inner(dispensary: dict[str, Any]) -> dict[str, Any]:
     async with scraper_cls(dispensary) as scraper:
         raw_products = await scraper.scrape()
 
-    # Parse and detect deals using CloudedLogic (single source of truth)
+    # Parse all raw products using CloudedLogic (single source of truth)
     logic = CloudedLogic()
     parsed: list[dict[str, Any]] = []
-    deals: list[dict[str, Any]] = []
 
     for rp in raw_products:
         # Clean raw inputs before CloudedLogic parsing
@@ -387,22 +387,24 @@ async def _scrape_site_inner(dispensary: dict[str, Any]) -> dict[str, Any]:
             "thc_percent": product.get("thc_percent"),
             "cbd_percent": None,
             "raw_text": rp.get("raw_text", ""),
+            "dispensary_id": slug,
         }
         parsed.append(enriched)
 
-        if logic.is_qualifying(product):
-            score = logic.score_deal(product)
-            deals.append({**enriched, "deal_score": score})
+    # --- Deal detection pipeline (hard filter → score → top-100 select) ---
+    # detect_deals returns only the curated top deals with deal_score set.
+    # All other products default to deal_score = 0.
+    deals = detect_deals(parsed)
 
     # Write deal_score back onto parsed products so it's upserted into the
     # products table (the frontend reads deal_score from products directly).
-    deal_score_lookup: dict[tuple[str, float | None], float] = {
+    deal_score_lookup: dict[tuple[str, float | None], int] = {
         (d.get("name", ""), d.get("sale_price")): d["deal_score"]
         for d in deals
     }
     for p in parsed:
         key = (p.get("name", ""), p.get("sale_price"))
-        p["deal_score"] = int(round(deal_score_lookup.get(key, 0)))
+        p["deal_score"] = deal_score_lookup.get(key, 0)
 
     # Insert to DB
     product_rows = _upsert_products(slug, parsed)
