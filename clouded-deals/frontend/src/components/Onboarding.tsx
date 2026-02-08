@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { ArrowRight, ShieldCheck, Heart, Zap } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Heart, Zap, Bookmark } from 'lucide-react';
 import { sendMagicLink } from '@/lib/auth';
 import { trackEvent } from '@/lib/analytics';
 
@@ -26,6 +26,7 @@ interface Screen {
   title: string;
   subtitle: string;
   gradient: string;
+  cta: string;
 }
 
 const SCREENS: Screen[] = [
@@ -34,18 +35,28 @@ const SCREENS: Screen[] = [
     title: 'Vegas deals, updated daily.',
     subtitle: 'We scan 27+ dispensaries every morning so you never overpay.',
     gradient: 'from-purple-500/20 to-indigo-500/20',
+    cta: 'Next',
   },
   {
-    icon: <Heart className="w-12 h-12" />,
-    title: 'Save the ones you like.',
-    subtitle: 'Swipe through deals, save your favorites, and get directions to the shop.',
+    icon: (
+      <div className="relative">
+        <Heart className="w-12 h-12" />
+        <div className="absolute -top-1 -right-1 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+          <Bookmark className="w-3 h-3 text-white" />
+        </div>
+      </div>
+    ),
+    title: 'Tap the heart to save deals.',
+    subtitle: 'When you see a deal you like, hit the \u2665 to save it. We\u2019ll track your saves so you can grab them at the shop.',
     gradient: 'from-pink-500/20 to-purple-500/20',
+    cta: 'Got it',
   },
   {
     icon: <ShieldCheck className="w-12 h-12" />,
     title: 'Verified. No gimmicks.',
-    subtitle: 'Real prices from real menus. We verify deals so you don\'t have to.',
+    subtitle: 'Real prices pulled from real menus. We verify every deal so you don\u2019t have to.',
     gradient: 'from-emerald-500/20 to-teal-500/20',
+    cta: 'Start Saving Deals',
   },
 ];
 
@@ -61,16 +72,20 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const handleNext = useCallback(() => {
     if (isLastScreen) {
       markOnboardingSeen();
-      trackEvent('app_loaded', undefined, { onboarding: 'completed', screen: currentScreen });
+      trackEvent('onboarding_completed', undefined, {
+        screen: String(currentScreen),
+        email_captured: emailSent ? 'yes' : 'no',
+      });
       onComplete();
     } else {
+      trackEvent('onboarding_screen_viewed', undefined, { screen: String(currentScreen + 1) });
       setCurrentScreen((prev) => prev + 1);
     }
-  }, [currentScreen, isLastScreen, onComplete]);
+  }, [currentScreen, isLastScreen, onComplete, emailSent]);
 
   const handleSkip = useCallback(() => {
     markOnboardingSeen();
-    trackEvent('app_loaded', undefined, { onboarding: 'skipped', screen: currentScreen });
+    trackEvent('onboarding_skipped', undefined, { screen: String(currentScreen) });
     onComplete();
   }, [currentScreen, onComplete]);
 
@@ -81,7 +96,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     setSending(false);
     if (!error) {
       setEmailSent(true);
-      trackEvent('app_loaded', undefined, { onboarding: 'email_captured' });
+      trackEvent('onboarding_email_captured');
     }
   }, [email, sending]);
 
@@ -93,10 +108,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     if (touchStart === null) return;
     const diff = touchStart - e.changedTouches[0].clientX;
     if (diff > 60) {
-      // Swipe left → next
       handleNext();
     } else if (diff < -60 && currentScreen > 0) {
-      // Swipe right → previous
       setCurrentScreen((prev) => prev - 1);
     }
     setTouchStart(null);
@@ -148,6 +161,28 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         >
           {screen.subtitle}
         </p>
+
+        {/* Interactive save demo on screen 2 */}
+        {currentScreen === 1 && (
+          <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
+            <div className="glass frost rounded-xl px-6 py-4 flex items-center gap-4 max-w-xs mx-auto">
+              <div className="text-left min-w-0">
+                <p className="text-[10px] text-purple-400 uppercase font-bold">Example Brand</p>
+                <p className="text-xs text-white font-medium truncate">Top Shelf Flower 3.5g</p>
+                <p className="text-sm font-mono font-bold text-white mt-1">
+                  $25 <span className="text-[10px] text-slate-500 line-through">$45</span>
+                  <span className="text-[10px] text-emerald-400 ml-1">-44%</span>
+                </p>
+              </div>
+              <div className="shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center animate-pulse">
+                  <Heart className="w-5 h-5 text-purple-400" />
+                </div>
+                <p className="text-[8px] text-purple-400 mt-1 text-center font-medium">Tap to save</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Email capture on last screen */}
         {isLastScreen && (
@@ -201,8 +236,9 @@ export function Onboarding({ onComplete }: OnboardingProps) {
           onClick={handleNext}
           className="w-full py-4 min-h-[56px] bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white font-semibold text-base rounded-2xl shadow-lg shadow-purple-500/20 transition-all flex items-center justify-center gap-2"
         >
-          {isLastScreen ? 'Browse Deals' : 'Next'}
-          <ArrowRight className="w-5 h-5" />
+          {screen.cta}
+          {!isLastScreen && <ArrowRight className="w-5 h-5" />}
+          {isLastScreen && <Heart className="w-5 h-5" />}
         </button>
       </div>
     </div>

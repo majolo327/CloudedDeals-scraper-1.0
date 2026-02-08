@@ -60,7 +60,11 @@ export type EventType =
   | 'referral_conversion'
   | 'daily_visit'
   | 'error'
-  | 'slow_load';
+  | 'slow_load'
+  | 'onboarding_completed'
+  | 'onboarding_skipped'
+  | 'onboarding_screen_viewed'
+  | 'onboarding_email_captured';
 
 /**
  * Initialize anonymous user on app load. Sets up the anon_id and
