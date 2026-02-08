@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import { MapPin, Navigation } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
+import { isVegasArea } from '@/lib/zipCodes';
+import { zipToState } from '@/utils/zipToState';
+import { RegionOverlay } from '@/components/RegionOverlay';
+import { logZipInterest } from '@/lib/zipInterest';
 
 const LOCATION_KEY = 'clouded_location_permission';
 const COORDS_KEY = 'clouded_user_coords';
@@ -36,12 +40,18 @@ export function getDefaultCoords(): UserCoords {
   return { lat: DEFAULT_LAT, lng: DEFAULT_LNG };
 }
 
+type PromptState = 'location' | 'zip-fallback' | 'region-overlay';
+
 interface LocationPromptProps {
   onContinue: (coords: UserCoords | null) => void;
 }
 
 export function LocationPrompt({ onContinue }: LocationPromptProps) {
   const [requesting, setRequesting] = useState(false);
+  const [promptState, setPromptState] = useState<PromptState>('location');
+  const [zipInput, setZipInput] = useState('');
+  const [resolvedState, setResolvedState] = useState('');
+  const [resolvedZip, setResolvedZip] = useState('');
 
   const handleEnable = async () => {
     setRequesting(true);
@@ -72,18 +82,130 @@ export function LocationPrompt({ onContinue }: LocationPromptProps) {
         screen: 'location',
         result: 'denied',
       });
-      onContinue(null);
+      // Show zip fallback instead of immediately continuing
+      setPromptState('zip-fallback');
     } finally {
       setRequesting(false);
     }
   };
 
-  const handleSkip = () => {
+  const handleNotNow = () => {
     localStorage.setItem(LOCATION_KEY, 'denied');
     trackEvent('onboarding_skipped', undefined, { screen: 'location' });
+    setPromptState('zip-fallback');
+  };
+
+  const handleZipSubmit = () => {
+    const zip = zipInput.trim();
+    if (zip.length !== 5) return;
+
+    if (isVegasArea(zip)) {
+      localStorage.setItem('clouded_zip', zip);
+      onContinue(null);
+      return;
+    }
+
+    const stateCode = zipToState(zip);
+    if (!stateCode) {
+      onContinue(null);
+      return;
+    }
+
+    // Non-Vegas zip — log interest and show overlay
+    logZipInterest(zip, stateCode);
+    setResolvedState(stateCode);
+    setResolvedZip(zip);
+    setPromptState('region-overlay');
+  };
+
+  const handleSkipZip = () => {
     onContinue(null);
   };
 
+  const handleEmailSubmit = (email: string, stateCode: string, zip: string) => {
+    logZipInterest(zip, stateCode, email);
+  };
+
+  // Region overlay for non-NV users
+  if (promptState === 'region-overlay') {
+    return (
+      <RegionOverlay
+        stateCode={resolvedState}
+        zip={resolvedZip}
+        onBrowseVegas={() => onContinue(null)}
+        onEmailSubmit={handleEmailSubmit}
+      />
+    );
+  }
+
+  // Zip code fallback — shown when user denies location
+  if (promptState === 'zip-fallback') {
+    return (
+      <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col">
+        <div className="absolute inset-0 bg-gradient-to-b from-purple-950/20 via-slate-950 to-slate-950 pointer-events-none" />
+
+        {/* Skip */}
+        <div className="relative z-10 flex justify-end p-4">
+          <button
+            onClick={handleSkipZip}
+            className="text-sm text-slate-600 hover:text-slate-400 transition-colors py-2 px-3"
+          >
+            Skip
+          </button>
+        </div>
+
+        {/* Main content */}
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 text-center">
+          <div className="relative mb-8 animate-in fade-in zoom-in-95 duration-500">
+            <div className="w-20 h-20 rounded-2xl bg-purple-500/10 flex items-center justify-center">
+              <MapPin className="w-10 h-10 text-purple-400" />
+            </div>
+          </div>
+
+          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            Where are you?
+          </h2>
+          <p className="text-base text-slate-400 max-w-sm leading-relaxed mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
+            We&apos;re live in Las Vegas right now. Enter your zip and we&apos;ll let you know if we&apos;re in your area.
+          </p>
+
+          <div className="w-full max-w-xs animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={zipInput}
+              onChange={(e) => setZipInput(e.target.value.replace(/\D/g, '').slice(0, 5))}
+              placeholder="Enter zip code"
+              className="w-full px-4 py-4 rounded-xl bg-white/[0.06] border border-white/[0.08] text-white text-center text-lg font-medium placeholder:text-slate-600 focus:outline-none focus:border-purple-500/40 mb-4"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleZipSubmit();
+              }}
+            />
+          </div>
+        </div>
+
+        {/* CTAs */}
+        <div className="relative z-10 px-6 pb-10 sm:pb-14 pt-6 space-y-3">
+          <button
+            onClick={handleZipSubmit}
+            disabled={zipInput.length !== 5}
+            className="w-full py-4 min-h-[56px] bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white font-semibold text-base rounded-2xl shadow-lg shadow-purple-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+          >
+            Check My Area
+          </button>
+          <button
+            onClick={handleSkipZip}
+            className="w-full py-3 min-h-[48px] text-slate-500 hover:text-slate-300 text-sm font-medium transition-colors"
+          >
+            Just show me Vegas deals
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Default: location permission request
   return (
     <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col">
       {/* Background gradient */}
@@ -92,7 +214,7 @@ export function LocationPrompt({ onContinue }: LocationPromptProps) {
       {/* Skip */}
       <div className="relative z-10 flex justify-end p-4">
         <button
-          onClick={handleSkip}
+          onClick={handleNotNow}
           className="text-sm text-slate-600 hover:text-slate-400 transition-colors py-2 px-3"
         >
           Not Now
@@ -140,7 +262,7 @@ export function LocationPrompt({ onContinue }: LocationPromptProps) {
           )}
         </button>
         <button
-          onClick={handleSkip}
+          onClick={handleNotNow}
           className="w-full py-3 min-h-[48px] text-slate-500 hover:text-slate-300 text-sm font-medium transition-colors"
         >
           Not Now
