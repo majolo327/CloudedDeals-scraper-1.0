@@ -127,7 +127,10 @@ async def get_iframe(
         logger.info("  iframe[%d] src=%s", i, src)
 
     # Filter to iframes with a real src, excluding known tracking/analytics
-    _TRACKING_DOMAINS = ["crwdcntrl.net", "doubleclick", "google-analytics", "facebook", "twitter"]
+    _TRACKING_DOMAINS = [
+        "crwdcntrl.net", "doubleclick", "google-analytics", "facebook",
+        "twitter", "recaptcha", "google.com/recaptcha", "strainbra.in",
+    ]
     real_iframes = []
     for el in iframes:
         src = await el.get_attribute("src") or ""
@@ -216,7 +219,46 @@ async def _probe_js_embed(page: Page, timeout_sec: float = 60) -> bool:
     return False
 
 
-EmbedType = Literal["iframe", "js_embed"]
+EmbedType = Literal["iframe", "js_embed", "direct"]
+
+# Selectors for Dutchie product cards rendered directly on the page
+# (e.g., planet13.com, medizin).  The content is the standard Dutchie
+# grid but NOT inside an iframe or a known JS-embed container.
+DIRECT_PAGE_PRODUCT_PROBES = [
+    '[data-testid="product-card"]',
+    '[data-testid*="product"]',
+    '[class*="ProductCard"]',
+    '[class*="product-card"]',
+]
+
+_MIN_DIRECT_PRODUCTS = 3  # Need at least this many cards to confirm
+
+
+async def _probe_direct_page(page: Page, timeout_sec: float = 15) -> bool:
+    """Check if the page itself has Dutchie-style product cards (no container).
+
+    This is the fallback for sites like Planet13 / Medizin where the Dutchie
+    menu is rendered directly into the page DOM rather than inside an iframe
+    or a ``#dutchie--embed`` wrapper.
+    """
+    for probe in DIRECT_PAGE_PRODUCT_PROBES:
+        try:
+            await page.locator(probe).first.wait_for(
+                state="attached", timeout=int(timeout_sec * 1000),
+            )
+            count = await page.locator(probe).count()
+            if count >= _MIN_DIRECT_PRODUCTS:
+                logger.info(
+                    "Direct page products found — %d cards via %r", count, probe,
+                )
+                return True
+            logger.debug(
+                "Direct page probe %r matched %d (need >= %d)",
+                probe, count, _MIN_DIRECT_PRODUCTS,
+            )
+        except PlaywrightTimeout:
+            continue
+    return False
 
 
 async def find_dutchie_content(
@@ -251,5 +293,11 @@ async def find_dutchie_content(
         logger.info("JS embed confirmed — using main page as scrape target")
         return page, "js_embed"
 
-    logger.warning("Neither iframe nor JS embed found on %s", page.url)
+    # --- Fall back to direct page content (e.g., planet13.com) ----------
+    logger.info("No JS embed container — probing for direct Dutchie product cards on page")
+    if await _probe_direct_page(page, timeout_sec=15):
+        logger.info("Direct page confirmed — using main page as scrape target")
+        return page, "direct"
+
+    logger.warning("Neither iframe, JS embed, nor direct products found on %s", page.url)
     return None, None

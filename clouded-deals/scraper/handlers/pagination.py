@@ -57,7 +57,11 @@ async def navigate_dutchie_page(
 ) -> bool:
     """Navigate to a specific page on a Dutchie-powered menu.
 
-    Dutchie renders pagination buttons with ``aria-label="go to page N"``.
+    Tries multiple selector strategies:
+      1. ``button[aria-label="go to page N"]`` (standard Dutchie iframe)
+      2. ``a[aria-label="go to page N"]`` (some sites use links)
+      3. Case-insensitive ``Go to page N`` variants
+      4. Generic ``[aria-label]`` catch-all
 
     Parameters
     ----------
@@ -72,28 +76,40 @@ async def navigate_dutchie_page(
         ``True`` if navigation succeeded, ``False`` if the target page
         does not exist or the button is disabled (end of results).
     """
-    selector = f'button[aria-label="go to page {page_number}"]'
+    selectors = [
+        f'button[aria-label="go to page {page_number}"]',
+        f'a[aria-label="go to page {page_number}"]',
+        f'button[aria-label="Go to page {page_number}"]',
+        f'a[aria-label="Go to page {page_number}"]',
+        f'[aria-label="go to page {page_number}"]',
+        f'[aria-label="Go to page {page_number}"]',
+    ]
 
-    try:
-        locator = target.locator(selector).first
-        await locator.wait_for(state="attached", timeout=5_000)
-    except PlaywrightTimeout:
-        logger.info(
-            "Dutchie page %d button not found — reached last page", page_number
-        )
-        return False
+    for selector in selectors:
+        try:
+            locator = target.locator(selector).first
+            await locator.wait_for(state="attached", timeout=3_000)
+        except PlaywrightTimeout:
+            continue
 
-    # CRITICAL: a disabled button means pagination is COMPLETE.
-    if not await locator.is_enabled():
-        logger.info(
-            "Dutchie page %d button is disabled — pagination complete", page_number
-        )
-        return False
+        # CRITICAL: a disabled button means pagination is COMPLETE.
+        if not await locator.is_enabled():
+            logger.info(
+                "Dutchie page %d button is disabled — pagination complete",
+                page_number,
+            )
+            return False
 
-    await locator.click()
-    logger.info("Navigated to Dutchie page %d", page_number)
-    await asyncio.sleep(_POST_NAV_SETTLE_SEC)
-    return True
+        await locator.click()
+        logger.info("Navigated to Dutchie page %d via %s", page_number, selector)
+        await asyncio.sleep(_POST_NAV_SETTLE_SEC)
+        return True
+
+    logger.info(
+        "Dutchie page %d — no pagination button found — reached last page",
+        page_number,
+    )
+    return False
 
 
 # ------------------------------------------------------------------

@@ -16,16 +16,17 @@ from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 
 logger = logging.getLogger(__name__)
 
-# Primary selectors — tried FIRST with a longer timeout (8 s).
-# The text-based "I am 21 or older" selector is the most common across
-# Dutchie / TD sites and reliably triggers the embed callback that
-# injects the menu iframe.  TD-specific ID/form selectors follow.
+# Primary selectors — tried FIRST with a 5 s timeout.
+# "I am 21 or older" is the classic Dutchie/TD text.
+# "Yes" is the most common button across Greenlight, Mint, Oasis, etc.
+# TD-specific ID/form selectors follow as fallback.
 PRIMARY_AGE_GATE_SELECTORS = [
     "button:has-text('I am 21 or older')",
+    "button:has-text('Yes')",
     "button#agc_yes",
     "#agc_form button",
 ]
-PRIMARY_SELECTOR_TIMEOUT_MS = 8_000
+PRIMARY_SELECTOR_TIMEOUT_MS = 5_000
 
 # Secondary selectors tried after primary ones with a shorter timeout.
 SECONDARY_AGE_GATE_SELECTORS = [
@@ -33,14 +34,13 @@ SECONDARY_AGE_GATE_SELECTORS = [
     "button:has-text('over 21')",
     "button:has-text('21+')",
     "button:has-text('Enter')",
-    "button:has-text('Yes')",
     "a:has-text('I am 21 or older')",
     "a:has-text('over 21')",
     "a:has-text('21+')",
     "a:has-text('Enter')",
     "a:has-text('Yes')",
 ]
-SECONDARY_SELECTOR_TIMEOUT_MS = 4_000
+SECONDARY_SELECTOR_TIMEOUT_MS = 3_000
 
 # JavaScript fallback: remove any fixed/absolute overlay that covers the page.
 # Explicitly targets TD's #agc_form / .agc_screen overlay, plus generic

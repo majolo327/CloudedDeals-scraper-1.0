@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -159,6 +160,34 @@ def _deactivate_old_deals() -> None:
 
 _UPSERT_CHUNK_SIZE = 500  # max rows per Supabase upsert call
 
+# Regex to strip junk from product names before storing / dedup
+_RE_NAME_JUNK = re.compile(
+    r"(Add to (cart|bag)|Remove|View details|Out of stock|"
+    r"Sale!|New!|Limited|Sold out|In stock|"
+    r"\bQty\b.*$|\bQuantity\b.*$)",
+    re.IGNORECASE | re.MULTILINE,
+)
+_RE_TRAILING_STRAIN = re.compile(r"\s*(Indica|Sativa|Hybrid)\s*$", re.IGNORECASE)
+
+
+def _clean_product_name(name: str) -> str:
+    """Strip junk text and normalize whitespace in a product name."""
+    if not name:
+        return "Unknown"
+    cleaned = _RE_NAME_JUNK.sub("", name)
+    cleaned = _RE_TRAILING_STRAIN.sub("", cleaned)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
+    cleaned = cleaned.strip(".,;:-|")
+    return cleaned if len(cleaned) >= 3 else name.strip()
+
+
+def _normalize_for_dedup(name: str) -> str:
+    """Normalize a product name into a dedup key (lowercase, no punctuation)."""
+    n = name.lower().strip()
+    n = re.sub(r"[^a-z0-9\s]", "", n)   # strip punctuation
+    n = re.sub(r"\s+", " ", n).strip()    # collapse whitespace
+    return n
+
 
 def _upsert_products(
     dispensary_id: str, products: list[dict[str, Any]]
@@ -173,10 +202,11 @@ def _upsert_products(
     now_iso = datetime.now(timezone.utc).isoformat()
     rows = []
     for p in products:
+        name = _clean_product_name(p.get("name", "Unknown"))
         rows.append(
             {
                 "dispensary_id": dispensary_id,
-                "name": p.get("name", "Unknown"),
+                "name": name,
                 "brand": p.get("brand"),
                 "category": p.get("category"),
                 "original_price": p.get("original_price"),
@@ -197,15 +227,16 @@ def _upsert_products(
     if not rows:
         return []
 
-    # --- Deduplicate on the conflict key --------------------------------
-    # Later entries overwrite earlier ones (they likely have more complete
-    # data from later pagination pages).
+    # --- Deduplicate on normalized name + weight + price ----------------
+    # Normalization strips case, punctuation, and extra whitespace so
+    # "Cookies Gary Payton 3.5g" == "cookies gary payton 35g" etc.
+    # Later entries overwrite earlier ones (more complete data from later pages).
     original_count = len(rows)
     deduped: dict[tuple, dict[str, Any]] = {}
     for row in rows:
         key = (
             row["dispensary_id"],
-            row["name"],
+            _normalize_for_dedup(row["name"]),
             row.get("weight_value"),
             row.get("sale_price"),
         )
@@ -331,7 +362,11 @@ async def _scrape_site_inner(dispensary: dict[str, Any]) -> dict[str, Any]:
     deals: list[dict[str, Any]] = []
 
     for rp in raw_products:
-        text = f"{rp.get('name', '')} {rp.get('raw_text', '')} {rp.get('price', '')}"
+        # Clean raw inputs before CloudedLogic parsing
+        raw_name = _clean_product_name(rp.get("name", ""))
+        raw_text = rp.get("raw_text", "")
+        price_text = rp.get("price", "")
+        text = f"{raw_name} {raw_text} {price_text}"
         product = logic.parse_product(text, dispensary["name"])
         if product is None:
             continue
@@ -341,7 +376,7 @@ async def _scrape_site_inner(dispensary: dict[str, Any]) -> dict[str, Any]:
         # Map CloudedLogic output to the DB schema expected by _upsert_products
         enriched: dict[str, Any] = {
             **rp,
-            "name": product.get("product_name") or rp.get("name", "Unknown"),
+            "name": product.get("product_name") or raw_name or "Unknown",
             "brand": product.get("brand"),
             "category": product.get("category"),
             "original_price": product.get("original_price"),

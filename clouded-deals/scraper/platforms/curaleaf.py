@@ -32,6 +32,11 @@ logger = logging.getLogger(__name__)
 _CURALEAF_CFG = PLATFORM_DEFAULTS["curaleaf"]
 _POST_AGE_GATE_WAIT = _CURALEAF_CFG["wait_after_age_gate_sec"]  # 30 s
 
+# Cap pagination to avoid 240 s site timeout.  Curaleaf sites have 500–700+
+# products across 12-14 pages.  10 pages × 51 products ≈ 510, which captures
+# the vast majority of specials and finishes in ~155 s.
+_MAX_PAGES = 10
+
 # Curaleaf product card selectors (tried in order).
 _PRODUCT_SELECTORS = [
     '[data-testid*="product"]',
@@ -80,7 +85,7 @@ class CuraleafScraper(BaseScraper):
         all_products: list[dict[str, Any]] = []
         page_num = 1
 
-        while True:
+        while page_num <= _MAX_PAGES:
             products = await self._extract_products()
             all_products.extend(products)
             logger.info(
@@ -101,6 +106,9 @@ class CuraleafScraper(BaseScraper):
                 )
                 break
 
+        if page_num > _MAX_PAGES:
+            logger.info("[%s] Reached max pages (%d) — stopping pagination", self.slug, _MAX_PAGES)
+
         # --- Fallback: if /specials returned 0 products, try the base menu ---
         if not all_products and "/specials" in self.url:
             base_url = self.url.replace("/specials", "")
@@ -114,7 +122,7 @@ class CuraleafScraper(BaseScraper):
             logger.info("[%s] Waiting %ds for product cards on base menu…", self.slug, _POST_AGE_GATE_WAIT)
             await asyncio.sleep(_POST_AGE_GATE_WAIT)
             page_num = 1
-            while True:
+            while page_num <= _MAX_PAGES:
                 products = await self._extract_products()
                 all_products.extend(products)
                 logger.info(
@@ -222,17 +230,25 @@ class CuraleafScraper(BaseScraper):
             except PlaywrightTimeout:
                 continue
 
-        # Wait for redirect back to shop page
+        # Wait for redirect back to store page
         try:
-            await self.page.wait_for_url("**/shop/**", timeout=15_000)
-            logger.info("[%s] Redirected back to shop: %s", self.slug, self.page.url)
+            await self.page.wait_for_url("**/stores/**", timeout=15_000)
+            logger.info("[%s] Redirected back to store: %s", self.slug, self.page.url)
         except PlaywrightTimeout:
             logger.warning(
-                "[%s] Did not redirect back to shop after age gate — current URL: %s",
+                "[%s] Did not redirect back to store after age gate — current URL: %s",
                 self.slug, self.page.url,
             )
-            # Take debug screenshot of the stuck age gate
             await self.save_debug_info("age_gate_stuck")
+
+        # Dismiss cookie consent banner (OneTrust) immediately so it
+        # doesn't block product extraction or pagination clicks.
+        try:
+            removed = await self.page.evaluate(_JS_DISMISS_OVERLAYS)
+            if removed:
+                logger.info("[%s] Dismissed %d overlay(s) after age gate redirect", self.slug, removed)
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Product extraction

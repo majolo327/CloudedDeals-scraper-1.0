@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import Any, Union
 
 from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
@@ -38,9 +39,23 @@ _TD_SLUGS = {"td-gibson", "td-eastern", "td-decatur"}
 _POST_AGE_GATE_TD = 45        # TD sites need full 45 s
 _POST_AGE_GATE_OTHER = 10     # Other Dutchie sites need 10 s
 _PRODUCT_SELECTORS = [
+    '[data-testid="product-card"]',
     '[data-testid*="product"]',
+    '[class*="ProductCard"]',
+    '[class*="product-card"]',
     'div[class*="product"]',
 ]
+
+# Junk patterns to strip from raw_text before sending to CloudedLogic
+_JUNK_PATTERNS = re.compile(
+    r"(Add to (cart|bag)|Remove|View details|Out of stock|"
+    r"Sale!|New!|Limited|Sold out|In stock|"
+    r"\bQty\b.*$|\bQuantity\b.*$)",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# Trailing strain-type labels that shouldn't be in the product name
+_TRAILING_STRAIN = re.compile(r"\s*(Indica|Sativa|Hybrid)\s*$", re.IGNORECASE)
 
 # Age gate cookie to set if the site's own JS doesn't set one after overlay removal.
 _AGE_GATE_COOKIE_JS = """
@@ -154,7 +169,11 @@ class DutchieScraper(BaseScraper):
     # ------------------------------------------------------------------
 
     async def _extract_products(self, frame: Union[Page, Frame]) -> list[dict[str, Any]]:
-        """Pull product data out of the current Dutchie page view."""
+        """Pull product data out of the current Dutchie page view.
+
+        Tries multiple selectors and extracts clean names, prices, and
+        product URLs from each card.
+        """
         products: list[dict[str, Any]] = []
 
         # Try each selector until one yields results
@@ -175,22 +194,67 @@ class DutchieScraper(BaseScraper):
         if not elements:
             return products
 
+        seen_names: set[str] = set()
+
         for el in elements:
             try:
-                name = await el.get_attribute("aria-label") or (
-                    await el.inner_text()
-                ).split("\n")[0].strip()
+                # --- Name extraction (try multiple strategies) ---
+                name = None
 
+                # Strategy 1: aria-label on the card itself
+                name = await el.get_attribute("aria-label")
+
+                # Strategy 2: heading element inside the card
+                if not name:
+                    for heading_sel in ("h2", "h3", "h4", "[class*='name']", "[class*='Name']", "[class*='title']"):
+                        try:
+                            heading = el.locator(heading_sel).first
+                            if await heading.count() > 0:
+                                name = (await heading.inner_text()).strip()
+                                if name:
+                                    break
+                        except Exception:
+                            continue
+
+                # Strategy 3: first meaningful line of text
+                if not name:
+                    text_block = await el.inner_text()
+                    for line in text_block.split("\n"):
+                        line = line.strip()
+                        # Skip short/junk lines
+                        if len(line) >= 3 and not line.startswith("$") and "Add to" not in line:
+                            name = line
+                            break
+
+                if not name:
+                    name = (await el.inner_text()).split("\n")[0].strip()
+
+                # Clean the name
+                name = _TRAILING_STRAIN.sub("", name).strip()
+                name = _JUNK_PATTERNS.sub("", name).strip()
+                name = re.sub(r"\s{2,}", " ", name).strip()
+
+                if not name or len(name) < 3:
+                    continue
+
+                # --- Raw text extraction (cleaned) ---
                 text_block = await el.inner_text()
-                lines = [ln.strip() for ln in text_block.split("\n") if ln.strip()]
+                raw_text = _JUNK_PATTERNS.sub("", text_block).strip()
+                raw_text = re.sub(r"\n{3,}", "\n\n", raw_text)  # collapse blank lines
+
+                # --- In-page dedup (same name on same page = duplicate) ---
+                dedup_key = name.lower().strip()
+                if dedup_key in seen_names:
+                    continue
+                seen_names.add(dedup_key)
 
                 product: dict[str, Any] = {
                     "name": name,
-                    "raw_text": text_block.strip(),
+                    "raw_text": raw_text,
                     "product_url": self.url,  # fallback: dispensary menu URL
                 }
 
-                # Try to extract a product link from an <a> ancestor or child
+                # --- Product link ---
                 try:
                     href = await el.evaluate(
                         """el => {
@@ -203,11 +267,12 @@ class DutchieScraper(BaseScraper):
                 except Exception:
                     pass
 
-                # Attempt to pull a price from lines containing "$".
-                for line in lines:
-                    if "$" in line:
-                        product["price"] = line
-                        break
+                # --- Price extraction (all dollar amounts) ---
+                lines = [ln.strip() for ln in text_block.split("\n") if ln.strip()]
+                price_lines = [ln for ln in lines if "$" in ln]
+                if price_lines:
+                    # Join all price-containing lines for better parsing
+                    product["price"] = " ".join(price_lines)
 
                 products.append(product)
             except Exception:
