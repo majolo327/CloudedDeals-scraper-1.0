@@ -1,3 +1,20 @@
+/**
+ * Strip the brand name from the start of a product name when the brand is
+ * already displayed separately on the card. Avoids:
+ *   DOGWALKERS
+ *   DOGWALKERS Big Dogs Casino Kush Preroll
+ */
+export function getDisplayName(productName: string, brandName: string): string {
+  if (!brandName || !productName) return productName;
+  const nameLC = productName.toLowerCase();
+  const brandLC = brandName.toLowerCase();
+  if (nameLC.startsWith(brandLC)) {
+    const stripped = productName.slice(brandName.length).replace(/^[\s\-|:]+/, '').trim();
+    return stripped.length > 0 ? stripped : productName;
+  }
+  return productName;
+}
+
 export function getTimeAgo(date: Date | string): string {
   const now = new Date();
   const then = typeof date === 'string' ? new Date(date) : date;

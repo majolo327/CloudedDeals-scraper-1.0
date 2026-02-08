@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Heart, MapPin, Share2, ExternalLink } from 'lucide-react';
 import type { Deal } from '@/types';
-import { getBadge, getPricePerUnit, getDistanceMiles } from '@/utils';
+import { getBadge, getPricePerUnit, getDistanceMiles, getDisplayName } from '@/utils';
 import { getUserCoords } from './ftue';
 import { DealBadge } from './badges/DealBadge';
 import { ShareModal } from './modals/ShareModal';
@@ -89,7 +89,7 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
 
       {/* Product name */}
       <h3 className="text-[13px] sm:text-sm font-medium text-slate-100 mb-1 line-clamp-2">
-        {deal.product_name}
+        {getDisplayName(deal.product_name, deal.brand?.name || '')}
       </h3>
 
       {/* Weight + Category */}

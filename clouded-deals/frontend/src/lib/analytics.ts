@@ -64,7 +64,9 @@ export type EventType =
   | 'onboarding_completed'
   | 'onboarding_skipped'
   | 'onboarding_screen_viewed'
-  | 'onboarding_email_captured';
+  | 'onboarding_email_captured'
+  | 'zip_email_capture'
+  | 'zip_interest_logged';
 
 /**
  * Initialize anonymous user on app load. Sets up the anon_id and

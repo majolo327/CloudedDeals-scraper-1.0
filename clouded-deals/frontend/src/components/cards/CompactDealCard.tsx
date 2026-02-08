@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Heart, X, MapPin, Sparkles } from 'lucide-react';
 import type { Deal } from '@/types';
-import { getBadge, getPricePerUnit, getDistanceMiles } from '@/utils';
+import { getBadge, getPricePerUnit, getDistanceMiles, getDisplayName } from '@/utils';
 import { getUserCoords } from '../ftue';
 import { DealBadge } from '../badges/DealBadge';
 import type { RecommendationReason } from '@/lib/personalization';
@@ -128,7 +128,7 @@ export function CompactDealCard({
 
       {/* Product name */}
       <h3 className="text-[12px] sm:text-[13px] font-semibold text-slate-100 line-clamp-2 leading-snug mb-0.5">
-        {deal.product_name}
+        {getDisplayName(deal.product_name, deal.brand.name)}
       </h3>
 
       {/* Weight + Category */}
