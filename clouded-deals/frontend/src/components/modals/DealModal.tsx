@@ -7,6 +7,7 @@ import { AccuracyModal } from './AccuracyModal';
 import { DealBadge } from '../badges/DealBadge';
 import type { Deal } from '@/types';
 import { getMapsUrl, getBadge, getDisplayName } from '@/utils';
+import { trackGetDealClick } from '@/lib/analytics';
 
 interface DealModalProps {
   deal: Deal;
@@ -209,6 +210,7 @@ export function DealModal({
                 href={deal.product_url || deal.dispensary?.menu_url || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackGetDealClick(deal.id, deal.dispensary?.name || '', deal.product_url || deal.dispensary?.menu_url || '')}
                 className="flex-1 py-3 sm:py-3.5 min-h-[48px] bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-purple-500/20 flex items-center justify-center gap-2"
               >
                 <span className="text-sm sm:text-base">Get This Deal</span>
