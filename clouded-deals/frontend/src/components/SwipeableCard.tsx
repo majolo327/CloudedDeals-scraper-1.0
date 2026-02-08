@@ -5,8 +5,6 @@ import { animated, useSpring } from 'react-spring';
 import { useDrag } from '@use-gesture/react';
 import { Heart, X, ExternalLink, MapPin, BadgeCheck } from 'lucide-react';
 import type { Deal } from '@/types';
-import { getBadge } from '@/utils';
-import { DealBadge } from './badges/DealBadge';
 
 interface SwipeableCardProps {
   deal: Deal;
@@ -171,7 +169,6 @@ export function SwipeableCard({
                 Verified
               </span>
             )}
-            {(() => { const badge = getBadge(deal); return badge ? <DealBadge type={badge} /> : null; })()}
             {discount && (
               <span className="ml-auto px-2 py-1 rounded-lg text-xs font-bold bg-green-500/15 text-green-400">
                 {discount}% OFF

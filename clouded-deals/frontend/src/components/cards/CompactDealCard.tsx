@@ -5,8 +5,6 @@ import { Heart, X, MapPin, Sparkles } from 'lucide-react';
 import type { Deal } from '@/types';
 import { getDistanceMiles, getDisplayName } from '@/utils';
 import { getUserCoords } from '../ftue';
-import { HeatIndicator } from '../HeatIndicator';
-import { getDealHeat } from '@/utils/dealHeat';
 import type { RecommendationReason } from '@/lib/personalization';
 
 interface CompactDealCardProps {
@@ -47,7 +45,6 @@ export function CompactDealCard({
   const [saveGlow, setSaveGlow] = useState(false);
   const prevSavedRef = useRef(isSaved);
 
-  const heat = getDealHeat(deal);
   const distance = useMemo(() => {
     const userCoords = getUserCoords();
     if (!userCoords) return null;
@@ -98,10 +95,9 @@ export function CompactDealCard({
         </div>
       )}
 
-      {/* Top row: heat + brand | save heart */}
+      {/* Top row: brand | save heart */}
       <div className="flex items-start justify-between gap-1 mb-1.5">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          <HeatIndicator heat={heat} compact />
           <span className="text-[10px] text-purple-400 uppercase tracking-wider font-bold truncate">
             {deal.brand.name}
           </span>
