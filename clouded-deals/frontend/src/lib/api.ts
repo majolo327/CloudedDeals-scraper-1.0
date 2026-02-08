@@ -309,3 +309,61 @@ export async function fetchDispensaries(region?: string): Promise<FetchDispensar
     return { dispensaries: [], error: message };
   }
 }
+
+// --------------------------------------------------------------------------
+// Extended search — queries ALL scraped products (not just top 100)
+// Returns products with a discount that match the search query.
+// --------------------------------------------------------------------------
+
+export interface SearchExtendedResult {
+  deals: Deal[];
+  error: string | null;
+}
+
+function escapeLike(s: string): string {
+  return s.replace(/%/g, '\\%').replace(/_/g, '\\_');
+}
+
+export async function searchExtendedDeals(
+  query: string,
+  curatedDealIds: Set<string>,
+  region?: string,
+): Promise<SearchExtendedResult> {
+  if (!isSupabaseConfigured || !query || query.trim().length < 2) {
+    return { deals: [], error: null };
+  }
+
+  const activeRegion = region ?? getRegion() ?? DEFAULT_REGION;
+  const escaped = escapeLike(query.trim());
+  const pattern = `%${escaped}%`;
+
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select(
+        `id, name, brand, category, original_price, sale_price, discount_percent,
+         weight_value, weight_unit, deal_score, product_url, scraped_at, created_at,
+         dispensary:dispensaries!inner(id, name, address, city, state, platform, url, region)`
+      )
+      .eq('is_active', true)
+      .eq('dispensaries.region', activeRegion)
+      .gt('discount_percent', 0)
+      .or(`name.ilike.${pattern},brand.ilike.${pattern}`)
+      .order('discount_percent', { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+
+    const allResults = data
+      ? (data as unknown as ProductRow[]).map(normalizeDeal)
+      : [];
+
+    // Filter out deals already in the curated set
+    const extended = allResults.filter((d) => !curatedDealIds.has(d.id));
+
+    return { deals: extended.slice(0, 30), error: null };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Extended search failed';
+    return { deals: [], error: message };
+  }
+}

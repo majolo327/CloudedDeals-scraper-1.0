@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Search, Package, MapPin, ChevronRight, X, Clock, Store, ExternalLink } from 'lucide-react';
+import { Search, Package, MapPin, ChevronRight, X, Clock, Store, ExternalLink, Tag } from 'lucide-react';
 import type { Deal, Brand } from '@/types';
 import { DealCard } from './DealCard';
 import { CATEGORY_FILTERS, countDealsByBrand, filterDeals, getMapsUrl } from '@/utils';
+import { searchExtendedDeals } from '@/lib/api';
 import { DISPENSARIES } from '@/data/dispensaries';
 import { trackEvent } from '@/lib/analytics';
 
@@ -71,8 +72,13 @@ export function SearchPage({
   const [activeCategory, setActiveCategory] = useState<FilterCategory>('all');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [extendedDeals, setExtendedDeals] = useState<Deal[]>([]);
+  const [extendedLoading, setExtendedLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout>();
+
+  // Set of curated deal IDs for deduplication
+  const curatedDealIds = useMemo(() => new Set(deals.map((d) => d.id)), [deals]);
 
   // Load recent searches on mount
   useEffect(() => {
@@ -111,6 +117,25 @@ export function SearchPage({
     };
   }, [searchQuery]);
 
+  // Extended search — query all scraped products from Supabase
+  useEffect(() => {
+    if (!debouncedQuery || debouncedQuery.trim().length < 2) {
+      setExtendedDeals([]);
+      return;
+    }
+
+    let cancelled = false;
+    setExtendedLoading(true);
+
+    searchExtendedDeals(debouncedQuery, curatedDealIds).then((result) => {
+      if (cancelled) return;
+      setExtendedDeals(result.deals);
+      setExtendedLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [debouncedQuery, curatedDealIds]);
+
   const handleCategoryFilter = useCallback((cat: FilterCategory) => {
     setActiveCategory(cat);
     if (cat !== 'all') {
@@ -139,7 +164,7 @@ export function SearchPage({
     ).slice(0, 6);
   }, [debouncedQuery]);
 
-  // ---- Matching deals ----
+  // ---- Matching deals (curated top 100) ----
   const filteredDeals = useMemo(
     () =>
       filterDeals(deals, {
@@ -148,6 +173,12 @@ export function SearchPage({
       }),
     [deals, activeCategory, debouncedQuery]
   );
+
+  // ---- Extended results filtered by category ----
+  const filteredExtendedDeals = useMemo(() => {
+    if (activeCategory === 'all') return extendedDeals;
+    return extendedDeals.filter((d) => d.category === activeCategory);
+  }, [extendedDeals, activeCategory]);
 
   const totalResults = matchingBrands.length + matchingDispensaries.length + filteredDeals.length;
 
@@ -368,13 +399,13 @@ export function SearchPage({
                 </div>
               )}
 
-              {/* ---- Deal Results ---- */}
+              {/* ---- Featured Deal Results (curated top 100) ---- */}
               {filteredDeals.length > 0 && (
                 <div className="mb-6">
                   <div className="flex items-center gap-2 mb-3">
                     <Search className="w-4 h-4 text-purple-400" />
                     <span className="text-sm font-medium text-slate-300">
-                      Deals ({filteredDeals.length})
+                      Featured Deals ({filteredDeals.length})
                     </span>
                   </div>
                   <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
@@ -406,8 +437,61 @@ export function SearchPage({
                 </div>
               )}
 
-              {/* No results */}
-              {totalResults === 0 && (
+              {/* ---- Extended Results (all scraped products on sale) ---- */}
+              {extendedLoading && filteredDeals.length === 0 && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="ml-2 text-sm text-slate-500">Searching all products...</span>
+                </div>
+              )}
+
+              {filteredExtendedDeals.length > 0 && (
+                <div className="mb-6">
+                  <div className="mb-4 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Tag className="w-4 h-4 text-emerald-400" />
+                      <span className="text-sm font-medium text-slate-300">
+                        Also Found on Sale ({filteredExtendedDeals.length})
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Not in today&apos;s top picks, but we found {filteredExtendedDeals.length === 1 ? 'this' : 'these'} on sale for you
+                    </p>
+                  </div>
+                  <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredExtendedDeals.map((deal, index) => (
+                      <div
+                        key={deal.id}
+                        className="animate-in fade-in relative"
+                        style={{
+                          animationDelay: `${index * 30}ms`,
+                          animationFillMode: 'both',
+                        }}
+                      >
+                        <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/20 text-[10px] font-medium text-emerald-400">
+                          On sale at {deal.dispensary.name}
+                        </div>
+                        <DealCard
+                          deal={deal}
+                          isSaved={savedDeals.has(deal.id)}
+                          onSave={() => toggleSavedDeal(deal.id)}
+                          onClick={() => {
+                            trackEvent('deal_viewed', deal.id, {
+                              category: deal.category,
+                              brand: deal.brand.name,
+                              source: 'extended_search',
+                            });
+                            setSelectedDeal(deal);
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No results at all */}
+              {totalResults === 0 && filteredExtendedDeals.length === 0 && !extendedLoading && (
                 <div className="text-center py-16">
                   <Search className="w-16 h-16 mx-auto mb-4 text-slate-700" />
                   <p className="text-slate-400 text-lg mb-2">
