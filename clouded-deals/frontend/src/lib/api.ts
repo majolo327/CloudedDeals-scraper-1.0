@@ -284,7 +284,6 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
 interface DispensaryRow {
   id: string;
   name: string;
-  slug: string;
   address: string | null;
   city: string | null;
   platform: string | null;
@@ -322,7 +321,7 @@ export async function fetchDispensaries(region?: string): Promise<FetchDispensar
     // Fetch ALL dispensaries in the region (not just is_active)
     const { data, error } = await supabase
       .from('dispensaries')
-      .select('id, name, slug, address, city, platform, url, is_active, region')
+      .select('id, name, address, city, platform, url, is_active, region')
       .eq('region', activeRegion)
       .order('name', { ascending: true });
 
@@ -345,7 +344,7 @@ export async function fetchDispensaries(region?: string): Promise<FetchDispensar
     const dispensaries: BrowseDispensary[] = (data as DispensaryRow[]).map((row) => ({
       id: row.id,
       name: row.name,
-      slug: row.slug,
+      slug: row.id,
       address: row.address || '',
       city: row.city || '',
       menu_url: row.url || '',
