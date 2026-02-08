@@ -267,7 +267,7 @@ export function SearchPage({
           {isSearching && (
             <div className="flex items-center justify-center py-8">
               <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-              <span className="ml-2 text-sm text-slate-400">Searching...</span>
+              <span className="ml-2 text-sm text-slate-400">Checking every dispensary...</span>
             </div>
           )}
 
@@ -441,7 +441,7 @@ export function SearchPage({
               {extendedLoading && filteredDeals.length === 0 && (
                 <div className="flex items-center justify-center py-8">
                   <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
-                  <span className="ml-2 text-sm text-slate-500">Searching all products...</span>
+                  <span className="ml-2 text-sm text-slate-500">Pulling the freshest deals...</span>
                 </div>
               )}
 
@@ -492,10 +492,10 @@ export function SearchPage({
                 <div className="text-center py-16">
                   <Search className="w-16 h-16 mx-auto mb-4 text-slate-700" />
                   <p className="text-slate-400 text-lg mb-2">
-                    Nothing for &ldquo;{debouncedQuery}&rdquo;
+                    No matches for &ldquo;{debouncedQuery}&rdquo;
                   </p>
                   <p className="text-slate-500 text-sm max-w-xs mx-auto">
-                    No deals match right now. Deals refresh every morning &mdash; try a different brand, category, or dispensary.
+                    Try a different brand, strain, or product type.
                   </p>
                 </div>
               )}

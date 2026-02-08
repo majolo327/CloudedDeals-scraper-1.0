@@ -25,10 +25,9 @@ function buildShareUrl(deal: Deal): string {
 }
 
 function buildShareText(deal: Deal, url: string): string {
-  const discount = deal.original_price
-    ? ` (was $${deal.original_price})`
-    : '';
-  return `Check out this deal: ${deal.brand?.name || ''} ${deal.product_name} for $${deal.deal_price}${discount} at ${deal.dispensary?.name || 'Las Vegas'}!\n${url}`;
+  const brand = deal.brand?.name || '';
+  const dispensary = deal.dispensary?.name || 'Las Vegas';
+  return `${brand} ${deal.product_name} for $${deal.deal_price} at ${dispensary}. Found it on Clouded Deals\n${url}`;
 }
 
 export function ShareModal({ deal, onClose }: ShareModalProps) {

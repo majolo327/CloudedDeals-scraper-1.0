@@ -9,30 +9,48 @@ interface FooterProps {
 }
 
 export function Footer({ onNavigateToForBusiness, onNavigate }: FooterProps) {
-  const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
 
   return (
     <footer className="relative border-t mt-8" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'rgba(10, 14, 26, 0.6)' }}>
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* How It Works collapsible section */}
-        <div className="mb-6">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* About / Brand Statement */}
+        <div className="mb-8">
           <button
-            onClick={() => setShowHowItWorks(!showHowItWorks)}
+            onClick={() => setShowAbout(!showAbout)}
             className="flex items-center gap-1.5 mx-auto text-sm text-slate-400 hover:text-purple-400 transition-colors"
           >
-            How It Works
-            {showHowItWorks ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            About Clouded Deals
+            {showAbout ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
-          {showHowItWorks && (
-            <div className="mt-4 max-w-md mx-auto p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+          {showAbout && (
+            <div className="mt-5 max-w-md mx-auto p-5 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-4">
+              <h3 className="text-base font-bold text-white text-center leading-snug">
+                Every deal. Every dispensary. One place.
+              </h3>
               <p className="text-xs text-slate-400 leading-relaxed text-center">
-                We check every dispensary in Vegas every morning. Every deal you see is live today.
-                Tap any deal to go straight to the product page and grab it. Save deals with the{' '}
-                <span className="text-purple-400">&hearts;</span> before midnight &mdash; they refresh daily.
+                We check every dispensary in Las Vegas every single morning and bring every deal into one place.
+              </p>
+              <p className="text-xs text-slate-400 leading-relaxed text-center">
+                No accounts required. No ads. No sponsored placements. Every deal is ranked on its own merit.
+              </p>
+              <p className="text-xs text-slate-400 leading-relaxed text-center">
+                We built this because we were tired of opening 10 different apps and scrolling through 10 different menus just to find out who has the best price on a cart today. So we fixed it.
+              </p>
+              <p className="text-xs font-semibold text-slate-300 text-center">
+                Clouded Deals is free. It will always be free for consumers.
+              </p>
+              <p className="text-xs text-slate-500 text-center">
+                Built in Las Vegas.
               </p>
             </div>
           )}
         </div>
+
+        {/* Trust commitment */}
+        <p className="text-center text-[10px] text-slate-600 mb-6 max-w-xs mx-auto leading-relaxed">
+          Every deal is ranked on merit. No sponsored placements. No ads. Ever.
+        </p>
 
         {onNavigateToForBusiness && (
           <div className="flex justify-center mb-4">
@@ -47,7 +65,6 @@ export function Footer({ onNavigateToForBusiness, onNavigate }: FooterProps) {
         <p className="text-center text-xs text-slate-500 leading-relaxed">
           Clouded Deals is not a licensed cannabis retailer. All deals are subject to
           dispensary verification. Prices shown do not include tax. For adults 21+ only.
-          This is not medical advice.
         </p>
 
         <div className="mt-8 pt-6 border-t border-slate-800/50">

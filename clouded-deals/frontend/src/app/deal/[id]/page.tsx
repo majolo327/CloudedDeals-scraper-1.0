@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: DealPageProps): Promise<Metad
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
-    return { title: 'Deal — CloudedDeals' };
+    return { title: 'Deal — Clouded Deals' };
   }
 
   try {
@@ -36,10 +36,10 @@ export async function generateMetadata({ params }: DealPageProps): Promise<Metad
       const disp = data.dispensary as any;
       const dispName: string = Array.isArray(disp) ? disp[0]?.name || '' : disp?.name || '';
 
-      const title = `🔥 ${label} — ${price}`;
+      const title = `${label} — ${price} at ${dispName || 'Las Vegas'}`;
       const description = dispName
-        ? `${data.category || 'Deal'} at ${dispName} · CloudedDeals`
-        : 'Cannabis deal on CloudedDeals';
+        ? `${data.category || 'Deal'} at ${dispName}. Found on Clouded Deals.`
+        : 'Cannabis deal found on Clouded Deals.';
 
       return {
         title,
@@ -63,8 +63,8 @@ export async function generateMetadata({ params }: DealPageProps): Promise<Metad
   }
 
   return {
-    title: 'Deal — CloudedDeals',
-    description: 'Cannabis deal on CloudedDeals',
+    title: 'Deal — Clouded Deals',
+    description: 'Cannabis deal found on Clouded Deals.',
   };
 }
 

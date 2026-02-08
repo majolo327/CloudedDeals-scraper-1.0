@@ -61,7 +61,7 @@ export function CompactDealCard({
     if (isSaved && !prevSavedRef.current) {
       setHeartPulse(true);
       setSaveGlow(true);
-      const heartTimer = setTimeout(() => setHeartPulse(false), 200);
+      const heartTimer = setTimeout(() => setHeartPulse(false), 300);
       const glowTimer = setTimeout(() => setSaveGlow(false), 400);
       return () => {
         clearTimeout(heartTimer);
@@ -180,6 +180,9 @@ export function CompactDealCard({
           <X className="w-3 h-3" />
         </button>
       </div>
+
+      {/* Watermark for screenshots */}
+      <p className="text-[7px] text-slate-700 text-right mt-1 select-none">cloudeddeals.com</p>
     </div>
   );
 }

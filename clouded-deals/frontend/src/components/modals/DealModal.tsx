@@ -19,10 +19,9 @@ interface DealModalProps {
 }
 
 function formatShareText(deal: Deal, url: string): string {
-  return `${deal.brand?.name || ''} — ${deal.product_name}
-$${deal.deal_price}${deal.original_price ? ` (was $${deal.original_price})` : ''}
-${deal.dispensary?.name || 'Unknown'} — Las Vegas
-${url}`;
+  const brand = deal.brand?.name || '';
+  const dispensary = deal.dispensary?.name || 'Las Vegas';
+  return `${brand} ${deal.product_name} for $${deal.deal_price} at ${dispensary}. Found it on Clouded Deals\n${url}`;
 }
 
 export function DealModal({

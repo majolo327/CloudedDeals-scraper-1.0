@@ -81,10 +81,10 @@ export function DealStack({
           <Heart className="w-8 h-8 text-purple-400" />
         </div>
         <h2 className="text-lg font-semibold text-white mb-2">
-          You&apos;ve seen all deals!
+          You&apos;ve seen every deal today
         </h2>
         <p className="text-sm text-slate-400 mb-6 max-w-xs">
-          Check back later for fresh deals, or browse your saved ones.
+          Deals refresh at midnight. Check your saved ones or come back tomorrow.
         </p>
         {history.length > 0 && (
           <button

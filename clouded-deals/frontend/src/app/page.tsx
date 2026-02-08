@@ -211,9 +211,9 @@ export default function Home() {
       if (!wasSaved) {
         const deal = deals.find((d) => d.id === dealId);
         if (deal) trackBrand(deal.brand.name);
-        addToast('Deal saved!', 'saved');
+        addToast('Saved. Expires at midnight.', 'saved');
       } else {
-        addToast('Removed from saved', 'removed');
+        addToast('Removed from saves.', 'removed');
       }
     },
     [savedDeals, toggleSavedDeal, deals, trackBrand, addToast]
@@ -321,6 +321,7 @@ export default function Home() {
         {activePage === 'home' && (
           loading ? (
             <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
+              <p className="text-sm text-slate-500 text-center animate-pulse">Checking every dispensary in Vegas...</p>
               <TopPickSkeleton />
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -334,9 +335,9 @@ export default function Home() {
                 <AlertCircle className="w-8 h-8 text-red-400" />
               </div>
               <h2 className="text-lg font-semibold text-slate-300 mb-2">
-                Something went wrong
+                Can&apos;t reach the deals right now
               </h2>
-              <p className="text-sm text-slate-500 max-w-sm mb-4">{error}</p>
+              <p className="text-sm text-slate-500 max-w-sm mb-4">Check your connection and try again.</p>
               <button
                 onClick={() => window.location.reload()}
                 className="px-4 py-2 bg-purple-500/20 text-purple-400 rounded-lg text-sm font-medium hover:bg-purple-500/30 transition-colors"

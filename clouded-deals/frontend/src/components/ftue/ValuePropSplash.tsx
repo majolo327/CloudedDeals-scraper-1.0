@@ -47,7 +47,7 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
 
         {/* Subtext */}
         <p className="text-base text-slate-400 max-w-sm leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
-          No more opening 10 menus. No more guessing who has the best price. We already checked &mdash; every morning.
+          We checked every dispensary this morning so you don&apos;t have to.
         </p>
 
         {/* Feature callouts */}
@@ -56,21 +56,21 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
             {
               icon: Search,
               title: 'Search & Filter',
-              desc: 'Find your favorite brands, strains, and product types instantly',
+              desc: 'Your favorites, best prices, one tap',
               color: 'text-purple-400 bg-purple-500/10',
             },
             {
               icon: MapPin,
               title: 'Map View',
-              desc: 'See every deal near you and get directions in one tap',
+              desc: 'See every deal near you with directions',
               color: 'text-emerald-400 bg-emerald-500/10',
             },
             {
               icon: DollarSign,
-              title: 'Curated Daily',
+              title: 'Updated Daily',
               desc: dealCount > 0
-                ? `Today's best ${dealCount} deals in Vegas, all under $40`
-                : "Today's best deals in Vegas, all under $40",
+                ? `${dealCount} dispensaries. Every deal. Updated daily.`
+                : '109 dispensaries. Every deal. Updated daily.',
               color: 'text-amber-400 bg-amber-500/10',
             },
           ].map((feature) => (

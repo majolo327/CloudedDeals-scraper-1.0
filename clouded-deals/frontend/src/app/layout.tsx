@@ -23,9 +23,9 @@ export const viewport: Viewport = {
 };
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://cloudeddeals.com";
-const OG_TITLE = "CloudedDeals — Las Vegas Cannabis Deals";
+const OG_TITLE = "Clouded Deals — Every Deal, Every Dispensary, One Place";
 const OG_DESCRIPTION =
-  "Real-time cannabis deals scraped from 27 Las Vegas dispensaries. Top flower, vape, edible & concentrate deals updated daily.";
+  "We check every dispensary in Las Vegas every morning so you don't have to. Flower, vapes, edibles & concentrates — today's best prices, updated daily.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
