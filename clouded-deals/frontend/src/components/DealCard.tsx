@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Heart, MapPin, Share2, ExternalLink } from 'lucide-react';
 import type { Deal } from '@/types';
-import { getBadge, getPricePerUnit } from '@/utils';
+import { getBadge, getPricePerUnit, getDistanceMiles } from '@/utils';
+import { getUserCoords } from './ftue';
 import { DealBadge } from './badges/DealBadge';
 import { ShareModal } from './modals/ShareModal';
 
@@ -22,6 +23,17 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
   const discountPercent = deal.original_price && deal.original_price > deal.deal_price
     ? Math.round(((deal.original_price - deal.deal_price) / deal.original_price) * 100)
     : 0;
+
+  const distance = useMemo(() => {
+    const userCoords = getUserCoords();
+    if (!userCoords) return null;
+    return getDistanceMiles(
+      userCoords.lat,
+      userCoords.lng,
+      deal.dispensary.latitude,
+      deal.dispensary.longitude,
+    );
+  }, [deal.dispensary.latitude, deal.dispensary.longitude]);
 
   return (
     <div
@@ -104,11 +116,14 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
         )}
       </div>
 
-      {/* Footer: Dispensary + Get Deal */}
+      {/* Footer: Dispensary + Distance + Get Deal */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-[10px] text-slate-500 min-w-0">
           <MapPin className="w-2.5 h-2.5 opacity-60 shrink-0" />
           <span className="truncate">{deal.dispensary?.name || 'Unknown'}</span>
+          {distance != null && (
+            <span className="text-slate-600 shrink-0">{distance.toFixed(1)} mi</span>
+          )}
         </div>
         <a
           href={deal.product_url || deal.dispensary?.menu_url || '#'}

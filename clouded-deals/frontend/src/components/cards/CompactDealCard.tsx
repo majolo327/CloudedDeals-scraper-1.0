@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Heart, X, MapPin, Sparkles } from 'lucide-react';
 import type { Deal } from '@/types';
-import { getBadge, getPricePerUnit } from '@/utils';
+import { getBadge, getPricePerUnit, getDistanceMiles } from '@/utils';
+import { getUserCoords } from '../ftue';
 import { DealBadge } from '../badges/DealBadge';
 import type { RecommendationReason } from '@/lib/personalization';
 
@@ -50,6 +51,11 @@ export function CompactDealCard({
   const discountPercent = deal.original_price && deal.original_price > deal.deal_price
     ? Math.round(((deal.original_price - deal.deal_price) / deal.original_price) * 100)
     : 0;
+  const distance = useMemo(() => {
+    const userCoords = getUserCoords();
+    if (!userCoords) return null;
+    return getDistanceMiles(userCoords.lat, userCoords.lng, deal.dispensary.latitude, deal.dispensary.longitude);
+  }, [deal.dispensary.latitude, deal.dispensary.longitude]);
 
   useEffect(() => {
     if (isSaved && !prevSavedRef.current) {
@@ -159,6 +165,9 @@ export function CompactDealCard({
         <div className="flex items-center gap-1 min-w-0">
           <MapPin className="w-2.5 h-2.5 shrink-0 text-slate-600" />
           <span className="text-[9px] text-slate-500 truncate">{deal.dispensary.name}</span>
+          {distance != null && (
+            <span className="text-[9px] text-slate-600 shrink-0">{distance.toFixed(1)} mi</span>
+          )}
         </div>
         <button
           onClick={(e) => {

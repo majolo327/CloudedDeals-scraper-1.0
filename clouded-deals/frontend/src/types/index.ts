@@ -23,6 +23,8 @@ export interface Dispensary {
   is_active: boolean;
   region?: string;
   zone?: DispensaryZone;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface Brand {
