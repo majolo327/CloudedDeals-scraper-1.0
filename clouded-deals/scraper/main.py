@@ -29,10 +29,16 @@ from typing import Any
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
-from config.dispensaries import DISPENSARIES, SITE_TIMEOUT_SEC
+from playwright.async_api import async_playwright
+
+from config.dispensaries import BROWSER_ARGS, DISPENSARIES, SITE_TIMEOUT_SEC
 from clouded_logic import CloudedLogic
 from deal_detector import detect_deals
+from product_classifier import classify_product
 from platforms import CuraleafScraper, DutchieScraper, JaneScraper
+
+# Concurrency limit for parallel scraping (4 browser contexts at once)
+SCRAPE_CONCURRENCY = int(os.getenv("SCRAPE_CONCURRENCY", "4"))
 
 load_dotenv()
 
@@ -277,12 +283,19 @@ def _upsert_products(
             junk_count += 1
             continue
 
+        # Classify product for infused/pack status
+        brand = p.get("brand")
+        category = p.get("category")
+        classification = classify_product(name, brand, category)
+        if classification["corrected_category"]:
+            category = classification["corrected_category"]
+
         rows.append(
             {
                 "dispensary_id": dispensary_id,
                 "name": name,
-                "brand": p.get("brand"),
-                "category": p.get("category"),
+                "brand": brand,
+                "category": category,
                 "original_price": p.get("original_price"),
                 "sale_price": p.get("sale_price"),
                 "discount_percent": p.get("discount_percent"),
@@ -294,6 +307,8 @@ def _upsert_products(
                 "deal_score": p.get("deal_score", 0),
                 "product_url": p.get("product_url"),
                 "is_active": True,
+                "is_infused": classification["is_infused"],
+                "product_subtype": classification["product_subtype"],
                 "scraped_at": now_iso,
             }
         )
@@ -421,8 +436,16 @@ def _split_weight(weight_str: str | None) -> tuple[float | None, str | None]:
     return None, None
 
 
-async def _scrape_site_inner(dispensary: dict[str, Any]) -> dict[str, Any]:
-    """Core scrape logic for a single site (no timeout wrapper)."""
+async def _scrape_site_inner(
+    dispensary: dict[str, Any],
+    *,
+    browser: Any = None,
+) -> dict[str, Any]:
+    """Core scrape logic for a single site (no timeout wrapper).
+
+    If *browser* is provided, passes it to the scraper so it reuses the
+    shared Chromium instance instead of launching a new one.
+    """
     slug = dispensary["slug"]
     platform = dispensary["platform"]
     scraper_cls = SCRAPER_MAP.get(platform)
@@ -430,7 +453,7 @@ async def _scrape_site_inner(dispensary: dict[str, Any]) -> dict[str, Any]:
     if scraper_cls is None:
         return {"slug": slug, "error": f"Unknown platform: {platform}"}
 
-    async with scraper_cls(dispensary) as scraper:
+    async with scraper_cls(dispensary, browser=browser) as scraper:
         raw_products = await scraper.scrape()
 
     # Parse all raw products using CloudedLogic (single source of truth)
@@ -497,7 +520,11 @@ async def _scrape_site_inner(dispensary: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-async def scrape_site(dispensary: dict[str, Any]) -> dict[str, Any]:
+async def scrape_site(
+    dispensary: dict[str, Any],
+    *,
+    browser: Any = None,
+) -> dict[str, Any]:
     """Scrape a single dispensary with timeout and retry."""
     slug = dispensary["slug"]
 
@@ -508,7 +535,7 @@ async def scrape_site(dispensary: dict[str, Any]) -> dict[str, Any]:
         )
         try:
             result = await asyncio.wait_for(
-                _scrape_site_inner(dispensary),
+                _scrape_site_inner(dispensary, browser=browser),
                 timeout=_SITE_TIMEOUT_SEC,
             )
             # Success — return immediately
@@ -626,7 +653,11 @@ async def run(slug_filter: str | None = None) -> None:
         logger.error("No dispensaries to scrape")
         return
 
-    logger.info("Scraping %d dispensaries", len(dispensaries))
+    concurrency = SCRAPE_CONCURRENCY
+    logger.info(
+        "Scraping %d dispensaries (concurrency=%d)",
+        len(dispensaries), concurrency,
+    )
     run_id = _create_run()
 
     sites_scraped: list[str] = []
@@ -634,23 +665,59 @@ async def run(slug_filter: str | None = None) -> None:
     total_products = 0
     total_deals = 0
 
-    for i, dispensary in enumerate(dispensaries, 1):
-        logger.info("--- [%d/%d] %s ---", i, len(dispensaries), dispensary["name"])
-        result = await scrape_site(dispensary)
+    # Launch ONE shared browser for all concurrent scrapers
+    pw = await async_playwright().start()
+    browser = await pw.chromium.launch(
+        headless=True,
+        args=BROWSER_ARGS + [
+            "--disable-gpu",
+            "--disable-extensions",
+            "--disable-background-timer-throttling",
+        ],
+    )
+    logger.info("Shared browser launched — dispatching %d sites", len(dispensaries))
 
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def _bounded_scrape(dispensary: dict[str, Any]) -> dict[str, Any]:
+        """Scrape a single site, bounded by the semaphore."""
+        async with semaphore:
+            site_start = time.time()
+            logger.info("[START] %s (%s)", dispensary["name"], dispensary["platform"])
+            result = await scrape_site(dispensary, browser=browser)
+            elapsed_s = time.time() - site_start
+            label = "DONE" if not result.get("error") else "FAIL"
+            logger.info(
+                "[%s]  %s — %.1fs — %d products",
+                label, dispensary["name"], elapsed_s,
+                result.get("products", 0),
+            )
+            return result
+
+    # Run all sites concurrently (bounded by semaphore)
+    results = await asyncio.gather(
+        *[_bounded_scrape(d) for d in dispensaries],
+        return_exceptions=True,
+    )
+
+    # Close shared browser
+    await browser.close()
+    await pw.stop()
+
+    # Process results
+    for result in results:
+        if isinstance(result, Exception):
+            logger.error("Unhandled exception: %s", result)
+            sites_failed.append({"slug": "unknown", "error": str(result)})
+            continue
         if result.get("error"):
             sites_failed.append(
                 {"slug": result["slug"], "error": result["error"]}
             )
-            logger.error("[%s] FAILED: %s", result["slug"], result["error"])
         else:
             sites_scraped.append(result["slug"])
             total_products += result.get("products", 0)
             total_deals += result.get("deals", 0)
-            logger.info(
-                "[%s] OK — %d products, %d deals",
-                result["slug"], result.get("products", 0), result.get("deals", 0),
-            )
 
     # Determine final status
     if not sites_failed:
@@ -678,7 +745,7 @@ async def run(slug_filter: str | None = None) -> None:
     logger.info("  Products:   %d", total_products)
     logger.info("  Deals:      %d", total_deals)
     logger.info("  Sites OK:   %d/%d", len(sites_scraped), len(dispensaries))
-    logger.info("  Duration:   %.1fs", elapsed)
+    logger.info("  Duration:   %.1f min", elapsed / 60)
     if sites_failed:
         logger.info("  Failed:")
         for f in sites_failed:

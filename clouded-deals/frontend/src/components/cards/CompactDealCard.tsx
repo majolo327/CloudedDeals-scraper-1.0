@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Heart, X, MapPin, Sparkles } from 'lucide-react';
 import type { Deal } from '@/types';
-import { getBadge, getPricePerUnit, getDistanceMiles, getDisplayName } from '@/utils';
+import { getBadge, getDistanceMiles, getDisplayName } from '@/utils';
 import { getUserCoords } from '../ftue';
 import { DealBadge } from '../badges/DealBadge';
 import type { RecommendationReason } from '@/lib/personalization';
@@ -46,7 +46,7 @@ export function CompactDealCard({
   const [saveGlow, setSaveGlow] = useState(false);
   const prevSavedRef = useRef(isSaved);
 
-  const pricePerUnit = getPricePerUnit(deal);
+
   const badge = getBadge(deal);
   const discountPercent = deal.original_price && deal.original_price > deal.deal_price
     ? Math.round(((deal.original_price - deal.deal_price) / deal.original_price) * 100)
@@ -133,7 +133,10 @@ export function CompactDealCard({
 
       {/* Weight + Category */}
       <p className="text-[10px] text-slate-500">
-        {deal.weight && <>{deal.weight} &middot; </>}{categoryLabels[deal.category] || deal.category}
+        {deal.weight && <>{deal.weight} &middot; </>}
+        {deal.product_subtype === 'infused_preroll' ? 'Infused Pre-Roll'
+          : deal.product_subtype === 'preroll_pack' ? 'Pre-Roll Pack'
+          : categoryLabels[deal.category] || deal.category}
       </p>
 
       {/* Spacer */}
@@ -155,10 +158,6 @@ export function CompactDealCard({
           </span>
         )}
       </div>
-
-      {pricePerUnit && (
-        <p className="text-[9px] text-slate-500 -mt-1.5 mb-2">{pricePerUnit}</p>
-      )}
 
       {/* Footer: dispensary + dismiss */}
       <div className="flex items-center justify-between gap-1 pt-2" style={{ borderTop: '1px solid rgba(99, 115, 171, 0.06)' }}>

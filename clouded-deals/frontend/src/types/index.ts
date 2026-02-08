@@ -40,6 +40,8 @@ export interface Brand {
 
 export type BadgeType = 'steal' | 'fire' | 'solid';
 
+export type ProductSubtype = 'infused_preroll' | 'preroll_pack';
+
 export interface Deal {
   id: string;
   product_name: string;
@@ -51,6 +53,8 @@ export interface Deal {
   brand: Brand;
   deal_score: number;
   is_verified: boolean;
+  is_infused?: boolean;
+  product_subtype?: ProductSubtype | null;
   product_url?: string | null;
   editorial_note?: string;
   save_count?: number;

@@ -56,6 +56,8 @@ interface ProductRow {
   weight_unit: string | null;
   deal_score: number;
   product_url: string | null;
+  is_infused: boolean | null;
+  product_subtype: string | null;
   scraped_at: string;
   created_at: string;
   dispensary: {
@@ -176,6 +178,8 @@ function normalizeDeal(row: ProductRow): Deal {
     brand: toBrand(row.brand, row.name),
     deal_score: row.deal_score || 0,
     is_verified: (row.deal_score || 0) >= 70,
+    is_infused: row.is_infused ?? false,
+    product_subtype: row.product_subtype as Deal['product_subtype'],
     product_url: row.product_url,
     created_at: new Date(row.scraped_at),
     first_seen_at: new Date(row.created_at),
@@ -217,6 +221,7 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
         .select(
           `id, name, brand, category, original_price, sale_price, discount_percent,
            weight_value, weight_unit, deal_score, product_url, scraped_at, created_at,
+           is_infused, product_subtype,
            dispensary:dispensaries!inner(id, name, address, city, state, platform, url, region, latitude, longitude)`
         )
         .eq('is_active', true)
