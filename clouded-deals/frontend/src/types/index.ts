@@ -25,6 +25,8 @@ export interface Dispensary {
   zone?: DispensaryZone;
   latitude?: number | null;
   longitude?: number | null;
+  /** true = we actively scrape deals from this dispensary */
+  scraped?: boolean;
 }
 
 export interface Brand {

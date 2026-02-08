@@ -12,7 +12,13 @@ export function countDealsByDispensary(deals: Deal[]): Record<string, number> {
 }
 
 export function sortDispensariesByName(dispensaries: Dispensary[]): Dispensary[] {
-  return [...dispensaries].sort((a, b) => a.name.localeCompare(b.name));
+  return [...dispensaries].sort((a, b) => {
+    // Scraped dispensaries first
+    const aScraped = a.scraped !== false;
+    const bScraped = b.scraped !== false;
+    if (aScraped !== bScraped) return aScraped ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
 }
 
 export function filterDispensariesByQuery(dispensaries: Dispensary[], query: string): Dispensary[] {
