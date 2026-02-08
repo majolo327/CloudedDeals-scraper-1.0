@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { trackEvent } from './analytics';
 import { applyDispensaryDiversityCap } from '@/utils/dealFilters';
+import { normalizeWeightForDisplay } from '@/utils/weightNormalizer';
 import { getRegion, DEFAULT_REGION } from './region';
 import type { Deal, Category, Dispensary, Brand } from '@/types';
 
@@ -121,9 +122,16 @@ function toBrand(raw: string | null, productName?: string): Brand {
 
 /** Try to extract a weight string from the product name as a fallback. */
 function parseWeightFromName(name: string): string {
-  // Match patterns like "3.5g", "3.5G", "1g", "14g", "1/8", "1/4", "1/2 oz"
-  const gMatch = name.match(/\b(\d+(?:\.\d+)?)\s*[gG]\b/);
-  if (gMatch) return `${gMatch[1]}g`;
+  // Match mg first to avoid partial match (e.g., "850mg" matching as "85" + "0g")
+  const mgMatch = name.match(/(\d+)\s*mg\b/i);
+  if (mgMatch) return `${mgMatch[1]}mg`;
+  // Match patterns like "3.5g", "0.5g", ".5g", "1g", "14g"
+  // The (?:^|[\s([-]) lookbehind handles ".5g" that doesn't start at a word boundary
+  const gMatch = name.match(/(?:^|[\s(\[-])(\d*\.?\d+)\s*[gG]\b/);
+  if (gMatch) {
+    const val = parseFloat(gMatch[1]);
+    if (!isNaN(val) && val > 0) return `${val}g`;
+  }
   const ozMatch = name.match(/\b(\d+(?:\.\d+)?)\s*oz\b/i);
   if (ozMatch) return `${ozMatch[1]}oz`;
   // Fractions: 1/8 = 3.5g, 1/4 = 7g, 1/2 = 14g
@@ -138,18 +146,24 @@ function normalizeDeal(row: ProductRow): Deal {
     ? `${row.weight_value}${row.weight_unit || 'g'}`
     : '';
 
-  // Fix suspicious weight values (e.g. 0.35 that should be 3.5)
-  // Cross-check with product name if possible
+  // Fix suspicious weight values — CATEGORY-AWARE
+  // Sub-gram weights are NORMAL for vapes (.3g, .5g, 1g) and concentrates (.5g, 1g).
+  // Only flower should have the *10 decimal correction (.35 → 3.5, .7 → 7).
   const nameWeight = parseWeightFromName(row.name);
+  const cat = (row.category || '').toLowerCase();
   if (nameWeight && (!weight || weight === '0g')) {
     weight = nameWeight;
-  } else if (row.weight_value && row.weight_value < 1 && nameWeight) {
-    // DB has 0.35 but name says 3.5g — trust the product name
+  } else if (row.weight_value && row.weight_value < 1 && nameWeight && cat === 'flower') {
+    // DB has 0.35 but name says 3.5g — trust the product name (flower only)
     const nameVal = parseFloat(nameWeight);
     if (!isNaN(nameVal) && Math.abs(row.weight_value * 10 - nameVal) < 0.01) {
       weight = nameWeight;
     }
   }
+
+  // Final safety net: validate weight against category ranges
+  // Catches cases like 5g vapes (should be 0.5g) that slip through
+  weight = normalizeWeightForDisplay(weight, cat);
 
   return {
     id: row.id,
