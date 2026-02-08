@@ -208,6 +208,7 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
         .eq('is_active', true)
         .eq('dispensaries.region', activeRegion)
         .gt('deal_score', 0)
+        .gt('sale_price', 0)
         .order('deal_score', { ascending: false })
         .limit(100),
       supabase
@@ -226,11 +227,13 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
     }
 
     const allDeals = productsResult.data
-      ? (productsResult.data as unknown as ProductRow[]).map((row) => {
-          const deal = normalizeDeal(row);
-          deal.save_count = saveCountMap.get(row.id) ?? 0;
-          return deal;
-        })
+      ? (productsResult.data as unknown as ProductRow[])
+          .filter((row) => row.name && row.name.length >= 5 && (row.sale_price ?? 0) > 0)
+          .map((row) => {
+            const deal = normalizeDeal(row);
+            deal.save_count = saveCountMap.get(row.id) ?? 0;
+            return deal;
+          })
       : [];
 
     // Enforce dispensary diversity: max 5 deals per dispensary
@@ -391,6 +394,7 @@ export async function searchExtendedDeals(
       .eq('is_active', true)
       .eq('dispensaries.region', activeRegion)
       .gt('discount_percent', 0)
+      .gt('sale_price', 0)
       .or(`name.ilike.${pattern},brand.ilike.${pattern}`)
       .order('discount_percent', { ascending: false })
       .limit(50);
@@ -398,11 +402,31 @@ export async function searchExtendedDeals(
     if (error) throw error;
 
     const allResults = data
-      ? (data as unknown as ProductRow[]).map(normalizeDeal)
+      ? (data as unknown as ProductRow[])
+          .filter((row) => row.name && row.name.length >= 5 && (row.sale_price ?? 0) > 0)
+          .map(normalizeDeal)
       : [];
 
     // Filter out deals already in the curated set
     const extended = allResults.filter((d) => !curatedDealIds.has(d.id));
+
+    // Rank results: exact brand match first, then by discount, then by price
+    const queryLC = query.trim().toLowerCase();
+    extended.sort((a, b) => {
+      const aBrand = a.brand.name.toLowerCase() === queryLC ? 0 : 1;
+      const bBrand = b.brand.name.toLowerCase() === queryLC ? 0 : 1;
+      if (aBrand !== bBrand) return aBrand - bBrand;
+      // Then by discount descending
+      const aDisc = a.original_price && a.original_price > a.deal_price
+        ? (a.original_price - a.deal_price) / a.original_price
+        : 0;
+      const bDisc = b.original_price && b.original_price > b.deal_price
+        ? (b.original_price - b.deal_price) / b.original_price
+        : 0;
+      if (bDisc !== aDisc) return bDisc - aDisc;
+      // Then by price ascending
+      return a.deal_price - b.deal_price;
+    });
 
     return { deals: extended.slice(0, 30), error: null };
   } catch (err) {

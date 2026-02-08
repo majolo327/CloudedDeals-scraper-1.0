@@ -170,15 +170,80 @@ _RE_NAME_JUNK = re.compile(
 )
 _RE_TRAILING_STRAIN = re.compile(r"\s*(Indica|Sativa|Hybrid)\s*$", re.IGNORECASE)
 
+# Patterns that indicate promotional / sale copy rather than a real product name
+_SALE_COPY_PATTERNS = [
+    re.compile(r"^\d+%\s*off", re.IGNORECASE),
+    re.compile(r"^buy\s+\d+\s+get", re.IGNORECASE),
+    re.compile(r"^bogo", re.IGNORECASE),
+    re.compile(r"^sale\b", re.IGNORECASE),
+    re.compile(r"^special\b", re.IGNORECASE),
+    re.compile(r"^deal\s+of", re.IGNORECASE),
+    re.compile(r"^daily\s+deal", re.IGNORECASE),
+    re.compile(r"^clearance\b", re.IGNORECASE),
+    re.compile(r"^mix\s*(and|&|n)\s*match", re.IGNORECASE),
+    re.compile(r"^bundle\b", re.IGNORECASE),
+    re.compile(r"^promo\b", re.IGNORECASE),
+    re.compile(r"\|\s*\d+%\s*off", re.IGNORECASE),
+    re.compile(r"off\s+(all|select|any)\s", re.IGNORECASE),
+]
+
+
+def _is_junk_deal(name: str, price: float | None) -> bool:
+    """Return True if this scraped entry is promotional junk rather than a real product."""
+    if not price or price <= 0:
+        return True
+    if not name or len(name.strip()) < 5:
+        return True
+    if any(pat.search(name) for pat in _SALE_COPY_PATTERNS):
+        return True
+    if name.count("%") >= 2:
+        return True
+    if len(name) > 100 and re.search(r"\d+%\s*off", name, re.IGNORECASE):
+        return True
+    return False
+
+
+def _deduplicate_name(name: str) -> str:
+    """Remove repeated word sequences in a product name.
+
+    Example: "Big Dogs Casino Kush Preroll Big Dogs Casino Kush"
+           → "Big Dogs Casino Kush Preroll"
+    """
+    words = name.split()
+    if len(words) < 4:
+        return name
+
+    # Try chunk sizes from half the word count downward
+    for chunk_size in range(len(words) // 2, 1, -1):
+        first_chunk = " ".join(words[:chunk_size])
+        remaining = " ".join(words[chunk_size:])
+        if remaining.startswith(first_chunk):
+            unique_trailing = remaining[len(first_chunk):].strip()
+            return f"{first_chunk} {unique_trailing}".strip() if unique_trailing else first_chunk
+        if first_chunk.endswith(remaining) and len(remaining) > 8:
+            return first_chunk
+
+    return name
+
 
 def _clean_product_name(name: str) -> str:
-    """Strip junk text and normalize whitespace in a product name."""
+    """Strip junk text, deduplicate, and normalize whitespace in a product name."""
     if not name:
         return "Unknown"
     cleaned = _RE_NAME_JUNK.sub("", name)
     cleaned = _RE_TRAILING_STRAIN.sub("", cleaned)
     cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
     cleaned = cleaned.strip(".,;:-|")
+
+    # Remove common scraped artifacts
+    cleaned = re.sub(r"\s*\(each\)\s*", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s*\(tax included\)\s*", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'^["\']+(.*?)["\']+$', r"\1", cleaned)  # surrounding quotes
+
+    # Deduplicate repeated word sequences
+    cleaned = _deduplicate_name(cleaned)
+
+    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
     return cleaned if len(cleaned) >= 3 else name.strip()
 
 
@@ -202,8 +267,16 @@ def _upsert_products(
     """
     now_iso = datetime.now(timezone.utc).isoformat()
     rows = []
+    junk_count = 0
     for p in products:
         name = _clean_product_name(p.get("name", "Unknown"))
+
+        # Filter out junk/promo entries before they reach the database
+        if _is_junk_deal(name, p.get("sale_price")):
+            logger.debug("[FILTERED] Junk deal skipped: \"%s\" at $%s", name, p.get("sale_price"))
+            junk_count += 1
+            continue
+
         rows.append(
             {
                 "dispensary_id": dispensary_id,
@@ -224,6 +297,9 @@ def _upsert_products(
                 "scraped_at": now_iso,
             }
         )
+
+    if junk_count > 0:
+        logger.info("[%s] Filtered %d junk/promo entries", dispensary_id, junk_count)
 
     if not rows:
         return []

@@ -2,7 +2,7 @@
 
 import { Heart, DollarSign, Trash2 } from 'lucide-react';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
-import { getDiscountPercent } from '@/utils';
+import { getDiscountPercent, getDisplayName } from '@/utils';
 import type { Deal } from '@/types';
 
 interface SavedPageProps {
@@ -129,7 +129,7 @@ function SavedDealCard({
       onClick={onClick}
     >
       <div className="min-w-0">
-        <p className="text-sm font-medium text-slate-200 truncate">{deal.product_name}</p>
+        <p className="text-sm font-medium text-slate-200 truncate">{getDisplayName(deal.product_name, deal.brand?.name || '')}</p>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-xs text-slate-500">{deal.dispensary.name}</span>
           {deal.weight && (

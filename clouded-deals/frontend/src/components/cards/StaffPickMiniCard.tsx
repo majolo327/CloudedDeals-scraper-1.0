@@ -2,6 +2,7 @@
 
 import { Heart } from 'lucide-react';
 import type { Deal } from '@/types';
+import { getDisplayName } from '@/utils';
 
 interface StaffPickMiniCardProps {
   deal: Deal;
@@ -45,7 +46,7 @@ export function StaffPickMiniCard({
       </div>
 
       <h3 className="text-xs font-semibold text-slate-100 truncate mb-2">
-        {deal.product_name}
+        {getDisplayName(deal.product_name, deal.brand.name)}
       </h3>
 
       <div className="flex items-baseline gap-1.5">

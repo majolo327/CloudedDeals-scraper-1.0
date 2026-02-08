@@ -2,6 +2,7 @@
 
 import { Heart, X, Crown } from 'lucide-react';
 import type { Deal } from '@/types';
+import { getDisplayName } from '@/utils';
 
 interface CompactTopPickProps {
   deal: Deal;
@@ -41,7 +42,7 @@ export function CompactTopPick({
               {deal.brand.name}
             </span>
             <h3 className="text-sm sm:text-base font-semibold text-slate-100 truncate group-hover:text-amber-400 transition-gentle">
-              {deal.product_name}
+              {getDisplayName(deal.product_name, deal.brand.name)}
             </h3>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-[10px] text-slate-500">{deal.weight}</span>

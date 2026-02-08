@@ -6,7 +6,7 @@ import { ShareModal } from './ShareModal';
 import { AccuracyModal } from './AccuracyModal';
 import { DealBadge } from '../badges/DealBadge';
 import type { Deal } from '@/types';
-import { getMapsUrl, getBadge } from '@/utils';
+import { getMapsUrl, getBadge, getDisplayName } from '@/utils';
 
 interface DealModalProps {
   deal: Deal;
@@ -127,7 +127,7 @@ export function DealModal({
 
           {/* Brand + Product name */}
           <p className="text-sm text-slate-400 mb-1">{deal.brand?.name || 'Unknown Brand'}</p>
-          <h3 className="text-xl sm:text-2xl font-bold text-white mb-3">{deal.product_name}</h3>
+          <h3 className="text-xl sm:text-2xl font-bold text-white mb-3">{getDisplayName(deal.product_name, deal.brand?.name || '')}</h3>
 
           {/* Category + Weight pills */}
           <div className="flex items-center gap-2 mb-4">
