@@ -23,6 +23,9 @@ import type { ToastData } from '@/components/Toast';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { useStreak } from '@/hooks/useStreak';
 import { useBrandAffinity } from '@/hooks/useBrandAffinity';
+import { useChallenges } from '@/hooks/useChallenges';
+import { getChallengeById } from '@/config/challenges';
+import { ChallengeBar } from '@/components/ChallengeBar';
 import { initializeAnonUser, trackEvent, trackPageView, trackDealModalOpen } from '@/lib/analytics';
 import { isAuthPromptDismissed, dismissAuthPrompt } from '@/lib/auth';
 import { FTUEFlow, isFTUECompleted, CoachMarks, isCoachMarksSeen } from '@/components/ftue';
@@ -52,6 +55,7 @@ export default function Home() {
     useSavedDeals();
   const { streak, isNewMilestone, clearMilestone } = useStreak();
   const { trackBrand, topBrands, totalSaves } = useBrandAffinity();
+  const challenges = useChallenges();
 
   // Age verification & anonymous tracking
   useEffect(() => {
@@ -101,6 +105,22 @@ export default function Home() {
       clearMilestone();
     }
   }, [isNewMilestone, clearMilestone, addToast]);
+
+  // Challenge completion celebration toast
+  useEffect(() => {
+    if (challenges.justCompleted) {
+      const def = getChallengeById(challenges.justCompleted);
+      if (def) {
+        addToast(`${def.badge} Challenge Complete!`, 'milestone');
+      }
+    }
+  }, [challenges.justCompleted, addToast]);
+
+  // Saved deals as array (for challenge progress computation)
+  const savedDealsList = useMemo(
+    () => deals.filter((d) => savedDeals.has(d.id)),
+    [deals, savedDeals]
+  );
 
   // Handle ?auth=success redirect from magic link
   useEffect(() => {
@@ -227,13 +247,24 @@ export default function Home() {
 
       if (!wasSaved) {
         const deal = deals.find((d) => d.id === dealId);
-        if (deal) trackBrand(deal.brand.name);
+        if (deal) {
+          trackBrand(deal.brand.name);
+          challenges.updateProgress('save', deal, savedDealsList);
+        }
         addToast('Saved. Expires at midnight.', 'saved');
       } else {
         addToast('Removed from saves.', 'removed');
       }
     },
-    [savedDeals, toggleSavedDeal, deals, trackBrand, addToast]
+    [savedDeals, toggleSavedDeal, deals, trackBrand, addToast, challenges, savedDealsList]
+  );
+
+  // Challenge: dismiss interaction handler (passed to DealsPage)
+  const handleDealDismiss = useCallback(
+    (deal: Deal) => {
+      challenges.updateProgress('dismiss', deal, savedDealsList);
+    },
+    [challenges, savedDealsList]
   );
 
   const handleHighlightSaved = useCallback(() => {
@@ -386,6 +417,14 @@ export default function Home() {
               totalBrandSaves={totalSaves}
               addToast={addToast}
               onHighlightSavedIcon={handleHighlightSaved}
+              onDealDismiss={handleDealDismiss}
+              challengeBar={
+                <ChallengeBar
+                  onboardingComplete={challenges.onboardingComplete}
+                  onboardingProgress={challenges.onboardingProgress}
+                  nextChallenge={challenges.nextChallenge}
+                />
+              }
             />
           )
         )}
@@ -425,6 +464,8 @@ export default function Home() {
           <SavedPage
             deals={deals}
             onSelectDeal={setSelectedDeal}
+            earnedBadges={challenges.earnedBadges}
+            nextChallenge={challenges.nextChallenge}
           />
         )}
 

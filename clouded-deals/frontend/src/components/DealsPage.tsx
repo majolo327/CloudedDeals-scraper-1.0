@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react';
 import { BadgeCheck } from 'lucide-react';
 import type { Deal } from '@/types';
 import type { ToastData } from './Toast';
@@ -31,6 +31,8 @@ interface DealsPageProps {
   addToast: (message: string, type: ToastData['type']) => void;
   onHighlightSavedIcon: () => void;
   initialTab?: DealsTab;
+  onDealDismiss?: (deal: Deal) => void;
+  challengeBar?: ReactNode;
 }
 
 export function DealsPage({
@@ -47,6 +49,8 @@ export function DealsPage({
   addToast,
   onHighlightSavedIcon,
   initialTab = 'today',
+  onDealDismiss,
+  challengeBar,
 }: DealsPageProps) {
   const [activeTab, setActiveTab] = useState<DealsTab>(initialTab);
   const [activeCategory, setActiveCategory] = useState<DealCategory>('all');
@@ -256,6 +260,10 @@ export function DealsPage({
   }, [discoveredCount, totalDeals]);
 
   const handleDismiss = useCallback((dealId: string) => {
+    // Notify parent for challenge tracking
+    const deal = gridDeals.find((d) => d.id === dealId) || deals.find((d) => d.id === dealId);
+    if (deal) onDealDismiss?.(deal);
+
     setDismissingId(dealId);
     setDismissedDeals((prev) => new Set([...Array.from(prev), dealId]));
 
@@ -279,7 +287,7 @@ export function DealsPage({
 
       setDismissingId(null);
     }, 200);
-  }, []);
+  }, [gridDeals, deals, onDealDismiss]);
 
   const handleSave = useCallback(
     (dealId: string) => {
@@ -414,6 +422,9 @@ export function DealsPage({
                 </button>
               </div>
             )}
+
+            {/* Challenge progress bar */}
+            {challengeBar}
 
             {/* Today's Deals Header — freshness indicator */}
             <div className="flex items-center justify-between mb-4">

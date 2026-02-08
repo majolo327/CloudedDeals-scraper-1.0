@@ -27,6 +27,15 @@ export function LocationSelector() {
       const stateCode = zipToState(zip);
       if (stateCode) {
         logZipInterest(zip, stateCode);
+
+        // Skip overlay if already dismissed this session
+        const wasDismissed = typeof window !== 'undefined' &&
+          sessionStorage.getItem('clouded_region_dismissed') === 'true';
+        if (wasDismissed) {
+          setState('idle');
+          return;
+        }
+
         setResolvedState(stateCode);
         setResolvedZip(zip);
         setState('region-overlay');
