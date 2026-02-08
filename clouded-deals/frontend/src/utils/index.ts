@@ -25,7 +25,7 @@ export function formatUpdateTime(deals: { created_at: Date | string }[]): string
   const ampm = hours >= 12 ? 'pm' : 'am';
   const h = hours % 12 || 12;
   const m = minutes.toString().padStart(2, '0');
-  return `Updated at ${h}:${m}${ampm}`;
+  return `Updated ${h}:${m} ${ampm.toUpperCase()}`;
 }
 
 export function getTimeUntilMidnight(): string {

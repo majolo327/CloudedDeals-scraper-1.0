@@ -12,6 +12,7 @@ import { DealsPage } from '@/components/DealsPage';
 import { SearchPage } from '@/components/SearchPage';
 import { BrowsePage } from '@/components/BrowsePage';
 import { SavedPage } from '@/components/SavedPage';
+import { AboutPage } from '@/components/AboutPage';
 import { AuthPrompt } from '@/components/AuthPrompt';
 import { SmsWaitlist } from '@/components/SmsWaitlist';
 import { LocationSelector } from '@/components/LocationSelector';
@@ -26,7 +27,7 @@ import { initializeAnonUser, trackEvent } from '@/lib/analytics';
 import { isAuthPromptDismissed, dismissAuthPrompt } from '@/lib/auth';
 import { FTUEFlow, isFTUECompleted, CoachMarks, isCoachMarksSeen } from '@/components/ftue';
 
-type AppPage = 'home' | 'search' | 'browse' | 'saved';
+type AppPage = 'home' | 'search' | 'browse' | 'saved' | 'about';
 
 export default function Home() {
   const [isAgeVerified, setIsAgeVerified] = useState(false);
@@ -211,9 +212,9 @@ export default function Home() {
       if (!wasSaved) {
         const deal = deals.find((d) => d.id === dealId);
         if (deal) trackBrand(deal.brand.name);
-        addToast('Deal saved!', 'saved');
+        addToast('Saved. Expires at midnight.', 'saved');
       } else {
-        addToast('Removed from saved', 'removed');
+        addToast('Removed from saves.', 'removed');
       }
     },
     [savedDeals, toggleSavedDeal, deals, trackBrand, addToast]
@@ -334,9 +335,9 @@ export default function Home() {
                 <AlertCircle className="w-8 h-8 text-red-400" />
               </div>
               <h2 className="text-lg font-semibold text-slate-300 mb-2">
-                Something went wrong
+                Can&apos;t reach the deals right now
               </h2>
-              <p className="text-sm text-slate-500 max-w-sm mb-4">{error}</p>
+              <p className="text-sm text-slate-500 max-w-sm mb-4">Check your connection and try again.</p>
               <button
                 onClick={() => window.location.reload()}
                 className="px-4 py-2 bg-purple-500/20 text-purple-400 rounded-lg text-sm font-medium hover:bg-purple-500/30 transition-colors"
@@ -410,10 +411,13 @@ export default function Home() {
             onSelectDeal={setSelectedDeal}
           />
         )}
+
+        {/* About page */}
+        {activePage === 'about' && <AboutPage />}
       </main>
 
       {/* Footer */}
-      <Footer />
+      <Footer onNavigateToAbout={() => { setActivePage('about'); window.scrollTo(0, 0); }} />
 
       {/* Deal Modal */}
       {selectedDeal && (

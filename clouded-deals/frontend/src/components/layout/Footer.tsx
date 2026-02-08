@@ -6,9 +6,10 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 interface FooterProps {
   onNavigateToForBusiness?: () => void;
   onNavigate?: (page: 'terms' | 'privacy') => void;
+  onNavigateToAbout?: () => void;
 }
 
-export function Footer({ onNavigateToForBusiness, onNavigate }: FooterProps) {
+export function Footer({ onNavigateToForBusiness, onNavigate, onNavigateToAbout }: FooterProps) {
   const [showHowItWorks, setShowHowItWorks] = useState(false);
 
   return (
@@ -26,9 +27,9 @@ export function Footer({ onNavigateToForBusiness, onNavigate }: FooterProps) {
           {showHowItWorks && (
             <div className="mt-4 max-w-md mx-auto p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
               <p className="text-xs text-slate-400 leading-relaxed text-center">
-                We check every dispensary in Vegas every morning. Every deal you see is live today.
-                Tap any deal to go straight to the product page and grab it. Save deals with the{' '}
-                <span className="text-purple-400">&hearts;</span> before midnight &mdash; they refresh daily.
+                We check every dispensary in Las Vegas every single morning and bring every deal into one place.
+                Tap any deal to go straight to the dispensary. Save with{' '}
+                <span className="text-purple-400">&hearts;</span> &mdash; deals refresh at midnight.
               </p>
             </div>
           )}
@@ -44,6 +45,22 @@ export function Footer({ onNavigateToForBusiness, onNavigate }: FooterProps) {
             </button>
           </div>
         )}
+        {/* Trust commitment */}
+        <p className="text-center text-[11px] text-slate-600 leading-relaxed mb-4">
+          Every deal is ranked on merit. No sponsored placements. No ads. Ever.
+        </p>
+
+        {onNavigateToAbout && (
+          <div className="flex justify-center mb-4">
+            <button
+              onClick={onNavigateToAbout}
+              className="text-sm text-slate-400 hover:text-purple-400 transition-colors"
+            >
+              About
+            </button>
+          </div>
+        )}
+
         <p className="text-center text-xs text-slate-500 leading-relaxed">
           Clouded Deals is not a licensed cannabis retailer. All deals are subject to
           dispensary verification. Prices shown do not include tax. For adults 21+ only.

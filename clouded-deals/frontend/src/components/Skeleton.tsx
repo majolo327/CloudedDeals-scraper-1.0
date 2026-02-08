@@ -4,7 +4,14 @@ interface SkeletonProps {
 
 export function Skeleton({ className = '' }: SkeletonProps) {
   return (
-    <div className={`animate-pulse bg-slate-700/50 rounded ${className}`} />
+    <div
+      className={`rounded ${className}`}
+      style={{
+        background: 'linear-gradient(90deg, rgba(51,65,85,0.4) 25%, rgba(71,85,105,0.5) 50%, rgba(51,65,85,0.4) 75%)',
+        backgroundSize: '200% 100%',
+        animation: 'shimmerSoft 1.5s ease-in-out infinite',
+      }}
+    />
   );
 }
 
