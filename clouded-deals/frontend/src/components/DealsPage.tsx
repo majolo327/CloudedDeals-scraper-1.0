@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { BadgeCheck } from 'lucide-react';
 import type { Deal } from '@/types';
 import type { ToastData } from './Toast';
@@ -32,7 +32,6 @@ interface DealsPageProps {
   onHighlightSavedIcon: () => void;
   initialTab?: DealsTab;
   onDealDismiss?: (deal: Deal) => void;
-  challengeBar?: ReactNode;
 }
 
 export function DealsPage({
@@ -50,7 +49,6 @@ export function DealsPage({
   onHighlightSavedIcon,
   initialTab = 'today',
   onDealDismiss,
-  challengeBar,
 }: DealsPageProps) {
   const [activeTab, setActiveTab] = useState<DealsTab>(initialTab);
   const [activeCategory, setActiveCategory] = useState<DealCategory>('all');
@@ -422,9 +420,6 @@ export function DealsPage({
                 </button>
               </div>
             )}
-
-            {/* Challenge progress bar */}
-            {challengeBar}
 
             {/* Today's Deals Header — freshness indicator */}
             <div className="flex items-center justify-between mb-4">

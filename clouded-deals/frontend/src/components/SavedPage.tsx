@@ -1,22 +1,16 @@
 'use client';
 
-import { Heart, DollarSign, Trash2, Trophy } from 'lucide-react';
+import { Heart, DollarSign, Trash2 } from 'lucide-react';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { getDiscountPercent, getDisplayName } from '@/utils';
 import type { Deal } from '@/types';
-import type { ChallengeDefinition } from '@/config/challenges';
 
 interface SavedPageProps {
   deals: Deal[];
   onSelectDeal?: (deal: Deal) => void;
-  earnedBadges?: ChallengeDefinition[];
-  nextChallenge?: {
-    challenge: ChallengeDefinition;
-    progress: { progress: number; isCompleted: boolean };
-  } | null;
 }
 
-export function SavedPage({ deals, onSelectDeal, earnedBadges = [], nextChallenge }: SavedPageProps) {
+export function SavedPage({ deals, onSelectDeal }: SavedPageProps) {
   const { savedDeals, toggleSavedDeal, isDealUsed, markDealUsed } = useSavedDeals();
 
   const savedDealsList = deals.filter((d) => savedDeals.has(d.id));
@@ -94,70 +88,6 @@ export function SavedPage({ deals, onSelectDeal, earnedBadges = [], nextChalleng
                 />
               ))}
             </div>
-          </section>
-        )}
-
-        {/* Badges & Challenges */}
-        {(earnedBadges.length > 0 || nextChallenge) && (
-          <section className="glass rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Trophy className="w-4 h-4 text-amber-400" />
-              <h2 className="text-sm font-semibold text-slate-300">Badges</h2>
-            </div>
-            {earnedBadges.length > 0 ? (
-              <div className="flex gap-2 flex-wrap">
-                {earnedBadges.map((badge) => (
-                  <span
-                    key={badge.id}
-                    className="px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium"
-                    title={badge.description}
-                  >
-                    {badge.badge}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500">No badges earned yet.</p>
-            )}
-            {nextChallenge && (
-              <div className="mt-3 pt-3 border-t border-white/5">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs text-slate-400">
-                    {nextChallenge.challenge.icon} Next: {nextChallenge.challenge.description}
-                  </span>
-                  <span className="text-[10px] text-slate-500 tabular-nums">
-                    {nextChallenge.progress.progress}/
-                    {'count' in nextChallenge.challenge.requirement
-                      ? nextChallenge.challenge.requirement.count
-                      : 'uniqueDispensaries' in nextChallenge.challenge.requirement
-                        ? nextChallenge.challenge.requirement.uniqueDispensaries
-                        : 'sameBrand' in nextChallenge.challenge.requirement
-                          ? nextChallenge.challenge.requirement.sameBrand
-                          : 0}
-                  </span>
-                </div>
-                <div className="h-1 rounded-full overflow-hidden bg-white/5">
-                  <div
-                    className="h-full rounded-full bg-purple-500/60"
-                    style={{
-                      width: `${Math.min(
-                        (nextChallenge.progress.progress /
-                          ('count' in nextChallenge.challenge.requirement
-                            ? nextChallenge.challenge.requirement.count
-                            : 'uniqueDispensaries' in nextChallenge.challenge.requirement
-                              ? nextChallenge.challenge.requirement.uniqueDispensaries
-                              : 'sameBrand' in nextChallenge.challenge.requirement
-                                ? nextChallenge.challenge.requirement.sameBrand
-                                : 1)) *
-                          100,
-                        100
-                      )}%`,
-                      transition: 'width 500ms cubic-bezier(0.16, 1, 0.3, 1)',
-                    }}
-                  />
-                </div>
-              </div>
-            )}
           </section>
         )}
 

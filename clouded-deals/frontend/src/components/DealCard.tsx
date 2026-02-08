@@ -5,8 +5,6 @@ import { Heart, MapPin, X } from 'lucide-react';
 import type { Deal } from '@/types';
 import { getDistanceMiles, getDisplayName } from '@/utils';
 import { getUserCoords } from './ftue';
-import { HeatIndicator } from './HeatIndicator';
-import { getDealHeat } from '@/utils/dealHeat';
 import { ShareModal } from './modals/ShareModal';
 
 interface DealCardProps {
@@ -28,8 +26,6 @@ const categoryLabels: Record<string, string> = {
 
 export function DealCard({ deal, isSaved, isUsed = false, onSave, onDismiss, onClick }: DealCardProps) {
   const [showShare, setShowShare] = useState(false);
-
-  const heat = getDealHeat(deal);
 
   const distance = useMemo(() => {
     const userCoords = getUserCoords();
@@ -55,10 +51,9 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onDismiss, onC
           : 'hover:border-[rgba(99,115,171,0.22)] hover:bg-[rgba(28,35,56,0.8)]'
       }`}
     >
-      {/* Top row: heat + brand + save */}
+      {/* Top row: brand + save */}
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-center gap-2 min-w-0">
-          <HeatIndicator heat={heat} />
           <span className="text-[11px] sm:text-xs text-purple-400 uppercase tracking-wide font-bold truncate">
             {deal.brand?.name || 'Unknown'}
           </span>

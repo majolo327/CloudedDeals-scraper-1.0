@@ -4,10 +4,8 @@ import { useEffect, useState } from 'react';
 import { X, Heart, BadgeCheck, MapPin, ExternalLink, MessageCircle, CheckCircle, Navigation } from 'lucide-react';
 import { ShareModal } from './ShareModal';
 import { AccuracyModal } from './AccuracyModal';
-import { HeatIndicator } from '../HeatIndicator';
 import type { Deal } from '@/types';
 import { getMapsUrl, getDisplayName } from '@/utils';
-import { getDealHeat, getHeatLabel, getHeatDescription } from '@/utils/dealHeat';
 import { trackGetDealClick } from '@/lib/analytics';
 
 interface DealModalProps {
@@ -117,16 +115,6 @@ export function DealModal({
                   Verified
                 </span>
               )}
-              {(() => {
-                const heat = getDealHeat(deal);
-                if (!heat) return null;
-                return (
-                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-500/10 text-orange-400 border border-orange-500/20">
-                    <HeatIndicator heat={heat} compact />
-                    {getHeatLabel(heat)}
-                  </span>
-                );
-              })()}
             </div>
             <button
               onClick={onClose}
@@ -168,13 +156,6 @@ export function DealModal({
             {savings > 0 && (
               <p className="text-sm sm:text-base text-purple-400/80 font-medium">You save ${savings.toFixed(2)} vs menu price</p>
             )}
-            {(() => {
-              const heat = getDealHeat(deal);
-              if (!heat) return null;
-              return (
-                <p className="text-xs text-slate-400 mt-2">{getHeatDescription(heat)}</p>
-              );
-            })()}
           </div>
 
           {/* Dispensary card */}

@@ -24,8 +24,6 @@ import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { useStreak } from '@/hooks/useStreak';
 import { useBrandAffinity } from '@/hooks/useBrandAffinity';
 import { useChallenges } from '@/hooks/useChallenges';
-import { getChallengeById } from '@/config/challenges';
-import { ChallengeBar } from '@/components/ChallengeBar';
 import { initializeAnonUser, trackEvent, trackPageView, trackDealModalOpen } from '@/lib/analytics';
 import { isAuthPromptDismissed, dismissAuthPrompt } from '@/lib/auth';
 import { FTUEFlow, isFTUECompleted, CoachMarks, isCoachMarksSeen } from '@/components/ftue';
@@ -105,16 +103,6 @@ export default function Home() {
       clearMilestone();
     }
   }, [isNewMilestone, clearMilestone, addToast]);
-
-  // Challenge completion celebration toast
-  useEffect(() => {
-    if (challenges.justCompleted) {
-      const def = getChallengeById(challenges.justCompleted);
-      if (def) {
-        addToast(`${def.badge} Challenge Complete!`, 'milestone');
-      }
-    }
-  }, [challenges.justCompleted, addToast]);
 
   // Saved deals as array (for challenge progress computation)
   const savedDealsList = useMemo(
@@ -228,8 +216,9 @@ export default function Home() {
     return Array.from(seen.values());
   }, [deals]);
 
-  // Save handler with brand tracking, haptic feedback, and rate limiting
+  // Save handler with brand tracking, haptic feedback, milestone toasts, and rate limiting
   const lastSaveRef = useRef(0);
+  const milestoneShownRef = useRef<Set<string>>(new Set());
   const handleToggleSave = useCallback(
     (dealId: string) => {
       // Rate limit: 500ms between saves
@@ -251,12 +240,48 @@ export default function Home() {
           trackBrand(deal.brand.name);
           challenges.updateProgress('save', deal, savedDealsList);
         }
-        addToast('Saved. Expires at midnight.', 'saved');
+
+        // Milestone toast system
+        const newCount = savedCount + 1;
+        const shown = milestoneShownRef.current;
+
+        if (newCount === 1 && !shown.has('first')) {
+          shown.add('first');
+          addToast('First deal saved \uD83D\uDD16', 'milestone');
+        } else if (newCount === 3 && !shown.has('taste')) {
+          shown.add('taste');
+          addToast("You've got taste \uD83D\uDC4C", 'milestone');
+        } else if (newCount === 10 && !shown.has('hunter')) {
+          shown.add('hunter');
+          addToast('Deal hunter \uD83C\uDFAF', 'milestone');
+        } else if (deal) {
+          // Check dispensary diversity: 3 unique dispensaries
+          const dispensaryIds = new Set(savedDealsList.map(d => d.dispensary.id));
+          dispensaryIds.add(deal.dispensary.id);
+          if (dispensaryIds.size >= 3 && !shown.has('explorer')) {
+            shown.add('explorer');
+            addToast('Explorer unlocked \uD83D\uDDFA\uFE0F', 'milestone');
+          }
+          // Check brand loyalty: 3 same brand
+          else if (deal.brand?.name) {
+            const brandCount = savedDealsList.filter(d => d.brand?.name === deal.brand?.name).length + 1;
+            if (brandCount >= 3 && !shown.has(`brand_${deal.brand.name}`)) {
+              shown.add(`brand_${deal.brand.name}`);
+              addToast(`${deal.brand.name} fan? \uD83D\uDC9C`, 'milestone');
+            } else {
+              addToast('Saved. Expires at midnight.', 'saved');
+            }
+          } else {
+            addToast('Saved. Expires at midnight.', 'saved');
+          }
+        } else {
+          addToast('Saved. Expires at midnight.', 'saved');
+        }
       } else {
         addToast('Removed from saves.', 'removed');
       }
     },
-    [savedDeals, toggleSavedDeal, deals, trackBrand, addToast, challenges, savedDealsList]
+    [savedDeals, toggleSavedDeal, deals, trackBrand, addToast, challenges, savedDealsList, savedCount]
   );
 
   // Challenge: dismiss interaction handler (passed to DealsPage)
@@ -418,13 +443,6 @@ export default function Home() {
               addToast={addToast}
               onHighlightSavedIcon={handleHighlightSaved}
               onDealDismiss={handleDealDismiss}
-              challengeBar={
-                <ChallengeBar
-                  onboardingComplete={challenges.onboardingComplete}
-                  onboardingProgress={challenges.onboardingProgress}
-                  nextChallenge={challenges.nextChallenge}
-                />
-              }
             />
           )
         )}
@@ -464,8 +482,6 @@ export default function Home() {
           <SavedPage
             deals={deals}
             onSelectDeal={setSelectedDeal}
-            earnedBadges={challenges.earnedBadges}
-            nextChallenge={challenges.nextChallenge}
           />
         )}
 
