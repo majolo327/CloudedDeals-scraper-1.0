@@ -61,8 +61,8 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
             },
             {
               icon: MapPin,
-              title: 'Map View',
-              desc: 'See deals near you and get directions in one tap',
+              title: 'Directions',
+              desc: 'Get directions to any dispensary in one tap',
               color: 'text-emerald-400 bg-emerald-500/10',
             },
             {
@@ -70,7 +70,7 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
               title: 'Updated Daily',
               desc: dealCount > 0
                 ? `${dealCount} deals today. Updated before you wake up.`
-                : '109 dispensaries. Every deal. Updated daily.',
+                : '27 dispensaries. Every deal. Updated daily.',
               color: 'text-amber-400 bg-amber-500/10',
             },
           ].map((feature) => (

@@ -111,8 +111,8 @@ export function RegionOverlay({ stateCode, zip, onBrowseVegas, onEmailSubmit }: 
   // Northern NV (Reno) — soft message, not a full block
   if (isNorthernNV) {
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" style={{ backgroundColor: 'rgba(10,10,10,0.97)' }}>
-        <div className="max-w-md w-full text-center animate-in fade-in">
+      <div className="fixed inset-0 z-[100] flex flex-col items-center overflow-y-auto px-6 py-12" style={{ backgroundColor: 'rgba(10,10,10,0.97)' }}>
+        <div className="max-w-md w-full text-center animate-in fade-in my-auto">
           <h1 className="text-lg sm:text-xl font-bold tracking-tight mb-2">
             Clouded<span className="text-purple-400">Deals</span>
           </h1>
@@ -138,8 +138,8 @@ export function RegionOverlay({ stateCode, zip, onBrowseVegas, onEmailSubmit }: 
   const ctaLabel = noLegalVariant?.cta || 'Peek at Vegas deals in the meantime';
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" style={{ backgroundColor: 'rgba(10,10,10,0.97)' }}>
-      <div className="max-w-md w-full text-center animate-in fade-in">
+    <div className="fixed inset-0 z-[100] flex flex-col items-center overflow-y-auto px-6 py-12" style={{ backgroundColor: 'rgba(10,10,10,0.97)' }}>
+      <div className="max-w-md w-full text-center animate-in fade-in my-auto">
         {/* Logo */}
         <h1 className="text-lg sm:text-xl font-bold tracking-tight mb-2">
           Clouded<span className="text-purple-400">Deals</span>

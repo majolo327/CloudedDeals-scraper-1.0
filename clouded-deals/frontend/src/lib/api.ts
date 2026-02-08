@@ -224,7 +224,7 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
         .gt('deal_score', 0)
         .gt('sale_price', 0)
         .order('deal_score', { ascending: false })
-        .limit(100),
+        .limit(200),
       supabase
         .from('deal_save_counts')
         .select('deal_id, save_count'),

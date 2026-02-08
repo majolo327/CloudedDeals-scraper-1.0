@@ -1,18 +1,66 @@
 /**
  * Strip the brand name from the start of a product name when the brand is
- * already displayed separately on the card. Avoids:
- *   DOGWALKERS
- *   DOGWALKERS Big Dogs Casino Kush Preroll
+ * already displayed separately on the card. Also cleans up embedded metadata
+ * (weight, THC%, CBD%) and removes duplicate name fragments.
+ *
+ * Examples:
+ *   "DOGWALKERS Big Dogs Casino Kush Preroll" → "Big Dogs Casino Kush Preroll"
+ *   "8 Inch Bagel Whole Flower 3.5g 8 Inch Bagel Whole" → "8 Inch Bagel Whole Flower"
+ *   "Purple Punch (3.5G) THC 28.94%" → "Purple Punch"
  */
 export function getDisplayName(productName: string, brandName: string): string {
-  if (!brandName || !productName) return productName;
-  const nameLC = productName.toLowerCase();
-  const brandLC = brandName.toLowerCase();
-  if (nameLC.startsWith(brandLC)) {
-    const stripped = productName.slice(brandName.length).replace(/^[\s\-|:]+/, '').trim();
-    return stripped.length > 0 ? stripped : productName;
+  if (!productName) return productName;
+
+  let name = productName;
+
+  // 1. Strip brand prefix (case-insensitive)
+  if (brandName) {
+    const nameLC = name.toLowerCase();
+    const brandLC = brandName.toLowerCase();
+    if (nameLC.startsWith(brandLC)) {
+      const stripped = name.slice(brandName.length).replace(/^[\s\-|:]+/, '').trim();
+      if (stripped.length > 0) name = stripped;
+    }
   }
-  return productName;
+
+  // 2. Strip embedded metadata: weight "(3.5G)", "(1G)", standalone "3.5g" at word boundaries
+  name = name.replace(/\s*\(\s*\d+\.?\d*\s*[gG]\s*\)/g, '');
+
+  // 3. Strip THC/CBD percentages: "THC 28.94%", "THC: 28.94%", "CBD 1.2%"
+  name = name.replace(/\s*(THC|CBD)\s*:?\s*\d+\.?\d*\s*%?/gi, '');
+
+  // 4. Strip trailing weight like " 3.5g", " 1g", " 100mg" (already shown as weight badge)
+  name = name.replace(/\s+\d+\.?\d*\s*(mg|g)\b\s*$/i, '');
+
+  // 5. Detect and remove duplicate name fragments
+  // Handles: "8 Inch Bagel Whole Flower 3.5g 8 Inch Bagel Whole"
+  // After steps 2-4: "8 Inch Bagel Whole Flower 8 Inch Bagel Whole"
+  const trimmed = name.trim();
+  const words = trimmed.split(/\s+/);
+  if (words.length >= 4) {
+    // Try to find if the second half repeats the first half (or part of it)
+    for (let splitPoint = Math.floor(words.length / 2); splitPoint >= 2; splitPoint--) {
+      const firstHalf = words.slice(0, splitPoint).join(' ').toLowerCase();
+      const rest = words.slice(splitPoint).join(' ').toLowerCase();
+      if (rest.startsWith(firstHalf) || rest.endsWith(firstHalf)) {
+        // Keep the longer portion (usually the first half which has more context)
+        name = words.slice(0, splitPoint).join(' ');
+        // But also keep any unique words between the split and the repeat
+        const middleWords = words.slice(splitPoint);
+        const firstHalfWords = words.slice(0, splitPoint).map(w => w.toLowerCase());
+        const uniqueMiddle = middleWords.filter(w => !firstHalfWords.includes(w.toLowerCase()));
+        if (uniqueMiddle.length > 0 && uniqueMiddle.length <= 3) {
+          name = words.slice(0, splitPoint).join(' ') + ' ' + uniqueMiddle.join(' ');
+        }
+        break;
+      }
+    }
+  }
+
+  // 6. Clean up leftover punctuation and whitespace
+  name = name.replace(/[\s\-|:]+$/, '').replace(/\s{2,}/g, ' ').trim();
+
+  return name.length > 0 ? name : productName;
 }
 
 export function getTimeAgo(date: Date | string): string {
