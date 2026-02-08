@@ -462,15 +462,12 @@ export function SearchPage({
                     {filteredExtendedDeals.map((deal, index) => (
                       <div
                         key={deal.id}
-                        className="animate-in fade-in relative"
+                        className="animate-in fade-in"
                         style={{
                           animationDelay: `${index * 30}ms`,
                           animationFillMode: 'both',
                         }}
                       >
-                        <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/20 text-[10px] font-medium text-emerald-400">
-                          On sale at {deal.dispensary.name}
-                        </div>
                         <DealCard
                           deal={deal}
                           isSaved={savedDeals.has(deal.id)}
