@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Search, Package, MapPin, ChevronRight, X, Clock, Store, ExternalLink, Tag } from 'lucide-react';
 import type { Deal, Brand } from '@/types';
 import { DealCard } from './DealCard';
+import { DealCardSkeleton } from './Skeleton';
 import { CATEGORY_FILTERS, countDealsByBrand, filterDeals, getMapsUrl } from '@/utils';
 import { searchExtendedDeals } from '@/lib/api';
 import { DISPENSARIES } from '@/data/dispensaries';
@@ -263,11 +264,15 @@ export function SearchPage({
 
       {debouncedQuery ? (
         <>
-          {/* Loading state */}
+          {/* Loading state — skeleton cards instead of spinner */}
           {isSearching && (
-            <div className="flex items-center justify-center py-8">
-              <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-              <span className="ml-2 text-sm text-slate-400">Searching...</span>
+            <div className="py-4">
+              <p className="text-xs text-slate-500 mb-4">Checking every dispensary in Vegas...</p>
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                {[...Array(3)].map((_, i) => (
+                  <DealCardSkeleton key={i} />
+                ))}
+              </div>
             </div>
           )}
 
@@ -439,9 +444,13 @@ export function SearchPage({
 
               {/* ---- Extended Results (all scraped products on sale) ---- */}
               {extendedLoading && filteredDeals.length === 0 && (
-                <div className="flex items-center justify-center py-8">
-                  <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
-                  <span className="ml-2 text-sm text-slate-500">Searching all products...</span>
+                <div className="py-4">
+                  <p className="text-xs text-slate-500 mb-4">Searching all products...</p>
+                  <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                    {[...Array(3)].map((_, i) => (
+                      <DealCardSkeleton key={i} />
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -492,10 +501,10 @@ export function SearchPage({
                 <div className="text-center py-16">
                   <Search className="w-16 h-16 mx-auto mb-4 text-slate-700" />
                   <p className="text-slate-400 text-lg mb-2">
-                    Nothing for &ldquo;{debouncedQuery}&rdquo;
+                    No matches for &ldquo;{debouncedQuery}&rdquo;
                   </p>
                   <p className="text-slate-500 text-sm max-w-xs mx-auto">
-                    No deals match right now. Deals refresh every morning &mdash; try a different brand, category, or dispensary.
+                    Try a different brand, strain, or product type.
                   </p>
                 </div>
               )}

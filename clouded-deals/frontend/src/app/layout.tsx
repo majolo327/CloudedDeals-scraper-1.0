@@ -19,13 +19,13 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#020617",
+  themeColor: "#0a0a0a",
 };
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://cloudeddeals.com";
-const OG_TITLE = "CloudedDeals — Las Vegas Cannabis Deals";
+const OG_TITLE = "Clouded Deals — Every Deal. Every Dispensary. One Place.";
 const OG_DESCRIPTION =
-  "Real-time cannabis deals scraped from 27 Las Vegas dispensaries. Top flower, vape, edible & concentrate deals updated daily.";
+  "We check every dispensary in Las Vegas every morning. Flower, vapes, edibles, concentrates — the best prices, updated daily. No account needed.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

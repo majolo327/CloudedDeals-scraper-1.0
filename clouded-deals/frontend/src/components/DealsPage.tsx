@@ -403,8 +403,8 @@ export function DealsPage({
             {/* Active filter indicator */}
             {hasActiveFilters && (
               <div className="flex items-center justify-between mb-3 px-1">
-                <span className="text-xs text-slate-400">
-                  Showing {filteredDailyDeals.length} of {dailyRotatedDeals.length} deals
+                <span className="text-xs text-slate-400 font-medium">
+                  {filteredDailyDeals.length} deal{filteredDailyDeals.length !== 1 ? 's' : ''}
                 </span>
                 <button
                   onClick={() => setFilters(DEFAULT_FILTERS)}
@@ -415,21 +415,16 @@ export function DealsPage({
               </div>
             )}
 
-            {/* Today's Deals Header */}
+            {/* Today's Deals Header — freshness indicator */}
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-medium text-slate-300">
-                Today&apos;s Deals
-              </h2>
-              <div className="flex items-center gap-3">
-                {deals.length > 0 && (
-                  <span className="text-xs text-slate-500">
-                    {formatUpdateTime(deals)}
-                  </span>
+                Today&apos;s deals{deals.length > 0 && (
+                  <span className="text-slate-500 font-normal"> &middot; {formatUpdateTime(deals)}</span>
                 )}
-                <span className="text-xs text-slate-600">
-                  Refreshes in {countdown}
-                </span>
-              </div>
+              </h2>
+              <span className="text-xs text-slate-600">
+                Refreshes in {countdown}
+              </span>
             </div>
 
             {/* Progress Bar */}
@@ -465,16 +460,16 @@ export function DealsPage({
                     You&apos;ve seen every deal today
                   </p>
                   <p className="text-slate-600 text-xs">
-                    New deals drop tomorrow morning
+                    Deals refresh at midnight. These are today&apos;s.
                   </p>
                 </div>
               ) : hasActiveFilters && displayedGridDeals.length === 0 ? (
                 <div className="text-center py-16">
                   <p className="text-slate-400 text-sm mb-2">
-                    No deals match your filters right now
+                    Nothing matches right now
                   </p>
                   <p className="text-slate-600 text-xs mb-4">
-                    Deals refresh every morning &mdash; try broadening your search or check back tomorrow.
+                    Deals refresh every morning &mdash; or try loosening your filters.
                   </p>
                   <button
                     onClick={() => setFilters(DEFAULT_FILTERS)}
@@ -558,7 +553,7 @@ export function DealsPage({
                 <p className="text-slate-300 text-xl font-medium mb-2">
                   No verified deals yet today
                 </p>
-                <p className="text-slate-500">New deals drop every morning — check back soon</p>
+                <p className="text-slate-500">We check every dispensary each morning. Check back soon.</p>
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

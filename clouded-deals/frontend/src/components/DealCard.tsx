@@ -137,6 +137,9 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
         </a>
       </div>
 
+      {/* Watermark for screenshots */}
+      <p className="text-[8px] text-slate-700 text-right mt-2 select-none">found on cloudeddeals.com</p>
+
       {showShare && (
         <ShareModal deal={deal} onClose={() => setShowShare(false)} />
       )}
