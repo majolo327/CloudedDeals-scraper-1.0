@@ -342,6 +342,10 @@ function DispensariesTab({
     return ALPHABET.filter((l) => grouped[l]?.length);
   }, [grouped]);
 
+  const scrapedCount = useMemo(() => {
+    return DISPENSARIES.filter((d) => d.scraped !== false).length;
+  }, []);
+
   const withDealsCount = useMemo(() => {
     return DISPENSARIES.filter((d) => (dealCounts[d.id] || 0) > 0).length;
   }, [dealCounts]);
@@ -355,10 +359,10 @@ function DispensariesTab({
       {/* Summary bar */}
       <div className="flex items-center justify-between px-1">
         <p className="text-sm text-slate-400">
-          <span className="text-white font-semibold">{DISPENSARIES.length}</span> dispensaries across Nevada
+          <span className="text-white font-semibold">{DISPENSARIES.length}</span> dispensaries in Southern NV
         </p>
         <p className="text-xs text-purple-400">
-          {withDealsCount} with live deals
+          {scrapedCount} tracked · {withDealsCount} with live deals
         </p>
       </div>
 
@@ -531,6 +535,10 @@ function DispensaryRow({
                 View {dealCount} Deal{dealCount !== 1 ? 's' : ''}
               </button>
             </div>
+          ) : dispensary.scraped === false ? (
+            <p className="text-[11px] text-slate-500">
+              We don&apos;t have deals from this dispensary yet. Check out today&apos;s featured deals on the Home tab.
+            </p>
           ) : (
             <div className="flex items-center justify-between gap-2">
               <p className="text-[11px] text-slate-500">No deals today — check back tomorrow morning.</p>
