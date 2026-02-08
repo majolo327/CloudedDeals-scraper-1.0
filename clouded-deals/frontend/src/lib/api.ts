@@ -65,6 +65,8 @@ interface ProductRow {
     state: string | null;
     platform: string | null;
     url: string | null;
+    latitude: number | null;
+    longitude: number | null;
   };
 }
 
@@ -89,6 +91,8 @@ function toDispensary(row: ProductRow['dispensary']): Dispensary {
     menu_url: row.url || '',
     platform: (row.platform as Dispensary['platform']) || 'dutchie',
     is_active: true,
+    latitude: row.latitude,
+    longitude: row.longitude,
   };
 }
 
@@ -199,7 +203,7 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
         .select(
           `id, name, brand, category, original_price, sale_price, discount_percent,
            weight_value, weight_unit, deal_score, product_url, scraped_at, created_at,
-           dispensary:dispensaries!inner(id, name, address, city, state, platform, url, region)`
+           dispensary:dispensaries!inner(id, name, address, city, state, platform, url, region, latitude, longitude)`
         )
         .eq('is_active', true)
         .eq('dispensaries.region', activeRegion)
@@ -382,7 +386,7 @@ export async function searchExtendedDeals(
       .select(
         `id, name, brand, category, original_price, sale_price, discount_percent,
          weight_value, weight_unit, deal_score, product_url, scraped_at, created_at,
-         dispensary:dispensaries!inner(id, name, address, city, state, platform, url, region)`
+         dispensary:dispensaries!inner(id, name, address, city, state, platform, url, region, latitude, longitude)`
       )
       .eq('is_active', true)
       .eq('dispensaries.region', activeRegion)

@@ -97,9 +97,9 @@ export function SavedPage({ deals, onSelectDeal }: SavedPageProps) {
             <div className="w-16 h-16 rounded-2xl bg-slate-800/50 flex items-center justify-center mb-4">
               <Heart className="w-8 h-8 text-slate-600" />
             </div>
-            <h2 className="text-lg font-semibold text-slate-300 mb-2">No saved deals</h2>
+            <h2 className="text-lg font-semibold text-slate-300 mb-2">No saved deals yet</h2>
             <p className="text-sm text-slate-500 max-w-sm">
-              Tap the heart icon on any deal to save it here for quick access.
+              Tap the <span className="text-purple-400">&hearts;</span> on any deal to save it before midnight.
             </p>
           </div>
         )}

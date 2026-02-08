@@ -494,8 +494,8 @@ export function SearchPage({
                   <p className="text-slate-400 text-lg mb-2">
                     Nothing for &ldquo;{debouncedQuery}&rdquo;
                   </p>
-                  <p className="text-slate-500 text-sm">
-                    Try a brand name, category (flower, vape), or dispensary
+                  <p className="text-slate-500 text-sm max-w-xs mx-auto">
+                    No deals match right now. Deals refresh every morning &mdash; try a different brand, category, or dispensary.
                   </p>
                 </div>
               )}

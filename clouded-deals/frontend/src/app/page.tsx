@@ -12,7 +12,6 @@ import { DealsPage } from '@/components/DealsPage';
 import { SearchPage } from '@/components/SearchPage';
 import { BrowsePage } from '@/components/BrowsePage';
 import { SavedPage } from '@/components/SavedPage';
-import { LandingPage } from '@/components/LandingPage';
 import { AuthPrompt } from '@/components/AuthPrompt';
 import { SmsWaitlist } from '@/components/SmsWaitlist';
 import { LocationSelector } from '@/components/LocationSelector';
@@ -25,11 +24,9 @@ import { useStreak } from '@/hooks/useStreak';
 import { useBrandAffinity } from '@/hooks/useBrandAffinity';
 import { initializeAnonUser, trackEvent } from '@/lib/analytics';
 import { isAuthPromptDismissed, dismissAuthPrompt } from '@/lib/auth';
-import { Onboarding, isOnboardingSeen, markOnboardingSeen } from '@/components/Onboarding';
+import { FTUEFlow, isFTUECompleted, CoachMarks, isCoachMarksSeen } from '@/components/ftue';
 
-type AppPage = 'landing' | 'home' | 'search' | 'browse' | 'saved';
-
-const LANDING_SEEN_KEY = 'clouded_landing_seen';
+type AppPage = 'home' | 'search' | 'browse' | 'saved';
 
 export default function Home() {
   const [isAgeVerified, setIsAgeVerified] = useState(false);
@@ -37,22 +34,18 @@ export default function Home() {
   const [browseDispensaries, setBrowseDispensaries] = useState<BrowseDispensary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activePage, setActivePage] = useState<AppPage>(() => {
-    if (typeof window !== 'undefined' && localStorage.getItem(LANDING_SEEN_KEY) === 'true') {
-      return 'home';
-    }
-    return 'landing';
-  });
+  const [activePage, setActivePage] = useState<AppPage>('home');
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [highlightSaved, setHighlightSaved] = useState(false);
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [searchInitialQuery, setSearchInitialQuery] = useState('');
-  const [showOnboarding, setShowOnboarding] = useState(() => {
+  const [showFTUE, setShowFTUE] = useState(() => {
     if (typeof window === 'undefined') return false;
-    return !isOnboardingSeen();
+    return !isFTUECompleted();
   });
+  const [showCoachMarks, setShowCoachMarks] = useState(false);
 
   const { savedDeals, usedDeals, toggleSavedDeal, markDealUsed, isDealUsed, savedCount } =
     useSavedDeals();
@@ -143,16 +136,15 @@ export default function Home() {
     const match = deals.find((d) => d.id === pendingDealId.current);
     if (match) {
       setSelectedDeal(match);
-      // Skip landing page for shared links
-      if (activePage === 'landing') {
-        localStorage.setItem(LANDING_SEEN_KEY, 'true');
-        setActivePage('home');
+      // Skip FTUE for shared links
+      if (showFTUE) {
+        setShowFTUE(false);
       }
     }
     pendingDealId.current = null;
     // Clean up URL params
     window.history.replaceState({}, '', window.location.pathname);
-  }, [deals, loading, activePage]);
+  }, [deals, loading, activePage, showFTUE]);
 
   // Show auth prompt after 3+ saves (only if not authenticated and not dismissed)
   useEffect(() => {
@@ -232,17 +224,13 @@ export default function Home() {
     setTimeout(() => setHighlightSaved(false), 1500);
   }, []);
 
-  const handleEnterApp = useCallback(() => {
-    localStorage.setItem(LANDING_SEEN_KEY, 'true');
-    setActivePage('home');
-  }, []);
-
-  const handleOnboardingComplete = useCallback(() => {
-    markOnboardingSeen();
-    setShowOnboarding(false);
-    // Also skip the landing page — go straight to deals
-    localStorage.setItem(LANDING_SEEN_KEY, 'true');
-    setActivePage('home');
+  const handleFTUEComplete = useCallback(() => {
+    setShowFTUE(false);
+    // Show coach marks on first deals feed view
+    if (!isCoachMarksSeen()) {
+      // Delay so the deals page renders first and coach mark targets exist
+      setTimeout(() => setShowCoachMarks(true), 600);
+    }
   }, []);
 
   // AgeGate
@@ -250,38 +238,13 @@ export default function Home() {
     return <AgeGate onVerify={handleAgeVerify} />;
   }
 
-  // Onboarding for brand-new users
-  if (showOnboarding) {
-    return <Onboarding onComplete={handleOnboardingComplete} />;
-  }
-
-  // Landing page for first-time visitors
-  if (activePage === 'landing') {
+  // FTUE flow for brand-new users
+  if (showFTUE) {
     return (
-      <>
-        <LandingPage
-          deals={todaysDeals}
-          dealCount={todaysDeals.length}
-          onBrowseDeals={handleEnterApp}
-          savedDeals={savedDeals}
-          toggleSavedDeal={handleToggleSave}
-          setSelectedDeal={setSelectedDeal}
-        />
-        {selectedDeal && (
-          <DealModal
-            deal={selectedDeal}
-            onClose={() => setSelectedDeal(null)}
-            isSaved={savedDeals.has(selectedDeal.id)}
-            onToggleSave={() => handleToggleSave(selectedDeal.id)}
-            isUsed={isDealUsed(selectedDeal.id)}
-            onMarkUsed={() => {
-              markDealUsed(selectedDeal.id);
-              addToast('Marked as used', 'success');
-            }}
-          />
-        )}
-        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-      </>
+      <FTUEFlow
+        dealCount={todaysDeals.length}
+        onComplete={() => handleFTUEComplete()}
+      />
     );
   }
 
@@ -480,6 +443,11 @@ export default function Home() {
 
       {/* SMS deal alerts waitlist CTA */}
       <SmsWaitlist addToast={addToast} />
+
+      {/* Coach marks overlay — shown once after FTUE on first deals view */}
+      {showCoachMarks && (
+        <CoachMarks onComplete={() => setShowCoachMarks(false)} />
+      )}
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />

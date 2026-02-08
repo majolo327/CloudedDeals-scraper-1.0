@@ -46,6 +46,28 @@ export function getMapsUrl(address: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encoded}`;
 }
 
+/**
+ * Haversine distance between two GPS coordinates in miles.
+ * Returns null if either coordinate is missing.
+ */
+export function getDistanceMiles(
+  lat1: number | null | undefined,
+  lng1: number | null | undefined,
+  lat2: number | null | undefined,
+  lng2: number | null | undefined,
+): number | null {
+  if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) return null;
+  const R = 3958.8; // Earth radius in miles
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export function getDiscountPercent(original: number | null, deal: number): number {
   if (!original || original <= deal) return 0;
   return Math.round(((original - deal) / original) * 100);
