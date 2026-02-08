@@ -230,17 +230,25 @@ class CuraleafScraper(BaseScraper):
             except PlaywrightTimeout:
                 continue
 
-        # Wait for redirect back to shop page
+        # Wait for redirect back to store page
         try:
-            await self.page.wait_for_url("**/shop/**", timeout=15_000)
-            logger.info("[%s] Redirected back to shop: %s", self.slug, self.page.url)
+            await self.page.wait_for_url("**/stores/**", timeout=15_000)
+            logger.info("[%s] Redirected back to store: %s", self.slug, self.page.url)
         except PlaywrightTimeout:
             logger.warning(
-                "[%s] Did not redirect back to shop after age gate — current URL: %s",
+                "[%s] Did not redirect back to store after age gate — current URL: %s",
                 self.slug, self.page.url,
             )
-            # Take debug screenshot of the stuck age gate
             await self.save_debug_info("age_gate_stuck")
+
+        # Dismiss cookie consent banner (OneTrust) immediately so it
+        # doesn't block product extraction or pagination clicks.
+        try:
+            removed = await self.page.evaluate(_JS_DISMISS_OVERLAYS)
+            if removed:
+                logger.info("[%s] Dismissed %d overlay(s) after age gate redirect", self.slug, removed)
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Product extraction
