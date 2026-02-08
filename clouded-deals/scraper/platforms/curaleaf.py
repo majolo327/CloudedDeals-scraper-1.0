@@ -30,7 +30,9 @@ from .base import BaseScraper
 logger = logging.getLogger(__name__)
 
 _CURALEAF_CFG = PLATFORM_DEFAULTS["curaleaf"]
-_POST_AGE_GATE_WAIT = _CURALEAF_CFG["wait_after_age_gate_sec"]  # 30 s
+# Reduced from 30s: product card detection follows this sleep and has
+# its own 8s timeout, so the full 30s is unnecessary.
+_POST_AGE_GATE_WAIT = 15  # seconds
 
 # Cap pagination to avoid 240 s site timeout.  Curaleaf sites have 500–700+
 # products across 12-14 pages.  10 pages × 51 products ≈ 510, which captures

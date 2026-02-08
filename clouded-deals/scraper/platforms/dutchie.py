@@ -32,12 +32,14 @@ logger = logging.getLogger(__name__)
 _DUTCHIE_CFG = PLATFORM_DEFAULTS["dutchie"]
 _BETWEEN_PAGES_SEC = _DUTCHIE_CFG["between_pages_sec"]          # 5 s
 
-# Proven wait times from months of testing (clouded_logic.py WAIT_TIMES).
-# Dutchie's embed script needs time after the age gate click before it
-# injects the iframe or JS embed.  3 s is NOT enough.
+# Post-age-gate waits: Dutchie's embed script needs time after the age
+# gate click before it injects the iframe or JS embed.
+# Reduced from original 45s/10s by relying on element-based detection
+# in find_dutchie_content (30s timeout) which will proceed as soon as
+# the embed appears rather than always sleeping the full duration.
 _TD_SLUGS = {"td-gibson", "td-eastern", "td-decatur"}
-_POST_AGE_GATE_TD = 45        # TD sites need full 45 s
-_POST_AGE_GATE_OTHER = 10     # Other Dutchie sites need 10 s
+_POST_AGE_GATE_TD = 20        # TD sites: reduced from 45s (element wait handles the rest)
+_POST_AGE_GATE_OTHER = 5      # Other Dutchie sites: reduced from 10s
 _PRODUCT_SELECTORS = [
     '[data-testid="product-card"]',
     '[data-testid*="product"]',

@@ -28,6 +28,12 @@ _RE_WAS_NOW = re.compile(
 # Any standalone "$XX.XX" token.
 _RE_DOLLAR = re.compile(r"\$\s*(?P<amt>[\d]+(?:\.[\d]{1,2})?)")
 
+# Dollar amounts followed by "off" / "save" — these are discount labels, not prices.
+_RE_DISCOUNT_LABEL = re.compile(
+    r"\$\s*[\d]+(?:\.[\d]{1,2})?\s*(?:off|save|discount)\b",
+    re.IGNORECASE,
+)
+
 # Bundle deal with inline tier price: "2/$55 $35" (qty/bundle_total tier_price)
 _RE_BUNDLE_TIER = re.compile(
     r"(?P<qty>[2-9])\s*/\s*\$\s*(?P<total>[\d]+(?:\.[\d]{1,2})?)"
@@ -124,11 +130,27 @@ def extract_prices(text: str) -> dict[str, Any]:
         return result
 
     # Strategy 5 — multiple dollar amounts (first = original, last = sale).
-    amounts = [float(x.group("amt")) for x in _RE_DOLLAR.finditer(text)]
+    # CRITICAL: Filter out dollar amounts that are part of discount labels
+    # like "$8.00 off" — these are NOT prices.
+    discount_label_spans = [
+        (m.start(), m.end()) for m in _RE_DISCOUNT_LABEL.finditer(text)
+    ]
+    amounts = []
+    for m in _RE_DOLLAR.finditer(text):
+        # Skip this dollar amount if it falls inside a discount label
+        in_discount = any(
+            start <= m.start() < end for start, end in discount_label_spans
+        )
+        if not in_discount:
+            amounts.append(float(m.group("amt")))
+
     if len(amounts) >= 2:
-        result["original_price"] = amounts[0]
-        result["sale_price"] = amounts[-1]
-        result["discount_percent"] = _calc_discount(amounts[0], amounts[-1])
+        # Prices: highest = original, lowest = sale (more robust than positional)
+        original = max(amounts)
+        sale = min(amounts)
+        result["original_price"] = original
+        result["sale_price"] = sale
+        result["discount_percent"] = _calc_discount(original, sale)
     elif len(amounts) == 1:
         result["sale_price"] = amounts[0]
 
@@ -139,6 +161,42 @@ def _calc_discount(original: float, sale: float) -> float | None:
     if original <= 0:
         return None
     return round((1 - sale / original) * 100, 1)
+
+
+def validate_prices(parsed: dict[str, Any]) -> dict[str, Any]:
+    """Post-parse price sanity checks. Fixes common scraping errors.
+
+    - Swaps original/sale when inverted
+    - Detects discount amounts misread as sale prices
+    - Flags suspiciously low prices
+    """
+    sale = parsed.get("sale_price")
+    original = parsed.get("original_price")
+
+    if not sale or sale <= 0:
+        return parsed
+
+    # Rule 1: If sale_price > original_price, they're swapped
+    if original and original < sale:
+        parsed["original_price"] = sale
+        parsed["sale_price"] = original
+        sale, original = original, sale
+        parsed["discount_percent"] = _calc_discount(original, sale)
+
+    # Rule 2: If original == sale, no real discount
+    if original and original == sale:
+        parsed["original_price"] = None
+        parsed["discount_percent"] = None
+
+    # Rule 3: If sale_price < $3 and we have an original, this might be
+    # a discount amount that slipped through (e.g., "$3 off" parsed as "$3")
+    if sale < 3 and original and original > sale:
+        inferred_sale = original - sale
+        if inferred_sale > 3:
+            parsed["sale_price"] = inferred_sale
+            parsed["discount_percent"] = _calc_discount(original, inferred_sale)
+
+    return parsed
 
 
 # =====================================================================
@@ -512,6 +570,7 @@ def parse_product(raw: dict[str, Any]) -> dict[str, Any]:
 
     parsed = {**raw}
     parsed.update(extract_prices(text))
+    parsed = validate_prices(parsed)
     parsed.update(extract_weight(text))
     parsed.update(extract_cannabinoids(text))
     parsed["brand"] = detect_brand(text)

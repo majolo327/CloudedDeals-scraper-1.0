@@ -785,10 +785,12 @@ class CloudedLogic:
             return None
 
         # ── Step 2: Check for infused preroll ────────────────────
+        # Tag infused prerolls instead of filtering them out.
+        # They stay in the DB and are searchable, just excluded from Top 100
+        # by the deal_detector hard filters.
         is_infused = self.is_infused_preroll(clean_text)
-        if is_infused and category == 'preroll':
-            self.stats['infused_prerolls_filtered'] += 1
-            return None
+        if is_infused:
+            self.stats['infused_prerolls_tagged'] += 1
 
         # ── Step 3: Extract and validate weight WITH category ────
         weight_match = re.search(r'([\d.]+)\s*(g|mg|oz)\b', clean_text, re.IGNORECASE)

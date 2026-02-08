@@ -2,10 +2,8 @@ name: Daily Scraper
 
 on:
   schedule:
-    # 8:30 AM Pacific = 16:30 UTC (15:30 during PDT)
-    - cron: "30 16 * * *"
-    # Backup trigger 15 minutes later in case the first run is skipped
-    - cron: "45 16 * * *"
+    # Single daily run: 8:00 AM Pacific = 16:00 UTC (15:00 during PDT)
+    - cron: "0 16 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -24,26 +22,38 @@ on:
         type: string
         default: ""
 
+concurrency:
+  group: daily-scraper
+  cancel-in-progress: false
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    # 27 dispensaries × ~4 min avg = ~108 min; 150 gives headroom for retries
-    timeout-minutes: 150
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: clouded-deals/scraper/requirements.txt
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('clouded-deals/scraper/requirements.txt') }}
 
       - name: Install dependencies
         working-directory: clouded-deals/scraper
         run: |
           pip install -r requirements.txt
-          echo "--- Installing Playwright ---"
           playwright install-deps
           playwright install chromium
 

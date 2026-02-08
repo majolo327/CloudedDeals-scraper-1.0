@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Heart, MapPin, Share2, ExternalLink } from 'lucide-react';
 import type { Deal } from '@/types';
-import { getBadge, getPricePerUnit, getDistanceMiles, getDisplayName } from '@/utils';
+import { getBadge, getDistanceMiles, getDisplayName } from '@/utils';
 import { getUserCoords } from './ftue';
 import { DealBadge } from './badges/DealBadge';
 import { ShareModal } from './modals/ShareModal';
@@ -18,7 +18,7 @@ interface DealCardProps {
 
 export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: DealCardProps) {
   const [showShare, setShowShare] = useState(false);
-  const pricePerUnit = getPricePerUnit(deal);
+
   const badge = getBadge(deal);
   const discountPercent = deal.original_price && deal.original_price > deal.deal_price
     ? Math.round(((deal.original_price - deal.deal_price) / deal.original_price) * 100)
@@ -95,7 +95,9 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
       {/* Weight + Category */}
       <p className="text-[10px] text-slate-500 mb-3">
         {deal.weight && <>{deal.weight} &bull; </>}
-        {deal.category.charAt(0).toUpperCase() + deal.category.slice(1)}
+        {deal.product_subtype === 'infused_preroll' ? 'Infused Pre-Roll'
+          : deal.product_subtype === 'preroll_pack' ? 'Pre-Roll Pack'
+          : deal.category.charAt(0).toUpperCase() + deal.category.slice(1)}
       </p>
 
       {/* Price */}
@@ -111,9 +113,6 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onClick }: Dea
             </span>
           )}
         </div>
-        {pricePerUnit && (
-          <p className="text-[10px] text-slate-500 mt-0.5">{pricePerUnit}</p>
-        )}
       </div>
 
       {/* Footer: Dispensary + Distance + Get Deal */}

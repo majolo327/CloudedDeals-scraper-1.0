@@ -34,18 +34,32 @@ logger = logging.getLogger(__name__)
 class BaseScraper(abc.ABC):
     """Skeleton shared by every platform scraper.
 
-    Usage::
+    Usage (standalone — creates its own browser)::
 
         async with DutchieScraper(dispensary_cfg) as scraper:
             products = await scraper.scrape()
+
+    Usage (shared browser — for parallel scraping)::
+
+        browser = await pw.chromium.launch(...)
+        async with DutchieScraper(dispensary_cfg, browser=browser) as scraper:
+            products = await scraper.scrape()
     """
 
-    def __init__(self, dispensary: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        dispensary: dict[str, Any],
+        *,
+        browser: Browser | None = None,
+    ) -> None:
         self.dispensary = dispensary
         self.name: str = dispensary["name"]
         self.slug: str = dispensary["slug"]
         self.url: str = dispensary["url"]
         self.platform: str = dispensary["platform"]
+
+        # External browser = shared mode (parallel scraping)
+        self._shared_browser = browser
 
         # Set by __aenter__
         self._pw: Playwright | None = None
@@ -58,27 +72,42 @@ class BaseScraper(abc.ABC):
     # ------------------------------------------------------------------
 
     async def __aenter__(self) -> "BaseScraper":
-        self._pw = await async_playwright().start()
-        self._browser = await self._pw.chromium.launch(
-            headless=True,
-            args=BROWSER_ARGS,
-        )
+        if self._shared_browser:
+            # Shared mode: reuse the pre-launched browser, create a fresh context
+            self._browser = self._shared_browser
+        else:
+            # Standalone mode: launch our own browser
+            self._pw = await async_playwright().start()
+            self._browser = await self._pw.chromium.launch(
+                headless=True,
+                args=BROWSER_ARGS,
+            )
         self._context = await self._browser.new_context(
             viewport=VIEWPORT,
             user_agent=USER_AGENT,
         )
         self._page = await self._context.new_page()
-        logger.info("[%s] Browser ready", self.slug)
+        logger.info("[%s] Browser ready (shared=%s)", self.slug, bool(self._shared_browser))
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        if self._context:
-            await self._context.close()
-        if self._browser:
-            await self._browser.close()
-        if self._pw:
-            await self._pw.stop()
-        logger.info("[%s] Browser closed", self.slug)
+        # Always close page and context (we own them)
+        for obj in (self._page, self._context):
+            if obj:
+                try:
+                    await obj.close()
+                except Exception:
+                    pass
+        # Only close browser + playwright if we own them (standalone mode)
+        if not self._shared_browser:
+            if self._browser:
+                try:
+                    await self._browser.close()
+                except Exception:
+                    pass
+            if self._pw:
+                await self._pw.stop()
+        logger.info("[%s] Cleanup done", self.slug)
 
     # ------------------------------------------------------------------
     # Shared helpers

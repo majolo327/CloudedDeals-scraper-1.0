@@ -111,6 +111,14 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     Checks global price bounds, minimum discount, original price
     presence, and category-specific price caps.
     """
+    # Exclude infused pre-rolls and pre-roll packs from Top 100.
+    # They remain searchable in the full feed — just not curated.
+    if product.get("is_infused"):
+        return False
+    subtype = product.get("product_subtype")
+    if subtype in ("infused_preroll", "preroll_pack"):
+        return False
+
     sale_price = product.get("sale_price") or product.get("current_price") or 0
     original_price = product.get("original_price") or 0
     discount = product.get("discount_percent") or 0
