@@ -108,7 +108,16 @@ def classify_product(
             )
 
     # --- Pack detection (only if NOT infused) ---
-    if not is_infused:
+    # CRITICAL: Skip pack detection for edibles/gummies.  Edible products
+    # like "Gummies 10pk" or "Edible 5-pack" are NOT preroll packs.
+    _EDIBLE_INDICATORS = ("edible", "gummy", "gummies", "chocolate", "candy",
+                          "brownie", "chew", "lozenge", "mint", "cookie",
+                          "beverage", "drink")
+    is_edible_context = (
+        cat in ("edible",)
+        or any(kw in name_lower for kw in _EDIBLE_INDICATORS)
+    )
+    if not is_infused and not is_edible_context:
         is_pack = any(p.search(name_lower) for p in _PACK_INDICATORS)
         is_pack_brand = brand_lower in _PACK_BRANDS
 

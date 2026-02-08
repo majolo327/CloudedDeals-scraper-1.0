@@ -36,9 +36,10 @@ WAIT_UNTIL = "domcontentloaded"
 # Navigation timeout in milliseconds (PRD: 60 000).
 GOTO_TIMEOUT_MS = 60_000
 
-# Per-site scrape timeout in seconds.  Must accommodate the 60 s
-# post-age-gate wait for Dutchie sites plus iframe loading + pagination.
-SITE_TIMEOUT_SEC = 240
+# Per-site scrape timeout in seconds.  Must accommodate the smart-wait
+# (up to 60 s) + iframe/JS-embed detection (up to 105 s) + pagination.
+# 300 s (5 min) gives room for one retry cycle.
+SITE_TIMEOUT_SEC = 300
 
 # ---------------------------------------------------------------------------
 # Platform-level configuration

@@ -30,6 +30,7 @@ export default function AdminLayout({
   const router = useRouter();
   const [user, setUser] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
+  const [noSession, setNoSession] = useState(false);
 
   // ----- Auth check -----
   useEffect(() => {
@@ -48,7 +49,10 @@ export default function AdminLayout({
           data: { session },
         } = await supabase.auth.getSession();
         if (!session) {
-          router.replace("/");
+          // Allow access but show a warning — don't block the admin panel
+          setUser("unauthenticated");
+          setNoSession(true);
+          setChecking(false);
           return;
         }
         setUser(session.user.email ?? session.user.id);
@@ -64,7 +68,12 @@ export default function AdminLayout({
       const {
         data: { subscription: sub },
       } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (!session) router.replace("/");
+        if (session) {
+          setUser(session.user.email ?? session.user.id);
+          setNoSession(false);
+        } else {
+          setNoSession(true);
+        }
       });
       subscription = sub;
     } catch {
@@ -163,6 +172,13 @@ export default function AdminLayout({
             </button>
           </div>
         </header>
+
+        {/* Auth warning */}
+        {noSession && (
+          <div className="border-b border-amber-300 bg-amber-50 px-6 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+            Not signed in — admin data is read-only. Sign in for full access.
+          </div>
+        )}
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6">{children}</main>

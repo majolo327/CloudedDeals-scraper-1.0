@@ -8,10 +8,13 @@ Flow:
      only injects the menu AFTER the button-click callback fires —
      force-removing the overlay without clicking does NOT trigger it.
   3. Force-remove any lingering overlay residue so it can't intercept clicks.
-  4. Detect Dutchie content: try iframe first (30 s), fall back to
+  4. **Smart-wait** for Dutchie content to appear in the DOM (polling
+     for iframes, JS-embed containers, or product cards) instead of a
+     fixed sleep.  This proceeds as soon as content is detected.
+  5. Detect Dutchie content: try iframe first (45 s), fall back to
      JS embed probing (60 s) for sites that inject into the page DOM.
-  5. Extract products from whichever target was found.
-  6. Paginate via ``aria-label="go to page N"`` buttons.
+  6. Extract products from whichever target was found.
+  7. Paginate via ``aria-label="go to page N"`` buttons.
 """
 
 from __future__ import annotations
@@ -32,14 +35,7 @@ logger = logging.getLogger(__name__)
 _DUTCHIE_CFG = PLATFORM_DEFAULTS["dutchie"]
 _BETWEEN_PAGES_SEC = _DUTCHIE_CFG["between_pages_sec"]          # 5 s
 
-# Post-age-gate waits: Dutchie's embed script needs time after the age
-# gate click before it injects the iframe or JS embed.
-# Reduced from original 45s/10s by relying on element-based detection
-# in find_dutchie_content (30s timeout) which will proceed as soon as
-# the embed appears rather than always sleeping the full duration.
 _TD_SLUGS = {"td-gibson", "td-eastern", "td-decatur"}
-_POST_AGE_GATE_TD = 20        # TD sites: reduced from 45s (element wait handles the rest)
-_POST_AGE_GATE_OTHER = 5      # Other Dutchie sites: reduced from 10s
 _PRODUCT_SELECTORS = [
     '[data-testid="product-card"]',
     '[data-testid*="product"]',
@@ -68,14 +64,41 @@ _AGE_GATE_COOKIE_JS = """
 }
 """
 
+# Smart-wait JS: polls the DOM for any sign of Dutchie content.
+# Returns true as soon as an iframe, JS-embed container, or product
+# cards appear — NO fixed sleep.  This is the "wait until something
+# loaded" approach that previously worked for all 9 Dutchie sites.
+_WAIT_FOR_DUTCHIE_JS = """
+() => {
+    // Dutchie iframe injected?
+    const iframes = document.querySelectorAll('iframe');
+    for (const f of iframes) {
+        const src = f.getAttribute('src') || '';
+        if (src.includes('dutchie') || src.includes('embedded-menu') || src.includes('menu')) {
+            return true;
+        }
+    }
+    // JS-embed container injected?
+    if (document.querySelector('#dutchie--embed') ||
+        document.querySelector('[data-dutchie]') ||
+        document.querySelector('.dutchie--embed') ||
+        document.querySelector('#dutchie')) {
+        return true;
+    }
+    // Direct product cards on page?
+    if (document.querySelectorAll('[data-testid*="product"]').length >= 3 ||
+        document.querySelectorAll('[class*="ProductCard"]').length >= 3) {
+        return true;
+    }
+    return false;
+}
+"""
+
 
 class DutchieScraper(BaseScraper):
     """Scraper for sites powered by the Dutchie embedded iframe menu."""
 
     async def scrape(self) -> list[dict[str, Any]]:
-        # Per-site post-age-gate wait: 45 s for TD sites, 10 s for others
-        post_age_wait = _POST_AGE_GATE_TD if self.slug in _TD_SLUGS else _POST_AGE_GATE_OTHER
-
         # --- Navigate with wait_until='load' (scripts fully execute) ------
         await self.goto()
 
@@ -85,13 +108,11 @@ class DutchieScraper(BaseScraper):
         # --- CLICK the age gate button FIRST ------------------------------
         # The Dutchie embed script only injects the menu iframe AFTER the
         # button-click callback fires — force-removing the overlay via JS
-        # does NOT trigger it.  Click first, then wait the proven duration.
-        clicked = await self.handle_age_gate(post_wait_sec=post_age_wait)
+        # does NOT trigger it.  Click first, then smart-wait.
+        # NOTE: post_wait_sec=3 (minimal) — the real wait is the smart poll below.
+        clicked = await self.handle_age_gate(post_wait_sec=3)
         if clicked:
-            logger.info(
-                "[%s] Age gate clicked — waiting %ds for Dutchie embed to inject",
-                self.slug, post_age_wait,
-            )
+            logger.info("[%s] Age gate clicked — smart-waiting for Dutchie content", self.slug)
         else:
             logger.warning("[%s] No age gate button found — embed may already be loaded", self.slug)
 
@@ -100,13 +121,23 @@ class DutchieScraper(BaseScraper):
         if removed > 0:
             logger.info("[%s] Cleaned up %d lingering overlay(s) via JS", self.slug, removed)
 
+        # --- Smart-wait: poll DOM for Dutchie content (up to 60 s) --------
+        # Instead of a fixed asyncio.sleep(20), this returns the MOMENT
+        # any iframe / container / product cards appear in the DOM.
+        try:
+            await self.page.wait_for_function(
+                _WAIT_FOR_DUTCHIE_JS, timeout=60_000,
+            )
+            logger.info("[%s] Smart-wait: Dutchie content detected in DOM", self.slug)
+        except PlaywrightTimeout:
+            logger.warning("[%s] Smart-wait: no Dutchie content after 60s — will try detection anyway", self.slug)
+
         # --- Detect Dutchie content: iframe first, JS embed fallback ------
-        # Cap total detection at 60 s (30 s iframe + 30 s JS embed) to
-        # avoid burning 240 s per failed site.
+        # Restored timeouts to proven values (was 30s+30s, now 45s+60s).
         target, embed_type = await find_dutchie_content(
             self.page,
-            iframe_timeout_ms=30_000,
-            js_embed_timeout_sec=30,
+            iframe_timeout_ms=45_000,
+            js_embed_timeout_sec=60,
         )
 
         if target is None:
@@ -114,12 +145,22 @@ class DutchieScraper(BaseScraper):
             logger.warning("[%s] No Dutchie content after click — trying reload + re-click", self.slug)
             await self.page.evaluate(_AGE_GATE_COOKIE_JS)
             await self.page.reload(wait_until="load", timeout=60_000)
-            await self.handle_age_gate(post_wait_sec=post_age_wait)
+            await self.handle_age_gate(post_wait_sec=3)
             await force_remove_age_gate(self.page)
+
+            # Smart-wait again after reload
+            try:
+                await self.page.wait_for_function(
+                    _WAIT_FOR_DUTCHIE_JS, timeout=60_000,
+                )
+                logger.info("[%s] Smart-wait (retry): Dutchie content detected", self.slug)
+            except PlaywrightTimeout:
+                logger.warning("[%s] Smart-wait (retry): still nothing after 60s", self.slug)
+
             target, embed_type = await find_dutchie_content(
                 self.page,
-                iframe_timeout_ms=30_000,
-                js_embed_timeout_sec=30,
+                iframe_timeout_ms=45_000,
+                js_embed_timeout_sec=60,
             )
 
         if target is None:

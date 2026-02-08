@@ -33,7 +33,7 @@ from playwright.async_api import async_playwright
 
 from config.dispensaries import BROWSER_ARGS, DISPENSARIES, SITE_TIMEOUT_SEC
 from clouded_logic import CloudedLogic
-from deal_detector import detect_deals
+from deal_detector import detect_deals, get_last_report_data
 from product_classifier import classify_product
 from platforms import CuraleafScraper, DutchieScraper, JaneScraper
 
@@ -472,11 +472,27 @@ async def _scrape_site_inner(
 
         weight_value, weight_unit = _split_weight(product.get("weight"))
 
+        # --- Build a clean display name from the scraper's raw_name ------
+        # CloudedLogic's product_name is derived from the full combined text
+        # blob (name + raw_text + price), which is often messy and causes
+        # brand name duplication.  Instead, use raw_name as the base and
+        # strip the brand prefix from it.
+        brand = product.get("brand")
+        display_name = raw_name
+        if brand and display_name:
+            display_name = re.sub(
+                rf'^{re.escape(brand)}\s*[-:|]?\s*',
+                '', display_name, flags=re.IGNORECASE,
+            ).strip()
+            if len(display_name) < 3:
+                display_name = raw_name
+        display_name = display_name or raw_name or "Unknown"
+
         # Map CloudedLogic output to the DB schema expected by _upsert_products
         enriched: dict[str, Any] = {
             **rp,
-            "name": product.get("product_name") or raw_name or "Unknown",
-            "brand": product.get("brand"),
+            "name": display_name,
+            "brand": brand,
             "category": product.get("category"),
             "original_price": product.get("original_price"),
             "sale_price": product.get("deal_price"),
@@ -494,6 +510,7 @@ async def _scrape_site_inner(
     # detect_deals returns only the curated top deals with deal_score set.
     # All other products default to deal_score = 0.
     deals = detect_deals(parsed)
+    report_data = get_last_report_data()
 
     # Write deal_score back onto parsed products so it's upserted into the
     # products table (the frontend reads deal_score from products directly).
@@ -517,6 +534,7 @@ async def _scrape_site_inner(
         "products": len(parsed),
         "deals": deal_count,
         "error": None,
+        "_report_data": report_data,
     }
 
 
@@ -705,6 +723,9 @@ async def run(slug_filter: str | None = None) -> None:
     await pw.stop()
 
     # Process results
+    all_top_deals: list[dict[str, Any]] = []
+    all_cut_deals: list[dict[str, Any]] = []
+
     for result in results:
         if isinstance(result, Exception):
             logger.error("Unhandled exception: %s", result)
@@ -718,6 +739,10 @@ async def run(slug_filter: str | None = None) -> None:
             sites_scraped.append(result["slug"])
             total_products += result.get("products", 0)
             total_deals += result.get("deals", 0)
+            # Collect report data
+            rd = result.get("_report_data", {})
+            all_top_deals.extend(rd.get("top_deals", []))
+            all_cut_deals.extend(rd.get("cut_deals", []))
 
     # Determine final status
     if not sites_failed:
@@ -750,6 +775,76 @@ async def run(slug_filter: str | None = None) -> None:
         logger.info("  Failed:")
         for f in sites_failed:
             logger.info("    - %s: %s", f["slug"], f["error"])
+    logger.info("=" * 60)
+
+    # ─── Detailed Deal Report ─────────────────────────────────────
+    _log_deal_report(all_top_deals, all_cut_deals)
+
+
+def _log_deal_report(
+    top_deals: list[dict[str, Any]],
+    cut_deals: list[dict[str, Any]],
+) -> None:
+    """Log a detailed deal report: top 3 per category + 10 cut deals."""
+    if not top_deals and not cut_deals:
+        return
+
+    logger.info("")
+    logger.info("=" * 60)
+    logger.info("DEAL REPORT — Human Review Summary")
+    logger.info("=" * 60)
+
+    # --- Top 3 included deals per category ---
+    from collections import defaultdict
+
+    by_cat: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for d in top_deals:
+        cat = d.get("category", "other")
+        by_cat[cat].append(d)
+
+    cat_order = ["flower", "vape", "edible", "concentrate", "preroll", "other"]
+    for cat in cat_order:
+        deals = by_cat.get(cat, [])
+        if not deals:
+            continue
+        deals.sort(key=lambda x: x.get("deal_score", 0), reverse=True)
+        logger.info("")
+        logger.info("  [%s] %d deals included — Top 3:", cat.upper(), len(deals))
+        for i, d in enumerate(deals[:3], 1):
+            name = d.get("name", "?")[:50]
+            brand = d.get("brand") or "?"
+            price = d.get("sale_price") or 0
+            orig = d.get("original_price") or 0
+            score = d.get("deal_score", 0)
+            disp = d.get("dispensary_id") or d.get("dispensary") or "?"
+            pct = d.get("discount_percent") or 0
+            logger.info(
+                "    %d. [%d pts] %s — %s | $%.0f (was $%.0f, %d%% off) @ %s",
+                i, score, brand, name, price, orig, pct, disp,
+            )
+
+    # --- 10 highest-scored cut deals (qualified but not selected) ---
+    if cut_deals:
+        cut_deals.sort(key=lambda x: x.get("deal_score", 0), reverse=True)
+        logger.info("")
+        logger.info("  CUT DEALS (scored but not shown) — Top 10 of %d:", len(cut_deals))
+        for i, d in enumerate(cut_deals[:10], 1):
+            name = d.get("name", "?")[:50]
+            brand = d.get("brand") or "?"
+            price = d.get("sale_price") or 0
+            score = d.get("deal_score", 0)
+            cat = d.get("category", "?")
+            disp = d.get("dispensary_id") or d.get("dispensary") or "?"
+            pct = d.get("discount_percent") or 0
+            logger.info(
+                "    %d. [%d pts] %s — %s | $%.0f (%d%% off) [%s] @ %s",
+                i, score, brand, name, price, pct, cat, disp,
+            )
+    else:
+        logger.info("")
+        logger.info("  No cut deals (all scored deals were selected)")
+
+    logger.info("")
     logger.info("=" * 60)
 
 
