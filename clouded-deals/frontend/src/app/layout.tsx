@@ -22,10 +22,28 @@ export const viewport: Viewport = {
   themeColor: "#020617",
 };
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://cloudeddeals.com";
+const OG_TITLE = "CloudedDeals — Las Vegas Cannabis Deals";
+const OG_DESCRIPTION =
+  "Real-time cannabis deals scraped from 27 Las Vegas dispensaries. Top flower, vape, edible & concentrate deals updated daily.";
+
 export const metadata: Metadata = {
-  title: "CloudedDeals — Las Vegas Cannabis Deals",
-  description:
-    "Real-time cannabis deals scraped from 27 Las Vegas dispensaries across Dutchie, Curaleaf, and Jane platforms.",
+  metadataBase: new URL(SITE_URL),
+  title: OG_TITLE,
+  description: OG_DESCRIPTION,
+  openGraph: {
+    title: OG_TITLE,
+    description: OG_DESCRIPTION,
+    url: SITE_URL,
+    siteName: "CloudedDeals",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: OG_TITLE,
+    description: OG_DESCRIPTION,
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

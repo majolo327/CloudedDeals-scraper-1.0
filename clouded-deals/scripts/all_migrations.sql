@@ -267,5 +267,46 @@ GRANT SELECT ON public.deal_save_counts TO service_role;
 
 
 -- ===========================================================================
+-- 008: SMS Waitlist
+-- ===========================================================================
+
+CREATE TABLE IF NOT EXISTS public.sms_waitlist (
+  id         uuid primary key default gen_random_uuid(),
+  phone      text not null,
+  source     text not null default 'sticky_cta',
+  anon_id    text,
+  created_at timestamptz not null default now(),
+  constraint sms_waitlist_phone_unique unique (phone)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sms_waitlist_created ON public.sms_waitlist (created_at DESC);
+
+ALTER TABLE public.sms_waitlist ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "Anon insert sms_waitlist" ON public.sms_waitlist;
+  DROP POLICY IF EXISTS "Service read sms_waitlist" ON public.sms_waitlist;
+END $$;
+
+CREATE POLICY "Anon insert sms_waitlist" ON public.sms_waitlist FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "Service read sms_waitlist" ON public.sms_waitlist FOR SELECT TO service_role USING (true);
+
+
+-- ===========================================================================
+-- 009: Dispensary region + slug columns & product indexes (additive)
+-- ===========================================================================
+
+DO $$ BEGIN
+  ALTER TABLE dispensaries ADD COLUMN IF NOT EXISTS region TEXT DEFAULT 'las-vegas';
+  ALTER TABLE dispensaries ADD COLUMN IF NOT EXISTS slug TEXT;
+EXCEPTION WHEN duplicate_column THEN NULL;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_dispensaries_region ON dispensaries (region) WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_products_deal_score ON products (deal_score DESC) WHERE deal_score > 0;
+CREATE INDEX IF NOT EXISTS idx_products_active ON products (is_active) WHERE is_active = TRUE;
+
+
+-- ===========================================================================
 -- Done! All tables, indexes, RLS policies, and views are set up.
 -- ===========================================================================
