@@ -145,11 +145,12 @@ def _calc_discount(original: float, sale: float) -> float | None:
 # 2. Weight extraction
 # =====================================================================
 
-# Matches: 3.5g, 100mg, 1oz, etc.
+# Matches: 3.5g, 0.5g, .5g, 100mg, 1oz, etc.
 # CRITICAL: mg must appear before g in the alternation so that "850mg"
 # is not partially matched as "85" + "0g".
+# The qty group handles optional leading digit for ".5g" → 0.5
 _RE_WEIGHT_METRIC = re.compile(
-    r"(?P<qty>[\d]+(?:\.[\d]+)?)\s*(?P<unit>mg|g|oz)\b", re.IGNORECASE,
+    r"(?P<qty>\d*\.?\d+)\s*(?P<unit>mg|g|oz)\b", re.IGNORECASE,
 )
 
 # Common fractional / shorthand names → grams.
@@ -183,7 +184,10 @@ def extract_weight(text: str) -> dict[str, Any]:
         # 5.0 g is almost certainly 0.5 g with a misplaced decimal.
         if unit == "g" and value > 2:
             lower_text = text.lower()
-            if any(kw in lower_text for kw in ("vape", "cart", "pod", "disposable")):
+            if any(kw in lower_text for kw in (
+                "vape", "cart", "cartridge", "pod", "disposable",
+                "stiizy", "stiiizy", "pax", "510",
+            )):
                 value = value / 10
 
         result["weight_value"] = value
