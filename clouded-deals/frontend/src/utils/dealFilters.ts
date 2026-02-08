@@ -1,8 +1,8 @@
 import type { Deal, Category } from '@/types';
 
 interface FilterOptions {
-  category?: Category | 'all';
-  dispensaryId?: string | 'all';
+  categories?: Category[];
+  dispensaryIds?: string[];
   brandName?: string;
   minPrice?: number;
   maxPrice?: number;
@@ -12,13 +12,13 @@ interface FilterOptions {
 
 export function filterDeals(deals: Deal[], options: FilterOptions): Deal[] {
   return deals.filter((deal) => {
-    if (options.category && options.category !== 'all' && deal.category !== options.category) {
+    if (options.categories && options.categories.length > 0 && !options.categories.includes(deal.category)) {
       return false;
     }
     if (
-      options.dispensaryId &&
-      options.dispensaryId !== 'all' &&
-      deal.dispensary.id !== options.dispensaryId
+      options.dispensaryIds &&
+      options.dispensaryIds.length > 0 &&
+      !options.dispensaryIds.includes(deal.dispensary.id)
     ) {
       return false;
     }

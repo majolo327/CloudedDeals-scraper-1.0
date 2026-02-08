@@ -6,7 +6,7 @@ import type { Deal } from '@/types';
 import type { ToastData } from './Toast';
 import { CompactDealCard, DealCard } from './cards';
 import { DealStack } from './DealStack';
-import { FilterSheet, FilterState, DEFAULT_FILTERS } from './FilterSheet';
+import { FilterSheet, FilterState, DEFAULT_FILTERS, getPriceRangeBounds } from './FilterSheet';
 import { StickyStatsBar } from './layout';
 import { DailyCompleteModal, NineClearModal } from './modals';
 import { DealCardSkeleton } from './Skeleton';
@@ -87,29 +87,58 @@ export function DealsPage({
     return rotated.filter((deal) => deal.category.toLowerCase() === activeCategory);
   }, [deals, dayOffset, activeCategory]);
 
-  const hasActiveFilters = filters.category !== 'all' || filters.dispensaryId !== 'all' ||
-    filters.minPrice > 0 || filters.maxPrice < 200 || filters.minDiscount > 0;
+  const hasActiveFilters = filters.categories.length > 0 || filters.dispensaryIds.length > 0 ||
+    filters.priceRange !== 'all' || filters.minDiscount > 0;
 
   const filteredDailyDeals = useMemo(() => {
-    if (!hasActiveFilters && filters.sortBy === 'discount') return dailyRotatedDeals;
+    if (!hasActiveFilters && filters.sortBy === 'deal_score') return dailyRotatedDeals;
+    const priceBounds = getPriceRangeBounds(filters.priceRange);
     let result = filterDeals(dailyRotatedDeals, {
-      category: filters.category === 'all' ? undefined : filters.category,
-      dispensaryId: filters.dispensaryId === 'all' ? undefined : filters.dispensaryId,
-      minPrice: filters.minPrice > 0 ? filters.minPrice : undefined,
-      maxPrice: filters.maxPrice < 200 ? filters.maxPrice : undefined,
+      categories: filters.categories.length > 0 ? filters.categories : undefined,
+      dispensaryIds: filters.dispensaryIds.length > 0 ? filters.dispensaryIds : undefined,
+      minPrice: priceBounds.min > 0 ? priceBounds.min : undefined,
+      maxPrice: priceBounds.max < Infinity ? priceBounds.max : undefined,
       minDiscount: filters.minDiscount > 0 ? filters.minDiscount : undefined,
     });
     if (filters.sortBy === 'price_asc') {
       result = [...result].sort((a, b) => a.deal_price - b.deal_price);
     } else if (filters.sortBy === 'price_desc') {
       result = [...result].sort((a, b) => b.deal_price - a.deal_price);
-    } else if (filters.sortBy === 'newest') {
-      result = [...result].sort((a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+    } else if (filters.sortBy === 'discount') {
+      result = [...result].sort((a, b) => {
+        const discA = a.original_price ? ((a.original_price - a.deal_price) / a.original_price) * 100 : 0;
+        const discB = b.original_price ? ((b.original_price - b.deal_price) / b.original_price) * 100 : 0;
+        return discB - discA;
+      });
     }
+    // deal_score sort is the default from dailyRotatedDeals
     return result;
   }, [dailyRotatedDeals, filters, hasActiveFilters]);
+
+  // Apply filters to the 3x3 grid for display
+  const displayedGridDeals = useMemo(() => {
+    if (!hasActiveFilters && filters.sortBy === 'deal_score') return gridDeals;
+    const priceBounds = getPriceRangeBounds(filters.priceRange);
+    let result = filterDeals(gridDeals, {
+      categories: filters.categories.length > 0 ? filters.categories : undefined,
+      dispensaryIds: filters.dispensaryIds.length > 0 ? filters.dispensaryIds : undefined,
+      minPrice: priceBounds.min > 0 ? priceBounds.min : undefined,
+      maxPrice: priceBounds.max < Infinity ? priceBounds.max : undefined,
+      minDiscount: filters.minDiscount > 0 ? filters.minDiscount : undefined,
+    });
+    if (filters.sortBy === 'price_asc') {
+      result = [...result].sort((a, b) => a.deal_price - b.deal_price);
+    } else if (filters.sortBy === 'price_desc') {
+      result = [...result].sort((a, b) => b.deal_price - a.deal_price);
+    } else if (filters.sortBy === 'discount') {
+      result = [...result].sort((a, b) => {
+        const discA = a.original_price ? ((a.original_price - a.deal_price) / a.original_price) * 100 : 0;
+        const discB = b.original_price ? ((b.original_price - b.deal_price) / b.original_price) * 100 : 0;
+        return discB - discA;
+      });
+    }
+    return result;
+  }, [gridDeals, filters, hasActiveFilters]);
 
   // Personalization: score and rank deals based on user behavior
   const { personalizedDeals, isRecommended } = usePersonalization(deals);
@@ -332,11 +361,12 @@ export function DealsPage({
         (d) => activeCategory === 'all' || d.category.toLowerCase() === activeCategory
       );
     if (hasActiveFilters) {
+      const priceBounds = getPriceRangeBounds(filters.priceRange);
       result = filterDeals(result, {
-        category: filters.category === 'all' ? undefined : filters.category,
-        dispensaryId: filters.dispensaryId === 'all' ? undefined : filters.dispensaryId,
-        minPrice: filters.minPrice > 0 ? filters.minPrice : undefined,
-        maxPrice: filters.maxPrice < 200 ? filters.maxPrice : undefined,
+        categories: filters.categories.length > 0 ? filters.categories : undefined,
+        dispensaryIds: filters.dispensaryIds.length > 0 ? filters.dispensaryIds : undefined,
+        minPrice: priceBounds.min > 0 ? priceBounds.min : undefined,
+        maxPrice: priceBounds.max < Infinity ? priceBounds.max : undefined,
         minDiscount: filters.minDiscount > 0 ? filters.minDiscount : undefined,
       });
     }
@@ -344,12 +374,14 @@ export function DealsPage({
       return result.sort((a, b) => a.deal_price - b.deal_price);
     } else if (filters.sortBy === 'price_desc') {
       return result.sort((a, b) => b.deal_price - a.deal_price);
-    } else if (filters.sortBy === 'newest') {
-      return result.sort((a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+    } else if (filters.sortBy === 'discount') {
+      return [...result].sort((a, b) => {
+        const discA = a.original_price ? ((a.original_price - a.deal_price) / a.original_price) * 100 : 0;
+        const discB = b.original_price ? ((b.original_price - b.deal_price) / b.original_price) * 100 : 0;
+        return discB - discA;
+      });
     }
-    return result.sort((a, b) => a.deal_price - b.deal_price);
+    return result.sort((a, b) => b.deal_score - a.deal_score);
   }, [verifiedDeals, activeCategory, filters, hasActiveFilters]);
 
   return (
@@ -362,12 +394,27 @@ export function DealsPage({
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
       >
-        <FilterSheet deals={deals} filters={filters} onFiltersChange={setFilters} />
+        <FilterSheet deals={deals} filters={filters} onFiltersChange={setFilters} filteredCount={filteredDailyDeals.length} totalCount={dailyRotatedDeals.length} />
       </StickyStatsBar>
 
       <div className="max-w-6xl mx-auto px-4 py-4">
         {activeTab === 'today' && (
           <div className="animate-in fade-in">
+            {/* Active filter indicator */}
+            {hasActiveFilters && (
+              <div className="flex items-center justify-between mb-3 px-1">
+                <span className="text-xs text-slate-400">
+                  Showing {filteredDailyDeals.length} of {dailyRotatedDeals.length} deals
+                </span>
+                <button
+                  onClick={() => setFilters(DEFAULT_FILTERS)}
+                  className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                >
+                  Clear filters
+                </button>
+              </div>
+            )}
+
             {/* Today's Deals Header */}
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-medium text-slate-300">
@@ -421,13 +468,28 @@ export function DealsPage({
                     New deals drop tomorrow morning
                   </p>
                 </div>
+              ) : hasActiveFilters && displayedGridDeals.length === 0 ? (
+                <div className="text-center py-16">
+                  <p className="text-slate-400 text-sm mb-2">
+                    No deals match your filters
+                  </p>
+                  <p className="text-slate-600 text-xs mb-4">
+                    Try broadening your search
+                  </p>
+                  <button
+                    onClick={() => setFilters(DEFAULT_FILTERS)}
+                    className="px-4 py-2 bg-purple-500/20 text-purple-400 rounded-lg text-sm font-medium hover:bg-purple-500/30 transition-colors"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
               ) : (
                 <div
                   className={`grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 transition-opacity duration-300 ${
                     isClearing ? 'opacity-0' : 'opacity-100'
                   }`}
                 >
-                  {gridDeals.map((deal) => {
+                  {displayedGridDeals.map((deal) => {
                     const scoredDeal = personalizationMap.get(deal.id);
                     return (
                       <CompactDealCard

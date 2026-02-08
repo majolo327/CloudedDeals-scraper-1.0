@@ -143,7 +143,7 @@ export function SearchPage({
   const filteredDeals = useMemo(
     () =>
       filterDeals(deals, {
-        category: activeCategory === 'all' ? undefined : activeCategory,
+        categories: activeCategory === 'all' ? undefined : [activeCategory],
         searchQuery: debouncedQuery || undefined,
       }),
     [deals, activeCategory, debouncedQuery]
