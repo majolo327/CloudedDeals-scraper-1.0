@@ -412,12 +412,19 @@ def select_top_deals(
 # =====================================================================
 
 
-def detect_deals(products: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Full pipeline: filter → score → select top 100.
+def detect_deals(
+    products: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Full pipeline: filter -> score -> select top 100.
 
     Returns only the curated top deals with ``deal_score`` set.
     All other products should get ``deal_score = 0``.
+
+    Also stores reporting data on the module for the scrape report
+    (accessible via ``get_last_report_data()``).
     """
+    global _last_report_data
+
     # Step 1: Hard filter
     qualifying: list[dict[str, Any]] = []
     for product in products:
@@ -446,4 +453,30 @@ def detect_deals(products: list[dict[str, Any]]) -> list[dict[str, Any]]:
     top_deals = select_top_deals(scored)
     logger.info("Selected %d top deals for display", len(top_deals))
 
+    # Store reporting data for the scrape summary
+    selected_keys = {
+        (d.get("name", ""), d.get("sale_price")) for d in top_deals
+    }
+    cut_deals = [
+        d for d in scored
+        if (d.get("name", ""), d.get("sale_price")) not in selected_keys
+    ]
+    _last_report_data = {
+        "total_products": len(products),
+        "passed_hard_filter": len(qualifying),
+        "scored": len(scored),
+        "selected": len(top_deals),
+        "top_deals": top_deals,
+        "cut_deals": cut_deals,
+    }
+
     return top_deals
+
+
+# Module-level storage for the last run's report data
+_last_report_data: dict[str, Any] = {}
+
+
+def get_last_report_data() -> dict[str, Any]:
+    """Return the report data from the most recent ``detect_deals`` call."""
+    return _last_report_data

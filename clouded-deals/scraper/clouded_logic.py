@@ -477,8 +477,8 @@ class CloudedLogic:
     #   2. Drinks → edible
     #   3. Preroll
     #   4. Concentrate (requires BOTH keyword AND weight)
-    #   5. Vape
-    #   6. Flower (by weight pattern 3.5/7/14/28g)
+    #   5. Flower (by weight pattern 3.5/7/14/28g) — BEFORE vape!
+    #   6. Vape (word-boundary match to avoid false positives)
     #   7. Flower (by keyword)
     #   8. Edible (gummies, chocolate, candy)
     #   9. Other (fallback)
@@ -518,16 +518,22 @@ class CloudedLogic:
             self.stats['concentrates_found'] += 1
             return 'concentrate'
 
-        # 5. VAPE (check before flower - some carts mention strain "flower")
-        vape_keywords = ['cart', 'cartridge', 'pod', 'disposable', 'vape', 'pen', 'all-in-one']
-        edible_keywords = ['gummies', 'gummy', 'chocolate', 'candy', 'brownie']
-        if any(c in t for c in vape_keywords):
-            if not any(w in t for w in edible_keywords):
-                return 'vape'
-
-        # 6. FLOWER by weight pattern (3.5g, 7g, 14g, 28g)
+        # 5. FLOWER by weight pattern (3.5g, 7g, 14g, 28g)
+        # MOVED BEFORE VAPE: These weights are unambiguously flower.
+        # No vape/cart is 7g, 14g, or 28g.  A 3.5g product is almost
+        # certainly flower too.  This prevents false vape classification
+        # when the raw text block contains stray vape keywords (e.g.
+        # "pen" inside "Aspen", navigation text, etc.).
         if re.search(r'\b(3\.5|7|14|28)\s*g\b', t):
             return 'flower'
+
+        # 6. VAPE
+        # Use word-boundary regex to prevent false positives from
+        # substrings (e.g. "pen" matching "Aspen", "open", "expend").
+        edible_keywords = ['gummies', 'gummy', 'chocolate', 'candy', 'brownie']
+        if re.search(r'\b(cart|cartridge|pod|disposable|vape|pen|all-in-one)\b', t):
+            if not any(w in t for w in edible_keywords):
+                return 'vape'
 
         # 7. FLOWER by keyword
         flower_keywords = ['flower', 'bud', 'eighth', 'quarter', 'half', 'ounce', 'smalls', 'popcorn', 'shake']
@@ -816,12 +822,33 @@ class CloudedLogic:
         brand = self.detect_brand(clean_text)
 
         # ── Step 5: Extract prices ───────────────────────────────
-        prices = re.findall(r'\$(\d+\.?\d*)', clean_text)
+        # CRITICAL: Extract "$X off" discount amounts first, then remove
+        # them from the text so they're not mistaken for sale prices.
+        off_match = re.search(
+            r'\$(\d+\.?\d*)\s*(?:off|save|discount)\b', clean_text,
+            flags=re.IGNORECASE,
+        )
+        off_amount = float(off_match.group(1)) if off_match else 0
+
+        price_text = re.sub(
+            r'\$\d+\.?\d*\s*(?:off|save|discount)\b', '', clean_text,
+            flags=re.IGNORECASE,
+        )
+        prices = re.findall(r'\$(\d+\.?\d*)', price_text)
         prices = [float(p) for p in prices]
         prices.sort()
 
         deal_price = prices[0] if prices else None
         original_price = prices[-1] if len(prices) > 1 else None
+
+        # If we found a "$X off" pattern and only one price remains,
+        # compute the sale price: original - discount.
+        if off_amount > 0 and deal_price and not original_price:
+            original_price = deal_price
+            deal_price = round(original_price - off_amount, 2)
+            if deal_price <= 0:
+                deal_price = original_price
+                original_price = None
 
         # Calculate discount
         discount_percent = None
@@ -829,6 +856,16 @@ class CloudedLogic:
         if deal_price and original_price and original_price > deal_price:
             savings = original_price - deal_price
             discount_percent = round((savings / original_price) * 100)
+
+        # Sanity check: if deal_price < $3 and we have an original, the
+        # "price" is likely a discount amount that slipped through (e.g.
+        # "$3 off" without the word "off" right after the number).
+        if deal_price and deal_price < 3 and original_price and original_price > deal_price:
+            inferred_sale = original_price - deal_price
+            if inferred_sale > 3:
+                savings = deal_price  # the small number was the discount
+                deal_price = inferred_sale
+                discount_percent = round((savings / original_price) * 100)
 
         # Also check for explicit % off in text
         if discount_percent is None:
