@@ -32,6 +32,11 @@ logger = logging.getLogger(__name__)
 _CURALEAF_CFG = PLATFORM_DEFAULTS["curaleaf"]
 _POST_AGE_GATE_WAIT = _CURALEAF_CFG["wait_after_age_gate_sec"]  # 30 s
 
+# Cap pagination to avoid 240 s site timeout.  Curaleaf sites have 500–700+
+# products across 12-14 pages.  10 pages × 51 products ≈ 510, which captures
+# the vast majority of specials and finishes in ~155 s.
+_MAX_PAGES = 10
+
 # Curaleaf product card selectors (tried in order).
 _PRODUCT_SELECTORS = [
     '[data-testid*="product"]',
@@ -80,7 +85,7 @@ class CuraleafScraper(BaseScraper):
         all_products: list[dict[str, Any]] = []
         page_num = 1
 
-        while True:
+        while page_num <= _MAX_PAGES:
             products = await self._extract_products()
             all_products.extend(products)
             logger.info(
@@ -101,6 +106,9 @@ class CuraleafScraper(BaseScraper):
                 )
                 break
 
+        if page_num > _MAX_PAGES:
+            logger.info("[%s] Reached max pages (%d) — stopping pagination", self.slug, _MAX_PAGES)
+
         # --- Fallback: if /specials returned 0 products, try the base menu ---
         if not all_products and "/specials" in self.url:
             base_url = self.url.replace("/specials", "")
@@ -114,7 +122,7 @@ class CuraleafScraper(BaseScraper):
             logger.info("[%s] Waiting %ds for product cards on base menu…", self.slug, _POST_AGE_GATE_WAIT)
             await asyncio.sleep(_POST_AGE_GATE_WAIT)
             page_num = 1
-            while True:
+            while page_num <= _MAX_PAGES:
                 products = await self._extract_products()
                 all_products.extend(products)
                 logger.info(

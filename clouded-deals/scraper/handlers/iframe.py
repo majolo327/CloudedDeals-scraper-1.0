@@ -127,7 +127,10 @@ async def get_iframe(
         logger.info("  iframe[%d] src=%s", i, src)
 
     # Filter to iframes with a real src, excluding known tracking/analytics
-    _TRACKING_DOMAINS = ["crwdcntrl.net", "doubleclick", "google-analytics", "facebook", "twitter"]
+    _TRACKING_DOMAINS = [
+        "crwdcntrl.net", "doubleclick", "google-analytics", "facebook",
+        "twitter", "recaptcha", "google.com/recaptcha", "strainbra.in",
+    ]
     real_iframes = []
     for el in iframes:
         src = await el.get_attribute("src") or ""
