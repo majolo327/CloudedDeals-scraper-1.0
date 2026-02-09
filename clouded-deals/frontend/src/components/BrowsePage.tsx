@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Search, ChevronDown, ChevronUp, ShieldCheck, MapPin, ExternalLink, Star } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Search, ChevronDown, ChevronUp, ShieldCheck, MapPin, ExternalLink, Star, Navigation } from 'lucide-react';
 import { ALPHABET } from '@/utils/constants';
 import { filterBrandsByQuery, sortBrandsByName, groupBrandsByLetter, countDealsByBrand } from '@/utils/brandUtils';
 import {
@@ -15,6 +15,8 @@ import { BRANDS } from '@/data/brands';
 import { DISPENSARIES } from '@/data/dispensaries';
 import type { Brand, Deal, Dispensary, DispensaryZone } from '@/types';
 import type { BrowseDispensary } from '@/lib/api';
+import { getStoredZip, getZipCoordinates, type ZipCoords } from '@/lib/zipCodes';
+import { getDistanceMiles } from '@/utils';
 
 type BrowseTab = 'brands' | 'dispensaries';
 
@@ -328,13 +330,30 @@ function DispensariesTab({
   const [dispSearch, setDispSearch] = useState('');
   const [activeZone, setActiveZone] = useState<DispensaryZone | 'all'>('all');
   const [expandedDisp, setExpandedDisp] = useState<string | null>(null);
+  const [sortByDistance, setSortByDistance] = useState(false);
+  const [userCoords, setUserCoords] = useState<ZipCoords | null>(null);
+
+  useEffect(() => {
+    const zip = getStoredZip();
+    if (zip) {
+      const coords = getZipCoordinates(zip);
+      setUserCoords(coords);
+    }
+  }, []);
 
   const filtered = useMemo(() => {
     let result = sortDispensariesByName(DISPENSARIES);
     result = filterDispensariesByZone(result, activeZone);
     result = filterDispensariesByQuery(result, dispSearch);
+    if (sortByDistance && userCoords) {
+      result = [...result].sort((a, b) => {
+        const distA = getDistanceMiles(userCoords.lat, userCoords.lng, a.latitude, a.longitude) ?? 999;
+        const distB = getDistanceMiles(userCoords.lat, userCoords.lng, b.latitude, b.longitude) ?? 999;
+        return distA - distB;
+      });
+    }
     return result;
-  }, [dispSearch, activeZone]);
+  }, [dispSearch, activeZone, sortByDistance, userCoords]);
 
   const grouped = useMemo(() => groupDispensariesByLetter(filtered), [filtered]);
 
@@ -378,14 +397,14 @@ function DispensariesTab({
         />
       </div>
 
-      {/* Zone filter chips */}
-      <div className="flex gap-2">
+      {/* Zone filter chips + distance sort */}
+      <div className="flex items-center gap-2 flex-wrap">
         {ZONE_FILTERS.map((zone) => (
           <button
             key={zone.id}
-            onClick={() => setActiveZone(zone.id)}
+            onClick={() => { setActiveZone(zone.id); setSortByDistance(false); }}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              activeZone === zone.id
+              activeZone === zone.id && !sortByDistance
                 ? 'bg-purple-500/20 text-purple-400'
                 : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-300'
             }`}
@@ -393,6 +412,19 @@ function DispensariesTab({
             {zone.label}
           </button>
         ))}
+        {userCoords && (
+          <button
+            onClick={() => setSortByDistance(!sortByDistance)}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              sortByDistance
+                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-300 border border-transparent'
+            }`}
+          >
+            <Navigation className="w-3 h-3" />
+            Nearest
+          </button>
+        )}
       </div>
 
       {/* Letter navigation */}
@@ -429,16 +461,22 @@ function DispensariesTab({
                 {letter}
               </h3>
               <div className="space-y-1">
-                {disps.map((disp) => (
-                  <DispensaryRow
-                    key={disp.id}
-                    dispensary={disp}
-                    dealCount={dealCounts[disp.id] || 0}
-                    isExpanded={expandedDisp === disp.id}
-                    onToggle={() => toggleDisp(disp.id)}
-                    onViewDeals={onSelectDispensary ? () => onSelectDispensary(disp.name) : undefined}
-                  />
-                ))}
+                {disps.map((disp) => {
+                  const dist = userCoords
+                    ? getDistanceMiles(userCoords.lat, userCoords.lng, disp.latitude, disp.longitude)
+                    : null;
+                  return (
+                    <DispensaryRow
+                      key={disp.id}
+                      dispensary={disp}
+                      dealCount={dealCounts[disp.id] || 0}
+                      isExpanded={expandedDisp === disp.id}
+                      onToggle={() => toggleDisp(disp.id)}
+                      onViewDeals={onSelectDispensary ? () => onSelectDispensary(disp.name) : undefined}
+                      distance={dist}
+                    />
+                  );
+                })}
               </div>
             </div>
           );
@@ -458,12 +496,14 @@ function DispensaryRow({
   isExpanded,
   onToggle,
   onViewDeals,
+  distance,
 }: {
   dispensary: Dispensary;
   dealCount: number;
   isExpanded: boolean;
   onToggle: () => void;
   onViewDeals?: () => void;
+  distance?: number | null;
 }) {
   const zone = dispensary.zone || 'local';
   const zoneStyle = ZONE_COLORS[zone];
@@ -494,6 +534,9 @@ function DispensaryRow({
             <div className="flex items-center gap-1.5">
               <MapPin className="w-2.5 h-2.5 text-slate-600 shrink-0" />
               <p className="text-[10px] text-slate-500 truncate">{dispensary.address}</p>
+              {distance != null && (
+                <span className="text-[10px] text-blue-400 shrink-0">{distance.toFixed(1)} mi</span>
+              )}
             </div>
           </div>
         </div>

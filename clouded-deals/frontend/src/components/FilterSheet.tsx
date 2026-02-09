@@ -2,33 +2,28 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { SlidersHorizontal, X, RotateCcw, Check } from 'lucide-react';
-import type { Deal, Category } from '@/types';
+import { SlidersHorizontal, X, RotateCcw, Check, MapPin, Percent, Navigation } from 'lucide-react';
+import type { Category } from '@/types';
 import { DISPENSARIES } from '@/data/dispensaries';
 import { trackEvent } from '@/lib/analytics';
+import type {
+  UniversalFilterState,
+  SortOption,
+  DistanceRange,
+  QuickFilter,
+} from '@/hooks/useUniversalFilters';
+import { DEFAULT_UNIVERSAL_FILTERS } from '@/hooks/useUniversalFilters';
 
-export interface FilterState {
-  categories: Category[];
-  dispensaryIds: string[];
-  priceRange: string;
-  minDiscount: number;
-  sortBy: 'deal_score' | 'price_asc' | 'price_desc' | 'discount';
-}
+// Re-export for backwards compatibility with DealsPage
+export type FilterState = UniversalFilterState;
+export const DEFAULT_FILTERS = DEFAULT_UNIVERSAL_FILTERS;
 
-export const DEFAULT_FILTERS: FilterState = {
-  categories: [],
-  dispensaryIds: [],
-  priceRange: 'all',
-  minDiscount: 0,
-  sortBy: 'deal_score',
-};
-
-const CATEGORIES: { id: Category; label: string }[] = [
-  { id: 'flower', label: 'Flower' },
-  { id: 'concentrate', label: 'Concentrates' },
-  { id: 'vape', label: 'Vapes' },
-  { id: 'edible', label: 'Edibles' },
-  { id: 'preroll', label: 'Pre-Rolls' },
+const CATEGORIES: { id: Category; label: string; icon: string }[] = [
+  { id: 'flower', label: 'Flower', icon: '🌿' },
+  { id: 'concentrate', label: 'Concentrates', icon: '💎' },
+  { id: 'vape', label: 'Vapes', icon: '💨' },
+  { id: 'edible', label: 'Edibles', icon: '🍬' },
+  { id: 'preroll', label: 'Pre-Rolls', icon: '🚬' },
 ];
 
 const PRICE_RANGES: { id: string; label: string; min: number; max: number }[] = [
@@ -40,11 +35,24 @@ const PRICE_RANGES: { id: string; label: string; min: number; max: number }[] = 
   { id: '50+', label: '$50+', min: 50, max: Infinity },
 ];
 
-const SORT_OPTIONS: { id: FilterState['sortBy']; label: string }[] = [
+const SORT_OPTIONS: { id: SortOption; label: string }[] = [
   { id: 'deal_score', label: 'Best Deal' },
+  { id: 'distance', label: 'Nearest First' },
   { id: 'price_asc', label: 'Price: Low to High' },
   { id: 'price_desc', label: 'Price: High to Low' },
   { id: 'discount', label: 'Biggest Discount' },
+];
+
+const DISTANCE_OPTIONS: { id: DistanceRange; label: string; desc: string }[] = [
+  { id: 'all', label: 'Any Distance', desc: 'Show all deals' },
+  { id: 'near', label: 'Near You', desc: '< 5 miles' },
+  { id: 'nearby', label: 'Nearby', desc: '5–10 miles' },
+  { id: 'across_town', label: 'Across Town', desc: '10–15 miles' },
+];
+
+const QUICK_FILTERS: { id: QuickFilter; label: string; icon: typeof MapPin }[] = [
+  { id: 'near_me', label: 'Near Me', icon: Navigation },
+  { id: 'big_discount', label: '20%+ Off', icon: Percent },
 ];
 
 export function getPriceRangeBounds(rangeId: string): { min: number; max: number } {
@@ -53,14 +61,24 @@ export function getPriceRangeBounds(rangeId: string): { min: number; max: number
 }
 
 interface FilterSheetProps {
-  deals: Deal[];
-  filters: FilterState;
-  onFiltersChange: (filters: FilterState) => void;
+  filters: UniversalFilterState;
+  onFiltersChange: (filters: UniversalFilterState) => void;
   filteredCount: number;
-  totalCount: number;
+  hasLocation?: boolean;
+  onQuickFilter?: (qf: QuickFilter) => void;
+  onReset?: () => void;
+  activeFilterCount?: number;
 }
 
-export function FilterSheet({ filters, onFiltersChange, filteredCount }: FilterSheetProps) {
+export function FilterSheet({
+  filters,
+  onFiltersChange,
+  filteredCount,
+  hasLocation = false,
+  onQuickFilter,
+  onReset,
+  activeFilterCount: externalActiveCount,
+}: FilterSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
@@ -71,16 +89,20 @@ export function FilterSheet({ filters, onFiltersChange, filteredCount }: FilterS
       .sort((a, b) => a.name.localeCompare(b.name));
   }, []);
 
-  const activeFilterCount = [
+  const activeFilterCount = externalActiveCount ?? [
     filters.categories.length > 0,
     filters.dispensaryIds.length > 0,
     filters.priceRange !== 'all',
     filters.minDiscount > 0,
-    filters.sortBy !== 'deal_score',
+    filters.distanceRange !== 'all',
   ].filter(Boolean).length;
 
   const handleReset = () => {
-    onFiltersChange(DEFAULT_FILTERS);
+    if (onReset) {
+      onReset();
+    } else {
+      onFiltersChange(DEFAULT_UNIVERSAL_FILTERS);
+    }
     trackEvent('filter_change', undefined, { action: 'reset' });
   };
 
@@ -88,7 +110,7 @@ export function FilterSheet({ filters, onFiltersChange, filteredCount }: FilterS
     const next = filters.categories.includes(cat)
       ? filters.categories.filter((c) => c !== cat)
       : [...filters.categories, cat];
-    onFiltersChange({ ...filters, categories: next });
+    onFiltersChange({ ...filters, categories: next, quickFilter: 'none' });
     trackEvent('filter_change', undefined, { categories: next.join(',') });
   };
 
@@ -96,16 +118,16 @@ export function FilterSheet({ filters, onFiltersChange, filteredCount }: FilterS
     const next = filters.dispensaryIds.includes(id)
       ? filters.dispensaryIds.filter((d) => d !== id)
       : [...filters.dispensaryIds, id];
-    onFiltersChange({ ...filters, dispensaryIds: next });
+    onFiltersChange({ ...filters, dispensaryIds: next, quickFilter: 'none' });
   };
 
   const selectAllDispensaries = () => {
     const all = dispensaries.map((d) => d.id);
-    onFiltersChange({ ...filters, dispensaryIds: all });
+    onFiltersChange({ ...filters, dispensaryIds: all, quickFilter: 'none' });
   };
 
   const clearAllDispensaries = () => {
-    onFiltersChange({ ...filters, dispensaryIds: [] });
+    onFiltersChange({ ...filters, dispensaryIds: [], quickFilter: 'none' });
   };
 
   // Lock body scroll when open
@@ -132,6 +154,29 @@ export function FilterSheet({ filters, onFiltersChange, filteredCount }: FilterS
 
   return (
     <>
+      {/* Quick filter chips (inline, always visible) */}
+      {hasLocation && onQuickFilter && (
+        <div className="flex items-center gap-1.5">
+          {QUICK_FILTERS.map((qf) => {
+            const isActive = filters.quickFilter === qf.id;
+            return (
+              <button
+                key={qf.id}
+                onClick={() => onQuickFilter(qf.id)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] rounded-lg text-xs font-medium transition-all ${
+                  isActive
+                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                    : 'bg-slate-800/70 text-slate-400 border border-slate-700/50 hover:border-slate-600'
+                }`}
+              >
+                <qf.icon className="w-3 h-3" />
+                {qf.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Trigger button */}
       <button
         onClick={() => setIsOpen(true)}
@@ -146,7 +191,7 @@ export function FilterSheet({ filters, onFiltersChange, filteredCount }: FilterS
         )}
       </button>
 
-      {/* Overlay — rendered via portal to escape StickyStatsBar's containing block */}
+      {/* Overlay — rendered via portal */}
       {isOpen && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[60]">
           {/* Backdrop */}
@@ -155,10 +200,10 @@ export function FilterSheet({ filters, onFiltersChange, filteredCount }: FilterS
             onClick={() => setIsOpen(false)}
           />
 
-          {/* Sheet: bottom sheet on mobile, right sidebar on desktop */}
+          {/* Sheet */}
           <div
             ref={sheetRef}
-            className="absolute bottom-0 left-0 right-0 sm:left-auto sm:top-0 sm:bottom-0 sm:w-[360px] max-h-[70vh] sm:max-h-none sm:h-full bg-slate-900 border-t sm:border-t-0 sm:border-l border-slate-800 rounded-t-2xl sm:rounded-none flex flex-col"
+            className="absolute bottom-0 left-0 right-0 sm:left-auto sm:top-0 sm:bottom-0 sm:w-[380px] max-h-[80vh] sm:max-h-none sm:h-full bg-slate-900 border-t sm:border-t-0 sm:border-l border-slate-800 rounded-t-2xl sm:rounded-none flex flex-col"
             onClick={(e) => e.stopPropagation()}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
@@ -190,9 +235,54 @@ export function FilterSheet({ filters, onFiltersChange, filteredCount }: FilterS
               </div>
             </div>
 
+            {/* Active filter chips */}
+            {activeFilterCount > 0 && (
+              <div className="flex-shrink-0 px-5 pt-3 pb-1">
+                <div className="flex flex-wrap gap-1.5">
+                  {filters.categories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => toggleCategory(cat)}
+                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-purple-500/15 text-purple-400 text-[11px] font-medium"
+                    >
+                      {cat}
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  ))}
+                  {filters.priceRange !== 'all' && (
+                    <button
+                      onClick={() => onFiltersChange({ ...filters, priceRange: 'all', quickFilter: 'none' })}
+                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-[11px] font-medium"
+                    >
+                      {PRICE_RANGES.find(r => r.id === filters.priceRange)?.label}
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  )}
+                  {filters.minDiscount > 0 && (
+                    <button
+                      onClick={() => onFiltersChange({ ...filters, minDiscount: 0, quickFilter: 'none' })}
+                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/15 text-amber-400 text-[11px] font-medium"
+                    >
+                      {filters.minDiscount}%+ off
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  )}
+                  {filters.distanceRange !== 'all' && (
+                    <button
+                      onClick={() => onFiltersChange({ ...filters, distanceRange: 'all', quickFilter: 'none' })}
+                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/15 text-blue-400 text-[11px] font-medium"
+                    >
+                      {DISTANCE_OPTIONS.find(d => d.id === filters.distanceRange)?.label}
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Scrollable content */}
             <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain">
-              {/* Category — multi-select chips */}
+              {/* Category */}
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Category</h3>
                 <div className="flex flex-wrap gap-2">
@@ -202,25 +292,52 @@ export function FilterSheet({ filters, onFiltersChange, filteredCount }: FilterS
                       <button
                         key={cat.id}
                         onClick={() => toggleCategory(cat.id)}
-                        className={`px-3 py-2 min-h-[40px] rounded-full text-xs font-medium transition-all ${
+                        className={`flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-full text-xs font-medium transition-all ${
                           isSelected
                             ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
                             : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
                         }`}
                       >
+                        <span className="text-sm">{cat.icon}</span>
                         {cat.label}
                       </button>
                     );
                   })}
                 </div>
-                {filters.categories.length > 0 && (
-                  <p className="text-[10px] text-slate-600 mt-2">
-                    {filters.categories.length} selected
-                  </p>
-                )}
               </section>
 
-              {/* Dispensary — multi-select checkboxes */}
+              {/* Distance */}
+              {hasLocation && (
+                <section>
+                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                    <MapPin className="w-3 h-3 inline-block mr-1" />
+                    Distance
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {DISTANCE_OPTIONS.map((opt) => {
+                      const isSelected = filters.distanceRange === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => onFiltersChange({ ...filters, distanceRange: opt.id, quickFilter: 'none' })}
+                          className={`px-3 py-2.5 rounded-xl text-left transition-all ${
+                            isSelected
+                              ? 'bg-blue-500/15 border border-blue-500/30'
+                              : 'bg-slate-800/50 border border-slate-700/50 hover:border-slate-600'
+                          }`}
+                        >
+                          <p className={`text-xs font-medium ${isSelected ? 'text-blue-400' : 'text-slate-300'}`}>
+                            {opt.label}
+                          </p>
+                          <p className="text-[10px] text-slate-500">{opt.desc}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* Dispensary */}
               <section>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Dispensary</h3>
@@ -267,20 +384,17 @@ export function FilterSheet({ filters, onFiltersChange, filteredCount }: FilterS
                       </label>
                     );
                   })}
-                  {dispensaries.length === 0 && (
-                    <p className="text-xs text-slate-600 py-2 text-center">No dispensaries available</p>
-                  )}
                 </div>
               </section>
 
-              {/* Price Range — preset buttons */}
+              {/* Price Range */}
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Price Range</h3>
                 <div className="flex flex-wrap gap-2">
                   {PRICE_RANGES.map((range) => (
                     <button
                       key={range.id}
-                      onClick={() => onFiltersChange({ ...filters, priceRange: range.id })}
+                      onClick={() => onFiltersChange({ ...filters, priceRange: range.id, quickFilter: 'none' })}
                       className={`px-3 py-2 min-h-[40px] rounded-full text-xs font-medium transition-all ${
                         filters.priceRange === range.id
                           ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
@@ -304,7 +418,7 @@ export function FilterSheet({ filters, onFiltersChange, filteredCount }: FilterS
                   max={70}
                   step={5}
                   value={filters.minDiscount}
-                  onChange={(e) => onFiltersChange({ ...filters, minDiscount: Number(e.target.value) })}
+                  onChange={(e) => onFiltersChange({ ...filters, minDiscount: Number(e.target.value), quickFilter: 'none' })}
                   className="w-full accent-purple-500"
                 />
                 <div className="flex justify-between text-[10px] text-slate-600 mt-1">
@@ -317,7 +431,7 @@ export function FilterSheet({ filters, onFiltersChange, filteredCount }: FilterS
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Sort By</h3>
                 <div className="space-y-1">
-                  {SORT_OPTIONS.map((opt) => (
+                  {SORT_OPTIONS.filter(opt => opt.id !== 'distance' || hasLocation).map((opt) => (
                     <button
                       key={opt.id}
                       onClick={() => onFiltersChange({ ...filters, sortBy: opt.id })}
@@ -334,7 +448,7 @@ export function FilterSheet({ filters, onFiltersChange, filteredCount }: FilterS
               </section>
             </div>
 
-            {/* Footer — Show Results button */}
+            {/* Footer */}
             <div className="flex-shrink-0 p-4 bg-slate-900/95 border-t border-slate-800 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <button
                 onClick={() => setIsOpen(false)}

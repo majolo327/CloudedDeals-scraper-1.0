@@ -14,6 +14,7 @@ interface DealCardProps {
   onSave: () => void;
   onDismiss?: () => void;
   onClick: () => void;
+  distanceLabel?: string;
 }
 
 const categoryLabels: Record<string, string> = {
@@ -24,7 +25,7 @@ const categoryLabels: Record<string, string> = {
   preroll: 'Pre-Roll',
 };
 
-export function DealCard({ deal, isSaved, isUsed = false, onSave, onDismiss, onClick }: DealCardProps) {
+export function DealCard({ deal, isSaved, isUsed = false, onSave, onDismiss, onClick, distanceLabel }: DealCardProps) {
   const [showShare, setShowShare] = useState(false);
 
   const distance = useMemo(() => {
@@ -102,8 +103,8 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onDismiss, onC
         <div className="flex items-center gap-1.5 text-[10px] text-slate-500 min-w-0">
           <MapPin className="w-2.5 h-2.5 opacity-60 shrink-0" />
           <span className="truncate">{deal.dispensary?.name || 'Unknown'}</span>
-          {distance != null && (
-            <span className="text-slate-600 shrink-0">{distance.toFixed(1)} mi</span>
+          {(distanceLabel || distance != null) && (
+            <span className="text-slate-600 shrink-0">{distanceLabel || `${distance!.toFixed(1)} mi`}</span>
           )}
         </div>
         {onDismiss && (
