@@ -6,6 +6,7 @@ import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { getDiscountPercent, getDisplayName } from '@/utils';
 import { createShareLink } from '@/lib/share';
 import { trackEvent } from '@/lib/analytics';
+import { ContactBanner } from '@/components/ContactBanner';
 import type { Deal } from '@/types';
 
 /** Returns { hours, minutes } until midnight Pacific. */
@@ -30,11 +31,13 @@ function calcCountdown() {
 interface SavedPageProps {
   deals: Deal[];
   onSelectDeal?: (deal: Deal) => void;
+  addToast?: (message: string, type: 'success' | 'info') => void;
 }
 
-export function SavedPage({ deals, onSelectDeal }: SavedPageProps) {
+export function SavedPage({ deals, onSelectDeal, addToast }: SavedPageProps) {
   const { savedDeals, toggleSavedDeal, isDealUsed, markDealUsed } = useSavedDeals();
   const [shareState, setShareState] = useState<'idle' | 'sharing' | 'copied'>('idle');
+  const [showContactBanner, setShowContactBanner] = useState(false);
 
   const savedDealsList = deals.filter((d) => savedDeals.has(d.id));
   const usedDeals = savedDealsList.filter((d) => isDealUsed(d.id));
@@ -44,6 +47,26 @@ export function SavedPage({ deals, onSelectDeal }: SavedPageProps) {
     if (!deal.original_price || deal.original_price <= deal.deal_price) return sum;
     return sum + (deal.original_price - deal.deal_price);
   }, 0);
+
+  // Show contact banner: 10+ saves, no contact captured, not dismissed within 7 days
+  useEffect(() => {
+    const captured = localStorage.getItem('clouded_contact_captured') === 'true';
+    if (captured) return;
+
+    const dismissed = localStorage.getItem('clouded_contact_banner_dismissed');
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    if (dismissed && parseInt(dismissed) > weekAgo) return;
+
+    if (savedDealsList.length >= 10) {
+      const timer = setTimeout(() => setShowContactBanner(true), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [savedDealsList.length]);
+
+  const handleDismissContactBanner = useCallback(() => {
+    setShowContactBanner(false);
+    localStorage.setItem('clouded_contact_banner_dismissed', Date.now().toString());
+  }, []);
 
   const handleShare = useCallback(async () => {
     if (activeDeals.length === 0) return;
@@ -144,6 +167,15 @@ export function SavedPage({ deals, onSelectDeal }: SavedPageProps) {
               )}
             </div>
           </div>
+        )}
+
+        {/* Contact capture banner — shown to engaged users (10+ saves) */}
+        {showContactBanner && addToast && (
+          <ContactBanner
+            onDismiss={handleDismissContactBanner}
+            savedDealsCount={savedDealsList.length}
+            addToast={addToast}
+          />
         )}
 
         {/* Expiry urgency with hours + minutes */}

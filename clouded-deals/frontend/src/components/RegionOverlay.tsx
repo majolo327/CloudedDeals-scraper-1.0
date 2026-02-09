@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Smartphone, Mail } from 'lucide-react';
 import { getCannabisStatus, STATE_NAMES, type CannabisStatus } from '@/utils/cannabisLegality';
 import { getNevadaRegion } from '@/utils/zipToState';
-import { trackEvent } from '@/lib/analytics';
+import { trackEvent, getOrCreateAnonId } from '@/lib/analytics';
+import { supabase } from '@/lib/supabase';
 
 interface RegionOverlayProps {
   stateCode: string;
@@ -87,10 +88,23 @@ function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
 
+/** Format phone input as user types: (702) 555-1234 */
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function stripPhone(formatted: string): string {
+  return formatted.replace(/\D/g, '');
+}
+
 export function RegionOverlay({ stateCode, zip, onBrowseVegas, onEmailSubmit }: RegionOverlayProps) {
-  const [email, setEmail] = useState('');
+  const [contactMethod, setContactMethod] = useState<'phone' | 'email'>('phone');
+  const [contactValue, setContactValue] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [emailError, setEmailError] = useState('');
+  const [inputError, setInputError] = useState('');
 
   const status: CannabisStatus = getCannabisStatus(stateCode);
   const stateName = STATE_NAMES[stateCode] || stateCode;
@@ -125,20 +139,44 @@ export function RegionOverlay({ stateCode, zip, onBrowseVegas, onEmailSubmit }: 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onBrowseVegas]);
 
-  const handleEmailSubmit = () => {
-    const trimmed = email.trim();
+  const handleContactSubmit = () => {
+    const trimmed = contactValue.trim();
     if (!trimmed) {
-      setEmailError('Please enter your email');
+      setInputError(contactMethod === 'phone' ? 'Please enter your phone number' : 'Please enter your email');
       return;
     }
-    if (!isValidEmail(trimmed)) {
-      setEmailError('Please enter a valid email');
+    if (contactMethod === 'email' && !isValidEmail(trimmed)) {
+      setInputError('Please enter a valid email');
       return;
     }
-    setEmailError('');
+    if (contactMethod === 'phone' && stripPhone(trimmed).length !== 10) {
+      setInputError('Please enter a 10-digit phone number');
+      return;
+    }
+    setInputError('');
     setSubmitted(true);
-    onEmailSubmit?.(trimmed, stateCode, zip);
-    trackEvent('zip_email_capture', undefined, { state: stateCode, zip });
+
+    const value = contactMethod === 'phone' ? stripPhone(trimmed) : trimmed;
+
+    // Save to user_contacts for unified tracking
+    const anonId = getOrCreateAnonId();
+    try {
+      const result = supabase?.from('user_contacts')?.insert({
+        anon_id: anonId || null,
+        [contactMethod]: value,
+        source: 'out_of_market',
+        zip_entered: zip,
+      });
+      if (result) Promise.resolve(result).catch(() => {});
+    } catch {
+      // silently ignore
+    }
+
+    // Also fire legacy email flow if email was provided
+    if (contactMethod === 'email') {
+      onEmailSubmit?.(trimmed, stateCode, zip);
+    }
+    trackEvent('zip_email_capture', undefined, { state: stateCode, zip, method: contactMethod });
   };
 
   const handleDismiss = () => {
@@ -224,30 +262,57 @@ export function RegionOverlay({ stateCode, zip, onBrowseVegas, onEmailSubmit }: 
           {variant.subtext(stateName)}
         </p>
 
-        {/* Email capture (rec & medical states only) */}
+        {/* Contact capture (rec & medical states only) */}
         {showEmailCapture && !submitted && (
-          <div className="mb-6">
+          <div className="mb-6 space-y-3">
+            {/* Method toggle */}
+            <div className="flex gap-1 rounded-lg bg-white/5 p-0.5 w-fit mx-auto">
+              <button
+                onClick={() => { setContactMethod('phone'); setContactValue(''); setInputError(''); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  contactMethod === 'phone'
+                    ? 'bg-purple-500/20 text-purple-300'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <Smartphone className="w-3 h-3" />
+                Text
+              </button>
+              <button
+                onClick={() => { setContactMethod('email'); setContactValue(''); setInputError(''); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  contactMethod === 'email'
+                    ? 'bg-purple-500/20 text-purple-300'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <Mail className="w-3 h-3" />
+                Email
+              </button>
+            </div>
+
             <div className="flex gap-2">
               <input
-                type="email"
-                value={email}
+                type={contactMethod === 'phone' ? 'tel' : 'email'}
+                inputMode={contactMethod === 'phone' ? 'numeric' : 'email'}
+                value={contactValue}
                 onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (emailError) setEmailError('');
+                  setContactValue(contactMethod === 'phone' ? formatPhone(e.target.value) : e.target.value);
+                  if (inputError) setInputError('');
                 }}
-                onKeyDown={(e) => e.key === 'Enter' && handleEmailSubmit()}
-                placeholder="Drop your email — we'll let you know"
+                onKeyDown={(e) => e.key === 'Enter' && handleContactSubmit()}
+                placeholder={contactMethod === 'phone' ? '(702) 555-1234' : "Drop your email \u2014 we'll let you know"}
                 className="flex-1 px-4 py-3 min-h-[48px] rounded-xl bg-white/[0.06] border border-white/[0.08] text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-purple-500/40 transition-colors"
               />
               <button
-                onClick={handleEmailSubmit}
+                onClick={handleContactSubmit}
                 className="px-5 py-3 min-h-[48px] rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold transition-colors text-sm shrink-0"
               >
                 Notify Me
               </button>
             </div>
-            {emailError && (
-              <p className="text-xs text-red-400 mt-2 text-left">{emailError}</p>
+            {inputError && (
+              <p className="text-xs text-red-400 mt-2 text-left">{inputError}</p>
             )}
           </div>
         )}
