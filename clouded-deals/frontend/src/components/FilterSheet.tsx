@@ -11,7 +11,6 @@ import type {
   UniversalFilterState,
   SortOption,
   DistanceRange,
-  QuickFilter,
 } from '@/hooks/useUniversalFilters';
 import { DEFAULT_UNIVERSAL_FILTERS } from '@/hooks/useUniversalFilters';
 
@@ -86,7 +85,6 @@ interface FilterSheetProps {
   onFiltersChange: (filters: UniversalFilterState) => void;
   filteredCount: number;
   hasLocation?: boolean;
-  onQuickFilter?: (qf: QuickFilter) => void;
   onReset?: () => void;
   activeFilterCount?: number;
 }
@@ -96,7 +94,6 @@ export function FilterSheet({
   onFiltersChange,
   filteredCount,
   hasLocation = false,
-  onQuickFilter: _onQuickFilter,
   onReset,
   activeFilterCount: externalActiveCount,
 }: FilterSheetProps) {
@@ -128,6 +125,7 @@ export function FilterSheet({
     } else {
       onFiltersChange(DEFAULT_UNIVERSAL_FILTERS);
     }
+    setLocationOpen(false);
     trackEvent('filter_change', undefined, { action: 'reset' });
   };
 
@@ -291,6 +289,15 @@ export function FilterSheet({
                       className="flex items-center gap-1 px-2 py-1 rounded-full bg-cyan-500/15 text-cyan-400 text-[11px] font-medium"
                     >
                       {filters.weightFilter}
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  )}
+                  {filters.dispensaryIds.length > 0 && (
+                    <button
+                      onClick={() => onFiltersChange({ ...filters, dispensaryIds: [], quickFilter: 'none' })}
+                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/15 text-blue-400 text-[11px] font-medium"
+                    >
+                      {filters.dispensaryIds.length} store{filters.dispensaryIds.length !== 1 ? 's' : ''}
                       <X className="w-2.5 h-2.5" />
                     </button>
                   )}

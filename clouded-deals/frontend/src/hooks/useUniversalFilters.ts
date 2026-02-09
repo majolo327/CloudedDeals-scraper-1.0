@@ -76,14 +76,13 @@ export function useUniversalFilters() {
 
   const [userCoords, setUserCoords] = useState<ZipCoords | null>(null);
 
-  // Load user coordinates from stored zip
+  // Load user coordinates from stored zip (distance is informational, not default sort)
   useEffect(() => {
     const zip = getStoredZip();
     if (zip) {
       const coords = getZipCoordinates(zip);
       setUserCoords(coords);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Listen for zip changes (user enters a new zip)

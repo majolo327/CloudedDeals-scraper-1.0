@@ -20,6 +20,7 @@ interface DealsPageProps {
   setSelectedDeal: (deal: Deal | null) => void;
   savedCount: number;
   streak: number;
+  onDismissDeal?: () => void;
 }
 
 export function DealsPage({
@@ -30,6 +31,7 @@ export function DealsPage({
   setSelectedDeal,
   savedCount,
   streak,
+  onDismissDeal,
 }: DealsPageProps) {
   const [activeCategory, setActiveCategory] = useState<DealCategory>('all');
   const [isLoading, setIsLoading] = useState(true);
@@ -224,7 +226,7 @@ export function DealsPage({
                       isSaved={savedDeals.has(deal.id)}
                       isUsed={usedDeals.has(deal.id)}
                       onSave={() => toggleSavedDeal(deal.id)}
-                      onDismiss={showDeckUI ? () => deck.dismissDeal(deal.id) : undefined}
+                      onDismiss={showDeckUI ? () => { deck.dismissDeal(deal.id); onDismissDeal?.(); } : undefined}
                       onClick={() => setSelectedDeal(deal)}
                       distanceLabel={distance !== null ? formatDistance(distance) : undefined}
                     />
