@@ -265,7 +265,7 @@ export default function Home() {
               shown.add(`brand_${deal.brand.name}`);
               addToast(`${deal.brand.name} fan? \uD83D\uDC9C`, 'milestone');
             } else {
-              addToast('Saved. Expires at midnight.', 'saved');
+              addToast('Saved! We\u2019ll find more like this.', 'saved');
             }
           } else {
             addToast('Saved. Expires at midnight.', 'saved');
@@ -420,6 +420,7 @@ export default function Home() {
               setSelectedDeal={setSelectedDeal}
               savedCount={savedCount}
               streak={streak}
+              onDismissDeal={() => addToast('Noted. We\u2019ll show fewer like this.', 'info')}
             />
           )
         )}
