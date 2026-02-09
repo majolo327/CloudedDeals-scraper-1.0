@@ -91,7 +91,7 @@ export function DealModal({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4"
+      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center sm:p-4"
       onClick={onClose}
     >
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-soft-reveal" />

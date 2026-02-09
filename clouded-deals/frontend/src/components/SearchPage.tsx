@@ -53,7 +53,6 @@ interface SearchPageProps {
   savedDeals: Set<string>;
   toggleSavedDeal: (id: string) => void;
   setSelectedDeal: (deal: Deal | null) => void;
-  onNavigateToBrands: () => void;
   initialQuery?: string;
   onQueryConsumed?: () => void;
 }
@@ -64,13 +63,13 @@ export function SearchPage({
   savedDeals,
   toggleSavedDeal,
   setSelectedDeal,
-  onNavigateToBrands,
   initialQuery,
   onQueryConsumed,
 }: SearchPageProps) {
   const [searchQuery, setSearchQuery] = useState(initialQuery || '');
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery || '');
   const [activeCategory, setActiveCategory] = useState<FilterCategory>('all');
+  const [activeDispensary, setActiveDispensary] = useState<string>('all');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [extendedDeals, setExtendedDeals] = useState<Deal[]>([]);
@@ -137,8 +136,14 @@ export function SearchPage({
     return () => { cancelled = true; };
   }, [debouncedQuery, curatedDealIds]);
 
+  // Reset dispensary filter when search changes
+  useEffect(() => {
+    setActiveDispensary('all');
+  }, [debouncedQuery]);
+
   const handleCategoryFilter = useCallback((cat: FilterCategory) => {
     setActiveCategory(cat);
+    setActiveDispensary('all');
     if (cat !== 'all') {
       trackEvent('category_filtered', undefined, { category: cat });
     }
@@ -165,8 +170,8 @@ export function SearchPage({
     ).slice(0, 6);
   }, [debouncedQuery]);
 
-  // ---- Matching deals (curated top 100) ----
-  const filteredDeals = useMemo(
+  // ---- Matching deals (curated, before dispensary filter) ----
+  const baseFilteredDeals = useMemo(
     () =>
       filterDeals(deals, {
         categories: activeCategory === 'all' ? undefined : [activeCategory],
@@ -175,11 +180,36 @@ export function SearchPage({
     [deals, activeCategory, debouncedQuery]
   );
 
-  // ---- Extended results filtered by category ----
-  const filteredExtendedDeals = useMemo(() => {
+  // ---- Extended results filtered by category (before dispensary filter) ----
+  const baseCategoryExtendedDeals = useMemo(() => {
     if (activeCategory === 'all') return extendedDeals;
     return extendedDeals.filter((d) => d.category === activeCategory);
   }, [extendedDeals, activeCategory]);
+
+  // ---- Dispensaries present in results (for filter chips) ----
+  const resultDispensaries = useMemo(() => {
+    const allResults = [...baseFilteredDeals, ...baseCategoryExtendedDeals];
+    const map = new Map<string, string>();
+    for (const d of allResults) {
+      if (!map.has(d.dispensary.id)) {
+        map.set(d.dispensary.id, d.dispensary.name);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [baseFilteredDeals, baseCategoryExtendedDeals]);
+
+  // ---- Final results with dispensary filter applied ----
+  const filteredDeals = useMemo(() => {
+    if (activeDispensary === 'all') return baseFilteredDeals;
+    return baseFilteredDeals.filter((d) => d.dispensary.id === activeDispensary);
+  }, [baseFilteredDeals, activeDispensary]);
+
+  const filteredExtendedDeals = useMemo(() => {
+    if (activeDispensary === 'all') return baseCategoryExtendedDeals;
+    return baseCategoryExtendedDeals.filter((d) => d.dispensary.id === activeDispensary);
+  }, [baseCategoryExtendedDeals, activeDispensary]);
 
   const totalResults = matchingBrands.length + matchingDispensaries.length + filteredDeals.length;
 
@@ -280,9 +310,40 @@ export function SearchPage({
             <>
               {/* Summary */}
               {totalResults > 0 && (
-                <p className="text-sm text-slate-500 mb-5">
+                <p className="text-sm text-slate-500 mb-4">
                   {totalResults} result{totalResults !== 1 ? 's' : ''} for &ldquo;{debouncedQuery}&rdquo;
                 </p>
+              )}
+
+              {/* Dispensary filter chips — narrow results by store */}
+              {resultDispensaries.length > 1 && (
+                <div className="mb-5 -mx-3 sm:-mx-4 px-3 sm:px-4 overflow-x-auto scrollbar-hide">
+                  <div className="flex items-center gap-2 pb-2">
+                    <button
+                      onClick={() => setActiveDispensary('all')}
+                      className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                        activeDispensary === 'all'
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          : 'bg-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700 border border-transparent'
+                      }`}
+                    >
+                      All Stores
+                    </button>
+                    {resultDispensaries.map((d) => (
+                      <button
+                        key={d.id}
+                        onClick={() => setActiveDispensary(d.id)}
+                        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                          activeDispensary === d.id
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700 border border-transparent'
+                        }`}
+                      >
+                        {d.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
 
               {/* ---- Dispensary Results ---- */}
@@ -365,7 +426,7 @@ export function SearchPage({
                       return (
                         <button
                           key={brand.id}
-                          onClick={onNavigateToBrands}
+                          onClick={() => setSearchQuery(brand.name)}
                           className="w-full glass frost rounded-xl p-3 flex items-center gap-3 text-left hover:bg-slate-800/70 transition-colors"
                         >
                           <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">

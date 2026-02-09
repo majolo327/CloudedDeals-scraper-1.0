@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { SlidersHorizontal, X, RotateCcw, Check } from 'lucide-react';
 import type { Deal, Category } from '@/types';
+import { DISPENSARIES } from '@/data/dispensaries';
 import { trackEvent } from '@/lib/analytics';
 
 export interface FilterState {
@@ -65,16 +66,10 @@ export function FilterSheet({ deals, filters, onFiltersChange, filteredCount }: 
   const touchStartY = useRef<number | null>(null);
 
   const dispensaries = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const d of deals) {
-      if (!map.has(d.dispensary.id)) {
-        map.set(d.dispensary.id, d.dispensary.name);
-      }
-    }
-    return Array.from(map.entries())
-      .map(([id, name]) => ({ id, name }))
+    return DISPENSARIES
+      .map((d) => ({ id: d.id, name: d.name }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [deals]);
+  }, []);
 
   const activeFilterCount = [
     filters.categories.length > 0,

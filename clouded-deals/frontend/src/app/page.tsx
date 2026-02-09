@@ -39,7 +39,7 @@ export default function Home() {
   const [activePage, setActivePage] = useState<AppPage>('home');
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
-  const [highlightSaved, setHighlightSaved] = useState(false);
+  const [highlightSaved] = useState(false);
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [searchInitialQuery, setSearchInitialQuery] = useState('');
@@ -52,7 +52,7 @@ export default function Home() {
   const { savedDeals, usedDeals, toggleSavedDeal, markDealUsed, isDealUsed, savedCount } =
     useSavedDeals();
   const { streak, isNewMilestone, clearMilestone } = useStreak();
-  const { trackBrand, topBrands, totalSaves } = useBrandAffinity();
+  const { trackBrand } = useBrandAffinity();
   const challenges = useChallenges();
 
   // Age verification & anonymous tracking
@@ -203,11 +203,6 @@ export default function Home() {
   // midnight filter would incorrectly hide deals due to UTC/PST offsets.
   const todaysDeals = deals;
 
-  // Derived deal lists (from today's deals only)
-  const verifiedDeals = useMemo(
-    () => todaysDeals.filter((d) => d.is_verified),
-    [todaysDeals]
-  );
   const brands = useMemo(() => {
     const seen = new Map<string, Deal['brand']>();
     for (const d of deals) {
@@ -283,19 +278,6 @@ export default function Home() {
     },
     [savedDeals, toggleSavedDeal, deals, trackBrand, addToast, challenges, savedDealsList, savedCount]
   );
-
-  // Challenge: dismiss interaction handler (passed to DealsPage)
-  const handleDealDismiss = useCallback(
-    (deal: Deal) => {
-      challenges.updateProgress('dismiss', deal, savedDealsList);
-    },
-    [challenges, savedDealsList]
-  );
-
-  const handleHighlightSaved = useCallback(() => {
-    setHighlightSaved(true);
-    setTimeout(() => setHighlightSaved(false), 1500);
-  }, []);
 
   const handleFTUEComplete = useCallback(() => {
     setShowFTUE(false);
@@ -431,18 +413,13 @@ export default function Home() {
           ) : (
             <DealsPage
               deals={todaysDeals}
-              verifiedDeals={verifiedDeals}
               savedDeals={savedDeals}
               usedDeals={usedDeals}
               toggleSavedDeal={handleToggleSave}
               setSelectedDeal={setSelectedDeal}
               savedCount={savedCount}
               streak={streak}
-              topBrands={topBrands}
-              totalBrandSaves={totalSaves}
               addToast={addToast}
-              onHighlightSavedIcon={handleHighlightSaved}
-              onDealDismiss={handleDealDismiss}
             />
           )
         )}
@@ -455,7 +432,6 @@ export default function Home() {
             savedDeals={savedDeals}
             toggleSavedDeal={handleToggleSave}
             setSelectedDeal={setSelectedDeal}
-            onNavigateToBrands={() => setActivePage('browse')}
             initialQuery={searchInitialQuery}
             onQueryConsumed={() => setSearchInitialQuery('')}
           />
