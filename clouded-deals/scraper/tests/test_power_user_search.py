@@ -469,12 +469,18 @@ class TestStrainSearch:
 # ===========================================================================
 
 class TestDispensarySearch:
-    """Test 10: Rise Nellis — listed-only dispensary (not scraped)."""
+    """Test 10: Rise Nellis — now scraped via Jane platform."""
 
-    def test_rise_not_in_scraped_dispensaries(self):
-        """Rise dispensaries are listed-only — no deals will be found.
-        Scraper config only has 27 dispensaries, none are Rise."""
-        # Known scraped dispensary IDs from config/dispensaries.py
+    def test_rise_in_scraped_dispensaries(self):
+        """Rise dispensaries are now in the scraper config (Jane platform)."""
+        from config.dispensaries import DISPENSARIES
+        scraped_ids = {d["slug"] for d in DISPENSARIES}
+        rise_ids = {"rise-sunset", "rise-tropicana", "rise-rainbow",
+                    "rise-nellis", "rise-boulder", "rise-durango", "rise-craig"}
+        assert rise_ids.issubset(scraped_ids), "All Rise dispensaries should be in scraper config"
+
+    def _unused_old_scraped_ids(self):
+        """Reference of known scraped dispensary IDs (kept for documentation)."""
         scraped_ids = {
             "td-gibson", "td-decatur", "planet13", "medizin",
             "greenlight-downtown", "greenlight-paradise", "the-grove",
@@ -802,3 +808,78 @@ class TestNewBrandsFromMenuAudit:
     def test_presidential_rx_variation(self, logic):
         """'Presidential RX' should resolve to 'Presidential' via variations."""
         assert logic.detect_brand("Presidential RX Moon Rocks 3.5g") == "Presidential"
+
+
+# =====================================================================
+# 14) Rise Dispensary Configuration
+# =====================================================================
+
+
+class TestRiseDispensaryConfig:
+    """All 7 Rise dispensaries should be in the scraper config."""
+
+    def test_rise_count(self):
+        from config.dispensaries import DISPENSARIES
+        rise = [d for d in DISPENSARIES if d["slug"].startswith("rise-")]
+        assert len(rise) == 7
+
+    @pytest.mark.parametrize("slug", [
+        "rise-sunset", "rise-tropicana", "rise-rainbow",
+        "rise-nellis", "rise-boulder", "rise-durango", "rise-craig",
+    ])
+    def test_rise_dispensary_exists(self, slug):
+        from config.dispensaries import get_dispensary_by_slug
+        disp = get_dispensary_by_slug(slug)
+        assert disp is not None, f"{slug} missing from DISPENSARIES"
+        assert disp["platform"] == "jane"
+        assert disp["is_active"] is True
+
+
+# =====================================================================
+# 15) Strain Type Extraction
+# =====================================================================
+
+
+class TestStrainTypeExtraction:
+    """Scraper should extract Indica/Sativa/Hybrid from product names."""
+
+    @pytest.fixture
+    def logic(self):
+        return CloudedLogic()
+
+    def test_indica_from_parenthetical(self, logic):
+        prod = logic.parse_product(
+            "City Trees Banana Kush (I) Vape 0.85g $15 $25", "test-disp")
+        assert prod is not None
+        assert prod["strain_type"] == "Indica"
+
+    def test_sativa_from_parenthetical(self, logic):
+        prod = logic.parse_product(
+            "Later Days Golden Pineapple (S) Disposable 0.85g $12 $20", "test-disp")
+        assert prod is not None
+        assert prod["strain_type"] == "Sativa"
+
+    def test_hybrid_from_parenthetical(self, logic):
+        prod = logic.parse_product(
+            "LIT Motor Head 1 (H) Flower 3.5g $20 $35", "test-disp")
+        assert prod is not None
+        assert prod["strain_type"] == "Hybrid"
+
+    def test_indica_from_word(self, logic):
+        prod = logic.parse_product(
+            "Kynd Purple Punch Indica Flower 3.5g $18 $30", "test-disp")
+        assert prod is not None
+        assert prod["strain_type"] == "Indica"
+
+    def test_no_strain_type(self, logic):
+        prod = logic.parse_product(
+            "ROVE Tangie Vape Cart 850mg $20 $35", "test-disp")
+        assert prod is not None
+        assert prod["strain_type"] is None
+
+    def test_strain_type_in_main_upsert_source(self):
+        """main.py should reference strain_type in the upsert logic."""
+        import pathlib
+        main_path = pathlib.Path(__file__).resolve().parent.parent / "main.py"
+        source = main_path.read_text()
+        assert "strain_type" in source, "strain_type not found in main.py"

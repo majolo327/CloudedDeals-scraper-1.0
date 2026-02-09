@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Navigation, Percent } from 'lucide-react';
 import type { Deal } from '@/types';
 import { DealCard } from './cards';
 import { FilterSheet } from './FilterSheet';
@@ -10,7 +9,6 @@ import { DealCardSkeleton } from './Skeleton';
 import { formatUpdateTime, getTimeUntilMidnight } from '@/utils';
 import { useDeck } from '@/hooks/useDeck';
 import { useUniversalFilters, formatDistance } from '@/hooks/useUniversalFilters';
-import type { QuickFilter } from '@/hooks/useUniversalFilters';
 
 type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'preroll';
 
@@ -44,7 +42,6 @@ export function DealsPage({
     activeFilterCount,
     userCoords,
     getDistance,
-    applyQuickFilter,
     filterAndSortDeals,
   } = useUniversalFilters();
 
@@ -63,7 +60,7 @@ export function DealsPage({
 
   const hasActiveFilters = filters.categories.length > 0 || filters.dispensaryIds.length > 0 ||
     filters.priceRange !== 'all' || filters.minDiscount > 0 || filters.distanceRange !== 'all' ||
-    filters.quickFilter !== 'none';
+    filters.weightFilter !== 'all';
 
   // Apply category tab first, then universal filters
   const filteredDeals = useMemo(() => {
@@ -81,11 +78,6 @@ export function DealsPage({
   // Determine what to render: deck mode or static sorted mode
   const visibleDeals = isDefaultSort && !hasActiveFilters ? deck.visible : filteredDeals;
   const showDeckUI = isDefaultSort && !hasActiveFilters;
-
-  const quickFilters: { id: QuickFilter; label: string; icon: typeof Navigation }[] = [
-    { id: 'near_me', label: 'Near Me', icon: Navigation },
-    { id: 'big_discount', label: '20%+ Off', icon: Percent },
-  ];
 
   return (
     <>
@@ -108,7 +100,7 @@ export function DealsPage({
 
       <div className="max-w-6xl mx-auto px-4 py-4">
         <div className="animate-in fade-in">
-          {/* Quick filter chips + header row */}
+          {/* Header row */}
           <div className="flex items-center justify-between mb-4 gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <h2 className="text-sm font-medium text-slate-300 shrink-0">
@@ -118,37 +110,10 @@ export function DealsPage({
                 <span className="text-xs text-slate-500 font-normal truncate">{formatUpdateTime(deals)}</span>
               )}
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              {userCoords && quickFilters.map((qf) => {
-                const isActive = filters.quickFilter === qf.id;
-                return (
-                  <button
-                    key={qf.id}
-                    onClick={() => applyQuickFilter(qf.id)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
-                      isActive
-                        ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                        : 'bg-slate-800/70 text-slate-400 border border-slate-700/50 hover:border-slate-600'
-                    }`}
-                  >
-                    <qf.icon className="w-3 h-3" />
-                    {qf.label}
-                  </button>
-                );
-              })}
-              <span className="text-[11px] text-slate-600 ml-1">
-                {countdown}
-              </span>
-            </div>
+            <span className="text-[11px] text-slate-600 shrink-0">
+              {countdown}
+            </span>
           </div>
-
-          {/* Distance sort indicator */}
-          {filters.sortBy === 'distance' && userCoords && (
-            <div className="flex items-center gap-1.5 mb-3 px-1">
-              <Navigation className="w-3 h-3 text-blue-400" />
-              <span className="text-[11px] text-blue-400 font-medium">Sorted by distance from you</span>
-            </div>
-          )}
 
           {/* Deck progress bar — only in deck mode after first dismiss */}
           {showDeckUI && deck.totalDeals > 0 && deck.dismissedCount > 0 && (

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Deal, Category } from '@/types';
 import { getStoredZip, getZipCoordinates, type ZipCoords } from '@/lib/zipCodes';
 import { getDistanceMiles } from '@/utils';
+import { weightsMatch } from '@/utils/weightNormalizer';
 import { trackEvent } from '@/lib/analytics';
 
 // ---- Types ----
@@ -188,9 +189,9 @@ export function useUniversalFilters() {
       });
     }
 
-    // Weight filter
+    // Weight filter (fuzzy: 850mg matches 0.85g, 1/8 matches 3.5g, etc.)
     if (filters.weightFilter !== 'all') {
-      result = result.filter(d => d.weight === filters.weightFilter);
+      result = result.filter(d => weightsMatch(d.weight, filters.weightFilter));
     }
 
     // Distance range
