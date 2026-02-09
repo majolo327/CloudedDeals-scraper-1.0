@@ -1,4 +1,4 @@
-"""Tests for deal_detector.py — hard filters, scoring, top-100 selection."""
+"""Tests for deal_detector.py — hard filters, scoring, quality gate, top-200 selection."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ from deal_detector import (
     detect_deals,
     get_last_report_data,
     passes_hard_filters,
+    passes_quality_gate,
     select_top_deals,
 )
 
@@ -288,12 +289,69 @@ class TestCalculateDealScore:
 
 
 # =====================================================================
+# passes_quality_gate
+# =====================================================================
+
+
+class TestPassesQualityGate:
+    """Quality gate rejects incomplete / garbage deals."""
+
+    def test_valid_deal_passes(self, make_product):
+        p = make_product(name="Purple Punch 3.5g", brand="Cookies",
+                         category="flower", weight_value=3.5)
+        assert passes_quality_gate(p) is True
+
+    def test_strain_only_name_rejected(self, make_product):
+        for name in ("Hybrid", "indica", "SATIVA", "Thc"):
+            p = make_product(name=name, brand="Cookies", category="vape",
+                             weight_value=0.5)
+            assert passes_quality_gate(p) is False, f"'{name}' should be rejected"
+
+    def test_short_name_rejected(self, make_product):
+        p = make_product(name="OG", brand="Cookies", category="flower",
+                         weight_value=3.5)
+        assert passes_quality_gate(p) is False
+
+    def test_name_equals_brand_rejected(self, make_product):
+        p = make_product(name="Cookies", brand="Cookies", category="flower",
+                         weight_value=3.5)
+        assert passes_quality_gate(p) is False
+
+    def test_flower_without_weight_rejected(self, make_product):
+        p = make_product(name="Purple Punch", brand="Cookies",
+                         category="flower", weight_value=None)
+        assert passes_quality_gate(p) is False
+
+    def test_vape_without_weight_rejected(self, make_product):
+        p = make_product(name="Lemon Cake Cart", brand="STIIIZY",
+                         category="vape", weight_value=None)
+        assert passes_quality_gate(p) is False
+
+    def test_edible_without_weight_passes(self, make_product):
+        """Edibles don't always have standardized weights — allow them."""
+        p = make_product(name="Gummy Bears", brand="Wyld",
+                         category="edible", weight_value=None)
+        assert passes_quality_gate(p) is True
+
+    def test_brandless_deal_passes(self, make_product):
+        """Deals without a brand should still pass if name is good."""
+        p = make_product(name="Purple Punch 3.5g", brand=None,
+                         category="flower", weight_value=3.5)
+        assert passes_quality_gate(p) is True
+
+    def test_unknown_name_rejected(self, make_product):
+        p = make_product(name="Unknown", brand="Cookies",
+                         category="flower", weight_value=3.5)
+        assert passes_quality_gate(p) is False
+
+
+# =====================================================================
 # select_top_deals
 # =====================================================================
 
 
 class TestSelectTopDeals:
-    """Top-100 selection with diversity constraints."""
+    """Top-200 selection with diversity constraints."""
 
     def test_empty_input(self):
         assert select_top_deals([]) == []
@@ -304,7 +362,12 @@ class TestSelectTopDeals:
 
     def test_brand_diversity_enforced(self, scored_deals_pool):
         result = select_top_deals(scored_deals_pool)
-        brand_counts = Counter(d.get("brand", "Unknown") for d in result)
+        # Only check diversity for products WITH a detected brand.
+        # Brandless products get unique keys so they are not constrained
+        # by the per-brand cap — only per-dispensary limits apply.
+        brand_counts = Counter(
+            d["brand"] for d in result if d.get("brand")
+        )
         for brand, count in brand_counts.items():
             assert count <= MAX_SAME_BRAND_TOTAL, \
                 f"Brand '{brand}' has {count} deals (max {MAX_SAME_BRAND_TOTAL})"
@@ -405,7 +468,7 @@ class TestDetectDeals:
 
 class TestConstants:
 
-    def test_category_targets_sum_to_100(self):
+    def test_category_targets_sum_to_target(self):
         assert sum(CATEGORY_TARGETS.values()) == TARGET_DEAL_COUNT
 
     def test_premium_brands_are_strings(self):

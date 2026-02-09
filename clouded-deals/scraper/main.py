@@ -194,11 +194,23 @@ _SALE_COPY_PATTERNS = [
 ]
 
 
+# Names that are strain types / classifications, NOT real product names.
+_STRAIN_ONLY_NAMES = {"indica", "sativa", "hybrid", "cbd", "thc", "unknown"}
+
+# Leading strain-type prefix (e.g. "Indica OG Kush" → "OG Kush")
+_RE_LEADING_STRAIN = re.compile(
+    r"^(Indica|Sativa|Hybrid)\s*[-:|]?\s*", re.IGNORECASE,
+)
+
+
 def _is_junk_deal(name: str, price: float | None) -> bool:
     """Return True if this scraped entry is promotional junk rather than a real product."""
     if not price or price <= 0:
         return True
     if not name or len(name.strip()) < 5:
+        return True
+    # Strain type / classification masquerading as a product name
+    if name.strip().lower() in _STRAIN_ONLY_NAMES:
         return True
     if any(pat.search(name) for pat in _SALE_COPY_PATTERNS):
         return True
@@ -238,6 +250,8 @@ def _clean_product_name(name: str) -> str:
         return "Unknown"
     cleaned = _RE_NAME_JUNK.sub("", name)
     cleaned = _RE_TRAILING_STRAIN.sub("", cleaned)
+    # Strip leading strain-type prefix ("Indica OG Kush" → "OG Kush")
+    cleaned = _RE_LEADING_STRAIN.sub("", cleaned)
     cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
     cleaned = cleaned.strip(".,;:-|")
 
@@ -245,6 +259,9 @@ def _clean_product_name(name: str) -> str:
     cleaned = re.sub(r"\s*\(each\)\s*", " ", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\s*\(tax included\)\s*", " ", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'^["\']+(.*?)["\']+$', r"\1", cleaned)  # surrounding quotes
+
+    # Strip bracketed weight artifacts: "[1g]", "[3.5g]", "[100mg]"
+    cleaned = re.sub(r"\s*\[\s*\d+\.?\d*\s*(?:mg|g|oz)\s*\]", "", cleaned, flags=re.IGNORECASE)
 
     # Deduplicate repeated word sequences
     cleaned = _deduplicate_name(cleaned)
