@@ -56,7 +56,7 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
             {
               icon: Search,
               title: 'Search & Filter',
-              desc: 'Flower, concentrates, edibles — search any brand or dispensary by name',
+              desc: 'Flower, vapes, edibles, concentrates, pre-rolls — search any brand or dispensary by name',
               color: 'text-purple-400 bg-purple-500/10',
             },
             {

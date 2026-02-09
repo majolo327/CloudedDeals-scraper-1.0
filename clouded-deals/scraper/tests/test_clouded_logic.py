@@ -318,6 +318,86 @@ class TestDetectBrand:
         """Text starting with 'none ' returns None."""
         assert logic.detect_brand("none Premium Flower") is None
 
+    # ---- Word-boundary protection: prevent substring false positives ----
+
+    def test_haze_not_in_hazel(self, logic):
+        """'Haze' brand should NOT match inside 'Hazel'."""
+        assert logic.detect_brand("Hazel Nut Flower 3.5g") is None
+
+    def test_cake_not_in_cupcake(self, logic):
+        """'Cake' brand should NOT match inside 'Cupcake'."""
+        assert logic.detect_brand("Cupcake Twist Flower 3.5g") is None
+
+    def test_raw_garden_not_in_strawberry(self, logic):
+        """'Raw Garden' should NOT match from 'strawberry'."""
+        assert logic.detect_brand("Strawberry Cough Flower 3.5g") is None
+
+    def test_rove_standalone(self, logic):
+        """'Rove' as a standalone word should match."""
+        assert logic.detect_brand("Rove Featured Farms 1g Cart") == "Rove"
+
+    def test_camp_not_in_compound(self, logic):
+        """'CAMP' should NOT match inside 'Campfire'."""
+        assert logic.detect_brand("Campfire OG 3.5g") is None
+
+    # ---- Strain-name protection: common strains that contain brand words ----
+
+    def test_wedding_cake_not_cake_brand(self, logic):
+        """Wedding Cake is a strain, NOT the Cake brand."""
+        assert logic.detect_brand("Wedding Cake Flower 3.5g") is None
+
+    def test_ice_cream_cake_not_cake_brand(self, logic):
+        """Ice Cream Cake is a strain, NOT the Cake brand."""
+        assert logic.detect_brand("Ice Cream Cake Flower 3.5g") is None
+
+    def test_birthday_cake_not_cake_brand(self, logic):
+        """Birthday Cake is a strain, NOT the Cake brand."""
+        assert logic.detect_brand("Birthday Cake Pre-Roll 1g") is None
+
+    def test_ghost_train_haze_not_haze_brand(self, logic):
+        """Ghost Train Haze is a strain, NOT the Haze brand."""
+        assert logic.detect_brand("Ghost Train Haze 3.5g") is None
+
+    def test_super_lemon_haze_not_haze_brand(self, logic):
+        """Super Lemon Haze is a strain, NOT the Haze brand."""
+        assert logic.detect_brand("Super Lemon Haze 3.5g") is None
+
+    def test_purple_haze_not_haze_brand(self, logic):
+        """Purple Haze is a strain, NOT the Haze brand."""
+        assert logic.detect_brand("Purple Haze Flower 7g") is None
+
+    def test_girl_scout_cookies_not_cookies_brand(self, logic):
+        """Girl Scout Cookies is a strain, NOT the Cookies brand."""
+        assert logic.detect_brand("Girl Scout Cookies 3.5g") is None
+
+    def test_haze_brand_at_start_is_brand(self, logic):
+        """'Haze' at the start of text IS the Haze brand."""
+        assert logic.detect_brand("Haze Premium Flower 3.5g") == "Haze"
+
+    def test_cake_brand_at_start_is_brand(self, logic):
+        """'Cake' at the start of text IS the Cake brand."""
+        assert logic.detect_brand("Cake She Hits Different 1g") == "Cake"
+
+    def test_cookies_at_start_is_brand(self, logic):
+        """'Cookies' at the start IS the Cookies brand."""
+        assert logic.detect_brand("Cookies Gary Payton 3.5g") == "Cookies"
+
+    def test_brand_with_another_brand_in_strain(self, logic):
+        """When a real brand is present alongside a strain-embedded brand word,
+        the real brand should win. E.g., '&shine Ghost Train Haze' → not Haze."""
+        # &shine isn't in our brand DB, but if it were this test would verify
+        # that Haze is blocked by the strain pattern
+        result = logic.detect_brand("Ghost Train Haze 3.5g Flower")
+        assert result != "Haze"
+
+    def test_pound_cake_not_cake_brand(self, logic):
+        """Pound Cake is a strain, NOT the Cake brand."""
+        assert logic.detect_brand("Pound Cake Flower 3.5g") is None
+
+    def test_lava_cake_not_cake_brand(self, logic):
+        """Lava Cake is a strain, NOT the Cake brand."""
+        assert logic.detect_brand("Lava Cake Indica 3.5g") is None
+
 
 # =====================================================================
 # Clean Product Text

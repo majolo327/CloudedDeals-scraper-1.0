@@ -419,17 +419,26 @@ export async function searchExtendedDeals(
 
     if (error) throw error;
 
+    // Filter out junk: short names, zero price, batteries, accessories, merch
+    const JUNK_KEYWORDS = /\b(battery|batteries|grinder|lighter|rolling\s+paper|tray|stash|pipe|bong|rig|torch|scale|jar|container|apparel|shirt|hat|merch)\b/i;
     const allResults = data
       ? (data as unknown as ProductRow[])
           .filter((row) => row.name && row.name.length >= 5 && (row.sale_price ?? 0) > 0)
+          .filter((row) => !JUNK_KEYWORDS.test(row.name ?? ''))
           .map(normalizeDeal)
       : [];
 
-    // Filter out deals already in the curated set
-    const extended = allResults.filter((d) => !curatedDealIds.has(d.id));
+    // Filter out deals already in the curated set, and apply word-boundary
+    // matching client-side (SQL ilike is substring-based so "rove" matches "grove")
+    const queryLC = query.trim().toLowerCase();
+    const qEscaped = queryLC.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const wordBoundaryRe = new RegExp(`\\b${qEscaped}`, 'i');
+    const extended = allResults.filter((d) => {
+      if (curatedDealIds.has(d.id)) return false;
+      return wordBoundaryRe.test(d.product_name) || wordBoundaryRe.test(d.brand.name);
+    });
 
     // Rank results: exact brand match first, then by discount, then by price
-    const queryLC = query.trim().toLowerCase();
     extended.sort((a, b) => {
       const aBrand = a.brand.name.toLowerCase() === queryLC ? 0 : 1;
       const bBrand = b.brand.name.toLowerCase() === queryLC ? 0 : 1;
@@ -450,5 +459,34 @@ export async function searchExtendedDeals(
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Extended search failed';
     return { deals: [], error: message };
+  }
+}
+
+// --------------------------------------------------------------------------
+// Fetch deals by IDs (for shared saves page)
+// --------------------------------------------------------------------------
+
+export async function fetchDealsByIds(ids: string[]): Promise<Deal[]> {
+  if (!isSupabaseConfigured || ids.length === 0) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select(
+        `id, name, brand, category, original_price, sale_price, discount_percent,
+         weight_value, weight_unit, deal_score, product_url, is_infused, product_subtype,
+         scraped_at, created_at,
+         dispensary:dispensaries!inner(id, name, address, city, state, platform, url, latitude, longitude)`
+      )
+      .in('id', ids);
+
+    if (error) throw error;
+    if (!data) return [];
+
+    return (data as unknown as ProductRow[])
+      .filter((row) => row.name && (row.sale_price ?? 0) > 0)
+      .map(normalizeDeal);
+  } catch {
+    return [];
   }
 }

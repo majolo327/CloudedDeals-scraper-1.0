@@ -159,14 +159,16 @@ export function SearchPage({
     return brands.filter((b) => b.name.toLowerCase().includes(q)).slice(0, 6);
   }, [brands, debouncedQuery]);
 
-  // ---- Matching dispensaries ----
+  // ---- Matching dispensaries (word-boundary matching to prevent "rove" → "The Grove") ----
   const matchingDispensaries = useMemo(() => {
     if (!debouncedQuery || debouncedQuery.length < 2) return [];
     const q = debouncedQuery.toLowerCase();
+    const qEscaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const wordBoundaryRe = new RegExp(`\\b${qEscaped}\\b`, 'i');
     return DISPENSARIES.filter(
       (d) =>
-        d.name.toLowerCase().includes(q) ||
-        d.address.toLowerCase().includes(q)
+        wordBoundaryRe.test(d.name) ||
+        wordBoundaryRe.test(d.address)
     ).slice(0, 6);
   }, [debouncedQuery]);
 

@@ -71,7 +71,11 @@ export type EventType =
   | 'onboarding_screen_viewed'
   | 'onboarding_email_captured'
   | 'zip_email_capture'
-  | 'zip_interest_logged';
+  | 'zip_interest_logged'
+  | 'share_saves'
+  | 'shared_page_view'
+  | 'shared_get_deal_click'
+  | 'shared_page_cta';
 
 /**
  * Collect device and context metadata (non-PII) for analytics enrichment.
