@@ -427,7 +427,7 @@ export function useAnalytics(range: DateRange = '24h') {
       const stickiness = mau > 0 ? Math.round((dau / mau) * 100) : 0;
 
       // Activation: users who saved or clicked get-deal / total visitors
-      const activatedUsers = new Set<string>([...funnelSavers, ...funnelClickers]);
+      const activatedUsers = new Set<string>([...Array.from(funnelSavers), ...Array.from(funnelClickers)]);
       const activationRate = uniqueUsers > 0 ? Math.round((activatedUsers.size / uniqueUsers) * 100) : 0;
 
       // Retention: users who came on 2+ different days
@@ -458,7 +458,7 @@ export function useAnalytics(range: DateRange = '24h') {
         : 0;
 
       // Save-to-click: % of savers who also clicked get deal
-      const saverWhoClicked = [...funnelSavers].filter((u) => funnelClickers.has(u)).length;
+      const saverWhoClicked = Array.from(funnelSavers).filter((u) => funnelClickers.has(u)).length;
       const saveToClickRate = funnelSavers.size > 0
         ? Math.round((saverWhoClicked / funnelSavers.size) * 100)
         : 0;
@@ -499,7 +499,7 @@ export function useAnalytics(range: DateRange = '24h') {
           for (const uid of users) {
             const days = userAllDays[uid];
             if (!days) continue;
-            for (const d of days) {
+            for (const d of Array.from(days)) {
               const diff = Math.floor((new Date(d).getTime() - cohortFirstDate.getTime()) / (24 * 60 * 60 * 1000));
               if (diff >= 1 && diff <= 2) day1++;
               if (diff >= 7 && diff <= 8) day7++;
