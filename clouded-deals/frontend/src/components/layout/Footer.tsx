@@ -1,16 +1,31 @@
 'use client';
 
-import { useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 
 interface FooterProps {
   onNavigateToForBusiness?: () => void;
   onNavigate?: (page: 'terms' | 'privacy') => void;
   onNavigateToAbout?: () => void;
+  onReplayTour?: () => void;
 }
 
-export function Footer({ onNavigateToForBusiness, onNavigate, onNavigateToAbout }: FooterProps) {
+export function Footer({ onNavigateToForBusiness, onNavigate, onNavigateToAbout, onReplayTour }: FooterProps) {
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [tourReset, setTourReset] = useState(false);
+
+  const handleReplayTour = useCallback(() => {
+    // Clear FTUE and coach marks flags so the tour replays
+    localStorage.removeItem('clouded_ftue_completed');
+    localStorage.removeItem('clouded_coach_marks_seen');
+    setTourReset(true);
+    if (onReplayTour) {
+      onReplayTour();
+    } else {
+      // Fallback: reload to trigger FTUE from scratch
+      setTimeout(() => window.location.reload(), 300);
+    }
+  }, [onReplayTour]);
 
   return (
     <footer className="relative border-t mt-8" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'rgba(10, 14, 26, 0.6)' }}>
@@ -31,6 +46,15 @@ export function Footer({ onNavigateToForBusiness, onNavigate, onNavigateToAbout 
                 Tap any deal to go straight to the dispensary. Save with{' '}
                 <span className="text-purple-400">&hearts;</span> &mdash; deals refresh at midnight.
               </p>
+              {/* Replay guided tour toggle */}
+              <button
+                onClick={handleReplayTour}
+                disabled={tourReset}
+                className="mt-3 flex items-center gap-1.5 mx-auto text-[11px] text-slate-500 hover:text-purple-400 transition-colors disabled:text-purple-400 disabled:cursor-default"
+              >
+                <RotateCcw className={`w-3 h-3 ${tourReset ? 'animate-spin' : ''}`} />
+                {tourReset ? 'Restarting tour\u2026' : 'Replay guided tour'}
+              </button>
             </div>
           )}
         </div>

@@ -29,18 +29,28 @@ interface Step {
 const STEPS: Step[] = [
   {
     selector: '[data-coach="deal-card"]',
-    title: 'Tap any deal to see details and visit the dispensary page',
+    title: 'Every deal is scored by real value \u2014 no ads, no sponsors. Tap any deal for details and one-tap directions.',
     cta: 'Next',
   },
   {
     selector: '[data-coach="save-button"]',
-    title: "Save deals to build your list \u2014 they expire at midnight, so don't wait",
+    title: "Love it? Hit the heart. Your saves train your feed and expire at midnight \u2014 don\u2019t sleep on a good deal.",
     cta: 'Next',
   },
   {
     selector: '[data-coach="filter-bar"]',
-    title: 'Filter by category, brand, and price to find exactly what you want',
-    cta: 'Got It',
+    title: 'Filter by category, dispensary, and price range. All 27 Vegas dispensaries are here \u2014 even ones without deals today.',
+    cta: 'Next',
+  },
+  {
+    selector: '[data-coach="nav-search"]',
+    title: "Not finding what you want? Search any brand or dispensary by name, or browse everything. Your filters work everywhere.",
+    cta: 'Next',
+  },
+  {
+    selector: '',
+    title: "Coming soon: brand loyalty perks, VIP rewards, and exclusive giveaways. The more you use CloudedDeals, the more you unlock.",
+    cta: "Let\u2019s Go",
   },
 ];
 
