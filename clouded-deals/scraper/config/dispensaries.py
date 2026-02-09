@@ -33,13 +33,15 @@ USER_AGENT = (
 # long-polling analytics and chat widgets that never finish loading.
 WAIT_UNTIL = "domcontentloaded"
 
-# Navigation timeout in milliseconds (PRD: 60 000).
-GOTO_TIMEOUT_MS = 60_000
+# Navigation timeout in milliseconds.  Dutchie JS-heavy sites can take
+# well over 60 s to fully load scripts and render the iframe / embed.
+GOTO_TIMEOUT_MS = 120_000
 
 # Per-site scrape timeout in seconds.  Must accommodate the smart-wait
-# (up to 60 s) + iframe/JS-embed detection (up to 105 s) + pagination.
-# 300 s (5 min) gives room for one retry cycle.
-SITE_TIMEOUT_SEC = 300
+# (up to 60 s) + iframe/JS-embed detection (up to 105 s) + pagination
+# (5 s × N pages) + one full retry cycle.  300 s was too tight for
+# slow Dutchie sites (TD, Greenlight, The Grove) — 600 s gives room.
+SITE_TIMEOUT_SEC = 600
 
 # ---------------------------------------------------------------------------
 # Platform-level configuration

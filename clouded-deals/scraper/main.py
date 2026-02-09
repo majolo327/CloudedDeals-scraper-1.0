@@ -415,7 +415,7 @@ def _insert_deals(
 # ---------------------------------------------------------------------------
 
 
-_SITE_TIMEOUT_SEC = SITE_TIMEOUT_SEC  # 240 s (from config)
+_SITE_TIMEOUT_SEC = SITE_TIMEOUT_SEC  # 600 s (from config)
 _MAX_RETRIES = 2
 _RETRY_DELAY_SEC = 5
 

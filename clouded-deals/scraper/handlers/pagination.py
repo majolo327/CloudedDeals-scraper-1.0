@@ -51,13 +51,54 @@ _POST_NAV_SETTLE_SEC = 5
 # Dutchie / TD sites
 # ------------------------------------------------------------------
 
+async def _click_with_fallback(
+    target: Page | Frame,
+    locator,
+    selector: str,
+    label: str,
+) -> bool:
+    """Try multiple click strategies: normal → force → JavaScript.
+
+    Returns ``True`` if any click strategy succeeded.
+    """
+    # Strategy 1: normal click
+    try:
+        await locator.click(timeout=5_000)
+        logger.info("%s via normal click on %s", label, selector)
+        return True
+    except Exception:
+        logger.debug("%s normal click failed on %s", label, selector)
+
+    # Strategy 2: force click (bypasses visibility/actionability checks)
+    try:
+        await locator.click(force=True, timeout=5_000)
+        logger.info("%s via force click on %s", label, selector)
+        return True
+    except Exception:
+        logger.debug("%s force click failed on %s", label, selector)
+
+    # Strategy 3: JavaScript click as last resort
+    try:
+        await locator.evaluate("el => el.click()")
+        logger.info("%s via JS click on %s", label, selector)
+        return True
+    except Exception:
+        logger.debug("%s JS click failed on %s", label, selector)
+
+    return False
+
+
+_DUTCHIE_NAV_MAX_RETRIES = 2
+
+
 async def navigate_dutchie_page(
     target: Page | Frame,
     page_number: int,
 ) -> bool:
     """Navigate to a specific page on a Dutchie-powered menu.
 
-    Tries multiple selector strategies:
+    Tries multiple selector strategies with multi-click fallback
+    (normal → force → JS click) and up to 2 retries per page:
       1. ``button[aria-label="go to page N"]`` (standard Dutchie iframe)
       2. ``a[aria-label="go to page N"]`` (some sites use links)
       3. Case-insensitive ``Go to page N`` variants
@@ -85,29 +126,37 @@ async def navigate_dutchie_page(
         f'[aria-label="Go to page {page_number}"]',
     ]
 
-    for selector in selectors:
-        try:
-            locator = target.locator(selector).first
-            await locator.wait_for(state="attached", timeout=3_000)
-        except PlaywrightTimeout:
-            continue
+    for attempt in range(1, _DUTCHIE_NAV_MAX_RETRIES + 1):
+        for selector in selectors:
+            try:
+                locator = target.locator(selector).first
+                await locator.wait_for(state="attached", timeout=5_000)
+            except PlaywrightTimeout:
+                continue
 
-        # CRITICAL: a disabled button means pagination is COMPLETE.
-        if not await locator.is_enabled():
+            # CRITICAL: a disabled button means pagination is COMPLETE.
+            if not await locator.is_enabled():
+                logger.info(
+                    "Dutchie page %d button is disabled — pagination complete",
+                    page_number,
+                )
+                return False
+
+            label = f"Navigated to Dutchie page {page_number}"
+            if await _click_with_fallback(target, locator, selector, label):
+                await asyncio.sleep(_POST_NAV_SETTLE_SEC)
+                return True
+
+        if attempt < _DUTCHIE_NAV_MAX_RETRIES:
             logger.info(
-                "Dutchie page %d button is disabled — pagination complete",
-                page_number,
+                "Dutchie page %d — attempt %d failed, retrying in 2s",
+                page_number, attempt,
             )
-            return False
-
-        await locator.click()
-        logger.info("Navigated to Dutchie page %d via %s", page_number, selector)
-        await asyncio.sleep(_POST_NAV_SETTLE_SEC)
-        return True
+            await asyncio.sleep(2)
 
     logger.info(
-        "Dutchie page %d — no pagination button found — reached last page",
-        page_number,
+        "Dutchie page %d — no pagination button found after %d attempts — reached last page",
+        page_number, _DUTCHIE_NAV_MAX_RETRIES,
     )
     return False
 
@@ -174,10 +223,10 @@ async def navigate_curaleaf_page(
             )
             return False
 
-        await locator.click(force=True)
-        logger.info("Navigated to Curaleaf page %d via %s", page_number, selector)
-        await asyncio.sleep(3)  # PRD: 3 s between Curaleaf pages
-        return True
+        label = f"Navigated to Curaleaf page {page_number}"
+        if await _click_with_fallback(page, locator, selector, label):
+            await asyncio.sleep(3)  # PRD: 3 s between Curaleaf pages
+            return True
 
     logger.info(
         "Curaleaf page %d — no pagination button found — reached end", page_number
