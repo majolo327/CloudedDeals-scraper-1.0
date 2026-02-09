@@ -52,6 +52,17 @@ HARD_FILTERS = {
     "require_original_price": True,
 }
 
+# Maximum believable ORIGINAL price per category.  If the parsed original
+# exceeds this, it's almost certainly garbage from bundle text leaking into
+# the price parser (e.g. "3 for $50" inflating original to $120).
+ORIGINAL_PRICE_CEILINGS: dict[str, float] = {
+    "flower": 80,       # no eighth/quarter retails above $80
+    "vape": 80,          # carts/pods rarely list above $80
+    "edible": 40,        # gummies/chocolate max ~$30-35 retail
+    "concentrate": 90,   # live resin/rosin can be pricey
+    "preroll": 25,       # single prerolls never list $25+
+}
+
 # =====================================================================
 # Phase 2: Scoring constants
 # =====================================================================
@@ -138,6 +149,12 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     if HARD_FILTERS["require_original_price"]:
         if not original_price or original_price <= sale_price:
             return False
+
+    # Reject products with unreasonably high original prices — almost always
+    # a parsing artifact from bundle/promo text leaking into the price parser.
+    orig_ceiling = ORIGINAL_PRICE_CEILINGS.get(category)
+    if orig_ceiling and original_price > orig_ceiling:
+        return False
 
     # --- Category-specific price caps ---
     caps = CATEGORY_PRICE_CAPS.get(category)

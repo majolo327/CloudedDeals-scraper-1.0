@@ -112,7 +112,8 @@ def classify_product(
     # like "Gummies 10pk" or "Edible 5-pack" are NOT preroll packs.
     _EDIBLE_INDICATORS = ("edible", "gummy", "gummies", "chocolate", "candy",
                           "brownie", "chew", "lozenge", "mint", "cookie",
-                          "beverage", "drink")
+                          "beverage", "drink", "bar", "caramel", "tincture",
+                          "capsule", "tablet", "tea", "honey", "butter")
     is_edible_context = (
         cat in ("edible",)
         or any(kw in name_lower for kw in _EDIBLE_INDICATORS)
