@@ -7,6 +7,7 @@ import { FilterSheet, FilterState, DEFAULT_FILTERS, getPriceRangeBounds } from '
 import { StickyStatsBar } from './layout';
 import { DealCardSkeleton } from './Skeleton';
 import { filterDeals, formatUpdateTime, getTimeUntilMidnight } from '@/utils';
+import { useDeck } from '@/hooks/useDeck';
 
 type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'preroll';
 
@@ -50,7 +51,8 @@ export function DealsPage({
   const hasActiveFilters = filters.categories.length > 0 || filters.dispensaryIds.length > 0 ||
     filters.priceRange !== 'all' || filters.minDiscount > 0;
 
-  const sortedDeals = useMemo(() => {
+  // Apply category tab + advanced filters to get the pool for the deck
+  const filteredDeals = useMemo(() => {
     let result = deals.filter(
       (d) => activeCategory === 'all' || d.category.toLowerCase() === activeCategory
     );
@@ -66,6 +68,7 @@ export function DealsPage({
       });
     }
 
+    // When using sort overrides, fall back to sorted static list
     if (filters.sortBy === 'price_asc') {
       return [...result].sort((a, b) => a.deal_price - b.deal_price);
     } else if (filters.sortBy === 'price_desc') {
@@ -77,8 +80,18 @@ export function DealsPage({
         return discB - discA;
       });
     }
-    return [...result].sort((a, b) => b.deal_score - a.deal_score);
+
+    return result;
   }, [deals, activeCategory, filters, hasActiveFilters]);
+
+  // Use the deck for the default sort (curated shuffle)
+  // For explicit sort overrides, use the static filtered list directly
+  const isDefaultSort = !filters.sortBy || filters.sortBy === 'deal_score';
+  const deck = useDeck(isDefaultSort ? filteredDeals : []);
+
+  // Determine what to render: deck mode or static sorted mode
+  const visibleDeals = isDefaultSort ? deck.visible : filteredDeals;
+  const showDeckUI = isDefaultSort;
 
   return (
     <>
@@ -88,7 +101,7 @@ export function DealsPage({
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
       >
-        <FilterSheet deals={deals} filters={filters} onFiltersChange={setFilters} filteredCount={sortedDeals.length} totalCount={deals.length} />
+        <FilterSheet deals={deals} filters={filters} onFiltersChange={setFilters} filteredCount={filteredDeals.length} totalCount={deals.length} />
       </StickyStatsBar>
 
       <div className="max-w-6xl mx-auto px-4 py-4">
@@ -105,11 +118,31 @@ export function DealsPage({
             </span>
           </div>
 
+          {/* Deck progress bar — only in deck mode after first dismiss */}
+          {showDeckUI && deck.totalDeals > 0 && deck.dismissedCount > 0 && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] text-slate-500">
+                  {deck.seenCount} of {deck.totalDeals} deals seen
+                </span>
+                <span className="text-[11px] text-slate-600">
+                  {deck.totalDeals - deck.seenCount} remaining
+                </span>
+              </div>
+              <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${(deck.seenCount / deck.totalDeals) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Active filter indicator */}
           {hasActiveFilters && (
             <div className="flex items-center justify-between mb-3 px-1">
               <span className="text-xs text-slate-400 font-medium">
-                {sortedDeals.length} deal{sortedDeals.length !== 1 ? 's' : ''}
+                {filteredDeals.length} deal{filteredDeals.length !== 1 ? 's' : ''}
               </span>
               <button
                 onClick={() => setFilters(DEFAULT_FILTERS)}
@@ -127,7 +160,21 @@ export function DealsPage({
                 <DealCardSkeleton key={i} />
               ))}
             </div>
-          ) : sortedDeals.length === 0 && hasActiveFilters ? (
+          ) : deck.isComplete && showDeckUI ? (
+            /* End-of-deck message */
+            <div className="text-center py-16">
+              <div className="text-4xl mb-4">&#127881;</div>
+              <h3 className="text-lg font-semibold text-slate-200 mb-2">
+                You&apos;ve seen all {deck.totalDeals} deals today
+              </h3>
+              <p className="text-sm text-slate-500 mb-1">
+                New deals drop every morning at 8 AM.
+              </p>
+              <p className="text-xs text-slate-600">
+                Refreshes in {countdown}
+              </p>
+            </div>
+          ) : visibleDeals.length === 0 && hasActiveFilters ? (
             <div className="text-center py-16">
               <p className="text-slate-400 text-sm mb-2">
                 Nothing matches right now
@@ -142,7 +189,7 @@ export function DealsPage({
                 Reset Filters
               </button>
             </div>
-          ) : sortedDeals.length === 0 ? (
+          ) : visibleDeals.length === 0 ? (
             <div className="text-center py-20">
               <p className="text-slate-300 text-xl font-medium mb-2">
                 No deals yet today
@@ -151,24 +198,40 @@ export function DealsPage({
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-              {sortedDeals.map((deal, index) => (
-                <div
-                  key={deal.id}
-                  className="animate-in fade-in"
-                  style={{
-                    animationDelay: `${Math.min(index, 11) * 30}ms`,
-                    animationFillMode: 'both',
-                  }}
-                >
-                  <DealCard
-                    deal={deal}
-                    isSaved={savedDeals.has(deal.id)}
-                    isUsed={usedDeals.has(deal.id)}
-                    onSave={() => toggleSavedDeal(deal.id)}
-                    onClick={() => setSelectedDeal(deal)}
-                  />
-                </div>
-              ))}
+              {visibleDeals.map((deal, index) => {
+                const isDismissing = deck.dismissingId === deal.id;
+                const isAppearing = deck.appearingId === deal.id;
+
+                return (
+                  <div
+                    key={deal.id}
+                    className={
+                      isDismissing
+                        ? 'animate-card-dismiss'
+                        : isAppearing
+                        ? 'animate-card-replace'
+                        : 'animate-in fade-in'
+                    }
+                    style={
+                      !isDismissing && !isAppearing
+                        ? {
+                            animationDelay: `${Math.min(index, 11) * 30}ms`,
+                            animationFillMode: 'both',
+                          }
+                        : undefined
+                    }
+                  >
+                    <DealCard
+                      deal={deal}
+                      isSaved={savedDeals.has(deal.id)}
+                      isUsed={usedDeals.has(deal.id)}
+                      onSave={() => toggleSavedDeal(deal.id)}
+                      onDismiss={showDeckUI ? () => deck.dismissDeal(deal.id) : undefined}
+                      onClick={() => setSelectedDeal(deal)}
+                    />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
