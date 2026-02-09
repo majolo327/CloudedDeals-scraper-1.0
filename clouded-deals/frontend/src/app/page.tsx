@@ -419,7 +419,6 @@ export default function Home() {
               setSelectedDeal={setSelectedDeal}
               savedCount={savedCount}
               streak={streak}
-              addToast={addToast}
             />
           )
         )}

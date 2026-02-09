@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import type { Deal } from '@/types';
-import type { ToastData } from './Toast';
 import { DealCard } from './cards';
 import { FilterSheet, FilterState, DEFAULT_FILTERS, getPriceRangeBounds } from './FilterSheet';
 import { StickyStatsBar } from './layout';
@@ -19,7 +18,6 @@ interface DealsPageProps {
   setSelectedDeal: (deal: Deal | null) => void;
   savedCount: number;
   streak: number;
-  addToast: (message: string, type: ToastData['type']) => void;
 }
 
 export function DealsPage({
@@ -30,7 +28,6 @@ export function DealsPage({
   setSelectedDeal,
   savedCount,
   streak,
-  addToast,
 }: DealsPageProps) {
   const [activeCategory, setActiveCategory] = useState<DealCategory>('all');
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);

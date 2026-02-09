@@ -60,7 +60,7 @@ interface FilterSheetProps {
   totalCount: number;
 }
 
-export function FilterSheet({ deals, filters, onFiltersChange, filteredCount }: FilterSheetProps) {
+export function FilterSheet({ filters, onFiltersChange, filteredCount }: FilterSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
