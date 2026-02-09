@@ -1,9 +1,25 @@
 'use client';
 
-import { Heart, DollarSign, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Heart, DollarSign, Trash2, Clock } from 'lucide-react';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { getDiscountPercent, getDisplayName } from '@/utils';
 import type { Deal } from '@/types';
+
+function useHoursUntilMidnight(): number {
+  const [hours, setHours] = useState(() => {
+    const now = new Date();
+    return 23 - now.getHours();
+  });
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      setHours(23 - now.getHours());
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+  return hours;
+}
 
 interface SavedPageProps {
   deals: Deal[];
@@ -54,6 +70,9 @@ export function SavedPage({ deals, onSelectDeal }: SavedPageProps) {
             )}
           </div>
         )}
+
+        {/* Expiry urgency */}
+        {activeDeals.length > 0 && <ExpiryBanner />}
 
         {/* Active saved deals */}
         {activeDeals.length > 0 && (
@@ -168,6 +187,20 @@ function SavedDealCard({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ExpiryBanner() {
+  const hours = useHoursUntilMidnight();
+  const label = hours <= 1 ? 'less than an hour' : `${hours} hours`;
+
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/8 border border-amber-500/15">
+      <Clock className="w-3.5 h-3.5 text-amber-400/70 shrink-0" />
+      <p className="text-xs text-amber-400/80">
+        Deals refresh in {label} &mdash; use them or lose them.
+      </p>
     </div>
   );
 }

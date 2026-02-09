@@ -112,7 +112,7 @@ export function DealModal({
               {deal.is_verified && (
                 <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-500/15 text-purple-400 border border-purple-500/20">
                   <BadgeCheck className="w-3.5 h-3.5" />
-                  Verified
+                  Top Pick
                 </span>
               )}
             </div>

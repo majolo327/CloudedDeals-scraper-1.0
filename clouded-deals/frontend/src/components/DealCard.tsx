@@ -45,7 +45,7 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onDismiss, onC
   return (
     <div
       onClick={onClick}
-      className={`group glass frost rounded-xl p-4 cursor-pointer transition-gentle ${
+      className={`group glass frost rounded-xl p-4 cursor-pointer transition-gentle card-interactive ${
         isSaved
           ? 'card-saved'
           : 'hover:border-[rgba(99,115,171,0.22)] hover:bg-[rgba(28,35,56,0.8)]'

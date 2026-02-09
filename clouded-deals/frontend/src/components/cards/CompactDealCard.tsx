@@ -79,7 +79,7 @@ export function CompactDealCard({
     <div
       data-coach="deal-card"
       onClick={onClick}
-      className={`relative glass frost rounded-xl p-4 cursor-pointer transition-gentle min-h-[170px] flex flex-col ${getAnimationClass()} ${
+      className={`relative glass frost rounded-xl p-4 cursor-pointer transition-gentle card-interactive min-h-[170px] flex flex-col ${getAnimationClass()} ${
         saveGlow ? 'animate-save-glow' : ''
       } ${
         isRecommended ? 'border-l-2 border-l-purple-500/40' : ''

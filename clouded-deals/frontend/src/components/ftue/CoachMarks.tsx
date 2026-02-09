@@ -29,7 +29,7 @@ interface Step {
 const STEPS: Step[] = [
   {
     selector: '[data-coach="deal-card"]',
-    title: 'Tap any deal to go straight to the product page and get it',
+    title: 'Tap any deal to see details and visit the dispensary page',
     cta: 'Next',
   },
   {

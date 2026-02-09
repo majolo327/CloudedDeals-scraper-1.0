@@ -275,9 +275,29 @@ body {
 
 /* ===== COMPONENTS ===== */
 
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 @layer components {
   .card-saved {
     @apply soft-glow;
     border-color: rgba(168, 85, 247, 0.2);
+  }
+
+  /* Interactive card — hover lift + press squeeze */
+  .card-interactive:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(99, 115, 171, 0.18);
+  }
+  .card-interactive:active {
+    transform: scale(0.98);
+    transition-duration: 100ms;
+  }
+
+  /* Toast slide-in from bottom */
+  .animate-toast-in {
+    animation: toastSlideIn 300ms var(--ease-smooth) forwards;
   }
 }
