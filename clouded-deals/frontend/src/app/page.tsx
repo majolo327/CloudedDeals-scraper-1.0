@@ -206,7 +206,8 @@ export default function Home() {
   const brands = useMemo(() => {
     const seen = new Map<string, Deal['brand']>();
     for (const d of deals) {
-      if (!seen.has(d.brand.id)) seen.set(d.brand.id, d.brand);
+      const brandId = d.brand?.id;
+      if (brandId && !seen.has(brandId)) seen.set(brandId, d.brand);
     }
     return Array.from(seen.values());
   }, [deals]);

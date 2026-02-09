@@ -24,8 +24,10 @@ function getCachedDeals(): Deal[] | null {
     const cache: DealCache = JSON.parse(raw);
     // Cache valid for 24 hours
     if (Date.now() - cache.timestamp > 24 * 60 * 60 * 1000) return null;
-    // Restore Date objects
-    return cache.deals.map(d => ({ ...d, created_at: new Date(d.created_at) }));
+    // Restore Date objects and filter out deals with missing required fields
+    return cache.deals
+      .filter(d => d.brand && d.dispensary)
+      .map(d => ({ ...d, created_at: new Date(d.created_at) }));
   } catch {
     return null;
   }
@@ -247,7 +249,12 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
 
     const allDeals = productsResult.data
       ? (productsResult.data as unknown as ProductRow[])
-          .filter((row) => row.name && row.name.length >= 5 && (row.sale_price ?? 0) > 0)
+          .filter((row) => {
+            if (!row.name || row.name.length < 5 || (row.sale_price ?? 0) <= 0) return false;
+            // Guard: Supabase join can return array or null for dispensary in edge cases
+            if (!row.dispensary || Array.isArray(row.dispensary)) return false;
+            return true;
+          })
           .map((row) => {
             const deal = normalizeDeal(row);
             deal.save_count = saveCountMap.get(row.id) ?? 0;
