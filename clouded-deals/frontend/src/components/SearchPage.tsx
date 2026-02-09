@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Search, Package, MapPin, ChevronRight, X, Clock, Store, ExternalLink, Tag } from 'lucide-react';
 import type { Deal, Brand } from '@/types';
+import { weightsMatch } from '@/utils/weightNormalizer';
 import { DealCard } from './DealCard';
 import { DealCardSkeleton } from './Skeleton';
 import { FilterSheet } from './FilterSheet';
@@ -226,6 +227,10 @@ export function SearchPage({
     if (universalFilters.minDiscount > 0) {
       result = result.filter(d => d.original_price ? ((d.original_price - d.deal_price) / d.original_price) * 100 >= universalFilters.minDiscount : false);
     }
+    // Apply weight filter
+    if (universalFilters.weightFilter !== 'all') {
+      result = result.filter(d => weightsMatch(d.weight, universalFilters.weightFilter));
+    }
     // Apply sort
     if (universalFilters.sortBy === 'distance' && userCoords) {
       result = [...result].sort((a, b) => (getDistance(a.dispensary.latitude, a.dispensary.longitude) ?? 999) - (getDistance(b.dispensary.latitude, b.dispensary.longitude) ?? 999));
@@ -253,6 +258,9 @@ export function SearchPage({
     }
     if (universalFilters.minDiscount > 0) {
       result = result.filter(d => d.original_price ? ((d.original_price - d.deal_price) / d.original_price) * 100 >= universalFilters.minDiscount : false);
+    }
+    if (universalFilters.weightFilter !== 'all') {
+      result = result.filter(d => weightsMatch(d.weight, universalFilters.weightFilter));
     }
     return result;
   }, [baseCategoryExtendedDeals, activeDispensary, universalFilters]);

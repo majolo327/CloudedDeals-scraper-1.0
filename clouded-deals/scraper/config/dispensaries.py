@@ -309,6 +309,65 @@ DISPENSARIES = [
         "is_active": True,
         "region": "southern-nv",
     },
+    # ------------------------------------------------------------------
+    # RISE DISPENSARIES  (7)  — Jane platform, formerly "Essence"
+    # ------------------------------------------------------------------
+    {
+        "name": "RISE Henderson (Sunset)",
+        "slug": "rise-sunset",
+        "platform": "jane",
+        "url": "https://risecannabis.com/dispensaries/nevada/henderson/887/pickup-menu/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "RISE Tropicana",
+        "slug": "rise-tropicana",
+        "platform": "jane",
+        "url": "https://risecannabis.com/dispensaries/nevada/las-vegas-west-tropicana/886/pickup-menu/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "RISE Rainbow",
+        "slug": "rise-rainbow",
+        "platform": "jane",
+        "url": "https://risecannabis.com/dispensaries/nevada/las-vegas-south-rainbow/1718/pickup-menu/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "RISE Durango",
+        "slug": "rise-durango",
+        "platform": "jane",
+        "url": "https://risecannabis.com/dispensaries/nevada/las-vegas-south-durango/1885/pickup-menu/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "RISE Nellis",
+        "slug": "rise-nellis",
+        "platform": "jane",
+        "url": "https://risecannabis.com/dispensaries/nevada/las-vegas-nellis/5267/pickup-menu/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "RISE Henderson (Boulder)",
+        "slug": "rise-boulder",
+        "platform": "jane",
+        "url": "https://risecannabis.com/dispensaries/nevada/henderson-boulder/6211/pickup-menu/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "RISE Craig",
+        "slug": "rise-craig",
+        "platform": "jane",
+        "url": "https://risecannabis.com/dispensaries/nevada/las-vegas-craig-rd/5429/pickup-menu/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
 ]
 
 # ---------------------------------------------------------------------------

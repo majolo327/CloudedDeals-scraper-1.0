@@ -337,6 +337,7 @@ def _upsert_products(
                 "deal_score": p.get("deal_score", 0),
                 "product_url": p.get("product_url"),
                 "is_active": True,
+                "strain_type": p.get("strain_type"),
                 "is_infused": classification["is_infused"],
                 "product_subtype": classification["product_subtype"],
                 "scraped_at": now_iso,

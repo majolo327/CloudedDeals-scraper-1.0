@@ -62,7 +62,7 @@ export function DealsPage({
 
   const hasActiveFilters = filters.categories.length > 0 || filters.dispensaryIds.length > 0 ||
     filters.priceRange !== 'all' || filters.minDiscount > 0 || filters.distanceRange !== 'all' ||
-    filters.quickFilter !== 'none';
+    filters.weightFilter !== 'all';
 
   // Apply category tab first, then universal filters
   const filteredDeals = useMemo(() => {

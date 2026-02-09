@@ -71,10 +71,12 @@ PREMIUM_BRANDS: set[str] = {
     "STIIIZY", "Cookies", "Raw Garden", "Kiva", "Wyld",
     "Select", "Trendi", "CAMP", "Old Pal", "Pacific Stone",
     "Fleur", "Virtue", "Rove", "Heavy Hitters",
-    # Existing premium brands kept for backwards compat
+    # National premium brands
     "Runtz", "Connected", "Alien Labs", "Jungle Boys",
     "Packwoods", "Doja", "Kingpen", "Plug Play", "PAX",
     "Jeeter", "Backpack Boyz", "Wonderbrett", "Ember Valley",
+    # Major MSO / national brands added from menu audit
+    "RYTHM", "Wana", "Incredibles", "Verano", "Grassroots",
 }
 
 CATEGORY_BOOST: dict[str, int] = {
