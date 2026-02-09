@@ -15,11 +15,9 @@ interface ToastProps {
 }
 
 export function Toast({ toast, onDismiss }: ToastProps) {
-  const [isVisible, setIsVisible] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
 
   useEffect(() => {
-    requestAnimationFrame(() => setIsVisible(true));
     const duration = ['milestone', 'streak', 'discovery'].includes(toast.type) ? 3500 : 2500;
     const timer = setTimeout(() => {
       setIsLeaving(true);
@@ -50,10 +48,8 @@ export function Toast({ toast, onDismiss }: ToastProps) {
 
   return (
     <div
-      className={`flex items-center gap-2 px-4 py-3 rounded-xl border backdrop-blur-xl shadow-xl transition-all duration-300 ${colors[toast.type]} ${
-        isVisible && !isLeaving
-          ? 'translate-y-0 opacity-100'
-          : 'translate-y-2 opacity-0'
+      className={`flex items-center gap-2 px-4 py-3 rounded-xl border backdrop-blur-xl shadow-xl transition-all duration-300 animate-toast-in ${colors[toast.type]} ${
+        isLeaving ? 'translate-y-2 opacity-0' : ''
       }`}
     >
       <span className="shrink-0">{icons[toast.type]}</span>

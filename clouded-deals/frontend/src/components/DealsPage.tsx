@@ -490,11 +490,15 @@ export function DealsPage({
                     isClearing ? 'opacity-0' : 'opacity-100'
                   }`}
                 >
-                  {displayedGridDeals.map((deal) => {
+                  {displayedGridDeals.map((deal, i) => {
                     const scoredDeal = personalizationMap.get(deal.id);
                     return (
-                      <CompactDealCard
+                      <div
                         key={deal.id}
+                        className="animate-in"
+                        style={{ animationDelay: `${i * 30}ms`, animationFillMode: 'both' }}
+                      >
+                      <CompactDealCard
                         deal={deal}
                         isSaved={savedDeals.has(deal.id)}
                         isDismissing={dismissingId === deal.id}
@@ -510,6 +514,7 @@ export function DealsPage({
                         recommendationReason={scoredDeal?.recommendationReason}
                         personalizationScore={scoredDeal?.personalizationScore}
                       />
+                      </div>
                     );
                   })}
                 </div>
@@ -550,16 +555,16 @@ export function DealsPage({
           </div>
         )}
 
-        {/* Verified Tab */}
+        {/* Top Picks Tab */}
         {activeTab === 'verified' && (
           <div className="animate-in fade-in">
             {sortedVerifiedDeals.length === 0 ? (
               <div className="text-center py-20">
                 <BadgeCheck className="w-20 h-20 mx-auto mb-6 text-slate-700" />
                 <p className="text-slate-300 text-xl font-medium mb-2">
-                  No verified deals yet today
+                  No top picks yet today
                 </p>
-                <p className="text-slate-500">We check every dispensary each morning. Check back soon.</p>
+                <p className="text-slate-500">We score every deal each morning. Check back soon.</p>
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

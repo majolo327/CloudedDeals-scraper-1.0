@@ -22,7 +22,7 @@ export function StickyStatsBar({
 }: StickyStatsBarProps) {
   const tabs: { id: DealsTab; label: string }[] = [
     { id: 'today', label: "Today's Picks" },
-    { id: 'verified', label: 'Verified' },
+    { id: 'verified', label: 'Top Picks' },
   ];
 
   const categories: { id: DealCategory; label: string }[] = [

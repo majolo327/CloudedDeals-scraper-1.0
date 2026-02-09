@@ -35,7 +35,7 @@ const REC_VARIANTS = [
 
 const MED_VARIANTS = [
   {
-    headline: (s: string) => `${s}, we\u2019re watching the vibes.`,
+    headline: (s: string) => `${s}, we\u2019re keeping an eye out.`,
     subtext: () =>
       `Your state has medical cannabis but hasn\u2019t gone fully recreational yet. When it does \u2014 and when dispensaries start competing on deals \u2014 we\u2019ll be there. In the meantime, check out what we\u2019re doing in Nevada.`,
   },
@@ -54,10 +54,10 @@ const NO_LEGAL_VARIANTS = [
     cta: 'Browse Vegas deals (for your next trip)',
   },
   {
-    headline: (s: string) => `${s}? Bold of you to be here.`,
+    headline: (s: string) => `${s}? We like the enthusiasm.`,
     subtext: () =>
-      `We respect the energy. Your state hasn\u2019t caught up yet, but when you\u2019re in Vegas, we\u2019ve got you covered.`,
-    cta: 'See what you\u2019re missing',
+      `Your state hasn\u2019t gone rec yet, but when you\u2019re in Vegas, we\u2019ve got you covered.`,
+    cta: 'See what\u2019s available in Vegas',
   },
   {
     headline: (s: string) => `We\u2019d love to help, ${s}.`,
@@ -68,7 +68,7 @@ const NO_LEGAL_VARIANTS = [
   {
     headline: (s: string) => `Not yet, ${s}. Not yet.`,
     subtext: () =>
-      `Your legislators are... working on it. (Are they though?) Come visit Vegas in the meantime \u2014 deals are waiting.`,
+      `Cannabis legislation is moving across the country. In the meantime, Vegas is always open \u2014 and the deals are waiting.`,
     cta: 'Peek at Vegas deals',
   },
 ];
