@@ -96,7 +96,7 @@ export function FilterSheet({
   onFiltersChange,
   filteredCount,
   hasLocation = false,
-  onQuickFilter,
+  onQuickFilter: _onQuickFilter,
   onReset,
   activeFilterCount: externalActiveCount,
 }: FilterSheetProps) {
