@@ -30,4 +30,5 @@ export { SearchPage } from './SearchPage';
 export { BrowsePage } from './BrowsePage';
 export { SavedPage } from './SavedPage';
 export { AuthPrompt } from './AuthPrompt';
+export { ContactBanner } from './ContactBanner';
 export { SmsWaitlist } from './SmsWaitlist';

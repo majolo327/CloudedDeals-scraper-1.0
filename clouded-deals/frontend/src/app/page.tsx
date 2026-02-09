@@ -6,14 +6,12 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { fetchDeals, fetchDispensaries } from '@/lib/api';
 import type { BrowseDispensary } from '@/lib/api';
 import type { Deal } from '@/types';
-import type { User } from '@supabase/supabase-js';
 import { AgeGate, Footer } from '@/components/layout';
 import { DealsPage } from '@/components/DealsPage';
 import { SearchPage } from '@/components/SearchPage';
 import { BrowsePage } from '@/components/BrowsePage';
 import { SavedPage } from '@/components/SavedPage';
 import { AboutPage } from '@/components/AboutPage';
-import { AuthPrompt } from '@/components/AuthPrompt';
 import { SmsWaitlist } from '@/components/SmsWaitlist';
 import { LocationSelector } from '@/components/LocationSelector';
 import { DealModal } from '@/components/modals';
@@ -25,7 +23,6 @@ import { useStreak } from '@/hooks/useStreak';
 import { useBrandAffinity } from '@/hooks/useBrandAffinity';
 import { useChallenges } from '@/hooks/useChallenges';
 import { initializeAnonUser, trackEvent, trackPageView, trackDealModalOpen } from '@/lib/analytics';
-import { isAuthPromptDismissed, dismissAuthPrompt } from '@/lib/auth';
 import { FTUEFlow, isFTUECompleted, CoachMarks, isCoachMarksSeen } from '@/components/ftue';
 
 type AppPage = 'home' | 'search' | 'browse' | 'saved' | 'about';
@@ -40,8 +37,6 @@ export default function Home() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [highlightSaved] = useState(false);
-  const [authUser, setAuthUser] = useState<User | null>(null);
-  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [searchInitialQuery, setSearchInitialQuery] = useState('');
   const [showFTUE, setShowFTUE] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -63,22 +58,6 @@ export default function Home() {
       initializeAnonUser();
       trackEvent('app_loaded', undefined, { referrer: document.referrer });
     }
-  }, []);
-
-  // Listen for Supabase auth state changes
-  useEffect(() => {
-    if (!supabase?.auth) return;
-
-    // Check for existing session
-    supabase.auth.getUser().then(({ data }) => {
-      if (data?.user) setAuthUser(data.user);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
   }, []);
 
   const handleAgeVerify = () => {
@@ -170,13 +149,6 @@ export default function Home() {
       trackDealModalOpen(selectedDeal.id, activePage);
     }
   }, [selectedDeal, activePage]);
-
-  // Show auth prompt after 3+ saves (only if not authenticated and not dismissed)
-  useEffect(() => {
-    if (savedCount >= 3 && !authUser && !isAuthPromptDismissed()) {
-      setShowAuthPrompt(true);
-    }
-  }, [savedCount, authUser]);
 
   // Fetch deals and dispensaries
   useEffect(() => {
@@ -459,6 +431,7 @@ export default function Home() {
           <SavedPage
             deals={deals}
             onSelectDeal={setSelectedDeal}
+            addToast={addToast}
           />
         )}
 
@@ -488,17 +461,6 @@ export default function Home() {
           onMarkUsed={() => {
             markDealUsed(selectedDeal.id);
             addToast('Marked as used', 'success');
-          }}
-        />
-      )}
-
-      {/* Auth prompt — triggered after 3+ saves */}
-      {showAuthPrompt && (
-        <AuthPrompt
-          savedCount={savedCount}
-          onClose={() => {
-            setShowAuthPrompt(false);
-            dismissAuthPrompt();
           }}
         />
       )}
