@@ -1,5 +1,5 @@
 """
-Deal qualification, scoring, and top-100 selection engine.
+Deal qualification, scoring, and top-200 selection engine.
 
 Pipeline:
   1. **Hard filters** (``passes_hard_filters``) — category price caps,
@@ -7,10 +7,13 @@ Pipeline:
      ``deal_score = 0`` and are never shown.
   2. **Scoring** (``calculate_deal_score``) — 0-100 composite score for
      every product that passes hard filters.
-  3. **Top-100 selection** (``select_top_deals``) — stratified pick with
+  3. **Quality gate** (``passes_quality_gate``) — rejects deals with
+     incomplete/garbage data (missing name, strain-only names, missing
+     weight for categories that need it).
+  4. **Top-200 selection** (``select_top_deals``) — stratified pick with
      brand, dispensary, and category diversity constraints.
 
-Only the ~100 deals returned by ``select_top_deals`` should have
+Only the ~200 deals returned by ``select_top_deals`` should have
 ``deal_score > 0`` and ``is_active = True`` in the database.
 """
 
@@ -75,15 +78,15 @@ CATEGORY_BOOST: dict[str, int] = {
 # Phase 3: Top-100 selection parameters
 # =====================================================================
 
-TARGET_DEAL_COUNT = 100
+TARGET_DEAL_COUNT = 200
 
 CATEGORY_TARGETS: dict[str, int] = {
-    "flower": 30,
-    "vape": 25,
-    "edible": 15,
-    "concentrate": 15,
-    "preroll": 10,
-    "other": 5,
+    "flower": 60,
+    "vape": 50,
+    "edible": 30,
+    "concentrate": 30,
+    "preroll": 20,
+    "other": 10,
 }
 
 MAX_SAME_BRAND_TOTAL = 5
@@ -167,6 +170,49 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
         # Flat cap for category
         if sale_price > caps:
             return False
+
+    return True
+
+
+# =====================================================================
+# Quality gate — reject incomplete / garbage deals
+# =====================================================================
+
+# Names that are just strain types or classifications, not real products
+_STRAIN_ONLY_NAMES = {"indica", "sativa", "hybrid", "cbd", "thc", "unknown"}
+
+# Categories that should always have a detected weight
+_WEIGHT_REQUIRED_CATEGORIES = {"flower", "concentrate", "vape"}
+
+
+def passes_quality_gate(product: dict[str, Any]) -> bool:
+    """Return ``False`` if the product has garbage or incomplete data.
+
+    Called AFTER hard filters and scoring, this is the final check
+    before a deal can enter the top-200 selection.  We have enough
+    volume (~1000+ qualifying deals) that we can afford to reject
+    imperfect entries.
+    """
+    name = product.get("name") or ""
+    brand = product.get("brand")
+    category = product.get("category", "other")
+    weight_value = product.get("weight_value")
+
+    # Reject strain-type-only product names
+    if name.strip().lower() in _STRAIN_ONLY_NAMES:
+        return False
+
+    # Reject very short names (likely garbage)
+    if len(name.strip()) < 5:
+        return False
+
+    # Reject products where name == brand (redundant display)
+    if brand and name.strip().lower() == brand.lower():
+        return False
+
+    # Reject products with no weight in categories that need it
+    if category in _WEIGHT_REQUIRED_CATEGORIES and not weight_value:
+        return False
 
     return True
 
@@ -285,9 +331,22 @@ def select_top_deals(
             if remaining_slots <= 0:
                 break
 
-    # Pick deals from each category pool with brand diversity
+    # Pick deals from each category pool with brand diversity.
+    # NOTE: Products without a detected brand each get a unique key
+    # so they are NOT all collapsed into one "Unknown" bucket that
+    # gets capped at MAX_SAME_BRAND_TOTAL = 5.  Only per-dispensary
+    # and per-category limits constrain brandless products.
     brand_counts: dict[str, int] = defaultdict(int)
     dispensary_counts: dict[str, int] = defaultdict(int)
+    _unknown_counter = 0
+
+    def _brand_key(deal: dict[str, Any]) -> str:
+        nonlocal _unknown_counter
+        b = deal.get("brand")
+        if b:
+            return b
+        _unknown_counter += 1
+        return f"_unknown_{_unknown_counter}"
 
     for cat, slots in category_slots.items():
         pool = buckets.get(cat, [])
@@ -298,7 +357,7 @@ def select_top_deals(
         for deal in pool:
             if len(picks) >= slots:
                 break
-            brand = deal.get("brand") or "Unknown"
+            brand = _brand_key(deal)
             disp_id = deal.get("dispensary_id") or ""
             if brand in seen_brands:
                 continue
@@ -318,7 +377,7 @@ def select_top_deals(
                     break
                 if deal in picks:
                     continue
-                brand = deal.get("brand") or "Unknown"
+                brand = _brand_key(deal)
                 disp_id = deal.get("dispensary_id") or ""
                 if brand_counts[brand] >= MAX_SAME_BRAND_TOTAL:
                     continue
@@ -449,7 +508,17 @@ def detect_deals(
         scored[len(scored) // 2]["deal_score"] if scored else 0,
     )
 
-    # Step 3: Select top ~100 with diversity
+    # Step 3: Quality gate — reject incomplete / garbage data
+    quality_before = len(scored)
+    scored = [d for d in scored if passes_quality_gate(d)]
+    quality_rejected = quality_before - len(scored)
+    if quality_rejected > 0:
+        logger.info(
+            "Quality gate: %d/%d deals rejected (incomplete data)",
+            quality_rejected, quality_before,
+        )
+
+    # Step 4: Select top ~200 with diversity
     top_deals = select_top_deals(scored)
     logger.info("Selected %d top deals for display", len(top_deals))
 

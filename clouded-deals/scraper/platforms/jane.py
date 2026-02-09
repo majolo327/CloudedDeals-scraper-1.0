@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 
 _JANE_CFG = PLATFORM_DEFAULTS["jane"]
 
+# Strain types that are NOT real product names — skip to next line.
+_STRAIN_ONLY = {"indica", "sativa", "hybrid", "cbd", "thc"}
+
 # Multiple selector strategies — Jane sites are inconsistent.
 # The first entry is a known Jane-specific class pattern from the PRD.
 _PRODUCT_SELECTORS = [
@@ -158,8 +161,15 @@ class JaneScraper(BaseScraper):
                     text_block = await el.inner_text()
                     lines = [ln.strip() for ln in text_block.split("\n") if ln.strip()]
 
+                    # Pick the first line that is NOT just a strain type
+                    name = "Unknown"
+                    for ln in lines:
+                        if ln.lower() not in _STRAIN_ONLY:
+                            name = ln
+                            break
+
                     product: dict[str, Any] = {
-                        "name": lines[0] if lines else "Unknown",
+                        "name": name,
                         "raw_text": text_block.strip(),
                         "product_url": self.url,  # fallback: dispensary menu URL
                     }

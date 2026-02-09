@@ -23,8 +23,9 @@ export function getDisplayName(productName: string, brandName: string): string {
     }
   }
 
-  // 2. Strip embedded metadata: weight "(3.5G)", "(1G)", standalone "3.5g" at word boundaries
+  // 2. Strip embedded metadata: weight "(3.5G)", "(1G)", "[1g]", "[3.5g]", "[100mg]"
   name = name.replace(/\s*\(\s*\d+\.?\d*\s*[gG]\s*\)/g, '');
+  name = name.replace(/\s*\[\s*\d+\.?\d*\s*(?:mg|g|oz)\s*\]/gi, '');
 
   // 3. Strip THC/CBD percentages: "THC 28.94%", "THC: 28.94%", "CBD 1.2%"
   name = name.replace(/\s*(THC|CBD)\s*:?\s*\d+\.?\d*\s*%?/gi, '');

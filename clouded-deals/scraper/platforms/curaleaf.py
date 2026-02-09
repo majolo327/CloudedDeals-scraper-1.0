@@ -34,6 +34,9 @@ _CURALEAF_CFG = PLATFORM_DEFAULTS["curaleaf"]
 # its own 8s timeout, so the full 30s is unnecessary.
 _POST_AGE_GATE_WAIT = 15  # seconds
 
+# Strain types that are NOT real product names — skip to next line.
+_STRAIN_ONLY = {"indica", "sativa", "hybrid", "cbd", "thc"}
+
 # Cap pagination to avoid 240 s site timeout.  Curaleaf sites have 500–700+
 # products across 12-14 pages.  10 pages × 51 products ≈ 510, which captures
 # the vast majority of specials and finishes in ~155 s.
@@ -282,8 +285,15 @@ class CuraleafScraper(BaseScraper):
 
                     lines = [ln.strip() for ln in text_block.split("\n") if ln.strip()]
 
+                    # Pick the first line that is NOT just a strain type
+                    name = "Unknown"
+                    for ln in lines:
+                        if ln.lower() not in _STRAIN_ONLY:
+                            name = ln
+                            break
+
                     product: dict[str, Any] = {
-                        "name": lines[0] if lines else "Unknown",
+                        "name": name,
                         "raw_text": text_block.strip(),
                         "product_url": self.url,  # fallback: dispensary menu URL
                     }
