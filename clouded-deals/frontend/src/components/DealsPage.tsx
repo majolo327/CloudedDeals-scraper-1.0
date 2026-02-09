@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Navigation } from 'lucide-react';
+import { Navigation, Percent } from 'lucide-react';
 import type { Deal } from '@/types';
 import { DealCard } from './cards';
 import { FilterSheet } from './FilterSheet';
@@ -10,6 +10,7 @@ import { DealCardSkeleton } from './Skeleton';
 import { formatUpdateTime, getTimeUntilMidnight } from '@/utils';
 import { useDeck } from '@/hooks/useDeck';
 import { useUniversalFilters, formatDistance } from '@/hooks/useUniversalFilters';
+import type { QuickFilter } from '@/hooks/useUniversalFilters';
 
 type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'preroll';
 
@@ -81,6 +82,11 @@ export function DealsPage({
   const visibleDeals = isDefaultSort && !hasActiveFilters ? deck.visible : filteredDeals;
   const showDeckUI = isDefaultSort && !hasActiveFilters;
 
+  const quickFilters: { id: QuickFilter; label: string; icon: typeof Navigation }[] = [
+    { id: 'near_me', label: 'Near Me', icon: Navigation },
+    { id: 'big_discount', label: '20%+ Off', icon: Percent },
+  ];
+
   return (
     <>
       <StickyStatsBar
@@ -89,12 +95,12 @@ export function DealsPage({
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
       >
+        {/* Only the filter button in the stats bar — no quick chips */}
         <FilterSheet
           filters={filters}
           onFiltersChange={setFilters}
           filteredCount={filteredDeals.length}
           hasLocation={!!userCoords}
-          onQuickFilter={applyQuickFilter}
           onReset={resetFilters}
           activeFilterCount={activeFilterCount}
         />
@@ -102,16 +108,38 @@ export function DealsPage({
 
       <div className="max-w-6xl mx-auto px-4 py-4">
         <div className="animate-in fade-in">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-medium text-slate-300">
-              Today&apos;s deals{deals.length > 0 && (
-                <span className="text-slate-500 font-normal"> &middot; {formatUpdateTime(deals)}</span>
+          {/* Quick filter chips + header row */}
+          <div className="flex items-center justify-between mb-4 gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-sm font-medium text-slate-300 shrink-0">
+                Today&apos;s deals
+              </h2>
+              {deals.length > 0 && (
+                <span className="text-xs text-slate-500 font-normal truncate">{formatUpdateTime(deals)}</span>
               )}
-            </h2>
-            <span className="text-xs text-slate-600">
-              Refreshes in {countdown}
-            </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {userCoords && quickFilters.map((qf) => {
+                const isActive = filters.quickFilter === qf.id;
+                return (
+                  <button
+                    key={qf.id}
+                    onClick={() => applyQuickFilter(qf.id)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                      isActive
+                        ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                        : 'bg-slate-800/70 text-slate-400 border border-slate-700/50 hover:border-slate-600'
+                    }`}
+                  >
+                    <qf.icon className="w-3 h-3" />
+                    {qf.label}
+                  </button>
+                );
+              })}
+              <span className="text-[11px] text-slate-600 ml-1">
+                {countdown}
+              </span>
+            </div>
           </div>
 
           {/* Distance sort indicator */}

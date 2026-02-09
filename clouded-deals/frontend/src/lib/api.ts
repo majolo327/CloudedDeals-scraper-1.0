@@ -3,6 +3,7 @@ import { trackEvent } from './analytics';
 import { applyDispensaryDiversityCap } from '@/utils/dealFilters';
 import { normalizeWeightForDisplay } from '@/utils/weightNormalizer';
 import { getRegion, DEFAULT_REGION } from './region';
+import { DISPENSARIES as DISPENSARIES_STATIC } from '@/data/dispensaries';
 import type { Deal, Category, Dispensary, Brand } from '@/types';
 
 // --------------------------------------------------------------------------
@@ -87,17 +88,20 @@ function toCategory(raw: string | null): Category {
 }
 
 function toDispensary(row: ProductRow['dispensary']): Dispensary {
+  // Fall back to static DISPENSARIES data for coordinates/zone/tier
+  const staticDisp = DISPENSARIES_STATIC.find((d) => d.id === row.id);
   return {
     id: row.id,
     name: row.name,
     slug: row.id,
-    tier: 'standard',
-    address: row.address || '',
-    menu_url: row.url || '',
+    tier: staticDisp?.tier || 'standard',
+    address: row.address || staticDisp?.address || '',
+    menu_url: row.url || staticDisp?.menu_url || '',
     platform: (row.platform as Dispensary['platform']) || 'dutchie',
     is_active: true,
-    latitude: row.latitude,
-    longitude: row.longitude,
+    zone: staticDisp?.zone,
+    latitude: row.latitude ?? staticDisp?.latitude,
+    longitude: row.longitude ?? staticDisp?.longitude,
   };
 }
 
