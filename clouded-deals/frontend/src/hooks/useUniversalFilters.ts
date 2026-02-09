@@ -73,21 +73,13 @@ export function useUniversalFilters() {
 
   const [userCoords, setUserCoords] = useState<ZipCoords | null>(null);
 
-  // Load user coordinates from stored zip
+  // Load user coordinates from stored zip (distance is informational, not default sort)
   useEffect(() => {
     const zip = getStoredZip();
     if (zip) {
       const coords = getZipCoordinates(zip);
       setUserCoords(coords);
-      // If user has a zip, default to distance sort on first load
-      if (coords && filters.sortBy === 'deal_score') {
-        const stored = localStorage.getItem(FILTERS_STORAGE_KEY);
-        if (!stored) {
-          setFiltersRaw(prev => ({ ...prev, sortBy: 'distance' }));
-        }
-      }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Listen for zip changes (user enters a new zip)
@@ -114,10 +106,9 @@ export function useUniversalFilters() {
   }, []);
 
   const resetFilters = useCallback(() => {
-    const defaultSort = userCoords ? 'distance' : 'deal_score';
-    setFiltersRaw({ ...DEFAULT_UNIVERSAL_FILTERS, sortBy: defaultSort as SortOption });
+    setFiltersRaw({ ...DEFAULT_UNIVERSAL_FILTERS });
     trackEvent('filter_change', undefined, { action: 'reset' });
-  }, [userCoords]);
+  }, []);
 
   const activeFilterCount = useMemo(() => {
     return [

@@ -86,7 +86,6 @@ export function SearchPage({
     activeFilterCount,
     userCoords,
     getDistance,
-    applyQuickFilter,
   } = useUniversalFilters();
 
   // Set of curated deal IDs for deduplication
@@ -342,7 +341,6 @@ export function SearchPage({
               onFiltersChange={setUniversalFilters}
               filteredCount={filteredDeals.length + filteredExtendedDeals.length}
               hasLocation={!!userCoords}
-              onQuickFilter={applyQuickFilter}
               onReset={resetUniversalFilters}
               activeFilterCount={activeFilterCount}
             />

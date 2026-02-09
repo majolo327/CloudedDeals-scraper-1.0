@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { SlidersHorizontal, X, RotateCcw, Check, MapPin, Percent, Navigation } from 'lucide-react';
+import { SlidersHorizontal, X, RotateCcw, Check, MapPin, ChevronDown } from 'lucide-react';
 import type { Category } from '@/types';
 import { DISPENSARIES } from '@/data/dispensaries';
 import { trackEvent } from '@/lib/analytics';
@@ -10,7 +10,6 @@ import type {
   UniversalFilterState,
   SortOption,
   DistanceRange,
-  QuickFilter,
 } from '@/hooks/useUniversalFilters';
 import { DEFAULT_UNIVERSAL_FILTERS } from '@/hooks/useUniversalFilters';
 
@@ -36,11 +35,11 @@ const PRICE_RANGES: { id: string; label: string; min: number; max: number }[] = 
 ];
 
 const SORT_OPTIONS: { id: SortOption; label: string }[] = [
-  { id: 'deal_score', label: 'Best Deal' },
-  { id: 'distance', label: 'Nearest First' },
+  { id: 'deal_score', label: 'Best Deal (Curated)' },
   { id: 'price_asc', label: 'Price: Low to High' },
   { id: 'price_desc', label: 'Price: High to Low' },
   { id: 'discount', label: 'Biggest Discount' },
+  { id: 'distance', label: 'Nearest First' },
 ];
 
 const DISTANCE_OPTIONS: { id: DistanceRange; label: string; desc: string }[] = [
@@ -48,11 +47,6 @@ const DISTANCE_OPTIONS: { id: DistanceRange; label: string; desc: string }[] = [
   { id: 'near', label: 'Near You', desc: '< 5 miles' },
   { id: 'nearby', label: 'Nearby', desc: '5–10 miles' },
   { id: 'across_town', label: 'Across Town', desc: '10–15 miles' },
-];
-
-const QUICK_FILTERS: { id: QuickFilter; label: string; icon: typeof MapPin }[] = [
-  { id: 'near_me', label: 'Near Me', icon: Navigation },
-  { id: 'big_discount', label: '20%+ Off', icon: Percent },
 ];
 
 export function getPriceRangeBounds(rangeId: string): { min: number; max: number } {
@@ -65,7 +59,6 @@ interface FilterSheetProps {
   onFiltersChange: (filters: UniversalFilterState) => void;
   filteredCount: number;
   hasLocation?: boolean;
-  onQuickFilter?: (qf: QuickFilter) => void;
   onReset?: () => void;
   activeFilterCount?: number;
 }
@@ -75,11 +68,11 @@ export function FilterSheet({
   onFiltersChange,
   filteredCount,
   hasLocation = false,
-  onQuickFilter,
   onReset,
   activeFilterCount: externalActiveCount,
 }: FilterSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [locationExpanded, setLocationExpanded] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
 
@@ -88,6 +81,15 @@ export function FilterSheet({
       .map((d) => ({ id: d.id, name: d.name }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, []);
+
+  const hasLocationFilters = filters.distanceRange !== 'all' || filters.sortBy === 'distance' || filters.dispensaryIds.length > 0;
+
+  // Auto-expand location section if user has active location filters
+  useEffect(() => {
+    if (hasLocationFilters && isOpen) {
+      setLocationExpanded(true);
+    }
+  }, [hasLocationFilters, isOpen]);
 
   const activeFilterCount = externalActiveCount ?? [
     filters.categories.length > 0,
@@ -103,6 +105,7 @@ export function FilterSheet({
     } else {
       onFiltersChange(DEFAULT_UNIVERSAL_FILTERS);
     }
+    setLocationExpanded(false);
     trackEvent('filter_change', undefined, { action: 'reset' });
   };
 
@@ -154,29 +157,6 @@ export function FilterSheet({
 
   return (
     <>
-      {/* Quick filter chips (inline, always visible) */}
-      {hasLocation && onQuickFilter && (
-        <div className="flex items-center gap-1.5">
-          {QUICK_FILTERS.map((qf) => {
-            const isActive = filters.quickFilter === qf.id;
-            return (
-              <button
-                key={qf.id}
-                onClick={() => onQuickFilter(qf.id)}
-                className={`flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                    : 'bg-slate-800/70 text-slate-400 border border-slate-700/50 hover:border-slate-600'
-                }`}
-              >
-                <qf.icon className="w-3 h-3" />
-                {qf.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       {/* Trigger button */}
       <button
         onClick={() => setIsOpen(true)}
@@ -276,13 +256,23 @@ export function FilterSheet({
                       <X className="w-2.5 h-2.5" />
                     </button>
                   )}
+                  {filters.dispensaryIds.length > 0 && (
+                    <button
+                      onClick={() => onFiltersChange({ ...filters, dispensaryIds: [], quickFilter: 'none' })}
+                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/15 text-blue-400 text-[11px] font-medium"
+                    >
+                      {filters.dispensaryIds.length} store{filters.dispensaryIds.length !== 1 ? 's' : ''}
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             )}
 
             {/* Scrollable content */}
             <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain">
-              {/* Category */}
+
+              {/* ── 1. Category ── */}
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Category</h3>
                 <div className="flex flex-wrap gap-2">
@@ -306,88 +296,7 @@ export function FilterSheet({
                 </div>
               </section>
 
-              {/* Distance */}
-              {hasLocation && (
-                <section>
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                    <MapPin className="w-3 h-3 inline-block mr-1" />
-                    Distance
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {DISTANCE_OPTIONS.map((opt) => {
-                      const isSelected = filters.distanceRange === opt.id;
-                      return (
-                        <button
-                          key={opt.id}
-                          onClick={() => onFiltersChange({ ...filters, distanceRange: opt.id, quickFilter: 'none' })}
-                          className={`px-3 py-2.5 rounded-xl text-left transition-all ${
-                            isSelected
-                              ? 'bg-blue-500/15 border border-blue-500/30'
-                              : 'bg-slate-800/50 border border-slate-700/50 hover:border-slate-600'
-                          }`}
-                        >
-                          <p className={`text-xs font-medium ${isSelected ? 'text-blue-400' : 'text-slate-300'}`}>
-                            {opt.label}
-                          </p>
-                          <p className="text-[10px] text-slate-500">{opt.desc}</p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-              )}
-
-              {/* Dispensary */}
-              <section>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Dispensary</h3>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={selectAllDispensaries}
-                      className="text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
-                    >
-                      Select All
-                    </button>
-                    <span className="text-slate-700">|</span>
-                    <button
-                      onClick={clearAllDispensaries}
-                      className="text-[10px] text-slate-400 hover:text-slate-300 transition-colors"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-1 max-h-40 overflow-y-auto rounded-lg bg-slate-800/50 p-2">
-                  {dispensaries.map((d) => {
-                    const isChecked = filters.dispensaryIds.includes(d.id);
-                    return (
-                      <label
-                        key={d.id}
-                        className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-slate-800 cursor-pointer transition-colors"
-                      >
-                        <div
-                          className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
-                            isChecked
-                              ? 'bg-purple-500 border-purple-500'
-                              : 'border-slate-600 bg-slate-800'
-                          }`}
-                        >
-                          {isChecked && <Check className="w-3 h-3 text-white" />}
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleDispensary(d.id)}
-                          className="sr-only"
-                        />
-                        <span className="text-sm text-slate-300 truncate">{d.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </section>
-
-              {/* Price Range */}
+              {/* ── 2. Deal Quality (Price + Discount) ── */}
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Price Range</h3>
                 <div className="flex flex-wrap gap-2">
@@ -407,7 +316,6 @@ export function FilterSheet({
                 </div>
               </section>
 
-              {/* Min Discount */}
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
                   Min Discount: {filters.minDiscount > 0 ? `${filters.minDiscount}%+` : 'Any'}
@@ -427,7 +335,7 @@ export function FilterSheet({
                 </div>
               </section>
 
-              {/* Sort By */}
+              {/* ── 3. Sort By ── */}
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Sort By</h3>
                 <div className="space-y-1">
@@ -446,6 +354,107 @@ export function FilterSheet({
                   ))}
                 </div>
               </section>
+
+              {/* ── 4. Location (Collapsible, default collapsed) ── */}
+              {hasLocation && (
+                <section className="border-t border-slate-800 pt-4">
+                  <button
+                    onClick={() => setLocationExpanded(!locationExpanded)}
+                    className="flex items-center justify-between w-full mb-3 group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="w-3 h-3 text-slate-500" />
+                      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                        Location
+                      </h3>
+                      {hasLocationFilters && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                      )}
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${locationExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {locationExpanded && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                      {/* Distance filter */}
+                      <div>
+                        <p className="text-[11px] text-slate-600 mb-2">Filter deals by distance from your zip code</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {DISTANCE_OPTIONS.map((opt) => {
+                            const isSelected = filters.distanceRange === opt.id;
+                            return (
+                              <button
+                                key={opt.id}
+                                onClick={() => onFiltersChange({ ...filters, distanceRange: opt.id, quickFilter: 'none' })}
+                                className={`px-3 py-2.5 rounded-xl text-left transition-all ${
+                                  isSelected
+                                    ? 'bg-blue-500/15 border border-blue-500/30'
+                                    : 'bg-slate-800/50 border border-slate-700/50 hover:border-slate-600'
+                                }`}
+                              >
+                                <p className={`text-xs font-medium ${isSelected ? 'text-blue-400' : 'text-slate-300'}`}>
+                                  {opt.label}
+                                </p>
+                                <p className="text-[10px] text-slate-500">{opt.desc}</p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Dispensary filter */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[11px] text-slate-600">Filter by dispensary</p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={selectAllDispensaries}
+                              className="text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
+                            >
+                              Select All
+                            </button>
+                            <span className="text-slate-700">|</span>
+                            <button
+                              onClick={clearAllDispensaries}
+                              className="text-[10px] text-slate-400 hover:text-slate-300 transition-colors"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-1 max-h-40 overflow-y-auto rounded-lg bg-slate-800/50 p-2">
+                          {dispensaries.map((d) => {
+                            const isChecked = filters.dispensaryIds.includes(d.id);
+                            return (
+                              <label
+                                key={d.id}
+                                className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-slate-800 cursor-pointer transition-colors"
+                              >
+                                <div
+                                  className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                                    isChecked
+                                      ? 'bg-purple-500 border-purple-500'
+                                      : 'border-slate-600 bg-slate-800'
+                                  }`}
+                                >
+                                  {isChecked && <Check className="w-3 h-3 text-white" />}
+                                </div>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => toggleDispensary(d.id)}
+                                  className="sr-only"
+                                />
+                                <span className="text-sm text-slate-300 truncate">{d.name}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
             </div>
 
             {/* Footer */}
