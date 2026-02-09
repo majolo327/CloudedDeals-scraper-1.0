@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { Navigation } from 'lucide-react';
 import type { Deal } from '@/types';
 import { DealCard } from './cards';
-import { FilterSheet, FilterState, DEFAULT_FILTERS, getPriceRangeBounds } from './FilterSheet';
+import { FilterSheet } from './FilterSheet';
 import { StickyStatsBar } from './layout';
 import { DealCardSkeleton } from './Skeleton';
-import { filterDeals, formatUpdateTime, getTimeUntilMidnight } from '@/utils';
+import { formatUpdateTime, getTimeUntilMidnight } from '@/utils';
 import { useDeck } from '@/hooks/useDeck';
+import { useUniversalFilters, formatDistance } from '@/hooks/useUniversalFilters';
 
 type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'preroll';
 
@@ -31,9 +33,19 @@ export function DealsPage({
   streak,
 }: DealsPageProps) {
   const [activeCategory, setActiveCategory] = useState<DealCategory>('all');
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [isLoading, setIsLoading] = useState(true);
   const [countdown, setCountdown] = useState(() => getTimeUntilMidnight());
+
+  const {
+    filters,
+    setFilters,
+    resetFilters,
+    activeFilterCount,
+    userCoords,
+    getDistance,
+    applyQuickFilter,
+    filterAndSortDeals,
+  } = useUniversalFilters();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -49,49 +61,25 @@ export function DealsPage({
   }, [deals]);
 
   const hasActiveFilters = filters.categories.length > 0 || filters.dispensaryIds.length > 0 ||
-    filters.priceRange !== 'all' || filters.minDiscount > 0;
+    filters.priceRange !== 'all' || filters.minDiscount > 0 || filters.distanceRange !== 'all' ||
+    filters.quickFilter !== 'none';
 
-  // Apply category tab + advanced filters to get the pool for the deck
+  // Apply category tab first, then universal filters
   const filteredDeals = useMemo(() => {
     let result = deals.filter(
       (d) => activeCategory === 'all' || d.category.toLowerCase() === activeCategory
     );
-
-    if (hasActiveFilters) {
-      const priceBounds = getPriceRangeBounds(filters.priceRange);
-      result = filterDeals(result, {
-        categories: filters.categories.length > 0 ? filters.categories : undefined,
-        dispensaryIds: filters.dispensaryIds.length > 0 ? filters.dispensaryIds : undefined,
-        minPrice: priceBounds.min > 0 ? priceBounds.min : undefined,
-        maxPrice: priceBounds.max < Infinity ? priceBounds.max : undefined,
-        minDiscount: filters.minDiscount > 0 ? filters.minDiscount : undefined,
-      });
-    }
-
-    // When using sort overrides, fall back to sorted static list
-    if (filters.sortBy === 'price_asc') {
-      return [...result].sort((a, b) => a.deal_price - b.deal_price);
-    } else if (filters.sortBy === 'price_desc') {
-      return [...result].sort((a, b) => b.deal_price - a.deal_price);
-    } else if (filters.sortBy === 'discount') {
-      return [...result].sort((a, b) => {
-        const discA = a.original_price ? ((a.original_price - a.deal_price) / a.original_price) * 100 : 0;
-        const discB = b.original_price ? ((b.original_price - b.deal_price) / b.original_price) * 100 : 0;
-        return discB - discA;
-      });
-    }
-
+    result = filterAndSortDeals(result);
     return result;
-  }, [deals, activeCategory, filters, hasActiveFilters]);
+  }, [deals, activeCategory, filterAndSortDeals]);
 
   // Use the deck for the default sort (curated shuffle)
-  // For explicit sort overrides, use the static filtered list directly
   const isDefaultSort = !filters.sortBy || filters.sortBy === 'deal_score';
-  const deck = useDeck(isDefaultSort ? filteredDeals : []);
+  const deck = useDeck(isDefaultSort && !hasActiveFilters ? filteredDeals : []);
 
   // Determine what to render: deck mode or static sorted mode
-  const visibleDeals = isDefaultSort ? deck.visible : filteredDeals;
-  const showDeckUI = isDefaultSort;
+  const visibleDeals = isDefaultSort && !hasActiveFilters ? deck.visible : filteredDeals;
+  const showDeckUI = isDefaultSort && !hasActiveFilters;
 
   return (
     <>
@@ -101,7 +89,15 @@ export function DealsPage({
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
       >
-        <FilterSheet deals={deals} filters={filters} onFiltersChange={setFilters} filteredCount={filteredDeals.length} totalCount={deals.length} />
+        <FilterSheet
+          filters={filters}
+          onFiltersChange={setFilters}
+          filteredCount={filteredDeals.length}
+          hasLocation={!!userCoords}
+          onQuickFilter={applyQuickFilter}
+          onReset={resetFilters}
+          activeFilterCount={activeFilterCount}
+        />
       </StickyStatsBar>
 
       <div className="max-w-6xl mx-auto px-4 py-4">
@@ -117,6 +113,14 @@ export function DealsPage({
               Refreshes in {countdown}
             </span>
           </div>
+
+          {/* Distance sort indicator */}
+          {filters.sortBy === 'distance' && userCoords && (
+            <div className="flex items-center gap-1.5 mb-3 px-1">
+              <Navigation className="w-3 h-3 text-blue-400" />
+              <span className="text-[11px] text-blue-400 font-medium">Sorted by distance from you</span>
+            </div>
+          )}
 
           {/* Deck progress bar — only in deck mode after first dismiss */}
           {showDeckUI && deck.totalDeals > 0 && deck.dismissedCount > 0 && (
@@ -145,7 +149,7 @@ export function DealsPage({
                 {filteredDeals.length} deal{filteredDeals.length !== 1 ? 's' : ''}
               </span>
               <button
-                onClick={() => setFilters(DEFAULT_FILTERS)}
+                onClick={resetFilters}
                 className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
               >
                 Clear filters
@@ -183,7 +187,7 @@ export function DealsPage({
                 Deals refresh every morning &mdash; or try loosening your filters.
               </p>
               <button
-                onClick={() => setFilters(DEFAULT_FILTERS)}
+                onClick={resetFilters}
                 className="px-4 py-2 bg-purple-500/20 text-purple-400 rounded-lg text-sm font-medium hover:bg-purple-500/30 transition-colors"
               >
                 Reset Filters
@@ -201,6 +205,7 @@ export function DealsPage({
               {visibleDeals.map((deal, index) => {
                 const isDismissing = deck.dismissingId === deal.id;
                 const isAppearing = deck.appearingId === deal.id;
+                const distance = getDistance(deal.dispensary.latitude, deal.dispensary.longitude);
 
                 return (
                   <div
@@ -228,6 +233,7 @@ export function DealsPage({
                       onSave={() => toggleSavedDeal(deal.id)}
                       onDismiss={showDeckUI ? () => deck.dismissDeal(deal.id) : undefined}
                       onClick={() => setSelectedDeal(deal)}
+                      distanceLabel={distance !== null ? formatDistance(distance) : undefined}
                     />
                   </div>
                 );

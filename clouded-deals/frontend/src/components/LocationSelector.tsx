@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { MapPin, CheckCircle } from 'lucide-react';
-import { isVegasArea } from '@/lib/zipCodes';
+import { isVegasArea, getLocationDisplayLabel } from '@/lib/zipCodes';
 import { zipToState } from '@/utils/zipToState';
 import { RegionOverlay } from '@/components/RegionOverlay';
 import { logZipInterest } from '@/lib/zipInterest';
@@ -15,6 +15,15 @@ export function LocationSelector() {
   const [zipInput, setZipInput] = useState('');
   const [resolvedState, setResolvedState] = useState('');
   const [resolvedZip, setResolvedZip] = useState('');
+  const [displayLabel, setDisplayLabel] = useState('Las Vegas');
+
+  // Load stored zip on mount to show correct city name
+  useEffect(() => {
+    const storedZip = localStorage.getItem('clouded_zip');
+    if (storedZip && isVegasArea(storedZip)) {
+      setDisplayLabel(getLocationDisplayLabel(storedZip));
+    }
+  }, []);
 
   const handleZipSubmit = () => {
     const zip = zipInput.trim();
@@ -22,6 +31,8 @@ export function LocationSelector() {
 
     if (isVegasArea(zip)) {
       localStorage.setItem('clouded_zip', zip);
+      const label = getLocationDisplayLabel(zip);
+      setDisplayLabel(label);
       setState('confirmed');
       setTimeout(() => setState('idle'), 3000);
     } else {
@@ -86,26 +97,26 @@ export function LocationSelector() {
     );
   }
 
-  // Confirmed state — brief success flash
+  // Confirmed state — brief success flash showing actual city
   if (state === 'confirmed') {
     return (
       <div className="flex items-center gap-1 p-1.5 min-h-[40px] text-xs sm:text-sm text-green-400">
         <CheckCircle className="w-3.5 h-3.5" />
-        <span>Las Vegas</span>
+        <span>{displayLabel}</span>
       </div>
     );
   }
 
   return (
     <>
-      {/* Default idle state */}
+      {/* Default idle state — shows correct city name */}
       <button
         onClick={() => setState('editing')}
         className="flex items-center gap-1 p-1.5 min-h-[40px] text-xs sm:text-sm text-white hover:text-purple-400 transition-colors"
       >
         <MapPin className="w-3.5 h-3.5" />
-        <span className="underline underline-offset-2 decoration-purple-500/50 truncate max-w-[80px] sm:max-w-none">
-          Las Vegas
+        <span className="underline underline-offset-2 decoration-purple-500/50 truncate max-w-[120px] sm:max-w-none">
+          {displayLabel}
         </span>
       </button>
 

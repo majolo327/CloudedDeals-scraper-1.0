@@ -5,10 +5,12 @@ import { Search, Package, MapPin, ChevronRight, X, Clock, Store, ExternalLink, T
 import type { Deal, Brand } from '@/types';
 import { DealCard } from './DealCard';
 import { DealCardSkeleton } from './Skeleton';
+import { FilterSheet } from './FilterSheet';
 import { CATEGORY_FILTERS, countDealsByBrand, filterDeals, getMapsUrl } from '@/utils';
 import { searchExtendedDeals } from '@/lib/api';
 import { DISPENSARIES } from '@/data/dispensaries';
 import { trackEvent } from '@/lib/analytics';
+import { useUniversalFilters, formatDistance } from '@/hooks/useUniversalFilters';
 
 type FilterCategory = 'all' | 'flower' | 'vape' | 'edible' | 'concentrate' | 'preroll';
 
@@ -76,6 +78,16 @@ export function SearchPage({
   const [extendedLoading, setExtendedLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout>();
+
+  const {
+    filters: universalFilters,
+    setFilters: setUniversalFilters,
+    resetFilters: resetUniversalFilters,
+    activeFilterCount,
+    userCoords,
+    getDistance,
+    applyQuickFilter,
+  } = useUniversalFilters();
 
   // Set of curated deal IDs for deduplication
   const curatedDealIds = useMemo(() => new Set(deals.map((d) => d.id)), [deals]);
@@ -202,16 +214,49 @@ export function SearchPage({
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [baseFilteredDeals, baseCategoryExtendedDeals]);
 
-  // ---- Final results with dispensary filter applied ----
+  // ---- Final results with dispensary filter + universal price/discount/distance filters ----
   const filteredDeals = useMemo(() => {
-    if (activeDispensary === 'all') return baseFilteredDeals;
-    return baseFilteredDeals.filter((d) => d.dispensary.id === activeDispensary);
-  }, [baseFilteredDeals, activeDispensary]);
+    let result = activeDispensary === 'all' ? baseFilteredDeals : baseFilteredDeals.filter((d) => d.dispensary.id === activeDispensary);
+    // Apply universal price filter
+    if (universalFilters.priceRange !== 'all') {
+      const bounds = { under10: { min: 0, max: 10 }, '10-20': { min: 10, max: 20 }, '20-30': { min: 20, max: 30 }, '30-50': { min: 30, max: 50 }, '50+': { min: 50, max: Infinity } }[universalFilters.priceRange] ?? { min: 0, max: Infinity };
+      if (bounds.min > 0) result = result.filter(d => d.deal_price >= bounds.min);
+      if (bounds.max < Infinity) result = result.filter(d => d.deal_price <= bounds.max);
+    }
+    // Apply universal min discount
+    if (universalFilters.minDiscount > 0) {
+      result = result.filter(d => d.original_price ? ((d.original_price - d.deal_price) / d.original_price) * 100 >= universalFilters.minDiscount : false);
+    }
+    // Apply sort
+    if (universalFilters.sortBy === 'distance' && userCoords) {
+      result = [...result].sort((a, b) => (getDistance(a.dispensary.latitude, a.dispensary.longitude) ?? 999) - (getDistance(b.dispensary.latitude, b.dispensary.longitude) ?? 999));
+    } else if (universalFilters.sortBy === 'price_asc') {
+      result = [...result].sort((a, b) => a.deal_price - b.deal_price);
+    } else if (universalFilters.sortBy === 'price_desc') {
+      result = [...result].sort((a, b) => b.deal_price - a.deal_price);
+    } else if (universalFilters.sortBy === 'discount') {
+      result = [...result].sort((a, b) => {
+        const discA = a.original_price ? ((a.original_price - a.deal_price) / a.original_price) * 100 : 0;
+        const discB = b.original_price ? ((b.original_price - b.deal_price) / b.original_price) * 100 : 0;
+        return discB - discA;
+      });
+    }
+    return result;
+  }, [baseFilteredDeals, activeDispensary, universalFilters, userCoords, getDistance]);
 
   const filteredExtendedDeals = useMemo(() => {
-    if (activeDispensary === 'all') return baseCategoryExtendedDeals;
-    return baseCategoryExtendedDeals.filter((d) => d.dispensary.id === activeDispensary);
-  }, [baseCategoryExtendedDeals, activeDispensary]);
+    let result = activeDispensary === 'all' ? baseCategoryExtendedDeals : baseCategoryExtendedDeals.filter((d) => d.dispensary.id === activeDispensary);
+    // Apply same universal filters
+    if (universalFilters.priceRange !== 'all') {
+      const bounds = { under10: { min: 0, max: 10 }, '10-20': { min: 10, max: 20 }, '20-30': { min: 20, max: 30 }, '30-50': { min: 30, max: 50 }, '50+': { min: 50, max: Infinity } }[universalFilters.priceRange] ?? { min: 0, max: Infinity };
+      if (bounds.min > 0) result = result.filter(d => d.deal_price >= bounds.min);
+      if (bounds.max < Infinity) result = result.filter(d => d.deal_price <= bounds.max);
+    }
+    if (universalFilters.minDiscount > 0) {
+      result = result.filter(d => d.original_price ? ((d.original_price - d.deal_price) / d.original_price) * 100 >= universalFilters.minDiscount : false);
+    }
+    return result;
+  }, [baseCategoryExtendedDeals, activeDispensary, universalFilters]);
 
   const totalResults = matchingBrands.length + matchingDispensaries.length + filteredDeals.length;
 
@@ -275,7 +320,7 @@ export function SearchPage({
         </div>
       </div>
 
-      {/* Category Filters */}
+      {/* Category Filters + Advanced Filter Button */}
       <div className="mb-5 sm:mb-6 -mx-3 sm:-mx-4 px-3 sm:px-4 overflow-x-auto scrollbar-hide">
         <div className="flex items-center gap-2 pb-2">
           {CATEGORY_FILTERS.map((filter) => (
@@ -291,6 +336,17 @@ export function SearchPage({
               {filter.label}
             </button>
           ))}
+          <div className="shrink-0">
+            <FilterSheet
+              filters={universalFilters}
+              onFiltersChange={setUniversalFilters}
+              filteredCount={filteredDeals.length + filteredExtendedDeals.length}
+              hasLocation={!!userCoords}
+              onQuickFilter={applyQuickFilter}
+              onReset={resetUniversalFilters}
+              activeFilterCount={activeFilterCount}
+            />
+          </div>
         </div>
       </div>
 
@@ -477,30 +533,34 @@ export function SearchPage({
                     </span>
                   </div>
                   <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredDeals.map((deal, index) => (
-                      <div
-                        key={deal.id}
-                        className="animate-in fade-in"
-                        style={{
-                          animationDelay: `${index * 30}ms`,
-                          animationFillMode: 'both',
-                        }}
-                      >
-                        <DealCard
-                          deal={deal}
-                          isSaved={savedDeals.has(deal.id)}
-                          onSave={() => toggleSavedDeal(deal.id)}
-                          onClick={() => {
-                            trackEvent('deal_viewed', deal.id, {
-                              category: deal.category,
-                              brand: deal.brand.name,
-                              source: 'search',
-                            });
-                            setSelectedDeal(deal);
+                    {filteredDeals.map((deal, index) => {
+                      const dist = getDistance(deal.dispensary.latitude, deal.dispensary.longitude);
+                      return (
+                        <div
+                          key={deal.id}
+                          className="animate-in fade-in"
+                          style={{
+                            animationDelay: `${index * 30}ms`,
+                            animationFillMode: 'both',
                           }}
-                        />
-                      </div>
-                    ))}
+                        >
+                          <DealCard
+                            deal={deal}
+                            isSaved={savedDeals.has(deal.id)}
+                            onSave={() => toggleSavedDeal(deal.id)}
+                            onClick={() => {
+                              trackEvent('deal_viewed', deal.id, {
+                                category: deal.category,
+                                brand: deal.brand.name,
+                                source: 'search',
+                              });
+                              setSelectedDeal(deal);
+                            }}
+                            distanceLabel={dist !== null ? formatDistance(dist) : undefined}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
