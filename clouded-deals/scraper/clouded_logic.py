@@ -113,22 +113,25 @@ BRANDS = sorted(set([
     # D
     'Dabwoods', 'DADiRRi', 'Dazed!', 'Deep Roots', 'Desert Blaze',
     'Desert Bloom', 'Dimension Engineering LLC', 'Dime Industries', 'Dipper',
-    "Doctor Solomon's", 'Dogwalkers', 'Doinks', 'Dope Dope', 'Dr. Dabber',
+    'Doja', "Doctor Solomon's", 'Dogwalkers', 'Doinks', 'Dope Dope', 'Dr. Dabber',
     'Dreamland', 'Dreamland Chocolates', 'Drink Loud',
     # E
-    'Edie Parker', 'Element', 'Emperors Choice', 'Encore', 'Encore Edibles',
-    'Entourage', 'EPC', 'Escape Pod', 'Essence', 'The Essence', 'EVOL', 'Eyce',
+    'Edie Parker', 'Element', 'Ember Valley', 'Emperors Choice', 'Encore',
+    'Encore Edibles', 'Entourage', 'EPC', 'Escape Pod', 'Essence',
+    'The Essence', 'EVOL', 'Eyce',
     # F
-    'Featured Farms', 'Find.', 'Flora Vega', 'FloraVega', 'Fuze Extracts',
+    'Featured Farms', 'Find.', 'Fleur', 'Flora Vega', 'FloraVega',
+    'Fuze Extracts',
     # G
     'GB Sciences', 'Golden Savvy', 'Golden State Banana', 'Good Green',
     'Good Tide', 'GRAV Labs', 'Green Life Productions', 'Greenway LV',
     # H
-    'HaHa Edibles', 'Hamilton Devices', 'Haze', 'High Hemp', 'Hippies Peaces',
-    'Hits Blunt', 'Huni Badger', 'Hustlers Ambition', "Hustler's Ambition",
+    'HaHa Edibles', 'Hamilton Devices', 'Haze', 'Heavy Hitters', 'High Hemp',
+    'Hippies Peaces', 'Hits Blunt', 'Huni Badger', 'Hustlers Ambition',
+    "Hustler's Ambition",
     # J-K
-    'Jasper', 'KANHA', 'Khalifa Kush', 'Khalifa Yellow', 'Kiva', 'Kiva Lost Farm',
-    'Kynd',
+    'Jasper', 'Jeeter', 'Jungle Boys', 'KANHA', 'Khalifa Kush', 'Khalifa Yellow',
+    'Kingpen', 'Kiva', 'Kiva Lost Farm', 'Kynd',
     # L
     'Later Days', 'LAVI', 'LEVEL', 'LIT', 'Lost Farm', 'LP Exotics',
     # M
@@ -137,22 +140,22 @@ BRANDS = sorted(set([
     "Nature's Chemistry", 'No Brand Name', 'Nordic Goddess',
     'OCB Rolling Papers & Cones', 'Old Pal', 'OMG THC',
     # P
-    'Phantom Farms', 'Pheno Exotics', 'Pis WMS', 'Planet 13', 'Poke a Bowl',
-    'Prospectors',
+    'Pacific Stone', 'Packwoods', 'PAX', 'Phantom Farms', 'Pheno Exotics',
+    'Pis WMS', 'Planet 13', 'Plug Play', 'Poke a Bowl', 'Prospectors',
     # R
-    'Raw Garden', 'REEFORM', 'Rove', 'Royalesque', 'Ruby Pearl Co.',
+    'Raw Garden', 'REEFORM', 'Rove', 'Royalesque', 'Ruby Pearl Co.', 'Runtz',
     # S
     'Savvy', 'SELECT', 'Sin City', 'Smokiez Edibles', 'Special Blue',
     'StackHouse NV', 'State Flower', 'STIIIZY', 'Storz & Bickel',
     'Sundae Co.', 'Super Good',
     # T
     'Tahoe Hydro', 'The Bank', 'The Dispensary', 'The Grower Circle',
-    'Toker Poker', 'Tsunami Labs', 'Twisted Hemp', 'Tyson 2.0',
+    'Toker Poker', 'Trendi', 'Tsunami Labs', 'Twisted Hemp', 'Tyson 2.0',
     # U-V
     "Uncle Arnie's", 'Uncle Arnies', 'VERT Unlimited', 'Vegas Valley Growers',
-    'Vlasic Labs',
+    'Virtue', 'Vlasic Labs',
     # W-Y
-    'Wyld', 'Your Highness',
+    'Wonderbrett', 'Wyld', 'Your Highness',
 ]), key=str.lower)
 
 # Pre-compute lowercase brand set for fast lookup
@@ -185,7 +188,15 @@ _STRAIN_BRAND_BLOCKERS = [
 
     # "Cookies" is a brand — but only block if the word isn't at the start
     # (e.g., "Girl Scout Cookies" strain, but "Cookies Gary Payton" IS the brand)
-    (re.compile(r'\b(?:girl\s*scout|thin\s*mint|platinum)\s+cookies\b', re.IGNORECASE), 'Cookies'),
+    (re.compile(r'\b(?:girl\s*scout|thin\s*mint|platinum|animal|lemon|cherry|'
+                r'forum\s*cut|sugar|blueberry|sunset|fire|sour\s*fire|og|'
+                r'mandarin|guava|grape|peanut\s*butter|london\s*pound|kush|'
+                r'berry|tropical|strawberry|orange|purple|white|gelato|'
+                r'biscotti)\s+cookies\b', re.IGNORECASE), 'Cookies'),
+
+    # "Runtz" is a brand, but these are strains:
+    (re.compile(r'\b(?:white|pink|gelatti|gelato|tropical|gruntz|rainbow|'
+                r'grape|obama|gummy|blue|apple|peach|mango|banana)\s+runtz\b', re.IGNORECASE), 'Runtz'),
 
     # "Church" is a brand, but "The Church" is a strain
     (re.compile(r'\bthe\s+church\b', re.IGNORECASE), 'Church'),

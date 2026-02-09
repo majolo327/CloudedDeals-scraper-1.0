@@ -174,6 +174,17 @@ _RE_NAME_JUNK = re.compile(
     r"\bQty\b.*$|\bQuantity\b.*$)",
     re.IGNORECASE | re.MULTILINE,
 )
+
+# Strip inline bundle/promo text that bleeds into product names from Dutchie
+# "Special Offers" DOM.  Matches patterns like "3 For $50 …", "2/$60 …",
+# "Buy 2 Get 1 …" and removes everything from the match to end of string.
+_RE_BUNDLE_PROMO = re.compile(
+    r"\s*\b\d+\s+[Ff]or\s+\$\d+.*$"    # "3 For $50 …"
+    r"|\s*\b\d+/\$\d+.*$"               # "2/$60 …"
+    r"|\s*\bBuy\s+\d+\s+Get\s.*$"       # "Buy 2 Get 1 …"
+    r"|\s*\bSpecial Offers?\b.*$",       # "Special Offers (1) …"
+    re.IGNORECASE,
+)
 _RE_TRAILING_STRAIN = re.compile(r"\s*(Indica|Sativa|Hybrid)\s*$", re.IGNORECASE)
 
 # Patterns that indicate promotional / sale copy rather than a real product name
@@ -249,6 +260,8 @@ def _clean_product_name(name: str) -> str:
     if not name:
         return "Unknown"
     cleaned = _RE_NAME_JUNK.sub("", name)
+    # Strip bundle/promo text ("3 For $50 …", "2/$60 …") before further cleaning
+    cleaned = _RE_BUNDLE_PROMO.sub("", cleaned)
     cleaned = _RE_TRAILING_STRAIN.sub("", cleaned)
     # Strip leading strain-type prefix ("Indica OG Kush" → "OG Kush")
     cleaned = _RE_LEADING_STRAIN.sub("", cleaned)
