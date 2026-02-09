@@ -66,7 +66,10 @@ export function CoachMarks({ onComplete }: CoachMarksProps) {
 
   const findTarget = useCallback(() => {
     const current = STEPS[step];
-    if (!current) return;
+    if (!current || !current.selector) {
+      setRect(null);
+      return;
+    }
     const el = document.querySelector(current.selector);
     if (el) {
       setRect(el.getBoundingClientRect());
