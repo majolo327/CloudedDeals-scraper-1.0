@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MapPin, CheckCircle } from 'lucide-react';
 import { isVegasArea } from '@/lib/zipCodes';
 import { zipToState } from '@/utils/zipToState';
@@ -108,14 +109,16 @@ export function LocationSelector() {
         </span>
       </button>
 
-      {/* State-aware region overlay for non-Vegas zips */}
-      {state === 'region-overlay' && (
+      {/* Portal overlay to document.body so it escapes the header's
+         backdrop-filter stacking context (which traps position:fixed) */}
+      {state === 'region-overlay' && createPortal(
         <RegionOverlay
           stateCode={resolvedState}
           zip={resolvedZip}
           onBrowseVegas={handleClose}
           onEmailSubmit={handleEmailSubmit}
-        />
+        />,
+        document.body,
       )}
     </>
   );
