@@ -2,9 +2,10 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { SlidersHorizontal, X, RotateCcw, Check, MapPin, Percent, Navigation } from 'lucide-react';
+import { SlidersHorizontal, X, RotateCcw, Check, MapPin, ChevronDown } from 'lucide-react';
 import type { Category } from '@/types';
 import { DISPENSARIES } from '@/data/dispensaries';
+import { VALID_WEIGHTS_BY_CATEGORY } from '@/utils/weightNormalizer';
 import { trackEvent } from '@/lib/analytics';
 import type {
   UniversalFilterState,
@@ -36,11 +37,11 @@ const PRICE_RANGES: { id: string; label: string; min: number; max: number }[] = 
 ];
 
 const SORT_OPTIONS: { id: SortOption; label: string }[] = [
-  { id: 'deal_score', label: 'Best Deal' },
-  { id: 'distance', label: 'Nearest First' },
+  { id: 'deal_score', label: 'Best Deal (Curated)' },
   { id: 'price_asc', label: 'Price: Low to High' },
   { id: 'price_desc', label: 'Price: High to Low' },
   { id: 'discount', label: 'Biggest Discount' },
+  { id: 'distance', label: 'Nearest First' },
 ];
 
 const DISTANCE_OPTIONS: { id: DistanceRange; label: string; desc: string }[] = [
@@ -50,10 +51,30 @@ const DISTANCE_OPTIONS: { id: DistanceRange; label: string; desc: string }[] = [
   { id: 'across_town', label: 'Across Town', desc: '10–15 miles' },
 ];
 
-const QUICK_FILTERS: { id: QuickFilter; label: string; icon: typeof MapPin }[] = [
-  { id: 'near_me', label: 'Near Me', icon: Navigation },
-  { id: 'big_discount', label: '20%+ Off', icon: Percent },
-];
+/** Weight options that adapt to selected category. */
+function getWeightOptions(selectedCategories: Category[]): { id: string; label: string }[] {
+  const options: { id: string; label: string }[] = [{ id: 'all', label: 'Any Size' }];
+
+  // If exactly one category is selected, show weights for that category
+  if (selectedCategories.length === 1) {
+    const cat = selectedCategories[0];
+    const config = VALID_WEIGHTS_BY_CATEGORY[cat];
+    if (config) {
+      for (const w of config.commonWeights) {
+        const display = `${w}${config.unit}`;
+        options.push({ id: display, label: display });
+      }
+    }
+    return options;
+  }
+
+  // No category or multiple: show universal common weights
+  const universalWeights = ['0.5g', '1g', '3.5g', '7g', '14g', '28g', '100mg', '200mg'];
+  for (const w of universalWeights) {
+    options.push({ id: w, label: w });
+  }
+  return options;
+}
 
 export function getPriceRangeBounds(rangeId: string): { min: number; max: number } {
   const range = PRICE_RANGES.find((r) => r.id === rangeId);
@@ -80,6 +101,7 @@ export function FilterSheet({
   activeFilterCount: externalActiveCount,
 }: FilterSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [locationOpen, setLocationOpen] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
 
@@ -89,12 +111,15 @@ export function FilterSheet({
       .sort((a, b) => a.name.localeCompare(b.name));
   }, []);
 
+  const weightOptions = useMemo(() => getWeightOptions(filters.categories), [filters.categories]);
+
   const activeFilterCount = externalActiveCount ?? [
     filters.categories.length > 0,
     filters.dispensaryIds.length > 0,
     filters.priceRange !== 'all',
     filters.minDiscount > 0,
     filters.distanceRange !== 'all',
+    filters.weightFilter !== 'all',
   ].filter(Boolean).length;
 
   const handleReset = () => {
@@ -130,6 +155,13 @@ export function FilterSheet({
     onFiltersChange({ ...filters, dispensaryIds: [], quickFilter: 'none' });
   };
 
+  // Auto-expand location section if user already has active location filters
+  useEffect(() => {
+    if (filters.distanceRange !== 'all' || filters.dispensaryIds.length > 0) {
+      setLocationOpen(true);
+    }
+  }, [filters.distanceRange, filters.dispensaryIds]);
+
   // Lock body scroll when open
   useEffect(() => {
     if (isOpen) {
@@ -154,29 +186,6 @@ export function FilterSheet({
 
   return (
     <>
-      {/* Quick filter chips (inline, always visible) */}
-      {hasLocation && onQuickFilter && (
-        <div className="flex items-center gap-1.5">
-          {QUICK_FILTERS.map((qf) => {
-            const isActive = filters.quickFilter === qf.id;
-            return (
-              <button
-                key={qf.id}
-                onClick={() => onQuickFilter(qf.id)}
-                className={`flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                    : 'bg-slate-800/70 text-slate-400 border border-slate-700/50 hover:border-slate-600'
-                }`}
-              >
-                <qf.icon className="w-3 h-3" />
-                {qf.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       {/* Trigger button */}
       <button
         onClick={() => setIsOpen(true)}
@@ -276,6 +285,15 @@ export function FilterSheet({
                       <X className="w-2.5 h-2.5" />
                     </button>
                   )}
+                  {filters.weightFilter !== 'all' && (
+                    <button
+                      onClick={() => onFiltersChange({ ...filters, weightFilter: 'all' })}
+                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-cyan-500/15 text-cyan-400 text-[11px] font-medium"
+                    >
+                      {filters.weightFilter}
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -306,87 +324,6 @@ export function FilterSheet({
                 </div>
               </section>
 
-              {/* Distance */}
-              {hasLocation && (
-                <section>
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                    <MapPin className="w-3 h-3 inline-block mr-1" />
-                    Distance
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {DISTANCE_OPTIONS.map((opt) => {
-                      const isSelected = filters.distanceRange === opt.id;
-                      return (
-                        <button
-                          key={opt.id}
-                          onClick={() => onFiltersChange({ ...filters, distanceRange: opt.id, quickFilter: 'none' })}
-                          className={`px-3 py-2.5 rounded-xl text-left transition-all ${
-                            isSelected
-                              ? 'bg-blue-500/15 border border-blue-500/30'
-                              : 'bg-slate-800/50 border border-slate-700/50 hover:border-slate-600'
-                          }`}
-                        >
-                          <p className={`text-xs font-medium ${isSelected ? 'text-blue-400' : 'text-slate-300'}`}>
-                            {opt.label}
-                          </p>
-                          <p className="text-[10px] text-slate-500">{opt.desc}</p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-              )}
-
-              {/* Dispensary */}
-              <section>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Dispensary</h3>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={selectAllDispensaries}
-                      className="text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
-                    >
-                      Select All
-                    </button>
-                    <span className="text-slate-700">|</span>
-                    <button
-                      onClick={clearAllDispensaries}
-                      className="text-[10px] text-slate-400 hover:text-slate-300 transition-colors"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-1 max-h-40 overflow-y-auto rounded-lg bg-slate-800/50 p-2">
-                  {dispensaries.map((d) => {
-                    const isChecked = filters.dispensaryIds.includes(d.id);
-                    return (
-                      <label
-                        key={d.id}
-                        className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-slate-800 cursor-pointer transition-colors"
-                      >
-                        <div
-                          className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
-                            isChecked
-                              ? 'bg-purple-500 border-purple-500'
-                              : 'border-slate-600 bg-slate-800'
-                          }`}
-                        >
-                          {isChecked && <Check className="w-3 h-3 text-white" />}
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleDispensary(d.id)}
-                          className="sr-only"
-                        />
-                        <span className="text-sm text-slate-300 truncate">{d.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </section>
-
               {/* Price Range */}
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Price Range</h3>
@@ -402,6 +339,31 @@ export function FilterSheet({
                       }`}
                     >
                       {range.label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* Weight / Size */}
+              <section>
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                  Size / Weight
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {weightOptions.map((opt) => (
+                    <button
+                      key={opt.id}
+                      onClick={() => {
+                        onFiltersChange({ ...filters, weightFilter: opt.id });
+                        if (opt.id !== 'all') trackEvent('filter_change', undefined, { weight: opt.id });
+                      }}
+                      className={`px-3 py-2 min-h-[40px] rounded-full text-xs font-medium transition-all ${
+                        filters.weightFilter === opt.id
+                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                          : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
+                      }`}
+                    >
+                      {opt.label}
                     </button>
                   ))}
                 </div>
@@ -445,6 +407,101 @@ export function FilterSheet({
                     </button>
                   ))}
                 </div>
+              </section>
+
+              {/* Location (collapsible) */}
+              <section>
+                <button
+                  onClick={() => setLocationOpen(!locationOpen)}
+                  className="flex items-center justify-between w-full mb-3"
+                >
+                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center">
+                    <MapPin className="w-3 h-3 mr-1" />
+                    Location
+                  </h3>
+                  <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${locationOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {locationOpen && (
+                  <div className="space-y-5">
+                    {/* Distance */}
+                    {hasLocation && (
+                      <div>
+                        <p className="text-[11px] text-slate-500 mb-2">Distance</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {DISTANCE_OPTIONS.map((opt) => {
+                            const isSelected = filters.distanceRange === opt.id;
+                            return (
+                              <button
+                                key={opt.id}
+                                onClick={() => onFiltersChange({ ...filters, distanceRange: opt.id, quickFilter: 'none' })}
+                                className={`px-3 py-2.5 rounded-xl text-left transition-all ${
+                                  isSelected
+                                    ? 'bg-blue-500/15 border border-blue-500/30'
+                                    : 'bg-slate-800/50 border border-slate-700/50 hover:border-slate-600'
+                                }`}
+                              >
+                                <p className={`text-xs font-medium ${isSelected ? 'text-blue-400' : 'text-slate-300'}`}>
+                                  {opt.label}
+                                </p>
+                                <p className="text-[10px] text-slate-500">{opt.desc}</p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Dispensary */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[11px] text-slate-500">Dispensary</p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={selectAllDispensaries}
+                            className="text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
+                          >
+                            Select All
+                          </button>
+                          <span className="text-slate-700">|</span>
+                          <button
+                            onClick={clearAllDispensaries}
+                            className="text-[10px] text-slate-400 hover:text-slate-300 transition-colors"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-1 max-h-40 overflow-y-auto rounded-lg bg-slate-800/50 p-2">
+                        {dispensaries.map((d) => {
+                          const isChecked = filters.dispensaryIds.includes(d.id);
+                          return (
+                            <label
+                              key={d.id}
+                              className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-slate-800 cursor-pointer transition-colors"
+                            >
+                              <div
+                                className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                                  isChecked
+                                    ? 'bg-purple-500 border-purple-500'
+                                    : 'border-slate-600 bg-slate-800'
+                                }`}
+                              >
+                                {isChecked && <Check className="w-3 h-3 text-white" />}
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleDispensary(d.id)}
+                                className="sr-only"
+                              />
+                              <span className="text-sm text-slate-300 truncate">{d.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </section>
             </div>
 

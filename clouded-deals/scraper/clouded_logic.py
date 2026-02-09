@@ -99,17 +99,18 @@ BRAND_COMPARISON_BRANDS = ['Rove', 'Stiiizy', 'Matrix', 'City Trees', 'Airo']
 
 BRANDS = sorted(set([
     # A
-    'Advanced Vapor Devices', 'Airo', 'Alien Labs', 'AMA', 'Avexia',
+    'Advanced Vapor Devices', 'Airo', 'AiroPro', 'Alien Labs', 'AMA', 'Avexia',
     # B
-    'Backpack Boyz', 'Bad Batch', 'Bad Boy', 'Ballers', 'Bear Quartz', 'Bic',
-    'Big Chief Extracts', 'BirthJays', 'Bits', 'Blazer', 'Blazy Susan', 'Blink',
-    'BLUEBIRDS', 'BLVD', 'Bonanza Cannabis', 'Boom Town', 'Bounti',
-    'Brass Knuckles', 'Bud Bandz',
+    'Backpack Boyz', 'Bad Batch', 'Bad Boy', 'BaM', 'Ballers', 'Bear Quartz',
+    'Beboe', 'Bic', 'Big Chief Extracts', 'BirthJays', 'Bits', 'Blazer',
+    'Blazy Susan', 'Blink', 'BLUEBIRDS', 'BLVD', 'Bonanza Cannabis',
+    'Boom Town', 'Bounti', 'Brass Knuckles', 'Bud Bandz',
     # C
     'Cake', 'Cali Traditional', 'Camino', 'Camo', 'CAMP', 'Cannafornia',
     'Cannabreezy', 'Cannavative', 'Cannavore', 'Cannavore Confections',
     'Caviar Gold', 'Church', 'Circle S Farms', 'City Trees',
-    'Claybourne Co.', 'Clout King', 'Connected', 'Cookies', 'Cotton Mouth',
+    'Claybourne Co.', 'CLEAR Brands', 'Clout King', 'Connected', 'Cookies',
+    'Cosmonaut', 'Cotton Mouth', 'Curaleaf',
     # D
     'Dabwoods', 'DADiRRi', 'Dazed!', 'Deep Roots', 'Desert Blaze',
     'Desert Bloom', 'Dimension Engineering LLC', 'Dime Industries', 'Dipper',
@@ -118,54 +119,121 @@ BRANDS = sorted(set([
     # E
     'Edie Parker', 'Element', 'Ember Valley', 'Emperors Choice', 'Encore',
     'Encore Edibles', 'Entourage', 'EPC', 'Escape Pod', 'Essence',
-    'The Essence', 'EVOL', 'Eyce',
+    'The Essence', 'Evergreen Organix', 'EVOL', 'Eyce',
     # F
-    'Featured Farms', 'Find.', 'Fleur', 'Flora Vega', 'FloraVega',
-    'Fuze Extracts',
+    'Featured Farms', 'Find.', 'Fleur', 'Flight Bites', 'Flora Vega',
+    'FloraVega', 'Fuze Extracts',
     # G
-    'GB Sciences', 'Golden Savvy', 'Golden State Banana', 'Good Green',
-    'Good Tide', 'GRAV Labs', 'Green Life Productions', 'Greenway LV',
+    'GB Sciences', 'Ghost Town', 'Golden Savvy', 'Golden State Banana',
+    'Good Green', 'Good Tide', 'Grassroots', 'GRAV Labs',
+    'Green Life Productions', 'Greenway LV', 'Groove',
     # H
     'HaHa Edibles', 'Hamilton Devices', 'Haze', 'Heavy Hitters', 'High Hemp',
-    'Hippies Peaces', 'Hits Blunt', 'Huni Badger', 'Hustlers Ambition',
-    "Hustler's Ambition",
+    'Highlights', 'Hijinks', 'Hippies Peaces', 'Hits Blunt',
+    'Houseplant', 'Huni Badger', 'Hustlers Ambition', "Hustler's Ambition",
+    # I
+    'Incredibles', 'INDO',
     # J-K
-    'Jasper', 'Jeeter', 'Jungle Boys', 'KANHA', 'Khalifa Kush', 'Khalifa Yellow',
+    'JAMS', 'Jasper', 'Jeeter', 'Jungle Boys', 'Just Edibles',
+    'KANHA', 'Keef', 'Khalifa Kush', 'Khalifa Yellow',
     'Kingpen', 'Kiva', 'Kiva Lost Farm', 'Kynd',
     # L
-    'Later Days', 'LAVI', 'LEVEL', 'LIT', 'Lost Farm', 'LP Exotics',
+    'Later Days', 'LAVI', 'LEVEL', 'Lift Tickets', 'LIT',
+    "Local's Only", 'Lost Farm', 'LP Exotics',
     # M
-    'Matrix', 'Medizin', 'Moxie', 'Mystic Timbers',
+    'Matrix', 'Medizin', 'Mojo', 'Moxie', 'Mystic Timbers',
     # N-O
-    "Nature's Chemistry", 'No Brand Name', 'Nordic Goddess',
+    "Nature's Chemistry", 'Neon Cactus', 'Nitro Dabs',
+    'No Brand Name', 'Nordic Goddess',
     'OCB Rolling Papers & Cones', 'Old Pal', 'OMG THC',
     # P
-    'Pacific Stone', 'Packwoods', 'PAX', 'Phantom Farms', 'Pheno Exotics',
-    'Pis WMS', 'Planet 13', 'Plug Play', 'Poke a Bowl', 'Prospectors',
+    'Pacific Stone', 'PACKS', 'Packwoods', 'PANNA Extracts', 'PAX',
+    'Phantom Farms', 'Pheno Exotics', 'Pis WMS', 'Planet 13', 'Plug Play',
+    'Poke a Bowl', 'Polaris', 'Presidential', 'Prime', 'Prospectors',
+    'Provisions',
     # R
-    'Raw Garden', 'REEFORM', 'Rove', 'Royalesque', 'Ruby Pearl Co.', 'Runtz',
+    'Raw Garden', 'Redwood', 'REEFORM', 'Remedy', 'Reserve', 'RNBW',
+    'Rove', 'Royalesque', 'Ruby Pearl Co.', 'Runtz', 'RYTHM',
     # S
-    'Savvy', 'SELECT', 'Sin City', 'Smokiez Edibles', 'Special Blue',
-    'StackHouse NV', 'State Flower', 'STIIIZY', 'Storz & Bickel',
-    'Sundae Co.', 'Super Good',
+    'Sauce Essentials', 'Savvy', 'SeCHe', 'SELECT', 'Sip',
+    'Sin City', 'Smokiez Edibles', 'Smyle Labs', 'Special Blue',
+    'Srene', 'StackHouse NV', 'State Flower', 'STIIIZY', 'Storz & Bickel',
+    'Sundae Co.', 'Super Good', 'Superior',
     # T
-    'Tahoe Hydro', 'The Bank', 'The Dispensary', 'The Grower Circle',
-    'Toker Poker', 'Trendi', 'Tsunami Labs', 'Twisted Hemp', 'Tyson 2.0',
+    'Tahoe Hydro', 'THC Design', 'The Bank', 'The Dispensary',
+    'The Grower Circle', 'The Lab', 'Toker Poker', 'Trendi', 'Tryke',
+    'Tsunami Labs', 'Tumbleweedz', 'Twisted Hemp', 'Tyson 2.0',
     # U-V
-    "Uncle Arnie's", 'Uncle Arnies', 'VERT Unlimited', 'Vegas Valley Growers',
-    'Virtue', 'Vlasic Labs',
+    "Uncle Arnie's", 'Uncle Arnies', 'Verano', 'VERT Unlimited',
+    'Vegas Valley Growers', 'Virtue', 'Vlasic Labs', 'Voon',
     # W-Y
-    'Wonderbrett', 'Wyld', 'Your Highness',
+    'Wana', 'Wonderbrett', 'Wyld', 'Your Highness',
+    # &-prefixed
+    '&Shine',
 ]), key=str.lower)
 
 # Pre-compute lowercase brand set for fast lookup
 BRANDS_LOWER = {b.lower(): b for b in BRANDS}
 
 # Pre-compile word-boundary regex for each brand (used in detect_brand)
-_BRAND_PATTERNS = {
-    brand: re.compile(r'\b' + re.escape(brand) + r'\b', re.IGNORECASE)
-    for brand in BRANDS
+# Brands starting with non-word chars (like "&Shine") need special handling
+# since \b doesn't work before & — use (?:^|\s) instead.
+def _brand_pattern(brand: str) -> re.Pattern:
+    escaped = re.escape(brand)
+    if brand and not brand[0].isalnum() and brand[0] != '_':
+        return re.compile(r'(?:^|\s)' + escaped + r'\b', re.IGNORECASE)
+    return re.compile(r'\b' + escaped + r'\b', re.IGNORECASE)
+
+_BRAND_PATTERNS = {brand: _brand_pattern(brand) for brand in BRANDS}
+
+# ============================================================================
+# BRAND ALIASES — variation spellings that map to a canonical brand name
+# ============================================================================
+# When detect_brand() matches a brand from BRANDS, it checks BRAND_ALIASES
+# to return the canonical name. This handles compound names like "AiroPro"
+# (which needs its own \b pattern) mapping back to "Airo".
+
+BRAND_ALIASES: dict[str, str] = {
+    'AiroPro': 'Airo',
+    'CLEAR Brands': 'The Clear',
+    'Evergreen Organix': 'EGO',
+    "Local's Only": "Local's Only",   # canonical form with apostrophe
 }
+
+# ============================================================================
+# BRAND VARIATION PATTERNS — catch misspellings and alternate forms
+# ============================================================================
+# These don't appear in BRANDS but should resolve to a canonical brand.
+# Compiled separately and checked as a fallback in detect_brand().
+
+_BRAND_VARIATION_MAP: dict[str, str] = {
+    'stiizy': 'STIIIZY',
+    'stizy': 'STIIIZY',
+    'stiiiizy': 'STIIIZY',
+    'airo pro': 'Airo',
+    'airo brands': 'Airo',
+    'locals only': "Local's Only",
+    'church cannabis': 'Church',
+    'church cannabis company': 'Church',
+    'flower by edie parker': 'Edie Parker',
+    'wyld cbd': 'Wyld',
+    'sip elixirs': 'Sip',
+    'ego brands': 'Evergreen Organix',
+    'presidential rx': 'Presidential',
+    'mojo - more joy': 'Mojo',
+    'bonanza': 'Bonanza Cannabis',
+    'greenway': 'Greenway LV',
+    'grav': 'GRAV Labs',
+    'fuze': 'Fuze Extracts',
+    'tsunami': 'Tsunami Labs',
+    'pheno exotic': 'Pheno Exotics',
+    'indo cannabis': 'INDO',
+}
+
+_VARIATION_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r'\b' + re.escape(var) + r'\b', re.IGNORECASE), canonical)
+    for var, canonical in sorted(_BRAND_VARIATION_MAP.items(), key=lambda x: len(x[0]), reverse=True)
+]
 
 # ============================================================================
 # STRAIN NAMES THAT CONTAIN BRAND WORDS
@@ -753,11 +821,18 @@ class CloudedLogic:
                 found_brands.append((brand, len(brand) + start_bonus))
 
         if not found_brands:
+            # Fallback: try brand variation patterns (misspellings, alternate forms)
+            for var_pat, canonical in _VARIATION_PATTERNS:
+                if canonical in blocked_brands:
+                    continue
+                if var_pat.search(text):
+                    return canonical
             return None
 
-        # Return best match (longest + position-weighted)
+        # Return best match (longest + position-weighted), resolved through aliases
         found_brands.sort(key=lambda x: x[1], reverse=True)
-        return found_brands[0][0]
+        best = found_brands[0][0]
+        return BRAND_ALIASES.get(best, best)
 
     # ────────────────────────────────────────────────────────────────
     # CLEAN PRODUCT TEXT

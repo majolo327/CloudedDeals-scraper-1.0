@@ -431,7 +431,7 @@ export async function searchExtendedDeals(
     if (error) throw error;
 
     // Filter out junk: short names, zero price, batteries, accessories, merch
-    const JUNK_KEYWORDS = /\b(battery|batteries|grinder|lighter|rolling\s+paper|tray|stash|pipe|bong|rig|torch|scale|jar|container|apparel|shirt|hat|merch)\b/i;
+    const JUNK_KEYWORDS = /\b(battery|batteries|grinder|lighter|rolling\s+papers?|tray|stash|pipe|bong|rig|torch|scale|jar|container|apparel|shirt|hat|merch)\b/i;
     const allResults = data
       ? (data as unknown as ProductRow[])
           .filter((row) => row.name && row.name.length >= 5 && (row.sale_price ?? 0) > 0)

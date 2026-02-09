@@ -135,12 +135,15 @@ class TestAiroBrand:
     def test_airo_word_boundary(self):
         pat = _BRAND_PATTERNS["Airo"]
         assert pat.search("Airo Pod")
-        # FINDING: "AiroPro" does NOT match \bAiro\b because the \b after
-        # "Airo" fails — "P" is a word character so there's no boundary.
-        # This means "AiroPro" products won't have brand detected as "Airo".
-        # The frontend ILIKE '%airo%' WILL find them, but brand field will be empty.
-        assert not pat.search("AiroPro Cart"), "AiroPro doesn't match \\bAiro\\b — known gap"
-        assert not pat.search("AiroPro"), "AiroPro doesn't match \\bAiro\\b — known gap"
+        # "AiroPro" does NOT match \bAiro\b — but we now have a separate
+        # "AiroPro" entry in BRANDS with an alias back to "Airo"
+        assert not pat.search("AiroPro Cart"), "\\bAiro\\b still doesn't match AiroPro"
+        # But AiroPro has its own pattern that works:
+        assert _BRAND_PATTERNS["AiroPro"].search("AiroPro Cart")
+
+    def test_airopro_resolves_to_airo(self, logic):
+        """AiroPro products should resolve to 'Airo' via brand alias."""
+        assert logic.detect_brand("AiroPro Live Resin Cart 0.5g") == "Airo"
 
     def test_airo_not_premium(self):
         """Airo is not in the premium brands list."""
@@ -171,15 +174,16 @@ class TestStiiizyScoringAndDetection:
     def test_stiiizy_case_insensitive(self, logic):
         assert logic.detect_brand("stiiizy live resin pod") == "STIIIZY"
 
-    def test_stiiizy_brand_regex_handles_misspelling(self):
-        """The brand pattern should handle 'stiizy' (2 i's) as variation."""
+    def test_stiiizy_brand_regex_handles_misspelling(self, logic):
+        """Misspellings like 'stiizy' (2 i's) now resolve via variations."""
         pat = _BRAND_PATTERNS["STIIIZY"]
         # Exact match works
         assert pat.search("STIIIZY")
-        # NOTE: The compiled pattern is \bSTIIIZY\b (exact). Misspellings
-        # like 'stiizy' (2 i's) will NOT match the brand pattern.
-        # The frontend uses regex 'stii+zy' which handles this.
-        # This is a known gap — brand detection requires exact match.
+        # The compiled pattern is \bSTIIIZY\b (exact), so 2-i won't match directly
+        assert not pat.search("STIIZY Pod")
+        # But the variation fallback in detect_brand catches it:
+        assert logic.detect_brand("STIIZY Live Resin Pod") == "STIIIZY"
+        assert logic.detect_brand("STIZY OG Kush Pod") == "STIIIZY"
 
     def test_stiiizy_gets_premium_bonus(self, make_product):
         product = make_product(
@@ -227,12 +231,20 @@ class TestStiiizyScoringAndDetection:
 # ===========================================================================
 
 class TestLocalsOnlyBrand:
-    """Test 4: Local's Only — apostrophe handling and brand list gap."""
+    """Test 4: Local's Only — apostrophe handling and brand detection."""
 
-    def test_locals_only_not_in_brand_db(self):
-        """Local's Only is NOT in the brands list — this is a gap."""
-        assert "Local's Only" not in BRANDS
-        assert "Locals Only" not in BRANDS
+    def test_locals_only_in_brand_db(self):
+        """Local's Only IS now in the brands list (fix applied)."""
+        assert "Local's Only" in BRANDS
+
+    def test_locals_only_detected(self, logic):
+        """Brand detection finds Local's Only from product name."""
+        assert logic.detect_brand("Local's Only Wax 1g") == "Local's Only"
+
+    def test_locals_only_variation_detected(self, logic):
+        """'Locals Only' (no apostrophe) resolves to Local's Only via variations."""
+        result = logic.detect_brand("Locals Only Live Resin 1g")
+        assert result == "Local's Only"
 
     def test_apostrophe_search_regex(self):
         """Regex for apostrophe variation should work in SQL context."""
@@ -398,11 +410,13 @@ class TestMultiBrandSearch:
     def test_wyld_is_premium(self):
         assert "Wyld" in PREMIUM_BRANDS
 
-    def test_sip_not_in_brand_db(self):
-        """'Sip' is NOT in the brands list — brand detection gap."""
-        assert "Sip" not in BRANDS
-        # Sip brand edibles (cannabis-infused drinks) exist in Vegas
-        # but aren't in the brand database
+    def test_sip_in_brand_db(self):
+        """'Sip' IS now in the brands list (fix applied)."""
+        assert "Sip" in BRANDS
+
+    def test_sip_detected(self, logic):
+        """Brand detection finds Sip from product name."""
+        assert logic.detect_brand("Sip Elixirs Watermelon 100mg") == "Sip"
 
     def test_wyld_detected_in_edible(self, logic):
         assert logic.detect_brand("Wyld Raspberry Gummies 100mg") == "Wyld"
@@ -733,3 +747,58 @@ class TestBrandDetectionEdgeCases:
 
     def test_old_pal_with_space(self, logic):
         assert logic.detect_brand("Old Pal Ready to Roll 14g") == "Old Pal"
+
+
+# ===========================================================================
+# NEW BRANDS FROM DISPENSARY MENU AUDIT
+# ===========================================================================
+
+class TestNewBrandsFromMenuAudit:
+    """Verify all major new brands from the 2026-02-09 dispensary menu audit."""
+
+    @pytest.mark.parametrize("brand", [
+        "RYTHM", "&Shine", "Incredibles", "Wana", "Keef", "THC Design",
+        "Beboe", "Mojo", "Prime", "Sip", "Presidential", "Redwood",
+        "Just Edibles", "CLEAR Brands", "Local's Only", "Houseplant",
+        "Hijinks", "Evergreen Organix", "Voon", "Nitro Dabs",
+        "Sauce Essentials", "INDO", "Grassroots", "Verano", "BaM",
+        "RNBW", "PACKS", "PANNA Extracts", "Remedy", "Srene",
+        "The Lab", "Tryke", "SeCHe", "Tumbleweedz", "Smyle Labs",
+        "Cosmonaut", "Groove", "Reserve", "Superior", "Neon Cactus",
+        "JAMS", "Lift Tickets", "Ghost Town", "Flight Bites",
+        "Highlights", "Provisions", "Polaris", "Curaleaf",
+    ])
+    def test_brand_in_database(self, brand):
+        assert brand in BRANDS, f"'{brand}' should be in BRANDS list"
+
+    def test_rythm_is_premium(self):
+        """RYTHM (GTI) has 103 products — should be premium."""
+        assert "RYTHM" in PREMIUM_BRANDS
+
+    def test_rythm_detected(self, logic):
+        assert logic.detect_brand("RYTHM Animal Face 3.5g") == "RYTHM"
+
+    def test_wana_is_premium(self):
+        """Wana is a national edibles brand — should be premium."""
+        assert "Wana" in PREMIUM_BRANDS
+
+    def test_incredibles_is_premium(self):
+        assert "Incredibles" in PREMIUM_BRANDS
+
+    def test_verano_is_premium(self):
+        assert "Verano" in PREMIUM_BRANDS
+
+    def test_grassroots_is_premium(self):
+        assert "Grassroots" in PREMIUM_BRANDS
+
+    def test_and_shine_detected(self, logic):
+        """&Shine brand (ampersand prefix) should be detected."""
+        assert logic.detect_brand("&Shine OG Kush 3.5g") == "&Shine"
+
+    def test_sip_elixirs_variation(self, logic):
+        """'Sip Elixirs' should resolve to 'Sip' via variations."""
+        assert logic.detect_brand("Sip Elixirs Watermelon 100mg") == "Sip"
+
+    def test_presidential_rx_variation(self, logic):
+        """'Presidential RX' should resolve to 'Presidential' via variations."""
+        assert logic.detect_brand("Presidential RX Moon Rocks 3.5g") == "Presidential"

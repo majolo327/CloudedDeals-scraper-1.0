@@ -20,6 +20,7 @@ export interface UniversalFilterState {
   sortBy: SortOption;
   distanceRange: DistanceRange;
   quickFilter: QuickFilter;
+  weightFilter: string;
 }
 
 export const DEFAULT_UNIVERSAL_FILTERS: UniversalFilterState = {
@@ -30,6 +31,7 @@ export const DEFAULT_UNIVERSAL_FILTERS: UniversalFilterState = {
   sortBy: 'deal_score',
   distanceRange: 'all',
   quickFilter: 'none',
+  weightFilter: 'all',
 };
 
 const FILTERS_STORAGE_KEY = 'clouded_filters_v1';
@@ -79,13 +81,6 @@ export function useUniversalFilters() {
     if (zip) {
       const coords = getZipCoordinates(zip);
       setUserCoords(coords);
-      // If user has a zip, default to distance sort on first load
-      if (coords && filters.sortBy === 'deal_score') {
-        const stored = localStorage.getItem(FILTERS_STORAGE_KEY);
-        if (!stored) {
-          setFiltersRaw(prev => ({ ...prev, sortBy: 'distance' }));
-        }
-      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -114,10 +109,9 @@ export function useUniversalFilters() {
   }, []);
 
   const resetFilters = useCallback(() => {
-    const defaultSort = userCoords ? 'distance' : 'deal_score';
-    setFiltersRaw({ ...DEFAULT_UNIVERSAL_FILTERS, sortBy: defaultSort as SortOption });
+    setFiltersRaw({ ...DEFAULT_UNIVERSAL_FILTERS });
     trackEvent('filter_change', undefined, { action: 'reset' });
-  }, [userCoords]);
+  }, []);
 
   const activeFilterCount = useMemo(() => {
     return [
@@ -127,6 +121,7 @@ export function useUniversalFilters() {
       filters.minDiscount > 0,
       filters.distanceRange !== 'all',
       filters.quickFilter !== 'none',
+      filters.weightFilter !== 'all',
     ].filter(Boolean).length;
   }, [filters]);
 
@@ -191,6 +186,11 @@ export function useUniversalFilters() {
         const discount = ((d.original_price - d.deal_price) / d.original_price) * 100;
         return discount >= filters.minDiscount;
       });
+    }
+
+    // Weight filter
+    if (filters.weightFilter !== 'all') {
+      result = result.filter(d => d.weight === filters.weightFilter);
     }
 
     // Distance range
