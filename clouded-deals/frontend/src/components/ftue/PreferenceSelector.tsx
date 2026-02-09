@@ -102,7 +102,7 @@ export function PreferenceSelector({ onContinue, onSkip }: PreferenceSelectorPro
           What are you into?
         </h2>
         <p className="text-base text-slate-400 max-w-sm mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
-          Pick your favorites and we&apos;ll put the best deals first.
+          Pick your favorites and we&apos;ll rank the best deals for you. You can always change this later in filters.
         </p>
 
         {/* Category pills */}

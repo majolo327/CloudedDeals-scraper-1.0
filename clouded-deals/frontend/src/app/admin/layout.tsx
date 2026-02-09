@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { AdminPinGate, isAdminVerified, clearAdminVerification } from "@/components/admin/AdminPinGate";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: "grid" },
@@ -31,11 +32,21 @@ export default function AdminLayout({
   const [user, setUser] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
   const [noSession, setNoSession] = useState(false);
+  const [pinVerified, setPinVerified] = useState(false);
+
+  // ----- PIN gate check -----
+  useEffect(() => {
+    setPinVerified(isAdminVerified());
+  }, []);
 
   // ----- Auth check -----
   useEffect(() => {
+    if (!pinVerified) {
+      setChecking(false);
+      return;
+    }
+
     if (!isSupabaseConfigured) {
-      // No Supabase — allow access for development / preview
       setUser("dev@localhost");
       setChecking(false);
       return;
@@ -49,8 +60,7 @@ export default function AdminLayout({
           data: { session },
         } = await supabase.auth.getSession();
         if (!session) {
-          // Allow access but show a warning — don't block the admin panel
-          setUser("unauthenticated");
+          setUser("admin");
           setNoSession(true);
           setChecking(false);
           return;
@@ -58,8 +68,7 @@ export default function AdminLayout({
         setUser(session.user.email ?? session.user.id);
         setChecking(false);
       } catch {
-        // Auth failed — allow through for dev
-        setUser("dev@localhost");
+        setUser("admin");
         setChecking(false);
       }
     })();
@@ -81,7 +90,19 @@ export default function AdminLayout({
     }
 
     return () => subscription?.unsubscribe();
-  }, [router]);
+  }, [router, pinVerified]);
+
+  // PIN gate — show PIN entry if not yet verified
+  if (!pinVerified) {
+    return (
+      <AdminPinGate
+        onVerified={() => {
+          setPinVerified(true);
+          setChecking(true);
+        }}
+      />
+    );
+  }
 
   if (checking) {
     return (
@@ -165,18 +186,22 @@ export default function AdminLayout({
           <div className="flex items-center gap-3">
             <span className="text-xs text-zinc-400">{user}</span>
             <button
-              onClick={() => supabase.auth.signOut()}
+              onClick={() => {
+                clearAdminVerification();
+                supabase.auth.signOut();
+                setPinVerified(false);
+              }}
               className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
             >
-              Sign out
+              Lock
             </button>
           </div>
         </header>
 
-        {/* Auth warning */}
+        {/* Auth status */}
         {noSession && (
-          <div className="border-b border-amber-300 bg-amber-50 px-6 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-            Not signed in — admin data is read-only. Sign in for full access.
+          <div className="border-b border-zinc-200 bg-zinc-50 px-6 py-2 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/30 dark:text-zinc-400">
+            PIN verified. Supabase session inactive — data queries use service role.
           </div>
         )}
 

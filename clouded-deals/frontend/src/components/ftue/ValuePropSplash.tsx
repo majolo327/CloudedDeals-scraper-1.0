@@ -47,7 +47,7 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
 
         {/* Subtext */}
         <p className="text-base text-slate-400 max-w-sm leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
-          We checked every dispensary this morning so you don&apos;t have to. Your favorites, best prices, one tap.
+          We checked every dispensary this morning so you don&apos;t have to. Save what you love, skip what you don&apos;t &mdash; your feed gets smarter.
         </p>
 
         {/* Feature callouts */}
@@ -56,13 +56,13 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
             {
               icon: Search,
               title: 'Search & Filter',
-              desc: 'Flower, concentrates, edibles — find exactly what you want',
+              desc: 'Flower, concentrates, edibles — search any brand or dispensary by name',
               color: 'text-purple-400 bg-purple-500/10',
             },
             {
               icon: MapPin,
-              title: 'Directions',
-              desc: 'Get directions to any dispensary in one tap',
+              title: 'One-Tap Directions',
+              desc: 'Every dispensary in Vegas, one tap away. Sort by distance.',
               color: 'text-emerald-400 bg-emerald-500/10',
             },
             {
@@ -88,6 +88,11 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
             </div>
           ))}
         </div>
+
+        {/* Future teaser */}
+        <p className="mt-6 text-[11px] text-slate-600 max-w-xs leading-relaxed animate-in fade-in duration-500 delay-300">
+          Coming soon: brand loyalty perks, VIP rewards &amp; giveaways
+        </p>
       </div>
 
       {/* CTA */}

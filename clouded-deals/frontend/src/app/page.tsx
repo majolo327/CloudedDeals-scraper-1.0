@@ -465,7 +465,15 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <Footer onNavigateToAbout={() => { setActivePage('about'); window.scrollTo(0, 0); }} />
+      <Footer
+        onNavigateToAbout={() => { setActivePage('about'); window.scrollTo(0, 0); }}
+        onReplayTour={() => {
+          setActivePage('home');
+          setShowFTUE(true);
+          setShowCoachMarks(false);
+          window.scrollTo(0, 0);
+        }}
+      />
 
       {/* Deal Modal */}
       {selectedDeal && (
@@ -519,6 +527,7 @@ export default function Home() {
               aria-selected={activePage === tab.id}
               aria-label={tab.label}
               onClick={() => setActivePage(tab.id)}
+              {...(tab.id === 'search' ? { 'data-coach': 'nav-search' } : {})}
               className={`flex flex-col items-center gap-0.5 px-3 py-2 min-w-[56px] min-h-[48px] text-[10px] font-medium transition-colors ${
                 activePage === tab.id
                   ? 'text-purple-400'
