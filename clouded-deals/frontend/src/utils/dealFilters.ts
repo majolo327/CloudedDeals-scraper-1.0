@@ -38,9 +38,11 @@ export function filterDeals(deals: Deal[], options: FilterOptions): Deal[] {
     }
     if (options.searchQuery) {
       const q = options.searchQuery.toLowerCase();
-      const matchesProduct = deal.product_name.toLowerCase().includes(q);
-      const matchesBrand = deal.brand.name.toLowerCase().includes(q);
-      const matchesDispensary = deal.dispensary.name.toLowerCase().includes(q);
+      const qEscaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const wordBoundaryRe = new RegExp(`\\b${qEscaped}`, 'i');
+      const matchesProduct = wordBoundaryRe.test(deal.product_name);
+      const matchesBrand = wordBoundaryRe.test(deal.brand.name);
+      const matchesDispensary = wordBoundaryRe.test(deal.dispensary.name);
       const matchesCategory = deal.category.toLowerCase().includes(q);
       const matchesWeight = (deal.weight || '').toLowerCase().includes(q);
       if (!matchesProduct && !matchesBrand && !matchesDispensary && !matchesCategory && !matchesWeight) return false;

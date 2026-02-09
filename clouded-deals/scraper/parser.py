@@ -421,9 +421,10 @@ BRAND_VARIATIONS: dict[str, list[str]] = {
     "Khalifa Kush": ["KK", "Wiz Khalifa"],
 }
 
-# Pre-compile a single pattern for speed (case-insensitive).
+# Pre-compile a single pattern for speed (case-insensitive) with word boundaries
+# to prevent false positives like "Raw" matching inside "Strawberry".
 _RE_BRAND = re.compile(
-    "|".join(re.escape(b) for b in sorted(KNOWN_BRANDS, key=len, reverse=True)),
+    "|".join(r'\b' + re.escape(b) + r'\b' for b in sorted(KNOWN_BRANDS, key=len, reverse=True)),
     re.IGNORECASE,
 )
 
@@ -435,7 +436,7 @@ for _canon, _variants in BRAND_VARIATIONS.items():
 
 _RE_VARIATION = re.compile(
     "|".join(
-        re.escape(v)
+        r'\b' + re.escape(v) + r'\b'
         for v in sorted(_VARIATION_TO_CANONICAL.keys(), key=len, reverse=True)
     ),
     re.IGNORECASE,
@@ -490,10 +491,11 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
                     "kief"],
 }
 
-# Build one compiled pattern per category.
+# Build one compiled pattern per category using word boundaries to prevent
+# false positives (e.g., "mint" matching inside "minting").
 _CATEGORY_PATTERNS: dict[str, re.Pattern[str]] = {
     cat: re.compile(
-        "|".join(re.escape(kw) for kw in kws),
+        "|".join(r'\b' + re.escape(kw) + r'\b' for kw in kws),
         re.IGNORECASE,
     )
     for cat, kws in CATEGORY_KEYWORDS.items()

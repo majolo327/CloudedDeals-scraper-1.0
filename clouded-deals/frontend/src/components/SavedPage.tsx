@@ -1,24 +1,30 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Heart, DollarSign, Trash2, Clock } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Heart, DollarSign, Trash2, Clock, Share2, Check, Sun } from 'lucide-react';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { getDiscountPercent, getDisplayName } from '@/utils';
+import { createShareLink } from '@/lib/share';
+import { trackEvent } from '@/lib/analytics';
 import type { Deal } from '@/types';
 
-function useHoursUntilMidnight(): number {
-  const [hours, setHours] = useState(() => {
-    const now = new Date();
-    return 23 - now.getHours();
-  });
+/** Returns { hours, minutes } until midnight Pacific. */
+function useCountdownToMidnight() {
+  const [countdown, setCountdown] = useState(() => calcCountdown());
   useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      setHours(23 - now.getHours());
-    }, 60_000);
+    const interval = setInterval(() => setCountdown(calcCountdown()), 30_000);
     return () => clearInterval(interval);
   }, []);
-  return hours;
+  return countdown;
+}
+
+function calcCountdown() {
+  const now = new Date();
+  const ptStr = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+  const pt = new Date(ptStr);
+  const hoursLeft = 23 - pt.getHours();
+  const minsLeft = 59 - pt.getMinutes();
+  return { hours: hoursLeft, minutes: minsLeft };
 }
 
 interface SavedPageProps {
@@ -28,6 +34,7 @@ interface SavedPageProps {
 
 export function SavedPage({ deals, onSelectDeal }: SavedPageProps) {
   const { savedDeals, toggleSavedDeal, isDealUsed, markDealUsed } = useSavedDeals();
+  const [shareState, setShareState] = useState<'idle' | 'sharing' | 'copied'>('idle');
 
   const savedDealsList = deals.filter((d) => savedDeals.has(d.id));
   const usedDeals = savedDealsList.filter((d) => isDealUsed(d.id));
@@ -37,6 +44,52 @@ export function SavedPage({ deals, onSelectDeal }: SavedPageProps) {
     if (!deal.original_price || deal.original_price <= deal.deal_price) return sum;
     return sum + (deal.original_price - deal.deal_price);
   }, 0);
+
+  const handleShare = useCallback(async () => {
+    if (activeDeals.length === 0) return;
+    setShareState('sharing');
+
+    const dealIds = activeDeals.map((d) => d.id);
+    const result = await createShareLink(dealIds);
+
+    if (result.error || !result.shareUrl) {
+      setShareState('idle');
+      return;
+    }
+
+    trackEvent('share_saves', undefined, {
+      deal_count: dealIds.length,
+      share_id: result.shareId,
+    });
+
+    const shareData = {
+      title: `${activeDeals.length} deals I found on CloudedDeals`,
+      text: `Check out these ${activeDeals.length} cannabis deals in Las Vegas — they expire tonight!`,
+      url: result.shareUrl,
+    };
+
+    // Try native Web Share API first (mobile), fall back to clipboard
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share(shareData);
+        setShareState('copied');
+      } catch {
+        // User cancelled share sheet
+        setShareState('idle');
+        return;
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(result.shareUrl);
+        setShareState('copied');
+      } catch {
+        setShareState('idle');
+        return;
+      }
+    }
+
+    setTimeout(() => setShareState('idle'), 2500);
+  }, [activeDeals]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -57,21 +110,43 @@ export function SavedPage({ deals, onSelectDeal }: SavedPageProps) {
                 </p>
               </div>
             </div>
-            {potentialSavings > 0 && (
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-emerald-400" />
-                <div className="text-right">
-                  <p className="text-sm font-bold text-emerald-400">
-                    ${potentialSavings.toFixed(2)}
-                  </p>
-                  <p className="text-[10px] text-slate-500">potential savings</p>
+            <div className="flex items-center gap-3">
+              {potentialSavings > 0 && (
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-emerald-400">
+                      ${potentialSavings.toFixed(2)}
+                    </p>
+                    <p className="text-[10px] text-slate-500">potential savings</p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+              {/* Share My Saves button */}
+              {activeDeals.length > 0 && (
+                <button
+                  onClick={handleShare}
+                  disabled={shareState === 'sharing'}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-purple-500/10 text-purple-400 text-xs font-medium hover:bg-purple-500/20 transition-colors disabled:opacity-50"
+                >
+                  {shareState === 'copied' ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="w-3.5 h-3.5" />
+                      Share
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Expiry urgency */}
+        {/* Expiry urgency with hours + minutes */}
         {activeDeals.length > 0 && <ExpiryBanner />}
 
         {/* Active saved deals */}
@@ -109,6 +184,9 @@ export function SavedPage({ deals, onSelectDeal }: SavedPageProps) {
             </div>
           </section>
         )}
+
+        {/* Return hook — tomorrow's deals */}
+        {savedDealsList.length > 0 && <ReturnHook dealCount={deals.length} />}
 
         {/* Empty state */}
         {savedDealsList.length === 0 && (
@@ -192,14 +270,32 @@ function SavedDealCard({
 }
 
 function ExpiryBanner() {
-  const hours = useHoursUntilMidnight();
-  const label = hours <= 1 ? 'less than an hour' : `${hours} hours`;
+  const { hours, minutes } = useCountdownToMidnight();
+
+  let label: string;
+  if (hours <= 0 && minutes <= 30) {
+    label = `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+  } else {
+    label = `${hours}h ${minutes}m`;
+  }
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/8 border border-amber-500/15">
       <Clock className="w-3.5 h-3.5 text-amber-400/70 shrink-0" />
       <p className="text-xs text-amber-400/80">
         Deals refresh in {label} &mdash; use them or lose them.
+      </p>
+    </div>
+  );
+}
+
+function ReturnHook({ dealCount }: { dealCount: number }) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-500/8 border border-purple-500/15">
+      <Sun className="w-3.5 h-3.5 text-purple-400/70 shrink-0" />
+      <p className="text-xs text-purple-400/80">
+        New deals drop every morning at 8 AM.{' '}
+        <span className="text-purple-300/90">{dealCount} live right now.</span>
       </p>
     </div>
   );

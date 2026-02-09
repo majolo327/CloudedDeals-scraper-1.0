@@ -158,6 +158,42 @@ BRANDS = sorted(set([
 # Pre-compute lowercase brand set for fast lookup
 BRANDS_LOWER = {b.lower(): b for b in BRANDS}
 
+# Pre-compile word-boundary regex for each brand (used in detect_brand)
+_BRAND_PATTERNS = {
+    brand: re.compile(r'\b' + re.escape(brand) + r'\b', re.IGNORECASE)
+    for brand in BRANDS
+}
+
+# ============================================================================
+# STRAIN NAMES THAT CONTAIN BRAND WORDS
+# ============================================================================
+# These are known cannabis strains whose names happen to contain a brand name.
+# When a product name matches one of these strain patterns, the embedded brand
+# word should NOT be detected as the brand.
+#
+# Format: regex pattern → the brand word(s) it should block
+# ============================================================================
+
+_STRAIN_BRAND_BLOCKERS = [
+    # "Haze" is a brand, but these are strains:
+    (re.compile(r'\b(?:ghost\s*train|super\s*(?:lemon|silver)|purple|amnesia|neville|blue|catpiss|dungeon|hawaiian|original|golden|x|double|single)\s+haze\b', re.IGNORECASE), 'Haze'),
+    # Also block if "haze" follows known connectors in compound strain names
+    (re.compile(r'\bhaze\s+(?:og|kush|berry|dawg|diesel|cake|cookies|dream|punch|wreck|star|pie|queen|king|widow|mac|zkittlez)\b', re.IGNORECASE), 'Haze'),
+
+    # "Cake" is a brand, but these are strains:
+    (re.compile(r'\b(?:wedding|ice\s*cream|birthday|pound|lava|jungle|layer|cheese|short|space|pancake|fruit|cup|marble|pineapple\s*upside\s*down|rain)\s*cake\b', re.IGNORECASE), 'Cake'),
+
+    # "Cookies" is a brand — but only block if the word isn't at the start
+    # (e.g., "Girl Scout Cookies" strain, but "Cookies Gary Payton" IS the brand)
+    (re.compile(r'\b(?:girl\s*scout|thin\s*mint|platinum)\s+cookies\b', re.IGNORECASE), 'Cookies'),
+
+    # "Church" is a brand, but "The Church" is a strain
+    (re.compile(r'\bthe\s+church\b', re.IGNORECASE), 'Church'),
+
+    # "Element" — "5th Element" is a strain
+    (re.compile(r'\b5th\s+element\b', re.IGNORECASE), 'Element'),
+]
+
 # ============================================================================
 # DISPENSARY CONFIGURATIONS (ALL 27)
 # ============================================================================
@@ -672,23 +708,43 @@ class CloudedLogic:
     # ────────────────────────────────────────────────────────────────
 
     def detect_brand(self, text):
-        """Detect brand from product text using fuzzy matching against brand DB."""
+        """Detect brand from product text using word-boundary matching against brand DB.
+
+        Improvements over simple substring matching:
+        1. Uses \\b word-boundary regex — "Haze" won't match inside "Hazel",
+           "Cake" won't match inside "Cupcake", "Raw" won't match "Strawberry"
+        2. Checks against known strain names — "Wedding Cake" won't detect "Cake",
+           "Ghost Train Haze" won't detect "Haze" brand
+        3. Position-aware: brands found at the START of text get priority
+        """
         if not text:
             return None
         text_lower = text.lower()
         if text_lower.startswith('none '):
             return None
 
+        # Check which brands are blocked by known strain-name patterns
+        blocked_brands = set()
+        for pattern, brand_to_block in _STRAIN_BRAND_BLOCKERS:
+            if pattern.search(text):
+                blocked_brands.add(brand_to_block)
+
         found_brands = []
         for brand in BRANDS:
-            brand_lower = brand.lower()
-            if brand_lower in text_lower:
-                found_brands.append((brand, len(brand)))
+            if brand in blocked_brands:
+                continue
+            pat = _BRAND_PATTERNS[brand]
+            m = pat.search(text)
+            if m:
+                # Score: longer brand name is better; brand at start gets bonus
+                pos = m.start()
+                start_bonus = 100 if pos < 3 else (50 if pos < 10 else 0)
+                found_brands.append((brand, len(brand) + start_bonus))
 
         if not found_brands:
             return None
 
-        # Return longest match (most specific brand name)
+        # Return best match (longest + position-weighted)
         found_brands.sort(key=lambda x: x[1], reverse=True)
         return found_brands[0][0]
 
