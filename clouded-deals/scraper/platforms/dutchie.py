@@ -99,8 +99,15 @@ class DutchieScraper(BaseScraper):
     """Scraper for sites powered by the Dutchie embedded iframe menu."""
 
     async def scrape(self) -> list[dict[str, Any]]:
+        # Read per-site embed_type hint (e.g. "js_embed" for TD sites)
+        # so we skip detection phases that won't match.
+        embed_hint = self.dispensary.get("embed_type") or _DUTCHIE_CFG.get("embed_type")
+
         # --- Navigate with wait_until='load' (scripts fully execute) ------
         await self.goto()
+
+        # Post-navigate settle — let JS-heavy sites finish initializing
+        await asyncio.sleep(3)
 
         # --- Set age gate cookies -----------------------------------------
         await self.page.evaluate(_AGE_GATE_COOKIE_JS)
@@ -132,19 +139,23 @@ class DutchieScraper(BaseScraper):
         except PlaywrightTimeout:
             logger.warning("[%s] Smart-wait: no Dutchie content after 60s — will try detection anyway", self.slug)
 
-        # --- Detect Dutchie content: iframe first, JS embed fallback ------
-        # Restored timeouts to proven values (was 30s+30s, now 45s+60s).
+        # --- Detect Dutchie content using embed_type hint -----------------
+        # When we know the embed type (e.g. TD = js_embed), skip the
+        # iframe detection phase entirely — saves ~45 s per site.
+        logger.info("[%s] Detecting content (embed_hint=%s)", self.slug, embed_hint)
         target, embed_type = await find_dutchie_content(
             self.page,
             iframe_timeout_ms=45_000,
             js_embed_timeout_sec=60,
+            embed_type_hint=embed_hint,
         )
 
         if target is None:
             # Fallback: reload page and retry the full click flow once
             logger.warning("[%s] No Dutchie content after click — trying reload + re-click", self.slug)
             await self.page.evaluate(_AGE_GATE_COOKIE_JS)
-            await self.page.reload(wait_until="load", timeout=60_000)
+            await self.page.reload(wait_until="load", timeout=120_000)
+            await asyncio.sleep(3)
             await self.handle_age_gate(post_wait_sec=3)
             await force_remove_age_gate(self.page)
 
@@ -157,6 +168,7 @@ class DutchieScraper(BaseScraper):
             except PlaywrightTimeout:
                 logger.warning("[%s] Smart-wait (retry): still nothing after 60s", self.slug)
 
+            # On retry, don't use the hint — try the full cascade
             target, embed_type = await find_dutchie_content(
                 self.page,
                 iframe_timeout_ms=45_000,

@@ -266,13 +266,14 @@ async def find_dutchie_content(
     *,
     iframe_timeout_ms: int = 30_000,
     js_embed_timeout_sec: float = 60,
+    embed_type_hint: str | None = None,
 ) -> tuple[Page | Frame | None, EmbedType | None]:
     """Locate Dutchie menu content — iframe first, JS embed fallback.
 
-    Iframe detection is the proven path that has worked historically for
-    all Dutchie sites.  JS embed probing runs only when no iframe is
-    found, and uses a strict two-phase check (container + product cards)
-    to avoid false positives.
+    When *embed_type_hint* is provided (from the dispensary config),
+    the known embed type is tried first to avoid wasting time on
+    detection phases that won't match.  This saves ~45 s on JS-embed
+    sites that would otherwise wait for iframe detection to time out.
 
     Returns
     -------
@@ -281,23 +282,42 @@ async def find_dutchie_content(
         extract products from, or ``None`` if nothing was found.
         *embed_type* is ``"iframe"`` or ``"js_embed"`` accordingly.
     """
-    # --- Try iframe first (proven path, capped at 30 s) ------------------
-    logger.info("Looking for Dutchie iframe (max %d ms) …", iframe_timeout_ms)
-    frame = await get_iframe(page, timeout_ms=iframe_timeout_ms)
-    if frame is not None:
-        return frame, "iframe"
+    # When we have a hint, try the expected type first with generous
+    # timeouts, then fall through to the full cascade if it fails.
+    if embed_type_hint == "js_embed":
+        logger.info("embed_type hint = js_embed — trying JS embed first")
+        if await _probe_js_embed(page, timeout_sec=js_embed_timeout_sec):
+            logger.info("JS embed confirmed via hint — using main page as scrape target")
+            return page, "js_embed"
+        logger.info("JS embed hint didn't match — falling through to full cascade")
+
+    if embed_type_hint == "direct":
+        logger.info("embed_type hint = direct — trying direct page first")
+        if await _probe_direct_page(page, timeout_sec=30):
+            logger.info("Direct page confirmed via hint — using main page as scrape target")
+            return page, "direct"
+        logger.info("Direct hint didn't match — falling through to full cascade")
+
+    # --- Try iframe (skip if hint already told us it's not iframe) -------
+    if embed_type_hint not in ("js_embed", "direct"):
+        logger.info("Looking for Dutchie iframe (max %d ms) …", iframe_timeout_ms)
+        frame = await get_iframe(page, timeout_ms=iframe_timeout_ms)
+        if frame is not None:
+            return frame, "iframe"
 
     # --- Fall back to JS embed detection (strict two-phase check) --------
-    logger.info("No iframe found — probing for Dutchie JS embed on main page")
-    if await _probe_js_embed(page, timeout_sec=js_embed_timeout_sec):
-        logger.info("JS embed confirmed — using main page as scrape target")
-        return page, "js_embed"
+    if embed_type_hint != "js_embed":  # already tried above if hint was js_embed
+        logger.info("No iframe found — probing for Dutchie JS embed on main page")
+        if await _probe_js_embed(page, timeout_sec=js_embed_timeout_sec):
+            logger.info("JS embed confirmed — using main page as scrape target")
+            return page, "js_embed"
 
     # --- Fall back to direct page content (e.g., planet13.com) ----------
-    logger.info("No JS embed container — probing for direct Dutchie product cards on page")
-    if await _probe_direct_page(page, timeout_sec=15):
-        logger.info("Direct page confirmed — using main page as scrape target")
-        return page, "direct"
+    if embed_type_hint != "direct":  # already tried above if hint was direct
+        logger.info("No JS embed container — probing for direct Dutchie product cards on page")
+        if await _probe_direct_page(page, timeout_sec=15):
+            logger.info("Direct page confirmed — using main page as scrape target")
+            return page, "direct"
 
     logger.warning("Neither iframe, JS embed, nor direct products found on %s", page.url)
     return None, None
