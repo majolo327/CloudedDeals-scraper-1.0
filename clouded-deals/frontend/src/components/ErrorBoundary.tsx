@@ -20,6 +20,12 @@ export default class ErrorBoundary extends Component<Props, State> {
     return { hasError: true };
   }
 
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    // Log the actual error for debugging — visible in browser console
+    console.error('[ErrorBoundary] Caught render error:', error);
+    console.error('[ErrorBoundary] Component stack:', errorInfo.componentStack);
+  }
+
   render() {
     if (this.state.hasError) {
       return (
