@@ -44,6 +44,7 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onDismiss, onC
 
   return (
     <div
+      data-coach="deal-card"
       onClick={onClick}
       className={`group glass frost rounded-xl p-4 cursor-pointer transition-gentle card-interactive ${
         isSaved
@@ -64,6 +65,7 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onDismiss, onC
           )}
         </div>
         <button
+          data-coach="save-button"
           onClick={(e) => {
             e.stopPropagation();
             onSave();

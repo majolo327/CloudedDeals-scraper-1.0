@@ -281,7 +281,7 @@ function BrandRow({
                 </span>
               ))}
             </div>
-            {dealCount > 0 && onViewDeals && (
+            {onViewDeals && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -289,7 +289,7 @@ function BrandRow({
                 }}
                 className="shrink-0 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 text-xs font-medium hover:bg-purple-500/20 transition-colors"
               >
-                View Deals
+                {dealCount > 0 ? `View ${dealCount} Deal${dealCount !== 1 ? 's' : ''}` : 'Search Deals'}
               </button>
             )}
           </div>
@@ -513,18 +513,18 @@ function DispensaryRow({
       </button>
       {isExpanded && (
         <div className="px-3 pb-3 pt-1 border-t border-slate-800/50">
-          {dealCount > 0 && onViewDeals ? (
-            <div className="flex items-center justify-between gap-2">
-              <a
-                href={dispensary.menu_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
-              >
-                <ExternalLink className="w-3 h-3" />
-                View menu
-              </a>
+          <div className="flex items-center justify-between gap-2">
+            <a
+              href={dispensary.menu_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              <ExternalLink className="w-3 h-3" />
+              View menu
+            </a>
+            {onViewDeals && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -532,28 +532,10 @@ function DispensaryRow({
                 }}
                 className="shrink-0 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 text-xs font-medium hover:bg-purple-500/20 transition-colors"
               >
-                View {dealCount} Deal{dealCount !== 1 ? 's' : ''}
+                {dealCount > 0 ? `View ${dealCount} Deal${dealCount !== 1 ? 's' : ''}` : 'Search Deals'}
               </button>
-            </div>
-          ) : dispensary.scraped === false ? (
-            <p className="text-[11px] text-slate-500">
-              We don&apos;t have deals from this dispensary yet. Check out today&apos;s featured deals on the Home tab.
-            </p>
-          ) : (
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[11px] text-slate-500">No deals today — check back tomorrow morning.</p>
-              <a
-                href={dispensary.menu_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800/50 text-slate-400 text-xs font-medium hover:bg-slate-800 transition-colors"
-              >
-                <ExternalLink className="w-3 h-3" />
-                Menu
-              </a>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </div>
