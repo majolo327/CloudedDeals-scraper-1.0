@@ -530,16 +530,16 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
     "flower":      ["flower", "bud", "eighth", "quarter", "half oz",
                     "nug", "smalls", "shake"],
     "preroll":     ["pre-roll", "pre roll", "preroll", "joint", "blunt",
-                    "infused roll"],
+                    "infused roll", "pr's", "prs"],
+    "concentrate": ["wax", "shatter", "live resin", "live rosin", "rosin",
+                    "badder", "batter", "budder", "crumble", "sauce",
+                    "diamond", "sugar", "concentrate", "dab", "hash",
+                    "kief"],
     "vape":        ["cart", "cartridge", "pod", "disposable", "vape",
                     "510"],
     "edible":      ["gummy", "gummies", "chocolate", "beverage", "drink",
                     "edible", "chew", "lozenge", "mint", "cookie",
                     "brownie", "candy"],
-    "concentrate": ["wax", "shatter", "live resin", "live rosin", "rosin",
-                    "badder", "batter", "budder", "crumble", "sauce",
-                    "diamond", "sugar", "concentrate", "dab", "hash",
-                    "kief"],
 }
 
 # Build one compiled pattern per category using word boundaries to prevent
