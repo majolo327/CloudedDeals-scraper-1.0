@@ -107,8 +107,8 @@ BRANDS = sorted(set([
     'Boom Town', 'Bounti', 'Brass Knuckles', 'Bud Bandz',
     # C
     'Cake', 'Cali Traditional', 'Camino', 'Camo', 'CAMP', 'Cannafornia',
-    'Cannabreezy', 'Cannavative', 'Cannavore', 'Cannavore Confections',
-    'Caviar Gold', 'Church', 'Circle S Farms', 'City Trees',
+    'Cannabreezy', 'Cannalean', 'Cannavative', 'Cannavore', 'Cannavore Confections',
+    'Caviar Gold', 'Cheeba Chews', 'Church', 'Circle S Farms', 'City Trees',
     'Claybourne Co.', 'CLEAR Brands', 'Clout King', 'Connected', 'Cookies',
     'Cosmonaut', 'Cotton Mouth', 'Curaleaf',
     # D

@@ -383,6 +383,7 @@ KNOWN_BRANDS: list[str] = [
     "Grandiflora",
     "Blaze",
     "Bouquet",
+    "Cannalean",
     "Cheeba Chews",
     "Chews",
     "Curaleaf",

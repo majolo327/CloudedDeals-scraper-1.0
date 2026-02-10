@@ -173,16 +173,35 @@ export function SearchPage({
   }, [brands, debouncedQuery]);
 
   // ---- Matching dispensaries (word-boundary matching to prevent "rove" → "The Grove") ----
+  // Alias map: common abbreviations & former names used by r/vegastrees community
   const matchingDispensaries = useMemo(() => {
     if (!debouncedQuery || debouncedQuery.length < 2) return [];
-    const q = debouncedQuery.toLowerCase();
+    const q = debouncedQuery.toLowerCase().trim();
     const qEscaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const wordBoundaryRe = new RegExp(`\\b${qEscaped}\\b`, 'i');
+    const wordBoundaryRe = new RegExp(`\\b${qEscaped}`, 'i');
+
+    // Local nicknames / abbreviations → dispensary IDs
+    const DISPENSARY_ALIASES: Record<string, string[]> = {
+      'p13':           ['planet13'],
+      'planet13':      ['planet13'],
+      'drh':           ['deep-roots-cheyenne', 'deep-roots-craig', 'deep-roots-blue-diamond', 'deep-roots-parkson', 'deep-roots-willis'],
+      'td':            ['td-gibson', 'td-decatur', 'td-eastern'],
+      'bh':            ['beyond-hello-sahara', 'beyond-hello-twain'],
+      'b/h':           ['beyond-hello-sahara', 'beyond-hello-twain'],
+      'gl':            ['greenlight-downtown', 'greenlight-paradise'],
+      'zl':            ['zen-leaf-fort-apache', 'zen-leaf-flamingo', 'zen-leaf-nlv'],
+      'nuleaf':        ['beyond-hello-twain'],
+      'nu leaf':       ['beyond-hello-twain'],
+      'apothecarium':  ['beyond-hello-sahara'],
+    };
+    const aliasIds = new Set(DISPENSARY_ALIASES[q] ?? []);
+
     return DISPENSARIES.filter(
       (d) =>
+        aliasIds.has(d.id) ||
         wordBoundaryRe.test(d.name) ||
         wordBoundaryRe.test(d.address)
-    ).slice(0, 6);
+    ).slice(0, 8);
   }, [debouncedQuery]);
 
   // ---- Matching deals (curated, before dispensary filter) ----
