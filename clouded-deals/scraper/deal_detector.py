@@ -259,6 +259,12 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
     category = product.get("category", "other")
     weight_value = product.get("weight_value")
 
+    # Reject deals with no detected brand — "UNKNOWN" brand cards are
+    # confusing to users and indicate a parsing problem.  We have enough
+    # volume that we can require a brand on every displayed deal.
+    if not brand:
+        return False
+
     # Reject strain-type-only product names
     if name.strip().lower() in _STRAIN_ONLY_NAMES:
         return False

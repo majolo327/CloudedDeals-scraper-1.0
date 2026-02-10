@@ -205,7 +205,22 @@ _RE_BUNDLE_PROMO = re.compile(
     r"\s*\b\d+\s+[Ff]or\s+\$\d+.*$"    # "3 For $50 …"
     r"|\s*\b\d+/\$\d+.*$"               # "2/$60 …"
     r"|\s*\bBuy\s+\d+\s+Get\s.*$"       # "Buy 2 Get 1 …"
-    r"|\s*\bSpecial Offers?\b.*$",       # "Special Offers (1) …"
+    r"|\s*\bSpecial Offers?\b.*$"        # "Special Offers (1) …"
+    r"|\s*\b\d+\s+(?:Half\s+)?(?:Ounces?|OZ)\s*[-–]?\s*\$\d+.*$"  # "2 Half Ounces - $99 …"
+    r"|\s*\b\d+\s+PR'?s?\s*[-–]?\s*\$\d+.*$"  # "10 PR's - $50 …"
+    r"|\s*[-–]\s*Delivery\s*$",          # "- Delivery" trailing text
+    re.IGNORECASE,
+)
+
+# Marketing tier labels that brands use (e.g., STIIIZY Black/Gold/Silver Label)
+_RE_MARKETING_TIER = re.compile(
+    r"\s*\|?\s*\b(Black|Gold|Silver|Blue|White|Red|Green|Purple|Diamond|Platinum)\s+Label\b",
+    re.IGNORECASE,
+)
+
+# "Prepack", "Whole Flower", "Flower Prepack" — dispensary marketing terms
+_RE_PREPACK = re.compile(
+    r"\b(?:Flower\s+)?Prepack\b|\bWhole\s+Flower\b",
     re.IGNORECASE,
 )
 _RE_TRAILING_STRAIN = re.compile(r"\s*(Indica|Sativa|Hybrid)\s*$", re.IGNORECASE)
@@ -288,6 +303,17 @@ def _clean_product_name(name: str) -> str:
     cleaned = _RE_TRAILING_STRAIN.sub("", cleaned)
     # Strip leading strain-type prefix ("Indica OG Kush" → "OG Kush")
     cleaned = _RE_LEADING_STRAIN.sub("", cleaned)
+
+    # Strip marketing tier labels ("Black Label", "Gold Label", etc.)
+    cleaned = _RE_MARKETING_TIER.sub("", cleaned)
+
+    # Strip "Prepack", "Whole Flower", "Flower Prepack"
+    cleaned = _RE_PREPACK.sub("", cleaned)
+
+    # Strip inline price/deal text fragments that slip into product names
+    # e.g. "$99 $45 1/2 OZ" or "1/2 OZ" at end of name
+    cleaned = re.sub(r"\s*\$\d+\.?\d*(?:\s+\$\d+\.?\d*)*\s*(?:1/2\s+OZ)?.*$", "", cleaned, flags=re.IGNORECASE)
+
     cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
     cleaned = cleaned.strip(".,;:-|")
 
@@ -298,6 +324,10 @@ def _clean_product_name(name: str) -> str:
 
     # Strip bracketed weight artifacts: "[1g]", "[3.5g]", "[100mg]"
     cleaned = re.sub(r"\s*\[\s*\d+\.?\d*\s*(?:mg|g|oz)\s*\]", "", cleaned, flags=re.IGNORECASE)
+
+    # Strip redundant weight+category suffixes that repeat weight info already
+    # captured separately (e.g. ".5g Shatter (.5g)" → ".5g Shatter")
+    cleaned = re.sub(r"\s*\(\s*\.?\d+\.?\d*\s*g\s*\)\s*$", "", cleaned, flags=re.IGNORECASE)
 
     # Deduplicate repeated word sequences
     cleaned = _deduplicate_name(cleaned)

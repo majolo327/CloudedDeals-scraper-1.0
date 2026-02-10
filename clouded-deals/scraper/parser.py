@@ -347,6 +347,7 @@ KNOWN_BRANDS: list[str] = [
     "CAMP",
     "Fleur",
     "AMA",
+    "Kannabis",
     "Binske",
     "Dzyne",
     "Fumeur",
@@ -527,6 +528,9 @@ def detect_brand(text: str) -> str | None:
 # =====================================================================
 
 CATEGORY_KEYWORDS: dict[str, list[str]] = {
+    "skip":        ["rso", "tincture", "topical", "capsule", "cbd only",
+                    "merch", "balm", "salve", "ointment", "lotion",
+                    "transdermal", "patch", "roll-on", "suppository"],
     "flower":      ["flower", "bud", "eighth", "quarter", "half oz",
                     "nug", "smalls", "shake"],
     "preroll":     ["pre-roll", "pre roll", "preroll", "joint", "blunt",
