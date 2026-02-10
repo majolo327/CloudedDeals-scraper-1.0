@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Deal, Category } from '@/types';
 import { getStoredZip, getZipCoordinates, type ZipCoords } from '@/lib/zipCodes';
+import { getUserCoords } from '@/components/ftue/LocationPrompt';
 import { getDistanceMiles } from '@/utils';
 import { weightsMatch } from '@/utils/weightNormalizer';
 import { trackEvent } from '@/lib/analytics';
@@ -76,12 +77,18 @@ export function useUniversalFilters() {
 
   const [userCoords, setUserCoords] = useState<ZipCoords | null>(null);
 
-  // Load user coordinates from stored zip (distance is informational, not default sort)
+  // Load user coordinates: zip first, then FTUE geolocation fallback
   useEffect(() => {
     const zip = getStoredZip();
     if (zip) {
       const coords = getZipCoordinates(zip);
       setUserCoords(coords);
+      return;
+    }
+    // Bridge: if user granted geolocation during FTUE but never entered a zip
+    const geoCoords = getUserCoords();
+    if (geoCoords) {
+      setUserCoords({ lat: geoCoords.lat, lng: geoCoords.lng });
     }
   }, []);
 
@@ -239,12 +246,17 @@ export function useUniversalFilters() {
     return result;
   }, [filters, userCoords, getDistance]);
 
-  // Allow external components (FilterSheet zip prompt) to refresh location
+  // Allow external components (FilterSheet zip/geo prompt) to refresh location
   const refreshLocation = useCallback(() => {
     const zip = getStoredZip();
     if (zip) {
       const coords = getZipCoordinates(zip);
       setUserCoords(coords);
+      return;
+    }
+    const geoCoords = getUserCoords();
+    if (geoCoords) {
+      setUserCoords({ lat: geoCoords.lat, lng: geoCoords.lng });
     }
   }, []);
 

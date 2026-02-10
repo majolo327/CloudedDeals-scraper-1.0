@@ -8,6 +8,7 @@ import { DISPENSARIES } from '@/data/dispensaries';
 import { VALID_WEIGHTS_BY_CATEGORY } from '@/utils/weightNormalizer';
 import { trackEvent } from '@/lib/analytics';
 import { isVegasArea, getZipCoordinates } from '@/lib/zipCodes';
+import type { UserCoords } from '@/components/ftue/LocationPrompt';
 import type {
   UniversalFilterState,
   SortOption,
@@ -103,12 +104,36 @@ export function FilterSheet({
   const [isOpen, setIsOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
-  const [showZipPrompt, setShowZipPrompt] = useState(false);
+  const [locationPrompt, setLocationPrompt] = useState<'hidden' | 'choose' | 'zip' | 'requesting'>('hidden');
   const [zipInput, setZipInput] = useState('');
   const [zipError, setZipError] = useState('');
   const zipInputRef = useRef<HTMLInputElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
+
+  const supportsGeo = typeof navigator !== 'undefined' && !!navigator.geolocation;
+
+  // Handle browser geolocation (one-tap)
+  const handleUseLocation = useCallback(() => {
+    if (!supportsGeo) { setLocationPrompt('zip'); return; }
+    setLocationPrompt('requesting');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coords: UserCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
+        localStorage.setItem('clouded_user_coords', JSON.stringify(coords));
+        localStorage.setItem('clouded_location_permission', 'granted');
+        setLocationPrompt('hidden');
+        onLocationSet?.();
+        trackEvent('filter_change', undefined, { action: 'geo_granted', source: 'filter_sheet' });
+      },
+      () => {
+        // Denied or failed — fall back to zip
+        localStorage.setItem('clouded_location_permission', 'denied');
+        setLocationPrompt('zip');
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+    );
+  }, [supportsGeo, onLocationSet]);
 
   // Handle zip submission from inline prompt
   const handleZipSubmit = useCallback(() => {
@@ -118,31 +143,35 @@ export function FilterSheet({
     const coords = getZipCoordinates(zip);
     if (!coords) { setZipError('Zip not recognized'); return; }
     localStorage.setItem('clouded_zip', zip);
-    // Trigger storage event for other components
     window.dispatchEvent(new StorageEvent('storage', { key: 'clouded_zip', newValue: zip }));
-    setShowZipPrompt(false);
+    setLocationPrompt('hidden');
     setZipInput('');
     setZipError('');
     onLocationSet?.();
     trackEvent('filter_change', undefined, { action: 'zip_set', zip, source: 'filter_sheet' });
   }, [zipInput, onLocationSet]);
 
-  // Focus zip input when prompt appears
+  // Show the prompt — geo-first chooser or straight to zip if geo unsupported
+  const showLocationPrompt = useCallback(() => {
+    setLocationPrompt(supportsGeo ? 'choose' : 'zip');
+  }, [supportsGeo]);
+
+  // Focus zip input when zip prompt appears
   useEffect(() => {
-    if (showZipPrompt && zipInputRef.current) {
+    if (locationPrompt === 'zip' && zipInputRef.current) {
       zipInputRef.current.focus();
     }
-  }, [showZipPrompt]);
+  }, [locationPrompt]);
 
   // Handle tapping distance sort without location
   const handleSortSelect = useCallback((sortId: SortOption) => {
     if (sortId === 'distance' && !hasLocation) {
-      setShowZipPrompt(true);
+      showLocationPrompt();
       return;
     }
     onFiltersChange({ ...filters, sortBy: sortId });
     setSortOpen(false);
-  }, [hasLocation, filters, onFiltersChange]);
+  }, [hasLocation, filters, onFiltersChange, showLocationPrompt]);
 
   const dispensaries = useMemo(() => {
     return DISPENSARIES
@@ -383,34 +412,59 @@ export function FilterSheet({
                     ))}
                   </div>
                 )}
-                {/* Inline zip prompt — appears when user taps Nearest First without location */}
-                {showZipPrompt && (
+                {/* Inline location prompt — geo first, zip fallback */}
+                {locationPrompt !== 'hidden' && (
                   <div className="mt-2 rounded-xl bg-slate-800/80 border border-blue-500/20 p-3">
-                    <p className="text-xs text-slate-300 mb-2">
-                      Enter your zip to sort by distance
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <input
-                        ref={zipInputRef}
-                        type="text"
-                        inputMode="numeric"
-                        value={zipInput}
-                        onChange={(e) => { setZipInput(e.target.value.replace(/\D/g, '').slice(0, 5)); setZipError(''); }}
-                        placeholder="89101"
-                        className="flex-1 px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleZipSubmit();
-                          if (e.key === 'Escape') { setShowZipPrompt(false); setZipInput(''); setZipError(''); }
-                        }}
-                      />
-                      <button
-                        onClick={handleZipSubmit}
-                        className="px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-500/30 transition-colors"
-                      >
-                        Go
-                      </button>
-                    </div>
-                    {zipError && <p className="text-[11px] text-red-400 mt-1.5">{zipError}</p>}
+                    {locationPrompt === 'choose' && (
+                      <>
+                        <button
+                          onClick={handleUseLocation}
+                          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 transition-colors mb-2"
+                        >
+                          <Navigation className="w-4 h-4 text-blue-400" />
+                          <span className="text-sm text-blue-400 font-medium">Use my location</span>
+                        </button>
+                        <button
+                          onClick={() => setLocationPrompt('zip')}
+                          className="w-full text-center text-[11px] text-slate-500 hover:text-slate-300 py-1 transition-colors"
+                        >
+                          Or enter zip code
+                        </button>
+                      </>
+                    )}
+                    {locationPrompt === 'requesting' && (
+                      <div className="flex items-center justify-center gap-2 py-2">
+                        <div className="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs text-slate-400">Getting location...</span>
+                      </div>
+                    )}
+                    {locationPrompt === 'zip' && (
+                      <>
+                        <p className="text-xs text-slate-300 mb-2">Enter your Vegas zip</p>
+                        <div className="flex items-center gap-2">
+                          <input
+                            ref={zipInputRef}
+                            type="text"
+                            inputMode="numeric"
+                            value={zipInput}
+                            onChange={(e) => { setZipInput(e.target.value.replace(/\D/g, '').slice(0, 5)); setZipError(''); }}
+                            placeholder="89101"
+                            className="flex-1 px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleZipSubmit();
+                              if (e.key === 'Escape') { setLocationPrompt('hidden'); setZipInput(''); setZipError(''); }
+                            }}
+                          />
+                          <button
+                            onClick={handleZipSubmit}
+                            className="px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-500/30 transition-colors"
+                          >
+                            Go
+                          </button>
+                        </div>
+                        {zipError && <p className="text-[11px] text-red-400 mt-1.5">{zipError}</p>}
+                      </>
+                    )}
                   </div>
                 )}
               </section>
@@ -480,13 +534,13 @@ export function FilterSheet({
                         </div>
                       ) : (
                         <button
-                          onClick={() => setShowZipPrompt(true)}
+                          onClick={showLocationPrompt}
                           className="w-full flex items-center gap-2 px-3 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 hover:border-blue-500/30 transition-all text-left"
                         >
                           <Navigation className="w-4 h-4 text-blue-400 shrink-0" />
                           <div>
-                            <p className="text-xs font-medium text-slate-300">Set your zip code</p>
-                            <p className="text-[10px] text-slate-500">Filter by Near You, Nearby, or Across Town</p>
+                            <p className="text-xs font-medium text-slate-300">Enable location</p>
+                            <p className="text-[10px] text-slate-500">Near You, Nearby, or Across Town</p>
                           </div>
                         </button>
                       )}
