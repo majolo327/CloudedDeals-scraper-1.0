@@ -50,11 +50,20 @@ export async function generateMetadata({ params }: DealPageProps): Promise<Metad
           url: `${siteUrl}/deal/${params.id}`,
           siteName: 'Clouded Deals',
           type: 'article',
+          images: [
+            {
+              url: `${siteUrl}/og-image.png`,
+              width: 1200,
+              height: 630,
+              alt: 'Clouded Deals — Every Deal. Every Dispensary. One Place.',
+            },
+          ],
         },
         twitter: {
-          card: 'summary',
+          card: 'summary_large_image',
           title,
           description,
+          images: [`${siteUrl}/og-image.png`],
         },
       };
     }

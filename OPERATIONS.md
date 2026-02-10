@@ -85,16 +85,28 @@ For each dispensary:
 ## Deal Scoring Rules
 
 ### What qualifies as a deal
-- Minimum **20% discount** from original price
-- Price between **$3 and $80**
+- Minimum **15% discount** from original price (relaxed from 20%)
+- Price between **$3 and $100** (raised from $80 for oz flower + concentrates)
+- Maximum 85% discount (above = data error)
 - Must have an original price to compare against
-- Category-specific price caps (e.g., flower 3.5g max $19, edibles max $9)
+- **Weight-based category price caps** (see below)
+
+### Category price caps (maximum sale price to qualify)
+
+| Category | Cap |
+|----------|-----|
+| **Flower** | $25 (3.5g), $45 (7g), $65 (14g), $100 (28g) |
+| **Concentrate** | $25 (0.5g), $45 (1g), $75 (2g) |
+| **Vape** | $35 |
+| **Edible** | $15 |
+| **Pre-roll** | $10 single, $25 multi-pack |
 
 ### How deals are scored (0-100)
-- **Base:** `(discount% - 20) * 2` — so 50% off = 60 points
-- **Brand boost:** +15 for premium brands (STIIIZY, Cookies, Raw Garden, etc.)
-- **Category boost:** Flower/Vape +10, Edible +8, Concentrate +5
-- **THC bonus:** If THC% reported and high
+- **Base:** `(discount% - 15) * 2` — so 50% off = 70 points
+- **Brand boost:** +8 for known brands (STIIIZY, Cookies, MPX, etc.)
+- **Category boost:** Flower/Vape/Edible +8, Concentrate/Pre-roll +7
+- **Price sweet-spot bonus:** +15 for deals under $20
+- **THC bonus:** +10 if THC% > 25
 
 ### Top 200 selection
 Stratified by category to ensure variety:
@@ -141,7 +153,7 @@ clouded-deals/scraper/
     age_verification.py      # Universal age gate dismissal
     iframe.py                # Iframe & JS-embed detection
     pagination.py            # Page navigation (arrows, load-more)
-  tests/                     # 421 unit tests (pure logic, no network)
+  tests/                     # 583 unit tests (pure logic, no network)
 
 .github/workflows/
   scrape.yml                 # Daily cron + manual dispatch
@@ -310,6 +322,43 @@ Coach marks use `data-coach` attributes on elements for targeting. State stored 
 
 ---
 
+## Changelog
+
+### Feb 10, 2026 — Concentrate Detection Overhaul + Major Platform Expansion
+
+**Problem:** Morning scrape surfaced only 1 concentrate deal in the main feed, despite many being available in search. Concentrates were being misclassified or filtered out before reaching users.
+
+**Root causes found and fixed:**
+
+1. **Weight-based concentrate price caps** (`deal_detector.py`)
+   - Old: flat $35 cap for all concentrates — excluded most real deals (live resin/diamonds commonly $40+)
+   - New: $25 (0.5g), $45 (1g), $75 (2g) — matches actual LV dispensary pricing
+
+2. **Bundle/offer text contaminating category detection** (`main.py`, `clouded_logic.py`)
+   - Promo text like "3/$60 1g Carts & Wax" was triggering vape classification for concentrate products
+   - Fix: category detection now runs on product name only; offer/bundle text is stripped before classification
+
+3. **Brand names leaking from bundle text** (`main.py`)
+   - Dutchie "Special Offers" listing multiple brands (e.g. "KYND Flower & HAZE Live Resin") could assign the wrong brand
+   - Fix: brand detected from product name first (highest confidence), falls back to raw text with offer sections stripped
+
+4. **Category detection order** (`clouded_logic.py`)
+   - "Shatter," "budder," and other concentrate keywords were checked after vape keywords, causing misclassification
+   - Fix: concentrate check now guards against vape keywords (cart, pod, disposable) — "Live Resin Cart 0.5g" = vape, "Live Resin 1g" = concentrate
+
+**Other improvements shipped same day (74 commits):**
+
+- Expanded from 27 to **61 active dispensaries** (added Rise, Carrot, AIQ platforms)
+- Added **Tinder-style swipe mode** (grid/swipe toggle)
+- Added **universal search** across all active products
+- Added **dispensary alias map** + new brand entries (Cannalean, Cheeba Chews)
+- Shifted scraper cron 1 hour earlier to hit 7:45-8:15 AM PT window
+- Added Terms of Service and Privacy Policy pages
+- Added anti-regression metrics system + CI health endpoint
+- 583 unit tests passing (up from 421)
+
+---
+
 ## What's Next
 
 ### Short-term (prove new platforms)
@@ -318,11 +367,18 @@ Coach marks use `data-coach` attributes on elements for targeting. State stored 
 - [ ] Promote to stable once reliable
 - [ ] Investigate SLV — may need Treez-specific scraper if Dutchie fallback fails
 
+### Short-term (inner circle beta)
+- [ ] Recruit 10-20 inner circle testers (cannabis-savvy, deal-conscious locals)
+- [ ] Monitor analytics dashboard for engagement signals (save rate, return visits, deal clicks)
+- [ ] Collect qualitative feedback via in-app feedback widget + direct conversations
+- [ ] Track VIP waitlist signups via SMS banner
+
 ### Medium-term (coverage & quality)
 - [ ] Nevada Made Henderson/Warm Springs — retry periodically, may come back online
 - [ ] Top Notch (Weedmaps) — evaluate if worth building a 7th scraper
 - [ ] Add more dispensaries as new ones open in the market
 - [ ] Tune deal scoring weights based on user engagement data
+- [x] Add `og:image` for social share previews (shipped Feb 10)
 
 ### Longer-term (scale)
 - [ ] Expand beyond Southern Nevada (Reno, other states)
