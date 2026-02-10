@@ -12,6 +12,8 @@ import { SearchPage } from '@/components/SearchPage';
 import { BrowsePage } from '@/components/BrowsePage';
 import { SavedPage } from '@/components/SavedPage';
 import { AboutPage } from '@/components/AboutPage';
+import { TermsPage } from '@/components/TermsPage';
+import { PrivacyPage } from '@/components/PrivacyPage';
 import { SmsWaitlist } from '@/components/SmsWaitlist';
 import { LocationSelector } from '@/components/LocationSelector';
 import { DealModal } from '@/components/modals';
@@ -25,7 +27,7 @@ import { useChallenges } from '@/hooks/useChallenges';
 import { initializeAnonUser, trackEvent, trackPageView, trackDealModalOpen } from '@/lib/analytics';
 import { FTUEFlow, isFTUECompleted, CoachMarks, isCoachMarksSeen } from '@/components/ftue';
 
-type AppPage = 'home' | 'search' | 'browse' | 'saved' | 'about';
+type AppPage = 'home' | 'search' | 'browse' | 'saved' | 'about' | 'terms' | 'privacy';
 
 export default function Home() {
   const [isAgeVerified, setIsAgeVerified] = useState(false);
@@ -437,11 +439,18 @@ export default function Home() {
 
         {/* About page */}
         {activePage === 'about' && <AboutPage />}
+
+        {/* Terms of Service */}
+        {activePage === 'terms' && <TermsPage onBack={() => setActivePage('home')} />}
+
+        {/* Privacy Policy */}
+        {activePage === 'privacy' && <PrivacyPage onBack={() => setActivePage('home')} />}
       </main>
 
       {/* Footer */}
       <Footer
         onNavigateToAbout={() => { setActivePage('about'); window.scrollTo(0, 0); }}
+        onNavigate={(page) => { setActivePage(page); window.scrollTo(0, 0); }}
         onReplayTour={() => {
           setActivePage('home');
           setShowFTUE(true);
