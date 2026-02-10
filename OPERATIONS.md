@@ -378,7 +378,7 @@ Coach marks use `data-coach` attributes on elements for targeting. State stored 
 - [ ] Top Notch (Weedmaps) — evaluate if worth building a 7th scraper
 - [ ] Add more dispensaries as new ones open in the market
 - [ ] Tune deal scoring weights based on user engagement data
-- [ ] Add `og:image` for social share previews
+- [x] Add `og:image` for social share previews (shipped Feb 10)
 
 ### Longer-term (scale)
 - [ ] Expand beyond Southern Nevada (Reno, other states)
