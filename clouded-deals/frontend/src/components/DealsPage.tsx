@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { LayoutGrid, Layers } from 'lucide-react';
 import type { Deal } from '@/types';
 import { DealCard } from './cards';
-import { DealStack } from './DealStack';
+import { SwipeOverlay } from './SwipeOverlay';
 import { InlineFeedbackPrompt } from './FeedbackWidget';
 import { FilterSheet } from './FilterSheet';
 import { StickyStatsBar } from './layout';
@@ -14,15 +14,6 @@ import { useDeck } from '@/hooks/useDeck';
 import { useUniversalFilters, formatDistance } from '@/hooks/useUniversalFilters';
 
 type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'preroll';
-type ViewMode = 'grid' | 'stack';
-
-const VIEW_MODE_KEY = 'clouded_view_mode';
-
-function loadViewMode(): ViewMode {
-  if (typeof window === 'undefined') return 'grid';
-  const stored = localStorage.getItem(VIEW_MODE_KEY);
-  return stored === 'stack' ? 'stack' : 'grid';
-}
 
 interface DealsPageProps {
   deals: Deal[];
@@ -33,6 +24,7 @@ interface DealsPageProps {
   savedCount: number;
   streak: number;
   onDismissDeal?: () => void;
+  onShareSaves?: () => void;
 }
 
 export function DealsPage({
@@ -44,11 +36,12 @@ export function DealsPage({
   savedCount,
   streak,
   onDismissDeal,
+  onShareSaves,
 }: DealsPageProps) {
   const [activeCategory, setActiveCategory] = useState<DealCategory>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [countdown, setCountdown] = useState(() => getTimeUntilMidnight());
-  const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
+  const [swipeOpen, setSwipeOpen] = useState(false);
 
   const {
     filters,
@@ -73,11 +66,6 @@ export function DealsPage({
     }
   }, [deals]);
 
-  // Persist view mode
-  useEffect(() => {
-    localStorage.setItem(VIEW_MODE_KEY, viewMode);
-  }, [viewMode]);
-
   const hasActiveFilters = filters.categories.length > 0 || filters.dispensaryIds.length > 0 ||
     filters.priceRange !== 'all' || filters.minDiscount > 0 || filters.distanceRange !== 'all' ||
     filters.weightFilter !== 'all';
@@ -92,18 +80,16 @@ export function DealsPage({
   }, [deals, activeCategory, filterAndSortDeals]);
 
   // Deck is always active — users interact with 12 cards at a time, never infinite scroll.
-  // When using default sort (deal_score), we apply the curated shuffle for diversity.
-  // When using a custom sort (price, discount, etc.), deck preserves that order.
   const isDefaultSort = !filters.sortBy || filters.sortBy === 'deal_score';
   const deck = useDeck(filteredDeals, { shuffle: isDefaultSort });
 
-  // Stack mode: save = heart + advance, dismiss = advance
-  const handleStackSave = useCallback((dealId: string) => {
+  // Swipe mode: save = heart + advance, dismiss = advance
+  const handleSwipeSave = useCallback((dealId: string) => {
     toggleSavedDeal(dealId);
-    deck.dismissImmediate(dealId); // advance past it in the deck
+    deck.dismissImmediate(dealId);
   }, [toggleSavedDeal, deck]);
 
-  const handleStackDismiss = useCallback((dealId: string) => {
+  const handleSwipeDismiss = useCallback((dealId: string) => {
     deck.dismissImmediate(dealId);
     onDismissDeal?.();
   }, [deck, onDismissDeal]);
@@ -116,7 +102,6 @@ export function DealsPage({
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
       >
-        {/* Only the filter button in the stats bar — no quick chips */}
         <FilterSheet
           filters={filters}
           onFiltersChange={setFilters}
@@ -140,36 +125,23 @@ export function DealsPage({
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {/* View mode toggle */}
+              {/* View mode toggle — swipe button opens fullscreen overlay */}
               <div
                 data-coach="view-toggle"
                 className="flex items-center bg-slate-800/60 rounded-lg p-0.5 border border-slate-700/50"
-                role="radiogroup"
+                role="group"
                 aria-label="View mode"
               >
                 <button
-                  role="radio"
-                  aria-checked={viewMode === 'grid'}
                   aria-label="Grid view"
-                  onClick={() => setViewMode('grid')}
-                  className={`p-1.5 rounded-md transition-all ${
-                    viewMode === 'grid'
-                      ? 'bg-purple-500/20 text-purple-400'
-                      : 'text-slate-500 hover:text-slate-300'
-                  }`}
+                  className="p-1.5 rounded-md transition-all bg-purple-500/20 text-purple-400"
                 >
                   <LayoutGrid className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  role="radio"
-                  aria-checked={viewMode === 'stack'}
-                  aria-label="Swipe view"
-                  onClick={() => setViewMode('stack')}
-                  className={`p-1.5 rounded-md transition-all ${
-                    viewMode === 'stack'
-                      ? 'bg-purple-500/20 text-purple-400'
-                      : 'text-slate-500 hover:text-slate-300'
-                  }`}
+                  aria-label="Open swipe mode"
+                  onClick={() => setSwipeOpen(true)}
+                  className="p-1.5 rounded-md transition-all text-slate-500 hover:text-slate-300"
                 >
                   <Layers className="w-3.5 h-3.5" />
                 </button>
@@ -180,8 +152,8 @@ export function DealsPage({
             </div>
           </div>
 
-          {/* Deck progress bar — grid mode only, after first dismiss */}
-          {viewMode === 'grid' && deck.totalDeals > 0 && deck.dismissedCount > 0 && (
+          {/* Deck progress bar — after first dismiss */}
+          {deck.totalDeals > 0 && deck.dismissedCount > 0 && (
             <div className="mb-4">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-[11px] text-slate-500">
@@ -215,7 +187,7 @@ export function DealsPage({
             </div>
           )}
 
-          {/* Deal content */}
+          {/* Deal content — always grid mode */}
           {isLoading ? (
             <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
               {Array.from({ length: 9 }).map((_, i) => (
@@ -223,7 +195,6 @@ export function DealsPage({
               ))}
             </div>
           ) : deck.isComplete ? (
-            /* End-of-deck message */
             <div className="text-center py-16">
               <div className="text-4xl mb-4">&#127881;</div>
               <h3 className="text-lg font-semibold text-slate-200 mb-2">
@@ -259,17 +230,6 @@ export function DealsPage({
               </p>
               <p className="text-slate-500">Deals refresh every morning. Check back soon.</p>
             </div>
-          ) : viewMode === 'stack' ? (
-            /* Stack / Swipe mode */
-            <DealStack
-              deals={deck.remaining}
-              savedDeals={savedDeals}
-              onSave={handleStackSave}
-              onDismiss={handleStackDismiss}
-              onSelectDeal={(deal) => setSelectedDeal(deal)}
-              totalDeals={deck.totalDeals}
-              seenCount={deck.seenCount}
-            />
           ) : (
             /* Grid mode — position-stable: replacements appear in-place */
             <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
@@ -278,7 +238,6 @@ export function DealsPage({
                 const isAppearing = deck.appearingId === deal.id;
                 const distance = getDistance(deal.dispensary.latitude, deal.dispensary.longitude);
 
-                // Variable reward: high-value deals get the "jackpot" reveal
                 const isJackpotReveal =
                   isAppearing &&
                   deck.replacementDealScore !== null &&
@@ -321,6 +280,22 @@ export function DealsPage({
           )}
         </div>
       </div>
+
+      {/* Fullscreen swipe overlay — portal-based, covers everything */}
+      {swipeOpen && (
+        <SwipeOverlay
+          deals={deck.remaining}
+          savedDeals={savedDeals}
+          onSave={handleSwipeSave}
+          onDismiss={handleSwipeDismiss}
+          onSelectDeal={(deal) => setSelectedDeal(deal)}
+          onClose={() => setSwipeOpen(false)}
+          totalDeals={deck.totalDeals}
+          seenCount={deck.seenCount}
+          savedCount={savedCount}
+          onShareSaves={onShareSaves}
+        />
+      )}
     </>
   );
 }
