@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Search, Package, MapPin, ChevronRight, X, Clock, Store, ExternalLink, Tag } from 'lucide-react';
 import type { Deal, Brand } from '@/types';
+import { InlineFeedbackPrompt } from './FeedbackWidget';
 import { weightsMatch } from '@/utils/weightNormalizer';
 import { DealCard } from './DealCard';
 import { DealCardSkeleton } from './Skeleton';
@@ -635,6 +636,7 @@ export function SearchPage({
                   <p className="text-slate-500 text-sm max-w-xs mx-auto">
                     Try a different brand, strain, or product type.
                   </p>
+                  <InlineFeedbackPrompt context="search_no_results" query={debouncedQuery} />
                 </div>
               )}
             </>

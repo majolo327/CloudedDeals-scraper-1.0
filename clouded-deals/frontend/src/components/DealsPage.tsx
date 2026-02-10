@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { Deal } from '@/types';
 import { DealCard } from './cards';
+import { InlineFeedbackPrompt } from './FeedbackWidget';
 import { FilterSheet } from './FilterSheet';
 import { StickyStatsBar } from './layout';
 import { DealCardSkeleton } from './Skeleton';
@@ -187,6 +188,7 @@ export function DealsPage({
               >
                 Reset Filters
               </button>
+              <InlineFeedbackPrompt context="filter_no_results" />
             </div>
           ) : visibleDeals.length === 0 ? (
             <div className="text-center py-20">

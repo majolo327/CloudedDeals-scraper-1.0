@@ -384,11 +384,36 @@ def _upsert_products(
     all_results: list[dict[str, Any]] = []
     for i in range(0, len(rows), _UPSERT_CHUNK_SIZE):
         chunk = rows[i : i + _UPSERT_CHUNK_SIZE]
-        result = (
-            db.table("products")
-            .upsert(chunk, on_conflict="dispensary_id,name,weight_value,sale_price")
-            .execute()
-        )
+        try:
+            result = (
+                db.table("products")
+                .upsert(chunk, on_conflict="dispensary_id,name,weight_value,sale_price")
+                .execute()
+            )
+        except Exception as exc:
+            # Handle PGRST204 "column not found in schema cache" — strip
+            # the offending column and retry so a missing migration doesn't
+            # crash the entire scrape run.
+            err_msg = str(exc)
+            if "PGRST204" in err_msg and "column" in err_msg:
+                import re as _re
+                col_match = _re.search(r"'(\w+)' column", err_msg)
+                bad_col = col_match.group(1) if col_match else None
+                if bad_col:
+                    logger.warning(
+                        "[%s] Column '%s' missing from DB — stripping and retrying",
+                        dispensary_id, bad_col,
+                    )
+                    chunk = [{k: v for k, v in row.items() if k != bad_col} for row in chunk]
+                    result = (
+                        db.table("products")
+                        .upsert(chunk, on_conflict="dispensary_id,name,weight_value,sale_price")
+                        .execute()
+                    )
+                else:
+                    raise
+            else:
+                raise
         all_results.extend(result.data)
         if len(rows) > _UPSERT_CHUNK_SIZE:
             logger.info(
