@@ -2,9 +2,11 @@
 Dispensary configuration for Las Vegas locations across 3 platforms.
 
 Platforms:
-  - dutchie: iframe-based menus (Dutchie/TD sites)
-  - curaleaf: direct page loads (new /shop/nevada/ paths)
-  - jane: hybrid iframe/direct with "View More" pagination
+  - dutchie: iframe-based menus (Dutchie/TD sites)  — 15 sites
+  - curaleaf: direct page loads (Curaleaf + Zen Leaf) — 6 sites
+  - jane: hybrid iframe/direct with "View More" pagination — 19 sites
+
+Total active: 40 dispensaries
 
 Sites marked ``is_active: False`` are known-broken (redirects, rebrands,
 etc.) and will be skipped by the orchestrator.  They remain in the config
@@ -80,7 +82,7 @@ PLATFORM_DEFAULTS = {
 
 DISPENSARIES = [
     # ------------------------------------------------------------------
-    # DUTCHIE SITES  (10)
+    # DUTCHIE SITES  (15)
     # ------------------------------------------------------------------
     {
         "name": "The Dispensary - Gibson",
@@ -165,9 +167,51 @@ DISPENSARIES = [
         "is_active": True,
         "region": "southern-nv",
     },
+    # --- Phase 1 additions (recon-confirmed Dutchie JS embeds) ---
+    {
+        "name": "Jade Cannabis Desert Inn",
+        "slug": "jade-desert-inn",
+        "platform": "dutchie",
+        "url": "https://jadecannabisco.com/?dtche%5Bpath%5D=specials",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "Jade Cannabis Sky Pointe",
+        "slug": "jade-sky-pointe",
+        "platform": "dutchie",
+        "url": "https://skypointe.jadecannabisco.com/?dtche%5Bpath%5D=specials",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "The Grove Pahrump",
+        "slug": "grove-pahrump",
+        "platform": "dutchie",
+        "url": "https://www.thegrovenv.com/pahrump/?dtche%5Bpath%5D=specials",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "Sahara Wellness",
+        "slug": "sahara-wellness",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/sahara-wellness/specials",
+        "is_active": True,
+        "region": "southern-nv",
+        "embed_type": "direct",
+    },
+    {
+        "name": "The Treehouse Vegas",
+        "slug": "treehouse",
+        "platform": "dutchie",
+        "url": "https://vegastreehouse.com/store/?dtche%5Bpath%5D=specials",
+        "is_active": True,
+        "region": "southern-nv",
+    },
 
     # ------------------------------------------------------------------
-    # CURALEAF SITES  (4)
+    # CURALEAF SITES  (4) + ZEN LEAF (2)
     # ------------------------------------------------------------------
     {
         "name": "Curaleaf Western",
@@ -201,9 +245,26 @@ DISPENSARIES = [
         "is_active": True,
         "region": "southern-nv",
     },
+    # --- Phase 1: Zen Leaf (Verano) — uses ProductCard like Curaleaf ---
+    {
+        "name": "Zen Leaf Flamingo",
+        "slug": "zen-leaf-flamingo",
+        "platform": "curaleaf",
+        "url": "https://zenleafdispensaries.com/locations/flamingo/menu/recreational",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "Zen Leaf North Las Vegas",
+        "slug": "zen-leaf-north-lv",
+        "platform": "curaleaf",
+        "url": "https://zenleafdispensaries.com/locations/north-las-vegas/menu/recreational",
+        "is_active": True,
+        "region": "southern-nv",
+    },
 
     # ------------------------------------------------------------------
-    # JANE SITES  (13)
+    # JANE SITES  (19)
     # ------------------------------------------------------------------
     {
         "name": "Oasis Cannabis",
@@ -309,6 +370,67 @@ DISPENSARIES = [
         "is_active": True,
         "region": "southern-nv",
     },
+    # --- Phase 1 additions (recon-confirmed Jane sites) ---
+    {
+        "name": "Exhale",
+        "slug": "exhale",
+        "platform": "jane",
+        "url": "https://exhalebrands.com/store/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "Thrive Southern Highlands",
+        "slug": "thrive-southern-highlands",
+        "platform": "jane",
+        "url": "https://thrivenevada.com/southern-highlands-weed-dispensary-menu/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "Tree of Life Jones",
+        "slug": "tree-of-life-jones",
+        "platform": "jane",
+        "url": "https://lasvegas.treeoflifenv.com/store",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "Tree of Life Centennial",
+        "slug": "tree-of-life-centennial",
+        "platform": "jane",
+        "url": "https://northlasvegas.treeoflifenv.com/store",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "The Sanctuary N LV Blvd",
+        "slug": "sanctuary-n-lv",
+        "platform": "jane",
+        "url": "https://thesanctuarynv.com/shop/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        # NOTE: The Source shares one /specials/ URL for all 4 locations.
+        # This entry captures the specials page; per-location menus TBD.
+        "name": "The Source",
+        "slug": "the-source",
+        "platform": "jane",
+        "url": "https://www.thesourcenv.com/specials/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+
+    # ------------------------------------------------------------------
+    # PENDING PLATFORMS — Phase 2+ (inactive until scrapers are built)
+    # ------------------------------------------------------------------
+    # Rise (8 sites) — proprietary SPA at risecannabis.com
+    # Carrot (6 sites) — getcarrot.io embed
+    # AIQ (5-7 sites) — alpineiq.com / dispenseapp.com
+    #
+    # Cookies Flamingo is Rise-operated (confirmed by recon, score=2).
+    # SLV has Dutchie markers but age gate redirect needs investigation.
 ]
 
 # ---------------------------------------------------------------------------
