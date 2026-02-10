@@ -35,7 +35,7 @@ from config.dispensaries import BROWSER_ARGS, DISPENSARIES, SITE_TIMEOUT_SEC
 from clouded_logic import CloudedLogic
 from deal_detector import detect_deals, get_last_report_data
 from product_classifier import classify_product
-from platforms import CuraleafScraper, DutchieScraper, JaneScraper, RiseScraper
+from platforms import CarrotScraper, CuraleafScraper, DutchieScraper, JaneScraper, RiseScraper
 
 # Concurrency limit for parallel scraping (4 browser contexts at once)
 SCRAPE_CONCURRENCY = int(os.getenv("SCRAPE_CONCURRENCY", "4"))
@@ -75,6 +75,7 @@ SCRAPER_MAP = {
     "curaleaf": CuraleafScraper,
     "jane": JaneScraper,
     "rise": RiseScraper,
+    "carrot": CarrotScraper,
 }
 
 

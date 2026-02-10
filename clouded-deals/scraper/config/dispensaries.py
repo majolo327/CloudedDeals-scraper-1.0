@@ -2,12 +2,13 @@
 Dispensary configuration for Las Vegas locations across 4 platforms.
 
 Platforms:
-  - dutchie: iframe-based menus (Dutchie/TD sites)  — 15 sites
+  - dutchie: iframe-based menus (Dutchie/TD sites)  — 16 sites
   - curaleaf: direct page loads (Curaleaf + Zen Leaf) — 6 sites
   - jane: hybrid iframe/direct with "View More" pagination — 19 sites
-  - rise: proprietary Next.js SPA (Rise/GTI + Cookies) — 8 sites
+  - rise: proprietary Next.js SPA (Rise/GTI + Cookies) — 9 sites
+  - carrot: JS widget via getcarrot.io               — 6 sites
 
-Total active: 48 dispensaries
+Total active: 56 dispensaries
 
 Sites marked ``is_active: False`` are known-broken (redirects, rebrands,
 etc.) and will be skipped by the orchestrator.  They remain in the config
@@ -74,6 +75,11 @@ PLATFORM_DEFAULTS = {
     "rise": {
         "wait_after_age_gate_sec": 15,
         "embed_type": "direct",           # proprietary Next.js SPA, no iframe
+        "wait_until": "domcontentloaded",
+    },
+    "carrot": {
+        "wait_after_age_gate_sec": 10,
+        "embed_type": "direct",           # JS widget injects into page DOM
         "wait_until": "domcontentloaded",
     },
 }
@@ -496,14 +502,88 @@ DISPENSARIES = [
         "is_active": True,
         "region": "southern-nv",
     },
+    {
+        # Listed as "Henderson" on risecannabis.com but located on Sunset Rd
+        "name": "Rise Henderson (Sunset)",
+        "slug": "rise-henderson",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/nevada/henderson/887/pickup-menu/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
 
     # ------------------------------------------------------------------
-    # PENDING PLATFORMS — Phase 3+ (inactive until scrapers are built)
+    # DUTCHIE — supplemental sites added post-recon
     # ------------------------------------------------------------------
-    # Carrot (6 sites) — getcarrot.io embed
+    {
+        # Double age gate: first "Yes", then "I'M AT LEAST 21 YEARS OLD".
+        # Treez-powered catalog (593 products, numbered pagination).
+        # Dutchie embed may be present on homepage — scraper will probe.
+        "name": "SLV Dispensary",
+        "slug": "slv",
+        "platform": "dutchie",
+        "url": "https://slvcannabis.com/shop/",
+        "embed_type": "direct",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+
+    # ------------------------------------------------------------------
+    # CARROT SITES (6) — JS widget via nevada-store-core.getcarrot.io
+    # ------------------------------------------------------------------
+    {
+        "name": "Wallflower Blue Diamond",
+        "slug": "wallflower-blue-diamond",
+        "platform": "carrot",
+        "url": "https://wallflower-house.com/deals/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "Inyo Fine Cannabis",
+        "slug": "inyo",
+        "platform": "carrot",
+        "url": "https://inyolasvegas.com/delivery-pickup-orders/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "Jenny's Dispensary",
+        "slug": "jennys",
+        "platform": "carrot",
+        "url": "https://jennysdispensary.com/store/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "Euphoria Wellness",
+        "slug": "euphoria-wellness",
+        "platform": "carrot",
+        "url": "https://euphoriawellnessnv.com/menu/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "Silver Sage Wellness",
+        "slug": "silver-sage",
+        "platform": "carrot",
+        "url": "https://store.sswlv.com/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "ShowGrow",
+        "slug": "showgrow",
+        "platform": "carrot",
+        "url": "https://store.showgrowvegas.com/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+
+    # ------------------------------------------------------------------
+    # PENDING PLATFORMS — Phase 4+ (inactive until scrapers are built)
+    # ------------------------------------------------------------------
     # AIQ (5-7 sites) — alpineiq.com / dispenseapp.com
-    #
-    # SLV has Dutchie markers but age gate redirect needs investigation.
 ]
 
 # ---------------------------------------------------------------------------
