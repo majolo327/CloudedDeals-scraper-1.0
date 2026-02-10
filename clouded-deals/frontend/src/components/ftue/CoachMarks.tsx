@@ -39,7 +39,7 @@ const STEPS: Step[] = [
   },
   {
     selector: '[data-coach="view-toggle"]',
-    title: 'Switch between Grid and Swipe modes. Grid shows 12 deals at a glance. Swipe lets you go one-by-one \u2014 swipe right to save, left to pass.',
+    title: 'Grid shows 12 deals at a glance. Tap the stack icon to enter full-screen Swipe mode \u2014 swipe right to save, left to pass.',
     cta: 'Next',
   },
   {

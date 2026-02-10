@@ -27,6 +27,8 @@ import { useBrandAffinity } from '@/hooks/useBrandAffinity';
 import { useChallenges } from '@/hooks/useChallenges';
 import { initializeAnonUser, trackEvent, trackPageView, trackDealModalOpen } from '@/lib/analytics';
 import { FTUEFlow, isFTUECompleted, CoachMarks, isCoachMarksSeen } from '@/components/ftue';
+import { useSmartTips } from '@/hooks/useSmartTips';
+import { createShareLink } from '@/lib/share';
 
 type AppPage = 'home' | 'search' | 'browse' | 'saved' | 'about' | 'terms' | 'privacy';
 
@@ -52,6 +54,7 @@ export default function Home() {
   const { streak, isNewMilestone, clearMilestone } = useStreak();
   const { trackBrand } = useBrandAffinity();
   const challenges = useChallenges();
+  const smartTips = useSmartTips();
 
   // Age verification & anonymous tracking
   useEffect(() => {
@@ -187,9 +190,8 @@ export default function Home() {
     return Array.from(seen.values());
   }, [deals]);
 
-  // Save handler with brand tracking, haptic feedback, milestone toasts, and rate limiting
+  // Save handler with brand tracking, haptic feedback, and smart tip engine
   const lastSaveRef = useRef(0);
-  const milestoneShownRef = useRef<Set<string>>(new Set());
   const handleToggleSave = useCallback(
     (dealId: string) => {
       // Rate limit: 500ms between saves
@@ -212,48 +214,75 @@ export default function Home() {
           challenges.updateProgress('save', deal, savedDealsList);
         }
 
-        // Milestone toast system
+        // Build context for smart tip engine
         const newCount = savedCount + 1;
-        const shown = milestoneShownRef.current;
+        const dispensaryIds = new Set(savedDealsList.map(d => d.dispensary.id));
+        if (deal) dispensaryIds.add(deal.dispensary.id);
+        const categorySet = new Set(savedDealsList.map(d => d.category));
+        if (deal) categorySet.add(deal.category);
+        const brandCount = deal?.brand?.name
+          ? savedDealsList.filter(d => d.brand?.name === deal.brand?.name).length + 1
+          : 0;
 
-        if (newCount === 1 && !shown.has('first')) {
-          shown.add('first');
-          addToast('First deal saved \uD83D\uDD16', 'milestone');
-        } else if (newCount === 3 && !shown.has('taste')) {
-          shown.add('taste');
-          addToast("You've got taste \uD83D\uDC4C", 'milestone');
-        } else if (newCount === 10 && !shown.has('hunter')) {
-          shown.add('hunter');
-          addToast('Deal hunter \uD83C\uDFAF', 'milestone');
-        } else if (deal) {
-          // Check dispensary diversity: 3 unique dispensaries
-          const dispensaryIds = new Set(savedDealsList.map(d => d.dispensary.id));
-          dispensaryIds.add(deal.dispensary.id);
-          if (dispensaryIds.size >= 3 && !shown.has('explorer')) {
-            shown.add('explorer');
-            addToast('Explorer unlocked \uD83D\uDDFA\uFE0F', 'milestone');
-          }
-          // Check brand loyalty: 3 same brand
-          else if (deal.brand?.name) {
-            const brandCount = savedDealsList.filter(d => d.brand?.name === deal.brand?.name).length + 1;
-            if (brandCount >= 3 && !shown.has(`brand_${deal.brand.name}`)) {
-              shown.add(`brand_${deal.brand.name}`);
-              addToast(`${deal.brand.name} fan? \uD83D\uDC9C`, 'milestone');
-            } else {
-              addToast('Saved! We\u2019ll find more like this.', 'saved');
-            }
-          } else {
-            addToast('Saved. Expires at midnight.', 'saved');
-          }
-        } else {
-          addToast('Saved. Expires at midnight.', 'saved');
+        const tip = smartTips.onSave({
+          totalSavedCount: newCount,
+          brandName: deal?.brand?.name,
+          brandSaveCount: brandCount,
+          uniqueDispensaryCount: dispensaryIds.size,
+          uniqueCategoryCount: categorySet.size,
+        });
+
+        if (tip?.message) {
+          addToast(tip.message, tip.type);
         }
       } else {
-        addToast('Removed from saves.', 'removed');
+        const tip = smartTips.onUnsave();
+        if (tip.message) addToast(tip.message, tip.type);
       }
     },
-    [savedDeals, toggleSavedDeal, deals, trackBrand, addToast, challenges, savedDealsList, savedCount]
+    [savedDeals, toggleSavedDeal, deals, trackBrand, addToast, challenges, savedDealsList, savedCount, smartTips]
   );
+
+  // Share saves handler — used by swipe overlay's "Share today's favorites" CTA
+  const handleShareSaves = useCallback(async () => {
+    const activeSavedDeals = deals.filter((d) => savedDeals.has(d.id));
+    if (activeSavedDeals.length === 0) return;
+
+    const dealIds = activeSavedDeals.map((d) => d.id);
+    const result = await createShareLink(dealIds);
+
+    if (result.error || !result.shareUrl) {
+      addToast('Could not create share link.', 'info');
+      return;
+    }
+
+    trackEvent('share_saves', undefined, {
+      deal_count: dealIds.length,
+      share_id: result.shareId,
+      source: 'swipe_overlay',
+    });
+
+    const shareData = {
+      title: `${activeSavedDeals.length} deals I found on CloudedDeals`,
+      text: `Check out these ${activeSavedDeals.length} cannabis deals in Las Vegas — they expire tonight!`,
+      url: result.shareUrl,
+    };
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch {
+        // User cancelled
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(result.shareUrl);
+        addToast('Link copied! Share it with friends.', 'success');
+      } catch {
+        addToast('Could not copy link.', 'info');
+      }
+    }
+  }, [deals, savedDeals, addToast]);
 
   const handleFTUEComplete = useCallback(() => {
     setShowFTUE(false);
@@ -395,7 +424,11 @@ export default function Home() {
               setSelectedDeal={setSelectedDeal}
               savedCount={savedCount}
               streak={streak}
-              onDismissDeal={() => addToast('Noted. We\u2019ll show fewer like this.', 'info')}
+              onDismissDeal={() => {
+                const tip = smartTips.onDismiss();
+                if (tip?.message) addToast(tip.message, tip.type);
+              }}
+              onShareSaves={handleShareSaves}
             />
           )
         )}
