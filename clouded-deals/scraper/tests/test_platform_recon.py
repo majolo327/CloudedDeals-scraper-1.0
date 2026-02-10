@@ -35,9 +35,6 @@ from typing import Any
 
 import pytest
 
-# All async tests in this module use asyncio
-pytestmark = pytest.mark.asyncio
-
 # Ensure scraper package is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -730,6 +727,7 @@ def _find_chromium_executable() -> str | None:
 _SITE_IDS = [s["slug"] for s in RECON_SITES]
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("site", RECON_SITES, ids=_SITE_IDS)
 async def test_recon_site(site: dict[str, str]):
     """Recon a single dispensary site and report platform detection."""
