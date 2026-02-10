@@ -99,7 +99,7 @@ BRAND_COMPARISON_BRANDS = ['Rove', 'Stiiizy', 'Matrix', 'City Trees', 'Airo']
 
 BRANDS = sorted(set([
     # A
-    'Advanced Vapor Devices', 'Airo', 'AiroPro', 'Alien Labs', 'AMA', 'Avexia',
+    'Advanced Vapor Devices', 'Airo', 'AiroPro', 'Alien Labs', 'AMA', 'Avexia', 'Amp',
     # B
     'Backpack Boyz', 'Bad Batch', 'Bad Boy', 'BaM', 'Ballers', 'Bear Quartz',
     'Beboe', 'Bic', 'Big Chief Extracts', 'BirthJays', 'Bits', 'Blazer',
@@ -135,7 +135,7 @@ BRANDS = sorted(set([
     'Incredibles', 'INDO',
     # J-K
     'JAMS', 'Jasper', 'Jeeter', 'Jungle Boys', 'Just Edibles',
-    'KANHA', 'Keef', 'Khalifa Kush', 'Khalifa Yellow',
+    'KANHA', 'Kannabis', 'Keef', 'Khalifa Kush', 'Khalifa Yellow',
     'Kingpen', 'Kiva', 'Kiva Lost Farm', 'Kynd',
     # L
     'Later Days', 'LAVI', 'LEVEL', 'Lift Tickets', 'LIT',
@@ -606,8 +606,19 @@ class CloudedLogic:
         t = text.lower()
 
         # 1. SKIP non-qualifying products
-        skip_keywords = ['rso', 'tincture', 'topical', 'capsule', 'cbd only', 'merch']
+        skip_keywords = [
+            'rso', 'tincture', 'topical', 'capsule', 'cbd only', 'merch',
+            'balm', 'salve', 'ointment', 'lotion', 'transdermal', 'patch',
+            'roll-on', 'roll on', 'liniment', 'suppository',
+        ]
         if any(s in t for s in skip_keywords):
+            return 'skip'
+
+        # Topical cream detection: "cream" + CBD:THC ratio (e.g. "Cream 3:1")
+        # This catches products like "Medizin Cream 3:1 (125mg)" which are
+        # topical ointments, NOT flower/edible.  Plain "cream" alone is too
+        # broad (Ice Cream Cake is a popular strain).
+        if 'cream' in t and re.search(r'\bcream\b.*\d+:\d+', t):
             return 'skip'
 
         # 2. DRINKS → edible (check early, before preroll "shot" overlap)
@@ -621,6 +632,9 @@ class CloudedLogic:
             return 'preroll'
         # "PR" / "PR's" / "PRs" is a common abbreviation for pre-rolls
         if re.search(r"\bpr'?s?\b", t, re.IGNORECASE):
+            return 'preroll'
+        # "Xg/Npk" pattern (e.g. "2g/4pk", "2.5g/5pk") = preroll pack
+        if re.search(r'\d+\.?\d*\s*g\s*/\s*\d+\s*pk\b', t):
             return 'preroll'
 
         # 4. CONCENTRATE (requires BOTH keyword AND weight)
@@ -872,6 +886,15 @@ class CloudedLogic:
 
         # Remove trailing junk
         product = re.sub(r'(Indica|Sativa|Hybrid|Add to cart|Add to bag)', '', product, flags=re.IGNORECASE)
+
+        # Strip marketing tier labels (e.g. STIIIZY "Black Label", "Gold Label")
+        product = re.sub(r'\s*\|\s*(Black|Gold|Silver|Blue|White|Red|Green|Purple|Diamond|Platinum)\s+Label\b', '', product, flags=re.IGNORECASE)
+        product = re.sub(r'\b(Black|Gold|Silver|Platinum|Diamond)\s+Label\b', '', product, flags=re.IGNORECASE)
+
+        # Strip "Prepack", "Whole Flower", "Flower Prepack" — marketing fluff
+        product = re.sub(r'\b(?:Flower\s+)?Prepack\b', '', product, flags=re.IGNORECASE)
+        product = re.sub(r'\bWhole\s+Flower\b', '', product, flags=re.IGNORECASE)
+
         product = re.sub(r'\s+', ' ', product).strip()
         product = product.strip('.,;:-|')
 

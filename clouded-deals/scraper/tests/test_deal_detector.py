@@ -398,11 +398,12 @@ class TestPassesQualityGate:
                          category="edible", weight_value=None)
         assert passes_quality_gate(p) is True
 
-    def test_brandless_deal_passes(self, make_product):
-        """Deals without a brand should still pass if name is good."""
+    def test_brandless_deal_rejected(self, make_product):
+        """Deals without a detected brand should be rejected — we never
+        want to show 'UNKNOWN' brand cards to users."""
         p = make_product(name="Purple Punch 3.5g", brand=None,
                          category="flower", weight_value=3.5)
-        assert passes_quality_gate(p) is True
+        assert passes_quality_gate(p) is False
 
     def test_unknown_name_rejected(self, make_product):
         p = make_product(name="Unknown", brand="Cookies",

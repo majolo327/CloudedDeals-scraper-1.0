@@ -59,6 +59,8 @@ _PACK_INDICATORS = [
     re.compile(r"\d+\s*pk\b", re.IGNORECASE),
     re.compile(r"\bmulti[- ]?pack\b", re.IGNORECASE),
     re.compile(r"\bvariety[- ]?pack\b", re.IGNORECASE),
+    # "Xg/Npk" pattern (e.g. "2g/4pk", "2.5g/5pk") — preroll packs
+    re.compile(r"\d+\.?\d*\s*g\s*/\s*\d+\s*pk\b", re.IGNORECASE),
 ]
 
 # Brands whose products are ALWAYS packs (never singles)
