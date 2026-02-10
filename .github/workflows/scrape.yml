@@ -2,17 +2,27 @@ name: Daily Scraper
 
 on:
   schedule:
-    # Single daily run: 8:00 AM Pacific = 16:00 UTC (15:00 during PDT)
+    # Cron runs the "stable" group (Dutchie/Curaleaf/Jane) daily at 8 AM PT.
+    # New platforms (Rise/Carrot/AIQ) are triggered manually until proven.
     - cron: "0 16 * * *"
   workflow_dispatch:
     inputs:
+      platform_group:
+        description: "Platform group to scrape"
+        required: false
+        type: choice
+        options:
+          - all
+          - stable
+          - new
+        default: "all"
       dry_run:
         description: "Dry run (scrape but don't write to DB)"
         required: false
         type: boolean
         default: false
       limit_dispensaries:
-        description: "Test with only 3 dispensaries (1 per platform)"
+        description: "Test with limited dispensaries (1 per platform)"
         required: false
         type: boolean
         default: false
@@ -22,8 +32,10 @@ on:
         type: string
         default: ""
 
+# Concurrency is scoped by platform group so "stable" and "new" can
+# run in parallel without cancelling each other.
 concurrency:
-  group: daily-scraper
+  group: scraper-${{ github.event.inputs.platform_group || 'stable' }}
   cancel-in-progress: false
 
 jobs:
@@ -73,11 +85,15 @@ jobs:
           LIMIT_DISPENSARIES: ${{ github.event.inputs.limit_dispensaries || 'false' }}
           SINGLE_SITE: ${{ github.event.inputs.single_site || '' }}
           FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
+          # Cron runs "stable" only; manual dispatch uses the selected group.
+          PLATFORM_GROUP: ${{ github.event.inputs.platform_group || 'stable' }}
         run: |
           echo "=== Scraper Configuration ==="
+          echo "Group:      $PLATFORM_GROUP"
           echo "Dry run:    $DRY_RUN"
           echo "Limited:    $LIMIT_DISPENSARIES"
           echo "Single:     $SINGLE_SITE"
+          echo "Force:      $FORCE_RUN"
           echo "============================="
 
           if [ -n "$SINGLE_SITE" ]; then
@@ -90,7 +106,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: debug-screenshots-${{ github.run_id }}
+          name: debug-screenshots-${{ github.event.inputs.platform_group || 'stable' }}-${{ github.run_id }}
           path: |
             clouded-deals/scraper/debug_screenshots/
           retention-days: 7
@@ -100,7 +116,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: scraper-logs-${{ github.run_id }}
+          name: scraper-logs-${{ github.event.inputs.platform_group || 'stable' }}-${{ github.run_id }}
           path: |
             clouded-deals/scraper/*.log
           retention-days: 7

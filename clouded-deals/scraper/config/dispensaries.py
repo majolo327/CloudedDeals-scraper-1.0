@@ -694,6 +694,34 @@ DISPENSARIES = [
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Platform groups — segment scrapers by stability for CI scheduling.
+#
+# "stable"  — battle-tested scrapers that run on the daily cron.
+# "new"     — recently built scrapers; triggered manually until proven.
+#
+# Each group deactivates *only its own* stale products so runs don't
+# wipe each other's data.
+# ---------------------------------------------------------------------------
+
+PLATFORM_GROUPS: dict[str, list[str]] = {
+    "stable": ["dutchie", "curaleaf", "jane"],
+    "new": ["rise", "carrot", "aiq"],
+}
+
+# Reverse lookup: platform → group name
+_PLATFORM_TO_GROUP: dict[str, str] = {
+    p: group for group, platforms in PLATFORM_GROUPS.items() for p in platforms
+}
+
+
+def get_platforms_for_group(group: str) -> list[str]:
+    """Return platform names belonging to a group ('stable', 'new', or 'all')."""
+    if group == "all":
+        return [p for platforms in PLATFORM_GROUPS.values() for p in platforms]
+    return PLATFORM_GROUPS.get(group, [])
+
+
 def get_dispensaries_by_platform(platform: str) -> list[dict]:
     """Return all dispensary configs for a given platform."""
     return [d for d in DISPENSARIES if d["platform"] == platform]
@@ -710,3 +738,12 @@ def get_dispensary_by_slug(slug: str) -> dict | None:
 def get_active_dispensaries() -> list[dict]:
     """Return only dispensaries marked as active."""
     return [d for d in DISPENSARIES if d.get("is_active", True)]
+
+
+def get_dispensaries_by_group(group: str) -> list[dict]:
+    """Return active dispensaries belonging to a platform group."""
+    platforms = get_platforms_for_group(group)
+    return [
+        d for d in DISPENSARIES
+        if d.get("is_active", True) and d["platform"] in platforms
+    ]

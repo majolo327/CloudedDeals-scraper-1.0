@@ -13,6 +13,9 @@ Usage:
 Environment variables (for CI):
     DRY_RUN=true              # scrape only, skip all DB writes
     LIMIT_DISPENSARIES=true   # scrape only 3 sites (1 per platform)
+    PLATFORM_GROUP=stable     # scrape only stable platforms (dutchie/curaleaf/jane)
+    PLATFORM_GROUP=new        # scrape only new platforms (rise/carrot/aiq)
+    PLATFORM_GROUP=all        # scrape everything (default)
 """
 
 from __future__ import annotations
@@ -31,7 +34,10 @@ from supabase import create_client, Client
 
 from playwright.async_api import async_playwright
 
-from config.dispensaries import BROWSER_ARGS, DISPENSARIES, SITE_TIMEOUT_SEC
+from config.dispensaries import (
+    BROWSER_ARGS, DISPENSARIES, SITE_TIMEOUT_SEC,
+    get_platforms_for_group, get_dispensaries_by_group,
+)
 from clouded_logic import CloudedLogic
 from deal_detector import detect_deals, get_last_report_data
 from metrics_collector import collect_daily_metrics
@@ -60,6 +66,10 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 DRY_RUN = os.getenv("DRY_RUN", "false").lower() == "true"
 LIMIT_DISPENSARIES = os.getenv("LIMIT_DISPENSARIES", "false").lower() == "true"
 FORCE_RUN = os.getenv("FORCE_RUN", "false").lower() == "true"
+# Platform group filter: "stable", "new", or "all" (default).
+# When set, only dispensaries from that group are scraped and only
+# their stale products are deactivated — other groups are untouched.
+PLATFORM_GROUP = os.getenv("PLATFORM_GROUP", "all").lower()
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     logger.error("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set")
@@ -91,9 +101,12 @@ def _create_run() -> str:
     if DRY_RUN:
         logger.info("[DRY RUN] Would create scrape_runs entry")
         return "dry-run"
-    row = db.table("scrape_runs").insert({"status": "running"}).execute()
+    payload: dict[str, Any] = {"status": "running"}
+    if PLATFORM_GROUP != "all":
+        payload["platform_group"] = PLATFORM_GROUP
+    row = db.table("scrape_runs").insert(payload).execute()
     run_id: str = row.data[0]["id"]
-    logger.info("Scrape run started: %s", run_id)
+    logger.info("Scrape run started: %s (group=%s)", run_id, PLATFORM_GROUP)
     return run_id
 
 
@@ -147,26 +160,34 @@ def _seed_dispensaries() -> None:
     logger.info("Seeded %d dispensaries into DB", len(rows))
 
 
-def _deactivate_old_deals() -> None:
-    """Deactivate previous day's deals so only fresh data is shown."""
+def _deactivate_old_deals(group_slugs: list[str] | None = None) -> None:
+    """Deactivate previous day's deals so only fresh data is shown.
+
+    When *group_slugs* is provided, only products belonging to those
+    dispensaries are deactivated.  This prevents a "stable" run from
+    wiping yesterday's "new" products (and vice-versa).
+    """
     if DRY_RUN:
-        logger.info("[DRY RUN] Would deactivate old deals")
+        logger.info("[DRY RUN] Would deactivate old deals (group=%s)", PLATFORM_GROUP)
         return
     today_start = (
         datetime.now(timezone.utc)
         .replace(hour=0, minute=0, second=0, microsecond=0)
         .isoformat()
     )
-    result = (
+    query = (
         db.table("products")
         .update({"is_active": False})
         .lt("scraped_at", today_start)
         .eq("is_active", True)
-        .execute()
     )
+    if group_slugs:
+        query = query.in_("dispensary_id", group_slugs)
+    result = query.execute()
     count = len(result.data) if result.data else 0
     if count > 0:
-        logger.info("Deactivated %d old products", count)
+        scope = f"group={PLATFORM_GROUP}" if group_slugs else "all"
+        logger.info("Deactivated %d old products (%s)", count, scope)
 
 
 _UPSERT_CHUNK_SIZE = 500  # max rows per Supabase upsert call
@@ -639,12 +660,30 @@ async def scrape_site(
 
 
 def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
-    """Return dispensary configs to scrape."""
+    """Return dispensary configs to scrape.
+
+    Respects the PLATFORM_GROUP env var: when set to a group name
+    (e.g. "stable" or "new"), only dispensaries from that group's
+    platforms are returned.
+    """
     if slug_filter:
         return [d for d in DISPENSARIES if d["slug"] == slug_filter]
 
     # Filter by is_active from config first
     active = [d for d in DISPENSARIES if d.get("is_active", True)]
+
+    # Apply platform group filter
+    if PLATFORM_GROUP != "all":
+        group_platforms = set(get_platforms_for_group(PLATFORM_GROUP))
+        if group_platforms:
+            active = [d for d in active if d["platform"] in group_platforms]
+            logger.info(
+                "Platform group '%s': %d dispensaries (%s)",
+                PLATFORM_GROUP, len(active),
+                ", ".join(sorted(group_platforms)),
+            )
+        else:
+            logger.warning("Unknown platform group '%s' — using all", PLATFORM_GROUP)
 
     if LIMIT_DISPENSARIES:
         # Pick 1 per platform for quick testing
@@ -654,7 +693,7 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
             if d["platform"] not in seen_platforms:
                 picked.append(d)
                 seen_platforms.add(d["platform"])
-            if len(picked) >= 3:
+            if len(picked) >= len(seen_platforms) and len(picked) >= 3:
                 break
         logger.info(
             "TEST MODE: Limited to %d dispensaries (%s)",
@@ -685,7 +724,11 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
 
 
 def _already_scraped_today() -> bool:
-    """Check if a completed scrape run already exists for today (UTC)."""
+    """Check if a completed scrape run already exists for today (UTC).
+
+    When running a specific platform group, only checks for completed
+    runs of that same group — a "stable" run doesn't block a "new" run.
+    """
     if DRY_RUN:
         return False
     today_start = (
@@ -693,14 +736,19 @@ def _already_scraped_today() -> bool:
         .replace(hour=0, minute=0, second=0, microsecond=0)
         .isoformat()
     )
-    result = (
+    query = (
         db.table("scrape_runs")
         .select("id")
         .eq("status", "completed")
         .gte("started_at", today_start)
-        .limit(1)
-        .execute()
     )
+    # Scope the idempotency check to the current platform group.
+    # "all" runs look for any prior "all" run (or no group field).
+    # Segmented runs only conflict with prior runs of the same group.
+    if PLATFORM_GROUP != "all":
+        query = query.eq("platform_group", PLATFORM_GROUP)
+    query = query.limit(1)
+    result = query.execute()
     return bool(result.data)
 
 
@@ -718,15 +766,18 @@ async def run(slug_filter: str | None = None) -> None:
     logger.info("  DRY_RUN:    %s", DRY_RUN)
     logger.info("  LIMITED:    %s", LIMIT_DISPENSARIES)
     logger.info("  FORCE_RUN:  %s", FORCE_RUN)
+    logger.info("  GROUP:      %s", PLATFORM_GROUP)
     logger.info("  SINGLE:     %s", slug_filter or "(all)")
     logger.info("=" * 60)
 
     _seed_dispensaries()
 
-    # Deactivate previous day's deals before scraping fresh ones
-    _deactivate_old_deals()
-
     dispensaries = _get_active_dispensaries(slug_filter)
+
+    # Deactivate previous day's deals — scoped to this group's dispensaries
+    # so a "stable" run doesn't wipe yesterday's "new" products.
+    group_slugs = [d["slug"] for d in dispensaries] if PLATFORM_GROUP != "all" else None
+    _deactivate_old_deals(group_slugs)
     if not dispensaries:
         logger.error("No dispensaries to scrape")
         return
