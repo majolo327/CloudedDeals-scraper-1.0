@@ -87,11 +87,45 @@ body {
   to { opacity: 1; transform: scale(1); }
 }
 
+/* Card dismiss — satisfying "flick away" with rotation + shrink.
+   Gives the user a visceral sense of agency (operant conditioning). */
 @keyframes cardDismiss {
-  0% { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(0.92) translateY(8px); }
+  0%   { opacity: 1; transform: scale(1) rotate(0deg); }
+  40%  { opacity: 0.6; transform: scale(0.92) rotate(-1.5deg); }
+  100% { opacity: 0; transform: scale(0.75) rotate(-3deg) translateY(16px); }
 }
 
+/* In-place reveal — 2-phase animation with a "curiosity gap".
+   Phase 1 (0-35%): shape appears blurred/scaled down — brain registers "something new"
+   Phase 2 (35-100%): content reveals with a satisfying scale-up overshoot.
+   The brief mystery triggers dopamine via the information-gap theory (Loewenstein). */
+@keyframes cardReveal {
+  0%   { opacity: 0; transform: scale(0.6) translateY(12px); filter: blur(8px); }
+  35%  { opacity: 0.5; transform: scale(0.88) translateY(4px); filter: blur(4px); }
+  70%  { opacity: 1; transform: scale(1.02) translateY(-1px); filter: blur(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
+
+/* Jackpot reveal for high-value deals (deal_score >= 80).
+   Variable-ratio reinforcement: users never know when a "steal" will appear.
+   The glow + overshoot signals "you found something special" — mimics slot-machine
+   near-win psychology adapted for deal discovery. */
+@keyframes cardRevealJackpot {
+  0%   { opacity: 0; transform: scale(0.5); filter: blur(10px); box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); }
+  30%  { opacity: 0.4; transform: scale(0.85); filter: blur(5px); box-shadow: 0 0 12px 2px rgba(168, 85, 247, 0.15); }
+  60%  { opacity: 1; transform: scale(1.04); filter: blur(0); box-shadow: 0 0 24px 6px rgba(168, 85, 247, 0.3); }
+  80%  { opacity: 1; transform: scale(0.99); filter: blur(0); box-shadow: 0 0 16px 3px rgba(168, 85, 247, 0.15); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); }
+}
+
+/* Shimmer sweep — plays on jackpot reveals for extra "found treasure" reward signal */
+@keyframes shimmerSweep {
+  0%   { left: -100%; opacity: 0; }
+  30%  { opacity: 0.6; }
+  100% { left: 100%; opacity: 0; }
+}
+
+/* Legacy cardReplace kept for any external references */
 @keyframes cardReplace {
   0% { opacity: 0; transform: scale(0.92); }
   100% { opacity: 1; transform: scale(1); }
@@ -180,8 +214,33 @@ body {
   .animate-heart-pulse { animation: heartPulse 300ms var(--ease-smooth); }
   .animate-save-glow { animation: saveGlow 400ms var(--ease-gentle); }
   .animate-card-appear { animation: cardAppear 0.3s ease-out forwards; }
-  .animate-card-dismiss { animation: cardDismiss 0.28s var(--ease-gentle) forwards; }
+  .animate-card-dismiss { animation: cardDismiss 0.32s var(--ease-gentle) forwards; }
   .animate-card-replace { animation: cardReplace 0.32s var(--ease-smooth) forwards; }
+  .animate-card-reveal { animation: cardReveal 0.48s var(--ease-smooth) forwards; }
+  .animate-card-reveal-jackpot {
+    animation: cardRevealJackpot 0.6s var(--ease-smooth) forwards;
+    position: relative;
+    overflow: hidden;
+  }
+  .animate-card-reveal-jackpot::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(168, 85, 247, 0.12),
+      rgba(255, 255, 255, 0.08),
+      transparent
+    );
+    animation: shimmerSweep 0.7s 0.25s ease-out forwards;
+    pointer-events: none;
+    border-radius: inherit;
+    z-index: 10;
+  }
   .animate-in { animation: animateIn 0.3s var(--ease-smooth) forwards; }
   .animate-confetti { animation: confetti 2s ease-out forwards; }
   .animate-bounce-subtle { animation: bounceSubtle 1s ease-in-out infinite; }

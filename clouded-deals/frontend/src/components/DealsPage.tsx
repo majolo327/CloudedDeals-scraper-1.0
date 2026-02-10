@@ -271,23 +271,31 @@ export function DealsPage({
               seenCount={deck.seenCount}
             />
           ) : (
-            /* Grid mode */
+            /* Grid mode — position-stable: replacements appear in-place */
             <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
               {deck.visible.map((deal, index) => {
                 const isDismissing = deck.dismissingId === deal.id;
                 const isAppearing = deck.appearingId === deal.id;
                 const distance = getDistance(deal.dispensary.latitude, deal.dispensary.longitude);
 
+                // Variable reward: high-value deals get the "jackpot" reveal
+                const isJackpotReveal =
+                  isAppearing &&
+                  deck.replacementDealScore !== null &&
+                  deck.replacementDealScore >= 80;
+
+                const animationClass = isDismissing
+                  ? 'animate-card-dismiss'
+                  : isJackpotReveal
+                  ? 'animate-card-reveal-jackpot'
+                  : isAppearing
+                  ? 'animate-card-reveal'
+                  : 'animate-in fade-in';
+
                 return (
                   <div
                     key={deal.id}
-                    className={
-                      isDismissing
-                        ? 'animate-card-dismiss'
-                        : isAppearing
-                        ? 'animate-card-replace'
-                        : 'animate-in fade-in'
-                    }
+                    className={animationClass}
                     style={
                       !isDismissing && !isAppearing
                         ? {

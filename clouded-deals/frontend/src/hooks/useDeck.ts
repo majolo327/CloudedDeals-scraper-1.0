@@ -52,8 +52,11 @@ function persistDismissedIds(ids: Set<string>): void {
 /** How many cards to show at once in the grid */
 const VISIBLE_COUNT = 12;
 
+/** Deal score threshold for "jackpot" reveal animation */
+const JACKPOT_THRESHOLD = 80;
+
 export interface DeckState {
-  /** Currently visible deals in the grid (first 12 of remaining) */
+  /** Currently visible deals in the grid — position-stable (in-place replacement) */
   visible: Deal[];
   /** All undismissed deals in deck order (for stack/swipe mode) */
   remaining: Deal[];
@@ -69,7 +72,9 @@ export interface DeckState {
   dismissingId: string | null;
   /** ID of a card currently animating in (for CSS transitions) */
   appearingId: string | null;
-  /** Dismiss a deal — triggers animation, then replaces it */
+  /** Deal score of the replacement card (null when no replacement active) */
+  replacementDealScore: number | null;
+  /** Dismiss a deal — triggers animation, then replaces it in-place */
   dismissDeal: (dealId: string) => void;
   /** Immediately add to dismissed set (no animation, for stack/swipe mode) */
   dismissImmediate: (dealId: string) => void;
@@ -88,7 +93,9 @@ export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState {
   );
   const [dismissingId, setDismissingId] = useState<string | null>(null);
   const [appearingId, setAppearingId] = useState<string | null>(null);
+  const [replacementDealScore, setReplacementDealScore] = useState<number | null>(null);
   const dismissTimeoutRef = useRef<NodeJS.Timeout>();
+  const appearTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Build the deck: shuffled for default sort, or preserve order for custom sorts
   const shuffledDeck = useMemo(() => {
@@ -98,25 +105,38 @@ export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState {
     return curatedShuffle(deals, { anonId });
   }, [deals, shuffle]);
 
-  // All undismissed deals in deck order
+  // All undismissed deals in deck order (used for stack mode + stats)
   const remaining = useMemo(() => {
     return shuffledDeck.filter((d) => !dismissedIds.has(d.id));
   }, [shuffledDeck, dismissedIds]);
 
-  // Grid view: first 12 of remaining
-  const visible = useMemo(() => {
-    return remaining.slice(0, VISIBLE_COUNT);
-  }, [remaining]);
+  // ── Position-stable grid slots ──────────────────────────────────
+  // Instead of recomputing visible as remaining.slice(0, 12) (which causes
+  // all cards to shift on dismiss), we maintain a state-managed array where
+  // replacements are inserted at the EXACT position of the dismissed card.
+  const [slots, setSlots] = useState<Deal[]>([]);
+
+  // Rebuild slots when the source deck fundamentally changes
+  // (new data load, filter/sort change). NOT on individual dismissals.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const filtered = shuffledDeck.filter((d) => !dismissedIds.has(d.id));
+    setSlots(filtered.slice(0, VISIBLE_COUNT));
+    // Intentionally only depends on shuffledDeck — dismiss-triggered changes
+    // are handled by the in-place replacement in dismissDeal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shuffledDeck]);
 
   // Persist dismissed IDs whenever they change
   useEffect(() => {
     persistDismissedIds(dismissedIds);
   }, [dismissedIds]);
 
-  // Cleanup timeout on unmount
+  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
       if (dismissTimeoutRef.current) clearTimeout(dismissTimeoutRef.current);
+      if (appearTimeoutRef.current) clearTimeout(appearTimeoutRef.current);
     };
   }, []);
 
@@ -125,9 +145,9 @@ export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState {
       // Prevent double-dismiss during animation
       if (dismissingId) return;
 
-      // Find the deal for analytics
+      // Find the deal for analytics + position in the stable grid
       const deal = shuffledDeck.find((d) => d.id === dealId);
-      const position = visible.findIndex((d) => d.id === dealId);
+      const position = slots.findIndex((d) => d.id === dealId);
 
       // Start dismiss animation
       setDismissingId(dealId);
@@ -142,8 +162,9 @@ export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState {
         dismissed_count: dismissedIds.size + 1,
       });
 
-      // After animation completes, swap the card
+      // After dismiss animation completes, swap the card IN-PLACE
       dismissTimeoutRef.current = setTimeout(() => {
+        // Add to dismissed set
         setDismissedIds((prev) => {
           const next = new Set(prev);
           next.add(dealId);
@@ -151,20 +172,41 @@ export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState {
         });
         setDismissingId(null);
 
-        // Find the replacement deal (first from upcoming queue)
-        // The replacement will appear in the dismissed card's position
-        // because the visible array recalculates from the shuffled deck
-        const remaining = shuffledDeck.filter(
-          (d) => !dismissedIds.has(d.id) && d.id !== dealId
+        // Find the replacement: next card from deck not currently in grid slots
+        const currentSlotIds = new Set(slots.map((d) => d.id));
+        const nextCard = shuffledDeck.find(
+          (d) =>
+            !dismissedIds.has(d.id) &&
+            d.id !== dealId &&
+            !currentSlotIds.has(d.id)
         );
-        const replacement = remaining[VISIBLE_COUNT - 1]; // the one that slides into view
-        if (replacement) {
-          setAppearingId(replacement.id);
-          setTimeout(() => setAppearingId(null), 400);
+
+        if (nextCard && position !== -1) {
+          // Replace at the EXACT same grid position — no shifting!
+          setSlots((prev) => {
+            const next = [...prev];
+            next[position] = nextCard;
+            return next;
+          });
+
+          // Signal which card is appearing + its score for animation selection
+          const isJackpot = (nextCard.deal_score ?? 0) >= JACKPOT_THRESHOLD;
+          setReplacementDealScore(nextCard.deal_score ?? null);
+          setAppearingId(nextCard.id);
+
+          // Clear appearing state after animation completes
+          const revealDuration = isJackpot ? 600 : 480;
+          appearTimeoutRef.current = setTimeout(() => {
+            setAppearingId(null);
+            setReplacementDealScore(null);
+          }, revealDuration);
+        } else {
+          // No replacement available — shrink the grid
+          setSlots((prev) => prev.filter((d) => d.id !== dealId));
         }
-      }, 300); // Match CSS animation duration
+      }, 320); // Match enhanced CSS dismiss animation duration
     },
-    [dismissingId, shuffledDeck, visible, dismissedIds]
+    [dismissingId, shuffledDeck, slots, dismissedIds]
   );
 
   // Immediate dismiss (no animation) — used by stack/swipe mode
@@ -188,12 +230,12 @@ export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState {
   );
 
   const seenCount = Math.min(
-    dismissedIds.size + visible.length,
+    dismissedIds.size + slots.length,
     shuffledDeck.length
   );
 
   return {
-    visible,
+    visible: slots,
     remaining,
     totalDeals: shuffledDeck.length,
     seenCount,
@@ -201,6 +243,7 @@ export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState {
     isComplete: remaining.length === 0 && shuffledDeck.length > 0,
     dismissingId,
     appearingId,
+    replacementDealScore,
     dismissDeal,
     dismissImmediate,
   };
