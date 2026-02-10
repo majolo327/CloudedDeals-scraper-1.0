@@ -209,7 +209,14 @@ export function useUniversalFilters() {
       });
     }
 
-    // Sort
+    // Sort — price sorts use distance as tiebreaker when location is set
+    const distTiebreaker = (a: Deal, b: Deal): number => {
+      if (!userCoords) return 0;
+      const distA = getDistance(a.dispensary.latitude, a.dispensary.longitude) ?? 999;
+      const distB = getDistance(b.dispensary.latitude, b.dispensary.longitude) ?? 999;
+      return distA - distB;
+    };
+
     if (filters.sortBy === 'distance' && userCoords) {
       result.sort((a, b) => {
         const distA = getDistance(a.dispensary.latitude, a.dispensary.longitude) ?? 999;
@@ -217,20 +224,29 @@ export function useUniversalFilters() {
         return distA - distB;
       });
     } else if (filters.sortBy === 'price_asc') {
-      result.sort((a, b) => a.deal_price - b.deal_price);
+      result.sort((a, b) => a.deal_price - b.deal_price || distTiebreaker(a, b));
     } else if (filters.sortBy === 'price_desc') {
-      result.sort((a, b) => b.deal_price - a.deal_price);
+      result.sort((a, b) => b.deal_price - a.deal_price || distTiebreaker(a, b));
     } else if (filters.sortBy === 'discount') {
       result.sort((a, b) => {
         const discA = a.original_price ? ((a.original_price - a.deal_price) / a.original_price) * 100 : 0;
         const discB = b.original_price ? ((b.original_price - b.deal_price) / b.original_price) * 100 : 0;
-        return discB - discA;
+        return discB - discA || distTiebreaker(a, b);
       });
     }
     // 'deal_score' keeps the original order (already sorted by score from API)
 
     return result;
   }, [filters, userCoords, getDistance]);
+
+  // Allow external components (FilterSheet zip prompt) to refresh location
+  const refreshLocation = useCallback(() => {
+    const zip = getStoredZip();
+    if (zip) {
+      const coords = getZipCoordinates(zip);
+      setUserCoords(coords);
+    }
+  }, []);
 
   return {
     filters,
@@ -243,6 +259,7 @@ export function useUniversalFilters() {
     formatDistance,
     applyQuickFilter,
     filterAndSortDeals,
+    refreshLocation,
   };
 }
 

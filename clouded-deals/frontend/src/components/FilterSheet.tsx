@@ -2,11 +2,12 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { SlidersHorizontal, X, RotateCcw, Check, MapPin, ChevronDown } from 'lucide-react';
+import { SlidersHorizontal, X, RotateCcw, Check, MapPin, ChevronDown, Navigation } from 'lucide-react';
 import type { Category } from '@/types';
 import { DISPENSARIES } from '@/data/dispensaries';
 import { VALID_WEIGHTS_BY_CATEGORY } from '@/utils/weightNormalizer';
 import { trackEvent } from '@/lib/analytics';
+import { isVegasArea, getZipCoordinates } from '@/lib/zipCodes';
 import type {
   UniversalFilterState,
   SortOption,
@@ -87,6 +88,7 @@ interface FilterSheetProps {
   hasLocation?: boolean;
   onReset?: () => void;
   activeFilterCount?: number;
+  onLocationSet?: () => void;
 }
 
 export function FilterSheet({
@@ -96,12 +98,51 @@ export function FilterSheet({
   hasLocation = false,
   onReset,
   activeFilterCount: externalActiveCount,
+  onLocationSet,
 }: FilterSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
+  const [showZipPrompt, setShowZipPrompt] = useState(false);
+  const [zipInput, setZipInput] = useState('');
+  const [zipError, setZipError] = useState('');
+  const zipInputRef = useRef<HTMLInputElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
+
+  // Handle zip submission from inline prompt
+  const handleZipSubmit = useCallback(() => {
+    const zip = zipInput.trim();
+    if (zip.length !== 5) { setZipError('Enter a 5-digit zip'); return; }
+    if (!isVegasArea(zip)) { setZipError('Vegas area zips only for now'); return; }
+    const coords = getZipCoordinates(zip);
+    if (!coords) { setZipError('Zip not recognized'); return; }
+    localStorage.setItem('clouded_zip', zip);
+    // Trigger storage event for other components
+    window.dispatchEvent(new StorageEvent('storage', { key: 'clouded_zip', newValue: zip }));
+    setShowZipPrompt(false);
+    setZipInput('');
+    setZipError('');
+    onLocationSet?.();
+    trackEvent('filter_change', undefined, { action: 'zip_set', zip, source: 'filter_sheet' });
+  }, [zipInput, onLocationSet]);
+
+  // Focus zip input when prompt appears
+  useEffect(() => {
+    if (showZipPrompt && zipInputRef.current) {
+      zipInputRef.current.focus();
+    }
+  }, [showZipPrompt]);
+
+  // Handle tapping distance sort without location
+  const handleSortSelect = useCallback((sortId: SortOption) => {
+    if (sortId === 'distance' && !hasLocation) {
+      setShowZipPrompt(true);
+      return;
+    }
+    onFiltersChange({ ...filters, sortBy: sortId });
+    setSortOpen(false);
+  }, [hasLocation, filters, onFiltersChange]);
 
   const dispensaries = useMemo(() => {
     return DISPENSARIES
@@ -321,22 +362,55 @@ export function FilterSheet({
                 </button>
                 {sortOpen && (
                   <div className="mt-2 space-y-0.5 rounded-xl bg-slate-800/50 p-1.5">
-                    {SORT_OPTIONS.filter(opt => opt.id !== 'distance' || hasLocation).map((opt) => (
+                    {SORT_OPTIONS.map((opt) => (
                       <button
                         key={opt.id}
-                        onClick={() => {
-                          onFiltersChange({ ...filters, sortBy: opt.id });
-                          setSortOpen(false);
-                        }}
-                        className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${
+                        onClick={() => handleSortSelect(opt.id)}
+                        className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all flex items-center justify-between ${
                           filters.sortBy === opt.id
                             ? 'bg-purple-500/15 text-purple-400'
                             : 'text-slate-400 hover:bg-slate-800'
                         }`}
                       >
-                        {opt.label}
+                        <span className="flex items-center gap-2">
+                          {opt.id === 'distance' && <Navigation className="w-3.5 h-3.5" />}
+                          {opt.label}
+                        </span>
+                        {opt.id === 'distance' && !hasLocation && (
+                          <span className="text-[10px] text-slate-500 ml-2">set zip</span>
+                        )}
                       </button>
                     ))}
+                  </div>
+                )}
+                {/* Inline zip prompt — appears when user taps Nearest First without location */}
+                {showZipPrompt && (
+                  <div className="mt-2 rounded-xl bg-slate-800/80 border border-blue-500/20 p-3">
+                    <p className="text-xs text-slate-300 mb-2">
+                      Enter your zip to sort by distance
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={zipInputRef}
+                        type="text"
+                        inputMode="numeric"
+                        value={zipInput}
+                        onChange={(e) => { setZipInput(e.target.value.replace(/\D/g, '').slice(0, 5)); setZipError(''); }}
+                        placeholder="89101"
+                        className="flex-1 px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleZipSubmit();
+                          if (e.key === 'Escape') { setShowZipPrompt(false); setZipInput(''); setZipError(''); }
+                        }}
+                      />
+                      <button
+                        onClick={handleZipSubmit}
+                        className="px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-500/30 transition-colors"
+                      >
+                        Go
+                      </button>
+                    </div>
+                    {zipError && <p className="text-[11px] text-red-400 mt-1.5">{zipError}</p>}
                   </div>
                 )}
               </section>
@@ -380,9 +454,9 @@ export function FilterSheet({
                 {locationOpen && (
                   <div className="mt-3 space-y-5">
                     {/* Distance */}
-                    {hasLocation && (
-                      <div>
-                        <p className="text-[11px] text-slate-500 mb-2">Distance</p>
+                    <div>
+                      <p className="text-[11px] text-slate-500 mb-2">Distance</p>
+                      {hasLocation ? (
                         <div className="grid grid-cols-2 gap-2">
                           {DISTANCE_OPTIONS.map((opt) => {
                             const isSelected = filters.distanceRange === opt.id;
@@ -404,8 +478,19 @@ export function FilterSheet({
                             );
                           })}
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        <button
+                          onClick={() => setShowZipPrompt(true)}
+                          className="w-full flex items-center gap-2 px-3 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 hover:border-blue-500/30 transition-all text-left"
+                        >
+                          <Navigation className="w-4 h-4 text-blue-400 shrink-0" />
+                          <div>
+                            <p className="text-xs font-medium text-slate-300">Set your zip code</p>
+                            <p className="text-[10px] text-slate-500">Filter by Near You, Nearby, or Across Town</p>
+                          </div>
+                        </button>
+                      )}
+                    </div>
 
                     {/* Dispensary */}
                     <div>
