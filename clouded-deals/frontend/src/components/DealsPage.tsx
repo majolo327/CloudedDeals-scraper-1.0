@@ -74,13 +74,14 @@ export function DealsPage({
     return result;
   }, [deals, activeCategory, filterAndSortDeals]);
 
-  // Use the deck for the default sort (curated shuffle)
+  // Deck is always active — users interact with 12 cards at a time, never infinite scroll.
+  // When using default sort (deal_score), we apply the curated shuffle for diversity.
+  // When using a custom sort (price, discount, etc.), deck preserves that order.
   const isDefaultSort = !filters.sortBy || filters.sortBy === 'deal_score';
-  const deck = useDeck(isDefaultSort && !hasActiveFilters ? filteredDeals : []);
+  const deck = useDeck(filteredDeals, { shuffle: isDefaultSort });
 
-  // Determine what to render: deck mode or static sorted mode
-  const visibleDeals = isDefaultSort && !hasActiveFilters ? deck.visible : filteredDeals;
-  const showDeckUI = isDefaultSort && !hasActiveFilters;
+  const visibleDeals = deck.visible;
+  const showDeckUI = true;
 
   return (
     <>

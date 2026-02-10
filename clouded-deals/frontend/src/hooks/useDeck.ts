@@ -71,7 +71,14 @@ export interface DeckState {
   dismissDeal: (dealId: string) => void;
 }
 
-export function useDeck(deals: Deal[]): DeckState {
+export interface DeckOptions {
+  /** Whether to apply curated shuffle (true) or preserve input order (false). Default: true */
+  shuffle?: boolean;
+}
+
+export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState {
+  const { shuffle = true } = options;
+
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() =>
     loadDismissedIds()
   );
@@ -79,12 +86,13 @@ export function useDeck(deals: Deal[]): DeckState {
   const [appearingId, setAppearingId] = useState<string | null>(null);
   const dismissTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Build the shuffled deck once per deal set (session-stable)
+  // Build the deck: shuffled for default sort, or preserve order for custom sorts
   const shuffledDeck = useMemo(() => {
+    if (!shuffle) return deals;
     const anonId =
       typeof window !== 'undefined' ? getOrCreateAnonId() : '';
     return curatedShuffle(deals, { anonId });
-  }, [deals]);
+  }, [deals, shuffle]);
 
   // Split into visible based on dismissals
   const visible = useMemo(() => {
