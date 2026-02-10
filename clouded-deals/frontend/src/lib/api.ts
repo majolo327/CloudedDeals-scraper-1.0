@@ -429,9 +429,9 @@ export async function searchExtendedDeals(
       .eq('dispensaries.region', activeRegion)
       .gt('discount_percent', 0)
       .gt('sale_price', 0)
-      .or(`name.ilike.${pattern},brand.ilike.${pattern}`)
+      .or(`name.ilike.${pattern},brand.ilike.${pattern},category.ilike.${pattern},product_subtype.ilike.${pattern},strain_type.ilike.${pattern}`)
       .order('discount_percent', { ascending: false })
-      .limit(50);
+      .limit(200);
 
     if (error) throw error;
 
@@ -451,7 +451,9 @@ export async function searchExtendedDeals(
     const wordBoundaryRe = new RegExp(`\\b${qEscaped}`, 'i');
     const extended = allResults.filter((d) => {
       if (curatedDealIds.has(d.id)) return false;
-      return wordBoundaryRe.test(d.product_name) || wordBoundaryRe.test(d.brand.name);
+      return wordBoundaryRe.test(d.product_name) || wordBoundaryRe.test(d.brand.name)
+        || wordBoundaryRe.test(d.category) || wordBoundaryRe.test(d.product_subtype ?? '')
+        || wordBoundaryRe.test(d.strain_type ?? '');
     });
 
     // Rank results: exact brand match first, then by discount, then by price
@@ -471,7 +473,7 @@ export async function searchExtendedDeals(
       return a.deal_price - b.deal_price;
     });
 
-    return { deals: extended.slice(0, 30), error: null };
+    return { deals: extended.slice(0, 60), error: null };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Extended search failed';
     return { deals: [], error: message };
