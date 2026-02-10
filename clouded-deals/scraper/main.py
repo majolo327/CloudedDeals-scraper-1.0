@@ -603,27 +603,35 @@ async def _scrape_site_inner(
         raw_text = rp.get("raw_text", "")
         price_text = rp.get("price", "")
 
-        # ── NAME-FIRST BRAND DETECTION ─────────────────────────────
-        # Detect brand from the product NAME first (highest confidence).
-        # Bundle/offer text in raw_text can mention OTHER brands from
-        # multi-brand deals (e.g. "3/$60 grassroots, &shine, haze"),
-        # causing brand contamination.  The product title almost always
-        # has the correct brand at the start.
+        # ── OFFER-CLEAN TEXT for brand & category detection ─────────
+        # Bundle/offer text in raw_text and price_text can mention OTHER
+        # brands (e.g. "3/$60 grassroots, &shine, haze") and OTHER
+        # category keywords (e.g. "3/$60 1g Carts & Wax" — "Carts"
+        # triggers vape detection, blocking concentrates).
+        # We detect brand and category on CLEAN text first, then let
+        # parse_product handle price/weight on the full text.
+        stripped_raw = _strip_offer_text(raw_text)
+        clean_text = f"{raw_name} {stripped_raw}"
+
+        # Brand: try product name first, then stripped text
         brand = logic.detect_brand(raw_name)
         if not brand:
-            # Fallback: try raw_text with offer sections stripped out
-            stripped = _strip_offer_text(raw_text)
-            brand = logic.detect_brand(f"{raw_name} {stripped}")
+            brand = logic.detect_brand(clean_text)
 
-        # Parse full combined text for category, weight, price, THC
+        # Category: detect from clean text (no offer keyword pollution)
+        category = logic.detect_category(clean_text)
+
+        # Parse full combined text for price, weight, THC
         text = f"{raw_name} {raw_text} {price_text}"
         product = logic.parse_product(text, dispensary["name"])
         if product is None:
             continue
 
-        # Override parse_product's brand with our name-first result
+        # Override parse_product's brand and category with our clean results
         if brand:
             product["brand"] = brand
+        if category and category != 'other':
+            product["category"] = category
 
         weight_value, weight_unit = _split_weight(product.get("weight"))
 
