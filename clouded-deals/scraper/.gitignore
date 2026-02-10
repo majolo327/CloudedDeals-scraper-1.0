@@ -9,3 +9,5 @@ env/
 dist/
 build/
 .pytest_cache/
+debug_screenshots/
+recon_output/
