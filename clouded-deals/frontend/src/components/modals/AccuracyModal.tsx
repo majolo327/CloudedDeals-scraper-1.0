@@ -31,7 +31,7 @@ export function AccuracyModal({ isOpen, onClose }: AccuracyModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[105] flex items-center justify-center p-4"
       onClick={() => onClose(true)}
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-soft-reveal" />

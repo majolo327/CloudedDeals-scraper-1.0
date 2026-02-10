@@ -34,10 +34,6 @@ const DISMISS_TIPS_EARLY: string[] = [
   'Not your vibe, got it.',
 ];
 
-const DISMISS_TIPS_ENGAGED: string[] = [
-  // Engaged users know the drill — silent or ultra-brief
-];
-
 const MILESTONE_MESSAGES: Record<number, string> = {
   1: 'First deal saved \uD83D\uDD16',
   3: 'You\'ve got taste \uD83D\uDC4C',
