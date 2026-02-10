@@ -10,7 +10,9 @@ Pipeline:
   3. **Quality gate** (``passes_quality_gate``) — rejects deals with
      incomplete/garbage data (missing name, strain-only names, missing
      weight for categories that need it).
-  4. **Top-200 selection** (``select_top_deals``) — stratified pick with
+  4. **Similarity dedup** (``remove_similar_deals``) — prevents the same
+     brand+category from flooding a single dispensary's slots.
+  5. **Top-200 selection** (``select_top_deals``) — stratified pick with
      brand, dispensary, and category diversity constraints.
 
 Only the ~200 deals returned by ``select_top_deals`` should have
@@ -32,23 +34,24 @@ logger = logging.getLogger("deal_detector")
 
 CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
     "flower": {
-        "3.5": 19,   # eighth — max $19 sale price
-        "7": 30,      # quarter — max $30
-        "14": 40,     # half oz — max $40
-        "28": 79,     # full oz — max $79
+        "3.5": 25,    # eighth — relaxed from $19
+        "7": 45,      # quarter — relaxed from $30
+        "14": 65,     # half oz — relaxed from $40
+        "28": 100,    # full oz — relaxed from $79
     },
-    "vape": 25,           # carts/pods — max $25
-    "edible": 9,          # gummies/chocolates — max $9
-    "concentrate": 25,    # wax/shatter/live resin — max $25
-    "preroll": 6,         # single prerolls — max $6
-    "preroll_pack": 20,   # preroll multi-packs — max $20
+    "vape": 35,           # carts/pods — relaxed from $25
+    "edible": 15,         # gummies/chocolates — relaxed from $9
+    "concentrate": 35,    # wax/shatter/live resin — relaxed from $25
+    "preroll": 10,        # single prerolls — relaxed from $6
+    "preroll_pack": 25,   # preroll multi-packs — relaxed from $20
 }
 
 # Global hard-filter thresholds (apply to ALL categories)
 HARD_FILTERS = {
-    "min_discount_percent": 20,   # must be at least 20% off
+    "min_discount_percent": 15,   # relaxed from 20%
     "min_price": 3,               # below $3 = data error
-    "max_price_absolute": 80,     # nothing over $80 regardless
+    "max_price_absolute": 100,    # raised from $80 for oz flower + concentrates
+    "max_discount_percent": 85,   # above 85% = fake/data error
     "require_original_price": True,
 }
 
@@ -56,39 +59,64 @@ HARD_FILTERS = {
 # exceeds this, it's almost certainly garbage from bundle text leaking into
 # the price parser (e.g. "3 for $50" inflating original to $120).
 ORIGINAL_PRICE_CEILINGS: dict[str, float] = {
-    "flower": 80,       # no eighth/quarter retails above $80
-    "vape": 80,          # carts/pods rarely list above $80
-    "edible": 40,        # gummies/chocolate max ~$30-35 retail
-    "concentrate": 90,   # live resin/rosin can be pricey
-    "preroll": 25,       # single prerolls never list $25+
+    "flower": 100,      # raised — oz flower can retail $90+
+    "vape": 80,
+    "edible": 50,       # raised — multi-dose edibles can be $40+
+    "concentrate": 100,  # raised — live rosin can retail $80+
+    "preroll": 30,       # raised — infused prerolls can retail $25
 }
 
 # =====================================================================
 # Phase 2: Scoring constants
 # =====================================================================
 
+# Two-tier brand system: premium (hype/destination brands) and popular
+# (solid brands consumers recognize and trust).
+BRAND_TIERS: dict[str, dict[str, Any]] = {
+    "premium": {
+        "brands": {
+            "stiiizy", "cookies", "raw garden", "kiva", "wyld",
+            "connected", "alien labs", "jungle boys", "cannabiotix", "cbx",
+            "jeeter", "packwoods", "runtz",
+        },
+        "points": 20,
+    },
+    "popular": {
+        "brands": {
+            "rove", "select", "heavy hitters", "trendi", "camp",
+            "old pal", "pacific stone", "fleur", "virtue",
+            "curaleaf", "matrix", "kynd", "city trees",
+            "camino", "airopro", "bounti", "smokiez",
+            "dixie", "sip", "mpx", "sublime",
+            "wana", "incredibles", "verano", "grassroots",
+            "rythm", "plug play", "pax", "kingpen",
+            "doja", "wonderbrett", "ember valley", "backpack boyz",
+        },
+        "points": 12,
+    },
+}
+
+# Backwards-compat: flat set of all known brands (used by tests/imports)
 PREMIUM_BRANDS: set[str] = {
     "STIIIZY", "Cookies", "Raw Garden", "Kiva", "Wyld",
     "Select", "Trendi", "CAMP", "Old Pal", "Pacific Stone",
     "Fleur", "Virtue", "Rove", "Heavy Hitters",
-    # National premium brands
     "Runtz", "Connected", "Alien Labs", "Jungle Boys",
     "Packwoods", "Doja", "Kingpen", "Plug Play", "PAX",
     "Jeeter", "Backpack Boyz", "Wonderbrett", "Ember Valley",
-    # Major MSO / national brands added from menu audit
     "RYTHM", "Wana", "Incredibles", "Verano", "Grassroots",
 }
 
 CATEGORY_BOOST: dict[str, int] = {
-    "flower": 10,
-    "vape": 10,
+    "flower": 8,
+    "vape": 8,
     "edible": 8,
     "concentrate": 7,
-    "preroll": 6,
+    "preroll": 7,
 }
 
 # =====================================================================
-# Phase 3: Top-100 selection parameters
+# Phase 3: Top-200 selection parameters
 # =====================================================================
 
 TARGET_DEAL_COUNT = 200
@@ -102,9 +130,10 @@ CATEGORY_TARGETS: dict[str, int] = {
     "other": 10,
 }
 
-MAX_SAME_BRAND_TOTAL = 5
-MAX_SAME_DISPENSARY_TOTAL = 30
+MAX_SAME_BRAND_TOTAL = 6
+MAX_SAME_DISPENSARY_TOTAL = 25
 MAX_CONSECUTIVE_SAME_CATEGORY = 3
+MAX_SAME_BRAND_PER_DISPENSARY = 3  # similarity dedup
 
 # =====================================================================
 # Phase 4: Badge thresholds
@@ -126,13 +155,13 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
 
     Checks global price bounds, minimum discount, original price
     presence, and category-specific price caps.
+
+    Infused pre-rolls are now ALLOWED (they're popular products).
+    Only preroll multi-packs remain excluded from curation.
     """
-    # Exclude infused pre-rolls and pre-roll packs from Top 100.
-    # They remain searchable in the full feed — just not curated.
-    if product.get("is_infused"):
-        return False
+    # Exclude pre-roll packs from curation (they remain searchable).
     subtype = product.get("product_subtype")
-    if subtype in ("infused_preroll", "preroll_pack"):
+    if subtype == "preroll_pack":
         return False
 
     sale_price = product.get("sale_price") or product.get("current_price") or 0
@@ -148,6 +177,8 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
         return False
     if not discount or discount < HARD_FILTERS["min_discount_percent"]:
         return False
+    if discount > HARD_FILTERS["max_discount_percent"]:
+        return False  # fake discount / data error
     if HARD_FILTERS["require_original_price"]:
         if not original_price or original_price <= sale_price:
             return False
@@ -161,8 +192,8 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     # --- Category-specific price caps ---
     caps = CATEGORY_PRICE_CAPS.get(category)
     if caps is None:
-        # Unknown category — apply general max of $40
-        return sale_price <= 40
+        # Unknown category — apply general max of $50
+        return sale_price <= 50
 
     if isinstance(caps, dict):
         # Weight-based caps (flower)
@@ -178,12 +209,12 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
             # (uncommon weight — don't penalize)
             if cap is None:
                 # Fall back to 3.5g cap as default for flower
-                default_cap = caps.get("3.5", 19)
+                default_cap = caps.get("3.5", 25)
                 if sale_price > default_cap:
                     return False
         else:
             # Flower with no weight detected — use 3.5g cap as default
-            if sale_price > caps.get("3.5", 19):
+            if sale_price > caps.get("3.5", 25):
                 return False
     else:
         # Flat cap for category
@@ -241,65 +272,178 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
 # =====================================================================
 
 
+def _score_unit_value(category: str, price: float, weight_value: float | None) -> int:
+    """Score based on unit economics ($/g, $/100mg). Up to 15 points."""
+    if not weight_value or weight_value <= 0 or not price or price <= 0:
+        return 0
+
+    if category == "flower":
+        ppg = price / weight_value
+        if ppg <= 3:
+            return 15
+        elif ppg <= 4.5:
+            return 12
+        elif ppg <= 6:
+            return 8
+        elif ppg <= 8:
+            return 4
+        return 0
+
+    elif category == "edible":
+        # weight_value is in mg THC
+        per_100mg = (price / weight_value) * 100
+        if per_100mg <= 5:
+            return 15
+        elif per_100mg <= 8:
+            return 10
+        elif per_100mg <= 12:
+            return 5
+        return 0
+
+    elif category in ("vape", "concentrate"):
+        ppg = price / weight_value
+        if ppg <= 15:
+            return 15
+        elif ppg <= 22:
+            return 10
+        elif ppg <= 30:
+            return 5
+        return 0
+
+    elif category == "preroll":
+        # For prerolls, price IS the unit price (typically 1g singles)
+        if price <= 4:
+            return 15
+        elif price <= 6:
+            return 10
+        elif price <= 8:
+            return 5
+        return 0
+
+    return 0
+
+
+def _score_brand(brand: str) -> int:
+    """Score brand recognition. Up to 20 points.
+
+    Premium hype brands = 20, popular known brands = 12, any brand = 5.
+    """
+    if not brand:
+        return 0
+
+    brand_lower = brand.lower()
+    for tier_data in BRAND_TIERS.values():
+        if brand_lower in tier_data["brands"]:
+            return tier_data["points"]
+        # Substring match for compound names (e.g. "Alien Labs Cannabis")
+        if any(b in brand_lower for b in tier_data["brands"] if len(b) > 3):
+            return tier_data["points"]
+
+    return 5  # any brand > no brand
+
+
 def calculate_deal_score(product: dict[str, Any]) -> int:
     """Score a qualifying deal on a 0-100 scale.
 
     Only called after ``passes_hard_filters()`` returns ``True``.
 
-    Components:
-      1. Discount depth   — up to 40 pts
-      2. Brand recognition — up to 20 pts
-      3. Category boost    — up to 10 pts
-      4. Price sweet spot  — up to 15 pts
-      5. THC potency       — up to 15 pts
+    Components (max 100):
+      1. Discount depth       — up to 35 pts
+      2. Dollars saved         — up to 10 pts
+      3. Brand recognition     — up to 20 pts
+      4. Unit value            — up to 15 pts
+      5. Category boost        — up to 8 pts
+      6. Price attractiveness  — up to 12 pts
     """
     score = 0
     discount = product.get("discount_percent") or 0
     sale_price = product.get("sale_price") or product.get("current_price") or 0
+    original_price = product.get("original_price") or 0
     category = product.get("category", "other")
-
-    # 1. DISCOUNT DEPTH (up to 40 points)
-    #    20% off = 16pts, 30% = 24pts, 40% = 32pts, 50%+ = 40pts
-    score += min(40, int(discount * 0.8))
-
-    # 2. BRAND RECOGNITION (up to 20 points)
+    weight_value = product.get("weight_value")
     brand = product.get("brand") or ""
-    if brand in PREMIUM_BRANDS:
-        score += 20
-    elif brand:  # known brand but not premium
-        score += 8
 
-    # 3. CATEGORY POPULARITY (up to 10 points)
+    # 1. DISCOUNT DEPTH (up to 35 points)
+    if discount >= 50:
+        score += 35
+    elif discount >= 40:
+        score += 28
+    elif discount >= 30:
+        score += 22
+    elif discount >= 25:
+        score += 17
+    elif discount >= 20:
+        score += 12
+    elif discount >= 15:
+        score += 7
+
+    # 2. DOLLARS SAVED (up to 10 points)
+    if original_price > 0 and original_price > sale_price:
+        saved = original_price - sale_price
+        score += min(10, int(saved / 2.5))
+
+    # 3. BRAND RECOGNITION (up to 20 points)
+    score += _score_brand(brand)
+
+    # 4. UNIT VALUE (up to 15 points)
+    score += _score_unit_value(category, sale_price, weight_value)
+
+    # 5. CATEGORY BOOST (up to 8 points)
     score += CATEGORY_BOOST.get(category, 3)
 
-    # 4. PRICE SWEET SPOT (up to 15 points)
-    #    Vegas shoppers love $10-30 range deals
-    if 10 <= sale_price <= 30:
-        score += 15
-    elif 5 <= sale_price < 10 or 30 < sale_price <= 45:
-        score += 8
-
-    # 5. THC POTENCY BONUS (up to 15 points)
-    thc = product.get("thc_percent")
-    if thc and thc >= 30:
-        score += 15
-    elif thc and thc >= 25:
+    # 6. PRICE ATTRACTIVENESS (up to 12 points)
+    # Consumers love deals in the $8-25 range
+    if 8 <= sale_price <= 15:
+        score += 12
+    elif 15 < sale_price <= 25:
         score += 10
-    elif thc and thc >= 20:
-        score += 5
+    elif 5 <= sale_price < 8:
+        score += 8
+    elif 25 < sale_price <= 40:
+        score += 6
+    elif 0 < sale_price < 5:
+        score += 4
 
     return min(100, score)
 
 
 # =====================================================================
-# Phase 3: Top-100 Selection with Variety
+# Similarity dedup — prevent flooding from same brand at same dispensary
+# =====================================================================
+
+
+def remove_similar_deals(deals: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep at most MAX_SAME_BRAND_PER_DISPENSARY deals per
+    brand+category from the same dispensary.
+
+    Prevents "15 Stiiizy pods from Planet 13" dominating the feed.
+    Keeps the highest-scored entries from each group.
+    """
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for deal in deals:
+        brand = (deal.get("brand") or "unknown").lower()
+        cat = deal.get("category", "other")
+        dispo = deal.get("dispensary_id") or ""
+        key = f"{dispo}|{brand}|{cat}"
+        groups[key].append(deal)
+
+    result: list[dict[str, Any]] = []
+    for group in groups.values():
+        group.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+        result.extend(group[:MAX_SAME_BRAND_PER_DISPENSARY])
+
+    return result
+
+
+# =====================================================================
+# Phase 3: Top-200 Selection with Variety
 # =====================================================================
 
 
 def select_top_deals(
     scored_deals: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Select the best ~100 deals with category, brand, and dispensary diversity.
+    """Select the best ~200 deals with category, brand, and dispensary diversity.
 
     ``scored_deals`` must already have ``deal_score`` set (from
     ``calculate_deal_score``).  Returns a list of up to
@@ -353,7 +497,7 @@ def select_top_deals(
     # Pick deals from each category pool with brand diversity.
     # NOTE: Products without a detected brand each get a unique key
     # so they are NOT all collapsed into one "Unknown" bucket that
-    # gets capped at MAX_SAME_BRAND_TOTAL = 5.  Only per-dispensary
+    # gets capped at MAX_SAME_BRAND_TOTAL.  Only per-dispensary
     # and per-category limits constrain brandless products.
     brand_counts: dict[str, int] = defaultdict(int)
     dispensary_counts: dict[str, int] = defaultdict(int)
@@ -493,7 +637,7 @@ def select_top_deals(
 def detect_deals(
     products: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Full pipeline: filter -> score -> select top 100.
+    """Full pipeline: filter -> score -> dedup -> select top 200.
 
     Returns only the curated top deals with ``deal_score`` set.
     All other products should get ``deal_score = 0``.
@@ -537,7 +681,19 @@ def detect_deals(
             quality_rejected, quality_before,
         )
 
-    # Step 4: Select top ~200 with diversity
+    # Step 4: Similarity dedup — max 3 per brand+category per dispensary
+    dedup_before = len(scored)
+    scored = remove_similar_deals(scored)
+    dedup_removed = dedup_before - len(scored)
+    if dedup_removed > 0:
+        logger.info(
+            "Similarity dedup: %d/%d deals removed (same brand+cat+dispo)",
+            dedup_removed, dedup_before,
+        )
+    # Re-sort after dedup
+    scored.sort(key=lambda d: d["deal_score"], reverse=True)
+
+    # Step 5: Select top ~200 with diversity
     top_deals = select_top_deals(scored)
     logger.info("Selected %d top deals for display", len(top_deals))
 
