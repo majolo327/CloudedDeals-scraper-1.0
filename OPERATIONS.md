@@ -247,6 +247,69 @@ This takes screenshots and detects what platform the site uses.
 
 ---
 
+## Frontend Deal Display
+
+### Two View Modes (Grid + Swipe)
+
+Users toggle between modes via a small icon toggle next to the deal count header. Choice persists in localStorage (`clouded_view_mode`).
+
+**Grid mode** (default): 12-card grid (2 cols mobile, 3 cols desktop). Each card has a heart button (save) and an X button (dismiss). Dismissing a card slides in the next from the shuffled deck. Progress bar appears after first dismiss.
+
+**Swipe mode**: Tinder-style card stack. Top card is interactive — swipe right to save, left to pass, tap for details. Action buttons below the stack for non-swipe users. Same deck state as grid (dismissals sync between modes).
+
+### Curated Shuffle Algorithm
+
+Deals are NOT shown in raw database order. `curatedShuffle.ts` applies:
+
+1. **Tier classification** by deal_score: Tier 1 (>=75, "steals"), Tier 2 (40-74, "solid"), Tier 3 (<40, "discovery")
+2. **Target ratios**: 40% Tier 1, 45% Tier 2, 15% Tier 3
+3. **Diversity constraints**: no back-to-back same brand, max 3 same category, max 2 same dispensary
+4. **Seeded PRNG** (mulberry32): deterministic for the same user + date, fresh shuffle each day
+
+When the user uses a custom sort (price, discount, distance), the shuffle is disabled and the deck preserves the sorted order.
+
+### Deck System (`useDeck.ts`)
+
+- **VISIBLE_COUNT = 12** for grid mode
+- Dismissed deal IDs stored in localStorage (`clouded_dismissed_v1`), auto-resets daily
+- `dismissDeal()` plays a 300ms animation then swaps (grid mode)
+- `dismissImmediate()` swaps instantly (swipe mode — SwipeableCard handles its own animation)
+- `remaining` exposes the full undismissed queue for the stack view
+- `isComplete` triggers end-of-deck message when all deals reviewed
+
+### Gamification Features
+
+| Feature | File | How it works |
+|---------|------|-------------|
+| Daily streaks | `useStreak.ts` | Consecutive visit days, milestones at 3/7/14/30 |
+| Milestone toasts | `page.tsx` | 1st save, 3rd save, 10th save, explorer, brand fan |
+| Brand affinity | `useBrandAffinity.ts` | Tracks which brands users save most |
+| Challenges | `useChallenges.ts` | "Save by category", "unique dispensaries", etc. |
+| Personalization | `personalization.ts` | Scores deals 0-100 based on user preference model |
+
+### FTUE (First-Time User Experience)
+
+1. **Splash** — value prop + deal count
+2. **Preferences** — pick favorite categories
+3. **Location** — zip code or geolocation
+4. **Coach marks** — 6-step overlay spotlighting: deal card, save button, view toggle, filters, search, closing message
+
+Coach marks use `data-coach` attributes on elements for targeting. State stored in `clouded_coach_marks_seen`.
+
+### Key Frontend localStorage Keys
+
+| Key | Purpose | Reset |
+|-----|---------|-------|
+| `clouded_dismissed_v1` | Dismissed deal IDs | Daily |
+| `clouded_saved_v1` | Saved deal IDs | Never |
+| `clouded_view_mode` | Grid or stack preference | Never |
+| `clouded_filters_v1` | Filter/sort state | Never |
+| `clouded_streak` | Visit streak counter | Never |
+| `clouded_ftue_completed` | FTUE done flag | Never |
+| `clouded_coach_marks_seen` | Coach marks done flag | Never |
+
+---
+
 ## What's Next
 
 ### Short-term (prove new platforms)

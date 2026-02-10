@@ -38,8 +38,13 @@ const STEPS: Step[] = [
     cta: 'Next',
   },
   {
+    selector: '[data-coach="view-toggle"]',
+    title: 'Switch between Grid and Swipe modes. Grid shows 12 deals at a glance. Swipe lets you go one-by-one \u2014 swipe right to save, left to pass.',
+    cta: 'Next',
+  },
+  {
     selector: '[data-coach="filter-bar"]',
-    title: 'Filter by category, dispensary, and price range. All 27 Vegas dispensaries are here \u2014 even ones without deals today.',
+    title: 'Filter by category, dispensary, and price range. All 40+ Vegas dispensaries are here \u2014 even ones without deals today.',
     cta: 'Next',
   },
   {
@@ -49,7 +54,7 @@ const STEPS: Step[] = [
   },
   {
     selector: '',
-    title: "Coming soon: brand loyalty perks, VIP rewards, and exclusive giveaways. The more you use CloudedDeals, the more you unlock.",
+    title: "The more you save and dismiss, the better we learn your taste. Keep going \u2014 your feed gets smarter every day.",
     cta: "Let\u2019s Go",
   },
 ];
