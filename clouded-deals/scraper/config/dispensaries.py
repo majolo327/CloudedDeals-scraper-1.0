@@ -617,39 +617,39 @@ DISPENSARIES = [
         "region": "southern-nv",
     },
     {
-        # Direct dispenseapp.com menu — recon showed 1 product (needs settle time)
-        "name": "Nevada Made Casino Dr",
+        # Switched from AIQ to Dutchie — specials page with embedded menu
+        "name": "Nevada Made Laughlin",
         "slug": "nevada-made-casino-dr",
-        "platform": "aiq",
-        "url": "https://menus.dispenseapp.com/109b415eec40c64b/menu",
+        "platform": "dutchie",
+        "url": "https://nevadamademarijuana.com/stores/nevada-made-marijuana-laughlin/specials",
         "is_active": True,
         "region": "southern-nv",
     },
     {
-        # Direct dispenseapp.com menu — recon showed 1 product (needs settle time)
+        # Switched from AIQ to Dutchie — specials page with embedded menu
         "name": "Nevada Made Charleston",
         "slug": "nevada-made-charleston",
-        "platform": "aiq",
-        "url": "https://menus.dispenseapp.com/566264bdaf01fa71/menu",
+        "platform": "dutchie",
+        "url": "https://nevadamademarijuana.com/stores/nevada-made-marijuana-charleston/specials",
         "is_active": True,
         "region": "southern-nv",
     },
     {
-        # HTTP 403 in recon — bot-blocked or geo-restricted
+        # Switched from AIQ to Dutchie — was 403 on old platform, now active
         "name": "Nevada Made Henderson",
         "slug": "nevada-made-henderson",
-        "platform": "aiq",
-        "url": "https://nevadamademarijuana.com/store/henderson",
-        "is_active": False,
+        "platform": "dutchie",
+        "url": "https://nevadamademarijuana.com/stores/nevada-made-marijuana-henderson1/specials",
+        "is_active": True,
         "region": "southern-nv",
     },
     {
-        # HTTP 403 in recon — bot-blocked or geo-restricted
+        # Switched from AIQ to Dutchie — was 403 on old platform, now active
         "name": "Nevada Made Warm Springs",
         "slug": "nevada-made-warm-springs",
-        "platform": "aiq",
-        "url": "https://nevadamademarijuana.com/store/warmsprings",
-        "is_active": False,
+        "platform": "dutchie",
+        "url": "https://nevadamademarijuana.com/stores/nevada-made-marijuana-warm-springs/specials",
+        "is_active": True,
         "region": "southern-nv",
     },
 ]
