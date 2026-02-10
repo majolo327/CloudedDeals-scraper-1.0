@@ -455,27 +455,19 @@ class TestStrainSearch:
 # ===========================================================================
 
 class TestDispensarySearch:
-    """Test 10: Rise Nellis — listed-only dispensary (not scraped)."""
+    """Test 10: Rise — now actively scraped via Phase 2 Rise scraper."""
 
-    def test_rise_not_in_scraped_dispensaries(self):
-        """Rise dispensaries are listed-only — no deals will be found.
-        Scraper config only has 27 dispensaries, none are Rise."""
-        # Known scraped dispensary IDs from config/dispensaries.py
-        scraped_ids = {
-            "td-gibson", "td-decatur", "planet13", "medizin",
-            "greenlight-downtown", "greenlight-paradise", "the-grove",
-            "mint-paradise", "mint-rainbow",
-            "curaleaf-western", "curaleaf-cheyenne", "curaleaf-strip",
-            "curaleaf-the-reef",
-            "oasis", "deep-roots-cheyenne", "deep-roots-craig",
-            "deep-roots-blue-diamond", "deep-roots-parkson",
-            "cultivate-spring", "cultivate-durango",
-            "thrive-sahara", "thrive-cheyenne", "thrive-strip", "thrive-main",
-            "beyond-hello-sahara", "beyond-hello-twain",
-        }
-        rise_ids = {"rise-sunset", "rise-tropicana", "rise-rainbow",
-                    "rise-nellis", "rise-boulder", "rise-durango", "rise-craig"}
-        assert rise_ids.isdisjoint(scraped_ids), "Rise dispensaries shouldn't be in scraped set"
+    def test_rise_in_scraped_dispensaries(self):
+        """Rise dispensaries are now scraped (Phase 2).
+        Verify they appear in the active config."""
+        from config.dispensaries import get_active_dispensaries
+        active_slugs = {d["slug"] for d in get_active_dispensaries()}
+        rise_ids = {"rise-tropicana", "rise-rainbow", "rise-nellis",
+                    "rise-boulder", "rise-durango", "rise-craig",
+                    "cookies-strip-rise", "cookies-flamingo"}
+        assert rise_ids.issubset(active_slugs), (
+            f"Rise dispensaries missing from config: {rise_ids - active_slugs}"
+        )
 
     def test_word_boundary_prevents_rise_matching_sunrise(self):
         """Word-boundary regex for 'rise' should not match 'sunrise'."""

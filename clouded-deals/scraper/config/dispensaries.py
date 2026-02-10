@@ -1,12 +1,13 @@
 """
-Dispensary configuration for Las Vegas locations across 3 platforms.
+Dispensary configuration for Las Vegas locations across 4 platforms.
 
 Platforms:
   - dutchie: iframe-based menus (Dutchie/TD sites)  — 15 sites
   - curaleaf: direct page loads (Curaleaf + Zen Leaf) — 6 sites
   - jane: hybrid iframe/direct with "View More" pagination — 19 sites
+  - rise: proprietary Next.js SPA (Rise/GTI + Cookies) — 8 sites
 
-Total active: 40 dispensaries
+Total active: 48 dispensaries
 
 Sites marked ``is_active: False`` are known-broken (redirects, rebrands,
 etc.) and will be skipped by the orchestrator.  They remain in the config
@@ -68,6 +69,11 @@ PLATFORM_DEFAULTS = {
         "pagination": "view_more",        # click "View More" button
         "between_view_more_sec": 1.5,
         "embed_type": "hybrid",           # iframe or direct depending on site
+        "wait_until": "domcontentloaded",
+    },
+    "rise": {
+        "wait_after_age_gate_sec": 15,
+        "embed_type": "direct",           # proprietary Next.js SPA, no iframe
         "wait_until": "domcontentloaded",
     },
 }
@@ -423,13 +429,80 @@ DISPENSARIES = [
     },
 
     # ------------------------------------------------------------------
-    # PENDING PLATFORMS — Phase 2+ (inactive until scrapers are built)
+    # RISE SITES  (8) — proprietary Next.js SPA via cdn-bong.risecannabis.com
     # ------------------------------------------------------------------
-    # Rise (8 sites) — proprietary SPA at risecannabis.com
+    {
+        "name": "Rise Tropicana West",
+        "slug": "rise-tropicana",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/nevada/tropicana-west/recreational-menu",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "Rise Rainbow",
+        "slug": "rise-rainbow",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/nevada/rainbow/recreational-menu",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "Rise Nellis",
+        "slug": "rise-nellis",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/nevada/nellis/recreational-menu",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "Rise Durango",
+        "slug": "rise-durango",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/nevada/durango/recreational-menu",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "Rise Craig",
+        "slug": "rise-craig",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/nevada/craig/recreational-menu",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "Rise Boulder Highway",
+        "slug": "rise-boulder",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/nevada/boulder-highway/recreational-menu",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "Cookies on the Strip",
+        "slug": "cookies-strip-rise",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/nevada/cookies-on-the-strip/recreational-menu",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        # Rise-operated (recon confirmed: Rise score=2, 89 products)
+        "name": "Cookies Flamingo",
+        "slug": "cookies-flamingo",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/nevada/cookies-flamingo/recreational-menu",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+
+    # ------------------------------------------------------------------
+    # PENDING PLATFORMS — Phase 3+ (inactive until scrapers are built)
+    # ------------------------------------------------------------------
     # Carrot (6 sites) — getcarrot.io embed
     # AIQ (5-7 sites) — alpineiq.com / dispenseapp.com
     #
-    # Cookies Flamingo is Rise-operated (confirmed by recon, score=2).
     # SLV has Dutchie markers but age gate redirect needs investigation.
 ]
 
