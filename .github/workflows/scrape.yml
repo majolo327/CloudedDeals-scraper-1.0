@@ -2,9 +2,10 @@ name: Daily Scraper
 
 on:
   schedule:
-    # Cron runs the "stable" group (Dutchie/Curaleaf/Jane) daily at 8 AM PT.
-    # New platforms (Rise/Carrot/AIQ) are triggered manually until proven.
-    - cron: "0 16 * * *"
+    # Cron targets 7:00 AM PST / 8:00 AM PDT (15:00 UTC). GitHub Actions
+    # cron typically runs 15-30 min late, so actual start lands ~7:15-7:30
+    # AM PST (winter) or ~8:15-8:30 AM PDT (summer).
+    - cron: "0 15 * * *"
   workflow_dispatch:
     inputs:
       platform_group:
