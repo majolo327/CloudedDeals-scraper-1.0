@@ -246,6 +246,34 @@ _SALE_COPY_PATTERNS = [
 # Names that are strain types / classifications, NOT real product names.
 _STRAIN_ONLY_NAMES = {"indica", "sativa", "hybrid", "cbd", "thc", "unknown"}
 
+# ── Offer/bundle text isolation for brand detection ──────────────────
+# When Dutchie product cards include "Special Offers" sections, those
+# sections mention OTHER brands from bundle deals (e.g. "2/$40 Power
+# Pack || KYND 3.5g Flower & HAZE 1g Live Resin ||").  Running brand
+# detection on this text causes brand contamination — the wrong brand
+# gets picked up.  We strip offer text BEFORE brand detection fallback.
+_RE_OFFER_SECTION = re.compile(
+    r"(?:Special Offers?\s*\(?.*$)"            # "Special Offers (1) …" to end
+    r"|(?:\d+/\$\d+\s+.*(?:Power Pack|Bundle).*$)"  # "2/$40 Power Pack || …"
+    r"|(?:\bShop Offer\b.*$)"                  # "Shop Offer" link text
+    r"|(?:\bOffer\b.*\bShop\b.*$)",            # variant "Offer … Shop"
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def _strip_offer_text(raw_text: str) -> str:
+    """Remove Special Offers / bundle deal sections from raw_text.
+
+    This prevents brand names mentioned in offer text (e.g. "KYND 3.5g
+    Flower & HAZE 1g Live Resin") from contaminating brand detection.
+    The offer text is stripped ONLY for brand detection — the full
+    raw_text is still passed to parse_product for price/weight extraction.
+    """
+    if not raw_text:
+        return ""
+    return _RE_OFFER_SECTION.sub("", raw_text).strip()
+
+
 # Leading strain-type prefix (e.g. "Indica OG Kush" → "OG Kush")
 _RE_LEADING_STRAIN = re.compile(
     r"^(Indica|Sativa|Hybrid)\s*[-:|]?\s*", re.IGNORECASE,
@@ -574,10 +602,36 @@ async def _scrape_site_inner(
         raw_name = _clean_product_name(rp.get("name", ""))
         raw_text = rp.get("raw_text", "")
         price_text = rp.get("price", "")
+
+        # ── OFFER-CLEAN TEXT for brand & category detection ─────────
+        # Bundle/offer text in raw_text and price_text can mention OTHER
+        # brands (e.g. "3/$60 grassroots, &shine, haze") and OTHER
+        # category keywords (e.g. "3/$60 1g Carts & Wax" — "Carts"
+        # triggers vape detection, blocking concentrates).
+        # We detect brand and category on CLEAN text first, then let
+        # parse_product handle price/weight on the full text.
+        stripped_raw = _strip_offer_text(raw_text)
+        clean_text = f"{raw_name} {stripped_raw}"
+
+        # Brand: try product name first, then stripped text
+        brand = logic.detect_brand(raw_name)
+        if not brand:
+            brand = logic.detect_brand(clean_text)
+
+        # Category: detect from clean text (no offer keyword pollution)
+        category = logic.detect_category(clean_text)
+
+        # Parse full combined text for price, weight, THC
         text = f"{raw_name} {raw_text} {price_text}"
         product = logic.parse_product(text, dispensary["name"])
         if product is None:
             continue
+
+        # Override parse_product's brand and category with our clean results
+        if brand:
+            product["brand"] = brand
+        if category and category != 'other':
+            product["category"] = category
 
         weight_value, weight_unit = _split_weight(product.get("weight"))
 

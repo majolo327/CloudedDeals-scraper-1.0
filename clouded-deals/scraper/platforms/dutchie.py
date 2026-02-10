@@ -297,6 +297,19 @@ class DutchieScraper(BaseScraper):
                 raw_text = _JUNK_PATTERNS.sub("", text_block).strip()
                 raw_text = re.sub(r"\n{3,}", "\n\n", raw_text)  # collapse blank lines
 
+                # --- Separate offer/bundle text from product text ---
+                # Dutchie "Special Offers" sections live inside the same
+                # card container.  Split them out so brand detection
+                # doesn't pick up brands from bundle deals.
+                offer_text = ""
+                if re.search(r"Special Offers?\s*\(", raw_text):
+                    parts = re.split(
+                        r"Special Offers?\s*\(\s*\d+\s*\)",
+                        raw_text, maxsplit=1,
+                    )
+                    raw_text = parts[0].strip()
+                    offer_text = parts[1].strip() if len(parts) > 1 else ""
+
                 # --- In-page dedup (same name on same page = duplicate) ---
                 dedup_key = name.lower().strip()
                 if dedup_key in seen_names:
@@ -306,6 +319,7 @@ class DutchieScraper(BaseScraper):
                 product: dict[str, Any] = {
                     "name": name,
                     "raw_text": raw_text,
+                    "offer_text": offer_text,  # bundle text, kept separate
                     "product_url": self.url,  # fallback: dispensary menu URL
                 }
 

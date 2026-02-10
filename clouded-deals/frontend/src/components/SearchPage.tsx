@@ -443,7 +443,11 @@ export function SearchPage({
                       return (
                         <div
                           key={disp.id}
-                          className="glass frost rounded-xl p-3 flex items-center gap-3"
+                          className="glass frost rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:bg-white/[0.06] transition-colors"
+                          onClick={() => setActiveDispensary(disp.id)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setActiveDispensary(disp.id); }}
                         >
                           <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
                             <MapPin className="w-5 h-5 text-slate-400" />
