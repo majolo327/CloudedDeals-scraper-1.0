@@ -1,5 +1,5 @@
 """
-Dispensary configuration for Las Vegas locations across 4 platforms.
+Dispensary configuration for Las Vegas locations across 6 platforms.
 
 Platforms:
   - dutchie: iframe-based menus (Dutchie/TD sites)  — 16 sites
@@ -7,8 +7,9 @@ Platforms:
   - jane: hybrid iframe/direct with "View More" pagination — 19 sites
   - rise: proprietary Next.js SPA (Rise/GTI + Cookies) — 9 sites
   - carrot: JS widget via getcarrot.io               — 6 sites
+  - aiq: Alpine IQ / Dispense React SPA              — 5 active (+2 inactive)
 
-Total active: 56 dispensaries
+Total active: 61 dispensaries (+ 2 inactive AIQ sites)
 
 Sites marked ``is_active: False`` are known-broken (redirects, rebrands,
 etc.) and will be skipped by the orchestrator.  They remain in the config
@@ -80,6 +81,11 @@ PLATFORM_DEFAULTS = {
     "carrot": {
         "wait_after_age_gate_sec": 10,
         "embed_type": "direct",           # JS widget injects into page DOM
+        "wait_until": "domcontentloaded",
+    },
+    "aiq": {
+        "wait_after_age_gate_sec": 15,
+        "embed_type": "direct",           # React SPA (standalone or embedded)
         "wait_until": "domcontentloaded",
     },
 }
@@ -581,9 +587,71 @@ DISPENSARIES = [
     },
 
     # ------------------------------------------------------------------
-    # PENDING PLATFORMS — Phase 4+ (inactive until scrapers are built)
+    # AIQ / DISPENSE SITES (7) — Alpine IQ React SPA menus
     # ------------------------------------------------------------------
-    # AIQ (5-7 sites) — alpineiq.com / dispenseapp.com
+    {
+        # Recon: 628 products, alpineiq scripts detected
+        "name": "Green (Hualapai)",
+        "slug": "green-hualapai",
+        "platform": "aiq",
+        "url": "https://greennv.com/menu/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        # Recon: 197 products, score 7
+        "name": "Pisos",
+        "slug": "pisos",
+        "platform": "aiq",
+        "url": "https://www.pisoslv.com/menu/rec",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        # Recon: 189 products, score 3
+        "name": "Jardin",
+        "slug": "jardin",
+        "platform": "aiq",
+        "url": "https://www.jardinlasvegas.com/store",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        # Direct dispenseapp.com menu — recon showed 1 product (needs settle time)
+        "name": "Nevada Made Casino Dr",
+        "slug": "nevada-made-casino-dr",
+        "platform": "aiq",
+        "url": "https://menus.dispenseapp.com/109b415eec40c64b/menu",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        # Direct dispenseapp.com menu — recon showed 1 product (needs settle time)
+        "name": "Nevada Made Charleston",
+        "slug": "nevada-made-charleston",
+        "platform": "aiq",
+        "url": "https://menus.dispenseapp.com/566264bdaf01fa71/menu",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        # HTTP 403 in recon — bot-blocked or geo-restricted
+        "name": "Nevada Made Henderson",
+        "slug": "nevada-made-henderson",
+        "platform": "aiq",
+        "url": "https://nevadamademarijuana.com/store/henderson",
+        "is_active": False,
+        "region": "southern-nv",
+    },
+    {
+        # HTTP 403 in recon — bot-blocked or geo-restricted
+        "name": "Nevada Made Warm Springs",
+        "slug": "nevada-made-warm-springs",
+        "platform": "aiq",
+        "url": "https://nevadamademarijuana.com/store/warmsprings",
+        "is_active": False,
+        "region": "southern-nv",
+    },
 ]
 
 # ---------------------------------------------------------------------------
