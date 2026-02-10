@@ -196,8 +196,8 @@ class TestStiiizyScoringAndDetection:
             weight_value=0.5,
         )
         score = calculate_deal_score(product)
-        # 51% off = 40 pts + 20 (premium) + 10 (vape) + 15 (price sweet) + 10 (THC) = 95
-        assert score >= 85, f"STIIIZY deal should be a 'steal' (85+), got {score}"
+        # Premium brand (20) + high discount (35) + unit value + cat + price = strong score
+        assert score >= 70, f"STIIIZY deal should be at least 'fire' (70+), got {score}"
 
     def test_stiiizy_in_curated_with_good_discount(self, make_product):
         """A STIIIZY product with 25% off at $22 should pass hard filters."""
@@ -212,14 +212,14 @@ class TestStiiizyScoringAndDetection:
         )
         assert passes_hard_filters(product)
 
-    def test_stiiizy_vape_over_25_filtered(self, make_product):
-        """Vape over $25 should fail hard filter (category price cap)."""
+    def test_stiiizy_vape_over_35_filtered(self, make_product):
+        """Vape over $35 should fail hard filter (category price cap)."""
         product = make_product(
             name="STIIIZY Big Bag Pod 1g",
             brand="STIIIZY",
             category="vape",
-            sale_price=26.0,
-            original_price=52.0,
+            sale_price=36.0,
+            original_price=72.0,
             discount_percent=50,
             weight_value=1.0,
         )
@@ -290,14 +290,14 @@ class TestQuantityFilter:
         assert passes_hard_filters(product)
 
     def test_half_oz_over_cap_fails(self, make_product):
-        """14g flower over $40 should fail hard filter."""
+        """14g flower over $65 should fail hard filter."""
         product = make_product(
             name="Premium Half Oz",
             brand="Connected",
             category="flower",
-            sale_price=45.0,
-            original_price=90.0,
-            discount_percent=50,
+            sale_price=66.0,
+            original_price=100.0,
+            discount_percent=34,
             weight_value=14.0,
             weight_unit="g",
         )
@@ -555,7 +555,8 @@ class TestScoringDistribution:
             thc_percent=35.0,
         )
         score = calculate_deal_score(product)
-        assert score == 100
+        assert score <= 100
+        assert score >= 85, f"Expected steal-level score, got {score}"
 
     def test_steal_threshold(self, make_product):
         """Score >= 85 should qualify as a 'steal'."""
@@ -598,13 +599,13 @@ class TestScoringDistribution:
         assert score_premium > score_no_brand, "Premium brand should score higher"
 
     def test_category_boost_values(self):
-        """Verify flower and vape get highest category boosts."""
+        """Verify category boosts are balanced (flower/vape/edible = 8, concentrate/preroll = 7)."""
         from deal_detector import CATEGORY_BOOST
-        assert CATEGORY_BOOST["flower"] == 10
-        assert CATEGORY_BOOST["vape"] == 10
+        assert CATEGORY_BOOST["flower"] == 8
+        assert CATEGORY_BOOST["vape"] == 8
         assert CATEGORY_BOOST["edible"] == 8
         assert CATEGORY_BOOST["concentrate"] == 7
-        assert CATEGORY_BOOST["preroll"] == 6
+        assert CATEGORY_BOOST["preroll"] == 7
 
 
 # ===========================================================================

@@ -268,8 +268,10 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
           })
       : [];
 
-    // Enforce dispensary diversity: max 5 deals per dispensary
-    const deals = applyDispensaryDiversityCap(allDeals, 5);
+    // Enforce dispensary diversity: max 15 deals per dispensary.
+    // Backend curation already limits to 25 per dispo with brand dedup —
+    // this is a lighter client-side safety net, not the primary filter.
+    const deals = applyDispensaryDiversityCap(allDeals, 15);
 
     // Cache for offline use
     setCachedDeals(deals);
