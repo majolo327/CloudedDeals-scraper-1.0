@@ -469,6 +469,20 @@ class TestStrainSearch:
 # ===========================================================================
 
 class TestDispensarySearch:
+    """Test 10: Rise — now actively scraped via Phase 2 Rise scraper."""
+
+    def test_rise_in_scraped_dispensaries(self):
+        """Rise dispensaries are now scraped (Phase 2).
+        Verify they appear in the active config."""
+        from config.dispensaries import get_active_dispensaries
+        active_slugs = {d["slug"] for d in get_active_dispensaries()}
+        rise_ids = {"rise-tropicana", "rise-rainbow", "rise-nellis",
+                    "rise-boulder", "rise-durango", "rise-craig",
+                    "rise-henderson",
+                    "cookies-strip-rise", "cookies-flamingo"}
+        assert rise_ids.issubset(active_slugs), (
+            f"Rise dispensaries missing from config: {rise_ids - active_slugs}"
+        )
     """Test 10: Rise Nellis — now scraped via Jane platform."""
 
     def test_rise_in_scraped_dispensaries(self):
