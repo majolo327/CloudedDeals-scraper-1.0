@@ -71,6 +71,19 @@ class TestDetectCategory:
     def test_concentrate_badder_with_weight(self, logic):
         assert logic.detect_category("City Trees Badder 1g") == "concentrate"
 
+    def test_live_resin_cart_is_vape_not_concentrate(self, logic):
+        """'Live Resin Cart 0.5g' has concentrate keywords + weight but
+        the vape keyword 'cart' should take priority."""
+        assert logic.detect_category("AMA Live Resin Cart 0.5g") == "vape"
+
+    def test_live_resin_pod_is_vape_not_concentrate(self, logic):
+        """'Live Resin Pod 1g' — pod keyword = vape, not concentrate."""
+        assert logic.detect_category("STIIIZY Live Resin Pod 1g") == "vape"
+
+    def test_live_resin_without_vape_keyword_is_concentrate(self, logic):
+        """'AMA Live Resin 1g' — no vape keyword = concentrate."""
+        assert logic.detect_category("AMA Live Resin 1g") == "concentrate"
+
     # ── Flower by weight (BEFORE vape) ─────────────────────────────
 
     @pytest.mark.parametrize("text,expected", [

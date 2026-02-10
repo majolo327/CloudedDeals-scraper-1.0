@@ -621,15 +621,19 @@ class CloudedLogic:
             return 'preroll'
 
         # 4. CONCENTRATE (requires BOTH keyword AND weight)
+        # IMPORTANT: If the product also has vape keywords (cart, pod, etc.),
+        # it's a vape — not a concentrate.  "Live Resin Cart 0.5g" = vape.
         concentrate_keywords = [
             'badder', 'batter', 'budder', 'shatter', 'wax', 'sauce',
             'diamonds', 'sugar', 'crumble', 'hash', 'rosin', 'dab',
             'terp sauce', 'thca', 'crystals', 'isolate', 'live resin',
             'cured resin', 'lr', 'cr',
         ]
+        vape_keywords_re = re.compile(r'\b(cart|cartridge|pod|disposable|vape|pen|all-in-one)\b')
         has_concentrate = any(kw in t for kw in concentrate_keywords)
         has_concentrate_weight = any(w in t for w in ['.5g', '1g', '1.0g', '2g', '0.5g'])
-        if has_concentrate and has_concentrate_weight:
+        has_vape_keyword = bool(vape_keywords_re.search(t))
+        if has_concentrate and has_concentrate_weight and not has_vape_keyword:
             self.stats['concentrates_found'] += 1
             return 'concentrate'
 
