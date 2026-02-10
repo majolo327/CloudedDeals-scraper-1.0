@@ -87,9 +87,18 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onDismiss, onC
         {getDisplayName(deal.product_name, deal.brand?.name || '')}
       </h3>
 
-      {/* Category + Weight */}
+      {/* Category + Strain Type + Weight */}
       <p className="text-[10px] text-slate-500 mb-3">
         {categoryLabel}
+        {deal.strain_type && (
+          <span className={`ml-1 font-medium ${
+            deal.strain_type === 'Indica' ? 'text-purple-400/70' :
+            deal.strain_type === 'Sativa' ? 'text-amber-400/70' :
+            'text-emerald-400/70'
+          }`}>
+            ({deal.strain_type === 'Indica' ? 'I' : deal.strain_type === 'Sativa' ? 'S' : 'H'})
+          </span>
+        )}
         {deal.weight && <> &middot; {deal.weight}</>}
       </p>
 

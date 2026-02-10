@@ -39,7 +39,7 @@ export function filterDeals(deals: Deal[], options: FilterOptions): Deal[] {
     if (options.searchQuery) {
       const q = options.searchQuery.toLowerCase();
       const qEscaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const wordBoundaryRe = new RegExp(`\\b${qEscaped}`, 'i');
+      const wordBoundaryRe = new RegExp(`\\b${qEscaped}\\b`, 'i');
       const matchesProduct = wordBoundaryRe.test(deal.product_name);
       const matchesBrand = wordBoundaryRe.test(deal.brand.name);
       const matchesDispensary = wordBoundaryRe.test(deal.dispensary.name);

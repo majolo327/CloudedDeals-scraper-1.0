@@ -160,6 +160,69 @@ export function normalizeWeight(
 }
 
 /**
+ * Parse a weight string into grams for comparison.
+ * Converts mg to g, handles fractions (1/8 = 3.5g), strips units.
+ */
+function parseWeightToGrams(w: string): number | null {
+  if (!w) return null;
+  const s = w.trim().toLowerCase();
+
+  // Fractions first
+  if (/1\/8/.test(s)) return 3.5;
+  if (/1\/4/.test(s)) return 7;
+  if (/1\/2/.test(s)) return 14;
+
+  // mg → g conversion
+  const mgMatch = s.match(/([\d.]+)\s*mg/);
+  if (mgMatch) {
+    const val = parseFloat(mgMatch[1]);
+    return isNaN(val) ? null : val / 1000;
+  }
+
+  // oz → g
+  const ozMatch = s.match(/([\d.]+)\s*oz/);
+  if (ozMatch) {
+    const val = parseFloat(ozMatch[1]);
+    return isNaN(val) ? null : val * 28;
+  }
+
+  // grams (including bare numbers)
+  const gMatch = s.match(/([\d.]+)\s*g?$/);
+  if (gMatch) {
+    const val = parseFloat(gMatch[1]);
+    return isNaN(val) ? null : val;
+  }
+
+  return null;
+}
+
+/**
+ * Check if a deal's weight matches a filter value, handling unit variations.
+ *
+ * Handles:  850mg ↔ 0.85g,  500mg ↔ 0.5g,  1/8 ↔ 3.5g,  1/4 ↔ 7g
+ * Also matches edible mg values directly: 100mg = 100mg.
+ */
+export function weightsMatch(dealWeight: string, filterWeight: string): boolean {
+  if (!dealWeight || !filterWeight) return false;
+  // Exact match first (fast path)
+  if (dealWeight === filterWeight) return true;
+
+  // Both contain "mg" — compare mg values directly
+  const dealMg = dealWeight.match(/([\d.]+)\s*mg/i);
+  const filterMg = filterWeight.match(/([\d.]+)\s*mg/i);
+  if (dealMg && filterMg) {
+    return Math.abs(parseFloat(dealMg[1]) - parseFloat(filterMg[1])) < 0.5;
+  }
+
+  // Convert both to grams and compare
+  const dealG = parseWeightToGrams(dealWeight);
+  const filterG = parseWeightToGrams(filterWeight);
+  if (dealG === null || filterG === null) return false;
+
+  return Math.abs(dealG - filterG) < 0.005;
+}
+
+/**
  * Safe weight display for deal cards.
  * Uses the existing weight string but validates it against the category.
  * Returns corrected display if the weight looks wrong for the category.

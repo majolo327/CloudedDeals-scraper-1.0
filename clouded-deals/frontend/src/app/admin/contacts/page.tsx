@@ -53,7 +53,7 @@ export default function ContactsPage() {
         contacts,
       });
       setLoading(false);
-    } catch (err) {
+    } catch {
       setError('Failed to fetch contacts');
       setLoading(false);
     }

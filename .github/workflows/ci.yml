@@ -1,0 +1,42 @@
+name: CI — Scraper Tests
+
+on:
+  pull_request:
+    paths:
+      - "clouded-deals/scraper/**"
+  push:
+    branches: [main]
+    paths:
+      - "clouded-deals/scraper/**"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: clouded-deals/scraper/requirements.txt
+
+      - name: Install dependencies
+        working-directory: clouded-deals/scraper
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run tests
+        working-directory: clouded-deals/scraper
+        run: python -m pytest tests/ -v --tb=short
+
+      - name: Test summary
+        if: always()
+        working-directory: clouded-deals/scraper
+        run: python -m pytest tests/ --tb=no -q || true

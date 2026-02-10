@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Star, Heart, Search, Bookmark, Compass, AlertCircle } from 'lucide-react';
-import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { fetchDeals, fetchDispensaries } from '@/lib/api';
 import type { BrowseDispensary } from '@/lib/api';
 import type { Deal } from '@/types';

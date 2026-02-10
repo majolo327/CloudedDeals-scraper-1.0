@@ -62,7 +62,7 @@ export function DealsPage({
 
   const hasActiveFilters = filters.categories.length > 0 || filters.dispensaryIds.length > 0 ||
     filters.priceRange !== 'all' || filters.minDiscount > 0 || filters.distanceRange !== 'all' ||
-    filters.quickFilter !== 'none';
+    filters.weightFilter !== 'all';
 
   // Apply category tab first, then universal filters
   const filteredDeals = useMemo(() => {
@@ -106,7 +106,7 @@ export function DealsPage({
           <div className="flex items-center justify-between mb-4 gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <h2 className="text-sm font-medium text-slate-300 shrink-0">
-                Today&apos;s deals
+                Today&apos;s deals{deals.length > 0 ? ` (${deals.length})` : ''}
               </h2>
               {deals.length > 0 && (
                 <span className="text-xs text-slate-500 font-normal truncate">{formatUpdateTime(deals)}</span>

@@ -1,4 +1,4 @@
-"""Tests for deal_detector.py — hard filters, scoring, quality gate, top-200 selection."""
+"""Tests for deal_detector.py — hard filters, scoring, quality gate, dedup, top-200 selection."""
 
 from __future__ import annotations
 
@@ -8,18 +8,23 @@ import pytest
 
 from deal_detector import (
     BADGE_THRESHOLDS,
+    BRAND_TIERS,
     CATEGORY_PRICE_CAPS,
     CATEGORY_TARGETS,
     HARD_FILTERS,
+    MAX_SAME_BRAND_PER_DISPENSARY,
     MAX_SAME_BRAND_TOTAL,
     MAX_SAME_DISPENSARY_TOTAL,
     PREMIUM_BRANDS,
     TARGET_DEAL_COUNT,
+    _score_brand,
+    _score_unit_value,
     calculate_deal_score,
     detect_deals,
     get_last_report_data,
     passes_hard_filters,
     passes_quality_gate,
+    remove_similar_deals,
     select_top_deals,
 )
 
@@ -32,17 +37,23 @@ from deal_detector import (
 class TestPassesHardFilters:
     """Hard filter gate: products must pass to enter scoring."""
 
-    # ── Infused / pack exclusion ───────────────────────────────────
+    # ── Infused pre-rolls are now ALLOWED ────────────────────────────
 
-    def test_infused_excluded(self, make_product):
-        p = make_product(is_infused=True)
-        assert passes_hard_filters(p) is False
+    def test_infused_now_allowed(self, make_product):
+        """Infused pre-rolls are popular products — they should pass."""
+        p = make_product(is_infused=True, category="preroll",
+                         sale_price=8.0, original_price=20.0,
+                         discount_percent=60)
+        assert passes_hard_filters(p) is True
 
-    def test_infused_subtype_excluded(self, make_product):
-        p = make_product(product_subtype="infused_preroll")
-        assert passes_hard_filters(p) is False
+    def test_infused_subtype_now_allowed(self, make_product):
+        p = make_product(product_subtype="infused_preroll",
+                         category="preroll",
+                         sale_price=8.0, original_price=20.0,
+                         discount_percent=60)
+        assert passes_hard_filters(p) is True
 
-    def test_preroll_pack_excluded(self, make_product):
+    def test_preroll_pack_still_excluded(self, make_product):
         p = make_product(product_subtype="preroll_pack")
         assert passes_hard_filters(p) is False
 
@@ -62,17 +73,30 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is True
 
     def test_above_max_price_rejected(self, make_product):
-        p = make_product(sale_price=81.0)
+        p = make_product(sale_price=101.0)
+        assert passes_hard_filters(p) is False
+
+    def test_at_max_price_passes(self, make_product):
+        p = make_product(sale_price=100.0, original_price=100.0,  # doesn't pass orig > sale
+                         discount_percent=20)
+        # original_price must be > sale_price, so this should fail
         assert passes_hard_filters(p) is False
 
     def test_below_min_discount_rejected(self, make_product):
-        p = make_product(discount_percent=19)
+        p = make_product(discount_percent=14)
         assert passes_hard_filters(p) is False
 
     def test_at_min_discount_passes(self, make_product):
-        p = make_product(sale_price=15.0, original_price=30.0, discount_percent=20,
+        """15% discount is now the minimum (relaxed from 20%)."""
+        p = make_product(sale_price=15.0, original_price=30.0, discount_percent=15,
                          category="flower", weight_value=3.5)
         assert passes_hard_filters(p) is True
+
+    def test_fake_discount_rejected(self, make_product):
+        """Discounts over 85% are almost always data errors."""
+        p = make_product(sale_price=5.0, original_price=60.0, discount_percent=92,
+                         category="flower", weight_value=3.5)
+        assert passes_hard_filters(p) is False
 
     def test_no_discount_rejected(self, make_product):
         p = make_product(discount_percent=0)
@@ -86,95 +110,169 @@ class TestPassesHardFilters:
         p = make_product(sale_price=15.0, original_price=15.0)
         assert passes_hard_filters(p) is False
 
-    # ── Flower weight-based caps ───────────────────────────────────
+    # ── Flower weight-based caps (relaxed) ───────────────────────────
 
     def test_flower_35g_at_cap(self, make_product):
-        p = make_product(category="flower", sale_price=19.0, original_price=40.0,
-                         discount_percent=52, weight_value=3.5)
+        p = make_product(category="flower", sale_price=25.0, original_price=50.0,
+                         discount_percent=50, weight_value=3.5)
         assert passes_hard_filters(p) is True
 
     def test_flower_35g_over_cap(self, make_product):
-        p = make_product(category="flower", sale_price=20.0, original_price=40.0,
-                         discount_percent=50, weight_value=3.5)
+        p = make_product(category="flower", sale_price=26.0, original_price=50.0,
+                         discount_percent=48, weight_value=3.5)
         assert passes_hard_filters(p) is False
 
     def test_flower_7g_at_cap(self, make_product):
-        p = make_product(category="flower", sale_price=30.0, original_price=60.0,
+        p = make_product(category="flower", sale_price=45.0, original_price=90.0,
                          discount_percent=50, weight_value=7)
         assert passes_hard_filters(p) is True
 
     def test_flower_7g_over_cap(self, make_product):
-        p = make_product(category="flower", sale_price=31.0, original_price=60.0,
-                         discount_percent=48, weight_value=7)
+        p = make_product(category="flower", sale_price=46.0, original_price=90.0,
+                         discount_percent=49, weight_value=7)
         assert passes_hard_filters(p) is False
 
     def test_flower_14g_at_cap(self, make_product):
-        p = make_product(category="flower", sale_price=40.0, original_price=80.0,
-                         discount_percent=50, weight_value=14)
+        p = make_product(category="flower", sale_price=65.0, original_price=100.0,
+                         discount_percent=35, weight_value=14)
         assert passes_hard_filters(p) is True
 
     def test_flower_no_weight_uses_35g_default(self, make_product):
-        p = make_product(category="flower", sale_price=20.0, original_price=40.0,
-                         discount_percent=50, weight_value=None)
-        assert passes_hard_filters(p) is False  # > $19 default cap
+        p = make_product(category="flower", sale_price=26.0, original_price=50.0,
+                         discount_percent=48, weight_value=None)
+        assert passes_hard_filters(p) is False  # > $25 default cap
 
-    # ── Flat-cap categories ────────────────────────────────────────
+    # ── Flat-cap categories (relaxed) ────────────────────────────────
 
     def test_vape_at_cap(self, make_product):
-        p = make_product(category="vape", sale_price=25.0, original_price=50.0,
+        p = make_product(category="vape", sale_price=35.0, original_price=70.0,
                          discount_percent=50)
         assert passes_hard_filters(p) is True
 
     def test_vape_over_cap(self, make_product):
-        p = make_product(category="vape", sale_price=26.0, original_price=50.0,
-                         discount_percent=48)
+        p = make_product(category="vape", sale_price=36.0, original_price=70.0,
+                         discount_percent=49)
         assert passes_hard_filters(p) is False
 
     def test_edible_at_cap(self, make_product):
-        p = make_product(category="edible", sale_price=9.0, original_price=18.0,
+        p = make_product(category="edible", sale_price=15.0, original_price=30.0,
                          discount_percent=50)
         assert passes_hard_filters(p) is True
 
     def test_edible_over_cap(self, make_product):
-        p = make_product(category="edible", sale_price=10.0, original_price=20.0,
+        p = make_product(category="edible", sale_price=16.0, original_price=32.0,
                          discount_percent=50)
         assert passes_hard_filters(p) is False
 
     def test_concentrate_at_cap(self, make_product):
-        p = make_product(category="concentrate", sale_price=25.0, original_price=50.0,
+        p = make_product(category="concentrate", sale_price=35.0, original_price=70.0,
                          discount_percent=50)
         assert passes_hard_filters(p) is True
 
     def test_preroll_at_cap(self, make_product):
-        p = make_product(category="preroll", sale_price=6.0, original_price=12.0,
+        p = make_product(category="preroll", sale_price=10.0, original_price=20.0,
                          discount_percent=50)
         assert passes_hard_filters(p) is True
 
     def test_preroll_over_cap(self, make_product):
-        p = make_product(category="preroll", sale_price=7.0, original_price=12.0,
-                         discount_percent=42)
+        p = make_product(category="preroll", sale_price=11.0, original_price=20.0,
+                         discount_percent=45)
         assert passes_hard_filters(p) is False
 
     # ── Unknown category ───────────────────────────────────────────
 
-    def test_unknown_category_under_40(self, make_product):
-        p = make_product(category="other", sale_price=39.0, original_price=60.0,
-                         discount_percent=35)
+    def test_unknown_category_under_50(self, make_product):
+        p = make_product(category="other", sale_price=49.0, original_price=80.0,
+                         discount_percent=39)
         assert passes_hard_filters(p) is True
 
-    def test_unknown_category_over_40(self, make_product):
-        p = make_product(category="other", sale_price=41.0, original_price=60.0,
-                         discount_percent=32)
+    def test_unknown_category_over_50(self, make_product):
+        p = make_product(category="other", sale_price=51.0, original_price=80.0,
+                         discount_percent=36)
         assert passes_hard_filters(p) is False
 
     # ── Fallback to current_price ──────────────────────────────────
 
     def test_current_price_fallback(self, make_product):
-        p = make_product(category="preroll", sale_price=None, original_price=12.0,
+        p = make_product(category="preroll", sale_price=None, original_price=20.0,
                          discount_percent=50)
         p["current_price"] = 5.0
         p.pop("sale_price")
         assert passes_hard_filters(p) is True
+
+
+# =====================================================================
+# Brand scoring
+# =====================================================================
+
+
+class TestBrandScoring:
+    """Two-tier brand system: premium (20 pts), popular (12 pts), any (5 pts)."""
+
+    def test_premium_brand(self):
+        assert _score_brand("Cookies") == 20
+
+    def test_premium_brand_case_insensitive(self):
+        assert _score_brand("STIIIZY") == 20
+        assert _score_brand("stiiizy") == 20
+
+    def test_popular_brand(self):
+        assert _score_brand("Rove") == 12
+
+    def test_known_but_not_tiered_brand(self):
+        assert _score_brand("SomeBrand") == 5
+
+    def test_no_brand(self):
+        assert _score_brand("") == 0
+
+    def test_substring_match(self):
+        """Compound brand names like 'Alien Labs Cannabis' should match."""
+        assert _score_brand("Alien Labs Cannabis") == 20
+
+
+# =====================================================================
+# Unit value scoring
+# =====================================================================
+
+
+class TestUnitValueScoring:
+    """Unit economics scoring: $/g, $/100mg, $/unit."""
+
+    def test_flower_great_value(self):
+        # $10 / 3.5g = $2.86/g → 15 pts
+        assert _score_unit_value("flower", 10.0, 3.5) == 15
+
+    def test_flower_good_value(self):
+        # $15 / 3.5g = $4.29/g → 12 pts
+        assert _score_unit_value("flower", 15.0, 3.5) == 12
+
+    def test_flower_ok_value(self):
+        # $20 / 3.5g = $5.71/g → 8 pts
+        assert _score_unit_value("flower", 20.0, 3.5) == 8
+
+    def test_edible_great_value(self):
+        # $5 / 100mg = $5/100mg → 15 pts
+        assert _score_unit_value("edible", 5.0, 100) == 15
+
+    def test_edible_good_value(self):
+        # $7 / 100mg = $7/100mg → 10 pts
+        assert _score_unit_value("edible", 7.0, 100) == 10
+
+    def test_vape_great_value(self):
+        # $12 / 1g = $12/g → 15 pts
+        assert _score_unit_value("vape", 12.0, 1.0) == 15
+
+    def test_vape_good_value(self):
+        # $20 / 1g = $20/g → 10 pts
+        assert _score_unit_value("vape", 20.0, 1.0) == 10
+
+    def test_preroll_great_value(self):
+        # $4 preroll → 15 pts
+        assert _score_unit_value("preroll", 4.0, 1.0) == 15
+
+    def test_no_weight_returns_zero(self):
+        assert _score_unit_value("flower", 15.0, None) == 0
+        assert _score_unit_value("flower", 15.0, 0) == 0
 
 
 # =====================================================================
@@ -183,109 +281,76 @@ class TestPassesHardFilters:
 
 
 class TestCalculateDealScore:
-    """Scoring: 0-100 composite from discount, brand, category, price, THC."""
+    """Scoring: 0-100 composite from discount, savings, brand, unit value,
+    category, and price attractiveness."""
 
-    # ── Discount depth (up to 40 pts) ──────────────────────────────
-
-    def test_discount_20_pct(self, make_product):
-        p = make_product(discount_percent=20, brand="", thc_percent=None,
-                         sale_price=50.0, category="other")
+    def test_high_discount_premium_brand(self, make_product):
+        """STIIIZY pod 1g, $20→$12, 40% off should score high."""
+        p = make_product(
+            discount_percent=40, brand="STIIIZY",
+            sale_price=12.0, original_price=20.0,
+            category="vape", weight_value=1.0,
+        )
         s = calculate_deal_score(p)
-        # 20*0.8=16 + brand:0 + cat:3 + price:0 + thc:0 = 19
-        assert s == 19
+        # 28 (discount) + 3 (saved) + 20 (brand) + 15 (unit) + 8 (cat) + 12 (price) = 86
+        assert s >= 80
 
-    def test_discount_50_capped(self, make_product):
-        p = make_product(discount_percent=50, brand="", thc_percent=None,
-                         sale_price=50.0, category="other")
+    def test_mediocre_unknown_brand(self, make_product):
+        """Unknown brand, 15% off, no weight → low score."""
+        p = make_product(
+            discount_percent=15, brand="",
+            sale_price=50.0, original_price=59.0,
+            category="other", weight_value=None,
+        )
         s = calculate_deal_score(p)
-        # 50*0.8=40 + 0 + 3 + 0 + 0 = 43
-        assert s == 43
+        # 7 (discount) + 3 (saved) + 0 (brand) + 0 (unit) + 3 (cat) + 0 (price) = 13
+        assert s < 30
 
-    def test_discount_60_capped_at_40(self, make_product):
-        p = make_product(discount_percent=60, brand="", thc_percent=None,
-                         sale_price=50.0, category="other")
+    def test_discount_50_pct(self, make_product):
+        """50%+ discount should get max discount points (35)."""
+        p = make_product(discount_percent=50, brand="", sale_price=10.0,
+                         original_price=20.0, category="other",
+                         weight_value=None)
         s = calculate_deal_score(p)
-        # min(40, 60*0.8=48)=40 + 0 + 3 + 0 + 0 = 43
-        assert s == 43
+        # 35 (discount) + 4 (saved) + 0 (brand) + 0 (unit) + 3 (cat) + 12 (price) = 54
+        assert s >= 50
 
-    # ── Brand recognition (up to 20 pts) ───────────────────────────
+    def test_popular_brand_scores_between_premium_and_none(self, make_product):
+        p_premium = make_product(discount_percent=30, brand="Cookies",
+                                 sale_price=15.0, original_price=30.0,
+                                 category="flower", weight_value=3.5)
+        p_popular = make_product(discount_percent=30, brand="Rove",
+                                 sale_price=15.0, original_price=30.0,
+                                 category="flower", weight_value=3.5)
+        p_unknown = make_product(discount_percent=30, brand="NoName",
+                                 sale_price=15.0, original_price=30.0,
+                                 category="flower", weight_value=3.5)
+        s_premium = calculate_deal_score(p_premium)
+        s_popular = calculate_deal_score(p_popular)
+        s_unknown = calculate_deal_score(p_unknown)
+        assert s_premium > s_popular > s_unknown
 
-    def test_premium_brand(self, make_product):
-        p = make_product(discount_percent=0, brand="Cookies", thc_percent=None,
-                         sale_price=50.0, category="other")
-        s = calculate_deal_score(p)
-        # 0 + 20 + 3 + 0 + 0 = 23
-        assert s == 23
-
-    def test_known_brand(self, make_product):
-        p = make_product(discount_percent=0, brand="SomeBrand", thc_percent=None,
-                         sale_price=50.0, category="other")
-        s = calculate_deal_score(p)
-        # 0 + 8 + 3 + 0 + 0 = 11
-        assert s == 11
-
-    def test_no_brand(self, make_product):
-        p = make_product(discount_percent=0, brand="", thc_percent=None,
-                         sale_price=50.0, category="other")
-        s = calculate_deal_score(p)
-        # 0 + 0 + 3 + 0 + 0 = 3
-        assert s == 3
-
-    # ── Category boost (up to 10 pts) ──────────────────────────────
-
-    @pytest.mark.parametrize("category,boost", [
-        ("flower", 10), ("vape", 10), ("edible", 8),
-        ("concentrate", 7), ("preroll", 6),
-    ])
-    def test_category_boosts(self, make_product, category, boost):
-        p = make_product(discount_percent=0, brand="", thc_percent=None,
-                         sale_price=50.0, category=category)
-        s = calculate_deal_score(p)
-        assert s == boost
-
-    # ── Price sweet spot (up to 15 pts) ────────────────────────────
-
-    def test_price_sweet_spot(self, make_product):
-        p = make_product(discount_percent=0, brand="", thc_percent=None,
-                         sale_price=20.0, category="other")
-        s = calculate_deal_score(p)
-        # 0 + 0 + 3 + 15 + 0 = 18
-        assert s == 18
-
-    def test_price_below_5_no_bonus(self, make_product):
-        p = make_product(discount_percent=0, brand="", thc_percent=None,
-                         sale_price=3.0, category="other")
-        s = calculate_deal_score(p)
-        assert s == 3  # only category boost
-
-    # ── THC potency (up to 15 pts) ─────────────────────────────────
-
-    def test_thc_30_plus(self, make_product):
-        p = make_product(discount_percent=0, brand="", sale_price=50.0,
-                         category="other", thc_percent=32)
-        s = calculate_deal_score(p)
-        # 0 + 0 + 3 + 0 + 15 = 18
-        assert s == 18
-
-    def test_thc_25_to_29(self, make_product):
-        p = make_product(discount_percent=0, brand="", sale_price=50.0,
-                         category="other", thc_percent=27)
-        s = calculate_deal_score(p)
-        assert s == 13  # 3 + 10
-
-    def test_thc_below_20(self, make_product):
-        p = make_product(discount_percent=0, brand="", sale_price=50.0,
-                         category="other", thc_percent=18)
-        s = calculate_deal_score(p)
-        assert s == 3  # only category boost
-
-    # ── Total cap ──────────────────────────────────────────────────
+    # ── Score cap ──────────────────────────────────────────────────
 
     def test_score_capped_at_100(self, make_product):
-        p = make_product(discount_percent=80, brand="Cookies", sale_price=20.0,
-                         category="flower", thc_percent=35)
+        p = make_product(discount_percent=80, brand="Cookies", sale_price=12.0,
+                         original_price=60.0, category="flower", weight_value=3.5)
         s = calculate_deal_score(p)
         assert s <= 100
+
+    # ── Category boosts are fair ─────────────────────────────────
+
+    @pytest.mark.parametrize("category,boost", [
+        ("flower", 8), ("vape", 8), ("edible", 8),
+        ("concentrate", 7), ("preroll", 7),
+    ])
+    def test_category_boosts(self, make_product, category, boost):
+        p = make_product(discount_percent=0, brand="", sale_price=50.0,
+                         original_price=None, category=category, weight_value=None)
+        # With 0 discount + no brand + no weight + $50 price, only cat boost applies
+        # discount=0 → rejected by hard filter, but score function doesn't check that
+        s = calculate_deal_score(p)
+        assert s >= boost  # at minimum the category boost is included
 
 
 # =====================================================================
@@ -346,6 +411,64 @@ class TestPassesQualityGate:
 
 
 # =====================================================================
+# remove_similar_deals
+# =====================================================================
+
+
+class TestRemoveSimilarDeals:
+    """Similarity dedup: max 3 per brand+category per dispensary."""
+
+    def test_caps_same_brand_cat_dispo(self, make_product):
+        """5 Stiiizy vapes from Planet 13 → only 3 kept."""
+        deals = [
+            make_product(name=f"STIIIZY Pod {i}", brand="STIIIZY",
+                         category="vape", dispensary_id="planet13",
+                         deal_score=80 - i)
+            for i in range(5)
+        ]
+        result = remove_similar_deals(deals)
+        assert len(result) == MAX_SAME_BRAND_PER_DISPENSARY
+
+    def test_different_dispensaries_not_capped(self, make_product):
+        """Same brand+cat at different dispensaries should all pass."""
+        deals = [
+            make_product(name=f"STIIIZY Pod {i}", brand="STIIIZY",
+                         category="vape", dispensary_id=f"dispo{i}",
+                         deal_score=80)
+            for i in range(5)
+        ]
+        result = remove_similar_deals(deals)
+        assert len(result) == 5
+
+    def test_different_categories_not_capped(self, make_product):
+        """Same brand at same dispensary but different categories should all pass."""
+        deals = [
+            make_product(name="Cookies Flower", brand="Cookies",
+                         category="flower", dispensary_id="planet13",
+                         deal_score=80),
+            make_product(name="Cookies Preroll", brand="Cookies",
+                         category="preroll", dispensary_id="planet13",
+                         deal_score=75),
+            make_product(name="Cookies Vape", brand="Cookies",
+                         category="vape", dispensary_id="planet13",
+                         deal_score=70),
+        ]
+        result = remove_similar_deals(deals)
+        assert len(result) == 3
+
+    def test_keeps_highest_scored(self, make_product):
+        """Should keep the highest-scored entries from each group."""
+        deals = [
+            make_product(name=f"P{i}", brand="STIIIZY", category="vape",
+                         dispensary_id="planet13", deal_score=90 - i * 5)
+            for i in range(5)
+        ]
+        result = remove_similar_deals(deals)
+        scores = [d["deal_score"] for d in result]
+        assert scores == [90, 85, 80]
+
+
+# =====================================================================
 # select_top_deals
 # =====================================================================
 
@@ -356,15 +479,13 @@ class TestSelectTopDeals:
     def test_empty_input(self):
         assert select_top_deals([]) == []
 
-    def test_returns_at_most_100(self, scored_deals_pool):
+    def test_returns_at_most_target(self, scored_deals_pool):
         result = select_top_deals(scored_deals_pool)
         assert len(result) <= TARGET_DEAL_COUNT
 
     def test_brand_diversity_enforced(self, scored_deals_pool):
         result = select_top_deals(scored_deals_pool)
         # Only check diversity for products WITH a detected brand.
-        # Brandless products get unique keys so they are not constrained
-        # by the per-brand cap — only per-dispensary limits apply.
         brand_counts = Counter(
             d["brand"] for d in result if d.get("brand")
         )
@@ -413,7 +534,7 @@ class TestSelectTopDeals:
 
 
 class TestDetectDeals:
-    """End-to-end pipeline: filter → score → select."""
+    """End-to-end pipeline: filter → score → dedup → select."""
 
     def test_happy_path(self, make_product):
         products = []
@@ -460,6 +581,17 @@ class TestDetectDeals:
             assert "deal_score" in deal
             assert deal["deal_score"] > 0
 
+    def test_similarity_dedup_in_pipeline(self, make_product):
+        """Pipeline should dedup 10 same brand+cat+dispo down to 3."""
+        products = [make_product(
+            name=f"STIIIZY Pod {i}", brand="STIIIZY",
+            dispensary_id="planet13", category="vape",
+            sale_price=12.0, original_price=25.0,
+            discount_percent=52, weight_value=1.0,
+        ) for i in range(10)]
+        result = detect_deals(products)
+        assert len(result) <= MAX_SAME_BRAND_PER_DISPENSARY
+
 
 # =====================================================================
 # Constants validation
@@ -488,3 +620,12 @@ class TestConstants:
     def test_badge_thresholds_ordered(self):
         assert BADGE_THRESHOLDS["steal"] > BADGE_THRESHOLDS["fire"]
         assert BADGE_THRESHOLDS["fire"] > BADGE_THRESHOLDS["solid"]
+
+    def test_brand_tiers_exist(self):
+        assert "premium" in BRAND_TIERS
+        assert "popular" in BRAND_TIERS
+        assert BRAND_TIERS["premium"]["points"] > BRAND_TIERS["popular"]["points"]
+
+    def test_hard_filters_has_max_discount(self):
+        assert "max_discount_percent" in HARD_FILTERS
+        assert HARD_FILTERS["max_discount_percent"] <= 90

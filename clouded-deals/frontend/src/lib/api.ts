@@ -61,6 +61,7 @@ interface ProductRow {
   product_url: string | null;
   is_infused: boolean | null;
   product_subtype: string | null;
+  strain_type: string | null;
   scraped_at: string;
   created_at: string;
   dispensary: {
@@ -186,6 +187,7 @@ function normalizeDeal(row: ProductRow): Deal {
     is_verified: (row.deal_score || 0) >= 70,
     is_infused: row.is_infused ?? false,
     product_subtype: row.product_subtype as Deal['product_subtype'],
+    strain_type: row.strain_type as Deal['strain_type'],
     product_url: row.product_url,
     created_at: new Date(row.scraped_at),
     first_seen_at: new Date(row.created_at),
@@ -227,7 +229,7 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
         .select(
           `id, name, brand, category, original_price, sale_price, discount_percent,
            weight_value, weight_unit, deal_score, product_url, scraped_at, created_at,
-           is_infused, product_subtype,
+           is_infused, product_subtype, strain_type,
            dispensary:dispensaries!inner(id, name, address, city, state, platform, url, region, latitude, longitude)`
         )
         .eq('is_active', true)
@@ -266,8 +268,10 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
           })
       : [];
 
-    // Enforce dispensary diversity: max 5 deals per dispensary
-    const deals = applyDispensaryDiversityCap(allDeals, 5);
+    // Enforce dispensary diversity: max 15 deals per dispensary.
+    // Backend curation already limits to 25 per dispo with brand dedup —
+    // this is a lighter client-side safety net, not the primary filter.
+    const deals = applyDispensaryDiversityCap(allDeals, 15);
 
     // Cache for offline use
     setCachedDeals(deals);
@@ -418,6 +422,7 @@ export async function searchExtendedDeals(
       .select(
         `id, name, brand, category, original_price, sale_price, discount_percent,
          weight_value, weight_unit, deal_score, product_url, scraped_at, created_at,
+         is_infused, product_subtype, strain_type,
          dispensary:dispensaries!inner(id, name, address, city, state, platform, url, region, latitude, longitude)`
       )
       .eq('is_active', true)
@@ -431,7 +436,7 @@ export async function searchExtendedDeals(
     if (error) throw error;
 
     // Filter out junk: short names, zero price, batteries, accessories, merch
-    const JUNK_KEYWORDS = /\b(battery|batteries|grinder|lighter|rolling\s+paper|tray|stash|pipe|bong|rig|torch|scale|jar|container|apparel|shirt|hat|merch)\b/i;
+    const JUNK_KEYWORDS = /\b(battery|batteries|grinder|lighter|rolling\s+papers?|tray|stash|pipe|bong|rig|torch|scale|jar|container|apparel|shirt|hat|merch)\b/i;
     const allResults = data
       ? (data as unknown as ProductRow[])
           .filter((row) => row.name && row.name.length >= 5 && (row.sale_price ?? 0) > 0)

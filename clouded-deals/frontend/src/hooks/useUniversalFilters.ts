@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Deal, Category } from '@/types';
 import { getStoredZip, getZipCoordinates, type ZipCoords } from '@/lib/zipCodes';
 import { getDistanceMiles } from '@/utils';
+import { weightsMatch } from '@/utils/weightNormalizer';
 import { trackEvent } from '@/lib/analytics';
 
 // ---- Types ----
@@ -20,6 +21,7 @@ export interface UniversalFilterState {
   sortBy: SortOption;
   distanceRange: DistanceRange;
   quickFilter: QuickFilter;
+  weightFilter: string;
 }
 
 export const DEFAULT_UNIVERSAL_FILTERS: UniversalFilterState = {
@@ -30,6 +32,7 @@ export const DEFAULT_UNIVERSAL_FILTERS: UniversalFilterState = {
   sortBy: 'deal_score',
   distanceRange: 'all',
   quickFilter: 'none',
+  weightFilter: 'all',
 };
 
 const FILTERS_STORAGE_KEY = 'clouded_filters_v1';
@@ -118,6 +121,7 @@ export function useUniversalFilters() {
       filters.minDiscount > 0,
       filters.distanceRange !== 'all',
       filters.quickFilter !== 'none',
+      filters.weightFilter !== 'all',
     ].filter(Boolean).length;
   }, [filters]);
 
@@ -182,6 +186,11 @@ export function useUniversalFilters() {
         const discount = ((d.original_price - d.deal_price) / d.original_price) * 100;
         return discount >= filters.minDiscount;
       });
+    }
+
+    // Weight filter (fuzzy: 850mg matches 0.85g, 1/8 matches 3.5g, etc.)
+    if (filters.weightFilter !== 'all') {
+      result = result.filter(d => weightsMatch(d.weight, filters.weightFilter));
     }
 
     // Distance range

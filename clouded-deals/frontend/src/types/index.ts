@@ -55,6 +55,7 @@ export interface Deal {
   is_verified: boolean;
   is_infused?: boolean;
   product_subtype?: ProductSubtype | null;
+  strain_type?: 'Indica' | 'Sativa' | 'Hybrid' | null;
   product_url?: string | null;
   editorial_note?: string;
   save_count?: number;

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { SlidersHorizontal, X, RotateCcw, Check, MapPin, ChevronDown } from 'lucide-react';
 import type { Category } from '@/types';
 import { DISPENSARIES } from '@/data/dispensaries';
+import { VALID_WEIGHTS_BY_CATEGORY } from '@/utils/weightNormalizer';
 import { trackEvent } from '@/lib/analytics';
 import type {
   UniversalFilterState,
@@ -49,6 +50,31 @@ const DISTANCE_OPTIONS: { id: DistanceRange; label: string; desc: string }[] = [
   { id: 'across_town', label: 'Across Town', desc: '10–15 miles' },
 ];
 
+/** Weight options that adapt to selected category. */
+function getWeightOptions(selectedCategories: Category[]): { id: string; label: string }[] {
+  const options: { id: string; label: string }[] = [{ id: 'all', label: 'Any Size' }];
+
+  // If exactly one category is selected, show weights for that category
+  if (selectedCategories.length === 1) {
+    const cat = selectedCategories[0];
+    const config = VALID_WEIGHTS_BY_CATEGORY[cat];
+    if (config) {
+      for (const w of config.commonWeights) {
+        const display = `${w}${config.unit}`;
+        options.push({ id: display, label: display });
+      }
+    }
+    return options;
+  }
+
+  // No category or multiple: show universal common weights
+  const universalWeights = ['0.5g', '1g', '3.5g', '7g', '14g', '28g', '100mg', '200mg'];
+  for (const w of universalWeights) {
+    options.push({ id: w, label: w });
+  }
+  return options;
+}
+
 export function getPriceRangeBounds(rangeId: string): { min: number; max: number } {
   const range = PRICE_RANGES.find((r) => r.id === rangeId);
   return range ? { min: range.min, max: range.max } : { min: 0, max: Infinity };
@@ -72,7 +98,7 @@ export function FilterSheet({
   activeFilterCount: externalActiveCount,
 }: FilterSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [locationExpanded, setLocationExpanded] = useState(false);
+  const [locationOpen, setLocationOpen] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
 
@@ -82,14 +108,7 @@ export function FilterSheet({
       .sort((a, b) => a.name.localeCompare(b.name));
   }, []);
 
-  const hasLocationFilters = filters.distanceRange !== 'all' || filters.sortBy === 'distance' || filters.dispensaryIds.length > 0;
-
-  // Auto-expand location section if user has active location filters
-  useEffect(() => {
-    if (hasLocationFilters && isOpen) {
-      setLocationExpanded(true);
-    }
-  }, [hasLocationFilters, isOpen]);
+  const weightOptions = useMemo(() => getWeightOptions(filters.categories), [filters.categories]);
 
   const activeFilterCount = externalActiveCount ?? [
     filters.categories.length > 0,
@@ -97,6 +116,7 @@ export function FilterSheet({
     filters.priceRange !== 'all',
     filters.minDiscount > 0,
     filters.distanceRange !== 'all',
+    filters.weightFilter !== 'all',
   ].filter(Boolean).length;
 
   const handleReset = () => {
@@ -105,7 +125,7 @@ export function FilterSheet({
     } else {
       onFiltersChange(DEFAULT_UNIVERSAL_FILTERS);
     }
-    setLocationExpanded(false);
+    setLocationOpen(false);
     trackEvent('filter_change', undefined, { action: 'reset' });
   };
 
@@ -132,6 +152,13 @@ export function FilterSheet({
   const clearAllDispensaries = () => {
     onFiltersChange({ ...filters, dispensaryIds: [], quickFilter: 'none' });
   };
+
+  // Auto-expand location section if user already has active location filters
+  useEffect(() => {
+    if (filters.distanceRange !== 'all' || filters.dispensaryIds.length > 0) {
+      setLocationOpen(true);
+    }
+  }, [filters.distanceRange, filters.dispensaryIds]);
 
   // Lock body scroll when open
   useEffect(() => {
@@ -256,6 +283,15 @@ export function FilterSheet({
                       <X className="w-2.5 h-2.5" />
                     </button>
                   )}
+                  {filters.weightFilter !== 'all' && (
+                    <button
+                      onClick={() => onFiltersChange({ ...filters, weightFilter: 'all' })}
+                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-cyan-500/15 text-cyan-400 text-[11px] font-medium"
+                    >
+                      {filters.weightFilter}
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  )}
                   {filters.dispensaryIds.length > 0 && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, dispensaryIds: [], quickFilter: 'none' })}
@@ -271,8 +307,7 @@ export function FilterSheet({
 
             {/* Scrollable content */}
             <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain">
-
-              {/* ── 1. Category ── */}
+              {/* Category */}
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Category</h3>
                 <div className="flex flex-wrap gap-2">
@@ -296,7 +331,7 @@ export function FilterSheet({
                 </div>
               </section>
 
-              {/* ── 2. Deal Quality (Price + Discount) ── */}
+              {/* Price Range */}
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Price Range</h3>
                 <div className="flex flex-wrap gap-2">
@@ -316,6 +351,32 @@ export function FilterSheet({
                 </div>
               </section>
 
+              {/* Weight / Size */}
+              <section>
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                  Size / Weight
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {weightOptions.map((opt) => (
+                    <button
+                      key={opt.id}
+                      onClick={() => {
+                        onFiltersChange({ ...filters, weightFilter: opt.id });
+                        if (opt.id !== 'all') trackEvent('filter_change', undefined, { weight: opt.id });
+                      }}
+                      className={`px-3 py-2 min-h-[40px] rounded-full text-xs font-medium transition-all ${
+                        filters.weightFilter === opt.id
+                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                          : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* Min Discount */}
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
                   Min Discount: {filters.minDiscount > 0 ? `${filters.minDiscount}%+` : 'Any'}
@@ -335,7 +396,7 @@ export function FilterSheet({
                 </div>
               </section>
 
-              {/* ── 3. Sort By ── */}
+              {/* Sort By */}
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Sort By</h3>
                 <div className="space-y-1">
@@ -355,30 +416,24 @@ export function FilterSheet({
                 </div>
               </section>
 
-              {/* ── 4. Location (Collapsible, default collapsed) ── */}
-              {hasLocation && (
-                <section className="border-t border-slate-800 pt-4">
-                  <button
-                    onClick={() => setLocationExpanded(!locationExpanded)}
-                    className="flex items-center justify-between w-full mb-3 group"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="w-3 h-3 text-slate-500" />
-                      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                        Location
-                      </h3>
-                      {hasLocationFilters && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                      )}
-                    </div>
-                    <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${locationExpanded ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {locationExpanded && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                      {/* Distance filter */}
+              {/* Location (collapsible) */}
+              <section>
+                <button
+                  onClick={() => setLocationOpen(!locationOpen)}
+                  className="flex items-center justify-between w-full mb-3"
+                >
+                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center">
+                    <MapPin className="w-3 h-3 mr-1" />
+                    Location
+                  </h3>
+                  <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${locationOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {locationOpen && (
+                  <div className="space-y-5">
+                    {/* Distance */}
+                    {hasLocation && (
                       <div>
-                        <p className="text-[11px] text-slate-600 mb-2">Filter deals by distance from your zip code</p>
+                        <p className="text-[11px] text-slate-500 mb-2">Distance</p>
                         <div className="grid grid-cols-2 gap-2">
                           {DISTANCE_OPTIONS.map((opt) => {
                             const isSelected = filters.distanceRange === opt.id;
@@ -401,60 +456,60 @@ export function FilterSheet({
                           })}
                         </div>
                       </div>
+                    )}
 
-                      {/* Dispensary filter */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-[11px] text-slate-600">Filter by dispensary</p>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={selectAllDispensaries}
-                              className="text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
-                            >
-                              Select All
-                            </button>
-                            <span className="text-slate-700">|</span>
-                            <button
-                              onClick={clearAllDispensaries}
-                              className="text-[10px] text-slate-400 hover:text-slate-300 transition-colors"
-                            >
-                              Clear
-                            </button>
-                          </div>
-                        </div>
-                        <div className="space-y-1 max-h-40 overflow-y-auto rounded-lg bg-slate-800/50 p-2">
-                          {dispensaries.map((d) => {
-                            const isChecked = filters.dispensaryIds.includes(d.id);
-                            return (
-                              <label
-                                key={d.id}
-                                className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-slate-800 cursor-pointer transition-colors"
-                              >
-                                <div
-                                  className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
-                                    isChecked
-                                      ? 'bg-purple-500 border-purple-500'
-                                      : 'border-slate-600 bg-slate-800'
-                                  }`}
-                                >
-                                  {isChecked && <Check className="w-3 h-3 text-white" />}
-                                </div>
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => toggleDispensary(d.id)}
-                                  className="sr-only"
-                                />
-                                <span className="text-sm text-slate-300 truncate">{d.name}</span>
-                              </label>
-                            );
-                          })}
+                    {/* Dispensary */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[11px] text-slate-500">Dispensary</p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={selectAllDispensaries}
+                            className="text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
+                          >
+                            Select All
+                          </button>
+                          <span className="text-slate-700">|</span>
+                          <button
+                            onClick={clearAllDispensaries}
+                            className="text-[10px] text-slate-400 hover:text-slate-300 transition-colors"
+                          >
+                            Clear
+                          </button>
                         </div>
                       </div>
+                      <div className="space-y-1 max-h-40 overflow-y-auto rounded-lg bg-slate-800/50 p-2">
+                        {dispensaries.map((d) => {
+                          const isChecked = filters.dispensaryIds.includes(d.id);
+                          return (
+                            <label
+                              key={d.id}
+                              className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-slate-800 cursor-pointer transition-colors"
+                            >
+                              <div
+                                className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                                  isChecked
+                                    ? 'bg-purple-500 border-purple-500'
+                                    : 'border-slate-600 bg-slate-800'
+                                }`}
+                              >
+                                {isChecked && <Check className="w-3 h-3 text-white" />}
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleDispensary(d.id)}
+                                className="sr-only"
+                              />
+                              <span className="text-sm text-slate-300 truncate">{d.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
-                  )}
-                </section>
-              )}
+                  </div>
+                )}
+              </section>
             </div>
 
             {/* Footer */}
