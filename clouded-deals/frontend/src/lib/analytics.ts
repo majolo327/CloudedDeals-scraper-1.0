@@ -75,7 +75,8 @@ export type EventType =
   | 'share_saves'
   | 'shared_page_view'
   | 'shared_get_deal_click'
-  | 'shared_page_cta';
+  | 'shared_page_cta'
+  | 'user_feedback';
 
 /**
  * Collect device and context metadata (non-PII) for analytics enrichment.

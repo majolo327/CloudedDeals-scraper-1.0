@@ -13,6 +13,7 @@ import { BrowsePage } from '@/components/BrowsePage';
 import { SavedPage } from '@/components/SavedPage';
 import { AboutPage } from '@/components/AboutPage';
 import { SmsWaitlist } from '@/components/SmsWaitlist';
+import { FeedbackWidget } from '@/components/FeedbackWidget';
 import { LocationSelector } from '@/components/LocationSelector';
 import { DealModal } from '@/components/modals';
 import { DealCardSkeleton, TopPickSkeleton } from '@/components/Skeleton';
@@ -467,6 +468,9 @@ export default function Home() {
 
       {/* SMS deal alerts waitlist CTA */}
       <SmsWaitlist addToast={addToast} />
+
+      {/* Feedback widget — subtle floating icon, bottom-right */}
+      <FeedbackWidget />
 
       {/* Coach marks overlay — shown once after FTUE on first deals view */}
       {showCoachMarks && (
