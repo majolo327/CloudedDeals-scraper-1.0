@@ -102,8 +102,6 @@ def _create_run() -> str:
         logger.info("[DRY RUN] Would create scrape_runs entry")
         return "dry-run"
     payload: dict[str, Any] = {"status": "running"}
-    if PLATFORM_GROUP != "all":
-        payload["platform_group"] = PLATFORM_GROUP
     row = db.table("scrape_runs").insert(payload).execute()
     run_id: str = row.data[0]["id"]
     logger.info("Scrape run started: %s (group=%s)", run_id, PLATFORM_GROUP)
@@ -742,11 +740,6 @@ def _already_scraped_today() -> bool:
         .eq("status", "completed")
         .gte("started_at", today_start)
     )
-    # Scope the idempotency check to the current platform group.
-    # "all" runs look for any prior "all" run (or no group field).
-    # Segmented runs only conflict with prior runs of the same group.
-    if PLATFORM_GROUP != "all":
-        query = query.eq("platform_group", PLATFORM_GROUP)
     query = query.limit(1)
     result = query.execute()
     return bool(result.data)
