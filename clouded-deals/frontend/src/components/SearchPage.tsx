@@ -177,7 +177,7 @@ export function SearchPage({
     if (!debouncedQuery || debouncedQuery.length < 2) return [];
     const q = debouncedQuery.toLowerCase();
     const qEscaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const wordBoundaryRe = new RegExp(`\\b${qEscaped}\\b`, 'i');
+    const wordBoundaryRe = new RegExp(`\\b${qEscaped}`, 'i');
     return DISPENSARIES.filter(
       (d) =>
         wordBoundaryRe.test(d.name) ||
