@@ -1,0 +1,130 @@
+name: Platform Recon
+
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: "pytest -k filter (e.g. 'jardin', 'nevada-made', 'aiq or carrot', 'rise'). Leave blank for all 36 sites."
+        required: false
+        type: string
+        default: ""
+      timeout_minutes:
+        description: "Max runtime in minutes (default 30)"
+        required: false
+        type: number
+        default: 30
+
+concurrency:
+  group: platform-recon
+  cancel-in-progress: true
+
+jobs:
+  recon:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJSON(inputs.timeout_minutes || '30') }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: clouded-deals/scraper/requirements.txt
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('clouded-deals/scraper/requirements.txt') }}
+
+      - name: Install dependencies
+        working-directory: clouded-deals/scraper
+        run: |
+          pip install -r requirements.txt
+          pip install "pytest>=8.0" "pytest-asyncio>=0.23"
+          playwright install-deps
+          playwright install chromium
+
+      - name: Create output directory
+        working-directory: clouded-deals/scraper
+        run: mkdir -p recon_output
+
+      - name: Run platform recon
+        working-directory: clouded-deals/scraper
+        env:
+          RECON_DIR: recon_output
+        run: |
+          FILTER="${{ github.event.inputs.filter }}"
+          echo "=== Platform Recon ==="
+          echo "Filter: ${FILTER:-all sites}"
+          echo "======================"
+
+          # Build pytest command — no -x so all sites run even if some fail
+          if [ -n "$FILTER" ]; then
+            python -m pytest tests/test_platform_recon.py \
+              -v -s --tb=short \
+              -k "$FILTER or test_recon_summary" \
+              2>&1 | tee recon_output/recon_log.txt || true
+          else
+            python -m pytest tests/test_platform_recon.py \
+              -v -s --tb=short \
+              2>&1 | tee recon_output/recon_log.txt || true
+          fi
+
+      - name: Print summary
+        if: always()
+        working-directory: clouded-deals/scraper
+        run: |
+          python3 << 'PYEOF'
+          import json, sys
+          from pathlib import Path
+
+          path = Path("recon_output/recon_results.json")
+          if not path.exists():
+              print("No recon results found — check logs")
+              sys.exit(0)
+
+          results = json.loads(path.read_text())
+          sep = "=" * 90
+          print(f"\n{sep}")
+          print(f"  PLATFORM RECON SUMMARY — {len(results)} sites")
+          print(sep)
+          print(f"  {'Slug':<30s} {'Expected':<12s} {'Top Detection':<16s} {'Products':>8s}  Error")
+          print(f"  {'-' * 84}")
+
+          for r in sorted(results, key=lambda x: x["slug"]):
+              det = r.get("detected_platforms", [])
+              top = det[0] if det else "(none)"
+              err = (r.get("error") or "")[:25]
+              prods = r.get("product_card_count", 0)
+              slug = r["slug"]
+              expected = r["expected_platform"]
+              print(f"  {slug:<30s} {expected:<12s} {top:<16s} {prods:>8d}  {err}")
+
+          by_plat = {}
+          for r in results:
+              det = r.get("detected_platforms", [])
+              top = det[0] if det else "undetected"
+              by_plat.setdefault(top, []).append(r["slug"])
+
+          print(f"\n  BY DETECTED PLATFORM:")
+          for p in sorted(by_plat):
+              slugs = by_plat[p]
+              print(f"    {p} ({len(slugs)}): {', '.join(slugs)}")
+          print(f"{sep}\n")
+          PYEOF
+
+      - name: Upload recon results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recon-results-${{ github.run_id }}
+          path: |
+            clouded-deals/scraper/recon_output/
+          retention-days: 30
+          if-no-files-found: warn
