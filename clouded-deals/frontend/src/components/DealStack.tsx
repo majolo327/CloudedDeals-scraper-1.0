@@ -1,16 +1,19 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
-import { Heart, X, RotateCcw } from 'lucide-react';
+import { useMemo } from 'react';
+import { Heart, X } from 'lucide-react';
 import type { Deal } from '@/types';
 import { SwipeableCard } from './SwipeableCard';
 
 interface DealStackProps {
+  /** Remaining undismissed deals in deck order */
   deals: Deal[];
   savedDeals: Set<string>;
   onSave: (dealId: string) => void;
   onDismiss: (dealId: string) => void;
   onSelectDeal: (deal: Deal) => void;
+  totalDeals: number;
+  seenCount: number;
 }
 
 const VISIBLE_CARDS = 3;
@@ -21,97 +24,48 @@ export function DealStack({
   onSave,
   onDismiss,
   onSelectDeal,
+  totalDeals,
+  seenCount,
 }: DealStackProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [history, setHistory] = useState<number[]>([]);
-
   const visibleDeals = useMemo(() => {
-    return deals.slice(currentIndex, currentIndex + VISIBLE_CARDS);
-  }, [deals, currentIndex]);
+    return deals.slice(0, VISIBLE_CARDS);
+  }, [deals]);
 
-  const progress = deals.length > 0
-    ? Math.round((currentIndex / deals.length) * 100)
+  const progress = totalDeals > 0
+    ? Math.round((seenCount / totalDeals) * 100)
     : 0;
 
-  const advance = useCallback(() => {
-    setHistory((prev) => [...prev, currentIndex]);
-    setCurrentIndex((prev) => prev + 1);
-  }, [currentIndex]);
-
-  const handleSwipeRight = useCallback(
-    (deal: Deal) => {
-      onSave(deal.id);
-      advance();
-    },
-    [onSave, advance]
-  );
-
-  const handleSwipeLeft = useCallback(
-    (deal: Deal) => {
-      onDismiss(deal.id);
-      advance();
-    },
-    [onDismiss, advance]
-  );
-
-  const handleSwipeUp = useCallback(
-    (deal: Deal) => {
-      // Open the dispensary menu URL in a new tab
-      const url = deal.dispensary?.menu_url;
-      if (url) {
-        window.open(url, '_blank', 'noopener');
-      }
-      advance();
-    },
-    [advance]
-  );
-
-  const handleUndo = useCallback(() => {
-    if (history.length === 0) return;
-    const prevIndex = history[history.length - 1];
-    setHistory((prev) => prev.slice(0, -1));
-    setCurrentIndex(prevIndex);
-  }, [history]);
-
-  // All deals swiped
-  if (currentIndex >= deals.length) {
+  // All deals reviewed
+  if (deals.length === 0 && totalDeals > 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-        <div className="w-16 h-16 rounded-2xl bg-purple-500/10 flex items-center justify-center mb-4">
-          <Heart className="w-8 h-8 text-purple-400" />
-        </div>
+        <div className="text-4xl mb-4">&#127881;</div>
         <h2 className="text-lg font-semibold text-white mb-2">
-          You&apos;ve seen all deals!
+          You&apos;ve seen all {totalDeals} deals today
         </h2>
-        <p className="text-sm text-slate-400 mb-6 max-w-xs">
-          Check back later for fresh deals, or browse your saved ones.
+        <p className="text-sm text-slate-400 mb-2 max-w-xs">
+          New deals drop every morning at 8 AM.
         </p>
-        {history.length > 0 && (
-          <button
-            onClick={() => {
-              setCurrentIndex(0);
-              setHistory([]);
-            }}
-            className="px-5 py-3 bg-purple-500/20 text-purple-400 rounded-xl text-sm font-medium hover:bg-purple-500/30 transition-colors"
-          >
-            Start over
-          </button>
-        )}
+        <p className="text-xs text-slate-600">
+          Check your saved deals or come back tomorrow.
+        </p>
       </div>
     );
   }
+
+  if (deals.length === 0) return null;
 
   return (
     <div className="flex flex-col items-center">
       {/* Progress bar */}
       <div className="w-full max-w-sm px-4 mb-4">
         <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-          <span>{currentIndex + 1} of {deals.length}</span>
+          <span>{seenCount} of {totalDeals} deals seen</span>
           <span>{progress}%</span>
         </div>
         <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
           <div
-            className="h-full bg-purple-500 rounded-full transition-all duration-300"
+            className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -133,9 +87,14 @@ export function DealStack({
               <SwipeableCard
                 deal={deal}
                 isSaved={savedDeals.has(deal.id)}
-                onSwipeRight={() => handleSwipeRight(deal)}
-                onSwipeLeft={() => handleSwipeLeft(deal)}
-                onSwipeUp={() => handleSwipeUp(deal)}
+                onSwipeRight={() => onSave(deal.id)}
+                onSwipeLeft={() => onDismiss(deal.id)}
+                onSwipeUp={() => {
+                  if (deal.product_url) {
+                    window.open(deal.product_url, '_blank', 'noopener');
+                  }
+                  onDismiss(deal.id);
+                }}
                 onClick={() => onSelectDeal(deal)}
                 isTop={isTop}
               />
@@ -148,25 +107,18 @@ export function DealStack({
       <div className="flex items-center justify-center gap-6 mt-6">
         {/* Dismiss */}
         <button
-          onClick={() => visibleDeals[0] && handleSwipeLeft(visibleDeals[0])}
+          onClick={() => visibleDeals[0] && onDismiss(visibleDeals[0].id)}
           className="w-14 h-14 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-red-400 hover:bg-red-500/10 hover:border-red-500/30 transition-all active:scale-95"
+          aria-label="Pass on this deal"
         >
           <X className="w-7 h-7" />
         </button>
 
-        {/* Undo */}
-        <button
-          onClick={handleUndo}
-          disabled={history.length === 0}
-          className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:bg-slate-700 transition-all active:scale-95 disabled:opacity-30 disabled:hover:bg-slate-800"
-        >
-          <RotateCcw className="w-5 h-5" />
-        </button>
-
         {/* Save */}
         <button
-          onClick={() => visibleDeals[0] && handleSwipeRight(visibleDeals[0])}
+          onClick={() => visibleDeals[0] && onSave(visibleDeals[0].id)}
           className="w-14 h-14 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-green-400 hover:bg-green-500/10 hover:border-green-500/30 transition-all active:scale-95"
+          aria-label="Save this deal"
         >
           <Heart className="w-7 h-7" />
         </button>
@@ -174,7 +126,7 @@ export function DealStack({
 
       {/* Hint text */}
       <p className="text-[10px] text-slate-600 mt-4 text-center">
-        Swipe right to save &bull; Swipe left to pass &bull; Swipe up to visit dispensary
+        Swipe right to save &bull; Swipe left to pass &bull; Tap for details
       </p>
     </div>
   );

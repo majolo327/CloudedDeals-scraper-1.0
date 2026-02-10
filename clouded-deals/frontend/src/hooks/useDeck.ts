@@ -53,8 +53,10 @@ function persistDismissedIds(ids: Set<string>): void {
 const VISIBLE_COUNT = 12;
 
 export interface DeckState {
-  /** Currently visible deals in the grid */
+  /** Currently visible deals in the grid (first 12 of remaining) */
   visible: Deal[];
+  /** All undismissed deals in deck order (for stack/swipe mode) */
+  remaining: Deal[];
   /** Total deals in the shuffled deck (before dismissals) */
   totalDeals: number;
   /** Number of deals the user has seen (dismissed + currently visible) */
@@ -69,9 +71,18 @@ export interface DeckState {
   appearingId: string | null;
   /** Dismiss a deal — triggers animation, then replaces it */
   dismissDeal: (dealId: string) => void;
+  /** Immediately add to dismissed set (no animation, for stack/swipe mode) */
+  dismissImmediate: (dealId: string) => void;
 }
 
-export function useDeck(deals: Deal[]): DeckState {
+export interface DeckOptions {
+  /** Whether to apply curated shuffle (true) or preserve input order (false). Default: true */
+  shuffle?: boolean;
+}
+
+export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState {
+  const { shuffle = true } = options;
+
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() =>
     loadDismissedIds()
   );
@@ -79,18 +90,23 @@ export function useDeck(deals: Deal[]): DeckState {
   const [appearingId, setAppearingId] = useState<string | null>(null);
   const dismissTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Build the shuffled deck once per deal set (session-stable)
+  // Build the deck: shuffled for default sort, or preserve order for custom sorts
   const shuffledDeck = useMemo(() => {
+    if (!shuffle) return deals;
     const anonId =
       typeof window !== 'undefined' ? getOrCreateAnonId() : '';
     return curatedShuffle(deals, { anonId });
-  }, [deals]);
+  }, [deals, shuffle]);
 
-  // Split into visible based on dismissals
-  const visible = useMemo(() => {
-    const remaining = shuffledDeck.filter((d) => !dismissedIds.has(d.id));
-    return remaining.slice(0, VISIBLE_COUNT);
+  // All undismissed deals in deck order
+  const remaining = useMemo(() => {
+    return shuffledDeck.filter((d) => !dismissedIds.has(d.id));
   }, [shuffledDeck, dismissedIds]);
+
+  // Grid view: first 12 of remaining
+  const visible = useMemo(() => {
+    return remaining.slice(0, VISIBLE_COUNT);
+  }, [remaining]);
 
   // Persist dismissed IDs whenever they change
   useEffect(() => {
@@ -151,6 +167,26 @@ export function useDeck(deals: Deal[]): DeckState {
     [dismissingId, shuffledDeck, visible, dismissedIds]
   );
 
+  // Immediate dismiss (no animation) — used by stack/swipe mode
+  const dismissImmediate = useCallback(
+    (dealId: string) => {
+      const deal = shuffledDeck.find((d) => d.id === dealId);
+      trackEvent('deal_dismissed', dealId, {
+        category: deal?.category,
+        brand: deal?.brand?.name,
+        deal_score: deal?.deal_score,
+        dismissed_count: dismissedIds.size + 1,
+        mode: 'stack',
+      });
+      setDismissedIds((prev) => {
+        const next = new Set(prev);
+        next.add(dealId);
+        return next;
+      });
+    },
+    [shuffledDeck, dismissedIds]
+  );
+
   const seenCount = Math.min(
     dismissedIds.size + visible.length,
     shuffledDeck.length
@@ -158,12 +194,14 @@ export function useDeck(deals: Deal[]): DeckState {
 
   return {
     visible,
+    remaining,
     totalDeals: shuffledDeck.length,
     seenCount,
     dismissedCount: dismissedIds.size,
-    isComplete: visible.length === 0 && shuffledDeck.length > 0,
+    isComplete: remaining.length === 0 && shuffledDeck.length > 0,
     dismissingId,
     appearingId,
     dismissDeal,
+    dismissImmediate,
   };
 }

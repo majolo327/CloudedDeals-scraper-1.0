@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { LayoutGrid, Layers } from 'lucide-react';
 import type { Deal } from '@/types';
 import { DealCard } from './cards';
+import { DealStack } from './DealStack';
 import { InlineFeedbackPrompt } from './FeedbackWidget';
 import { FilterSheet } from './FilterSheet';
 import { StickyStatsBar } from './layout';
@@ -12,6 +14,15 @@ import { useDeck } from '@/hooks/useDeck';
 import { useUniversalFilters, formatDistance } from '@/hooks/useUniversalFilters';
 
 type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'preroll';
+type ViewMode = 'grid' | 'stack';
+
+const VIEW_MODE_KEY = 'clouded_view_mode';
+
+function loadViewMode(): ViewMode {
+  if (typeof window === 'undefined') return 'grid';
+  const stored = localStorage.getItem(VIEW_MODE_KEY);
+  return stored === 'stack' ? 'stack' : 'grid';
+}
 
 interface DealsPageProps {
   deals: Deal[];
@@ -37,6 +48,7 @@ export function DealsPage({
   const [activeCategory, setActiveCategory] = useState<DealCategory>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [countdown, setCountdown] = useState(() => getTimeUntilMidnight());
+  const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
 
   const {
     filters,
@@ -61,6 +73,11 @@ export function DealsPage({
     }
   }, [deals]);
 
+  // Persist view mode
+  useEffect(() => {
+    localStorage.setItem(VIEW_MODE_KEY, viewMode);
+  }, [viewMode]);
+
   const hasActiveFilters = filters.categories.length > 0 || filters.dispensaryIds.length > 0 ||
     filters.priceRange !== 'all' || filters.minDiscount > 0 || filters.distanceRange !== 'all' ||
     filters.weightFilter !== 'all';
@@ -74,13 +91,22 @@ export function DealsPage({
     return result;
   }, [deals, activeCategory, filterAndSortDeals]);
 
-  // Use the deck for the default sort (curated shuffle)
+  // Deck is always active — users interact with 12 cards at a time, never infinite scroll.
+  // When using default sort (deal_score), we apply the curated shuffle for diversity.
+  // When using a custom sort (price, discount, etc.), deck preserves that order.
   const isDefaultSort = !filters.sortBy || filters.sortBy === 'deal_score';
-  const deck = useDeck(isDefaultSort && !hasActiveFilters ? filteredDeals : []);
+  const deck = useDeck(filteredDeals, { shuffle: isDefaultSort });
 
-  // Determine what to render: deck mode or static sorted mode
-  const visibleDeals = isDefaultSort && !hasActiveFilters ? deck.visible : filteredDeals;
-  const showDeckUI = isDefaultSort && !hasActiveFilters;
+  // Stack mode: save = heart + advance, dismiss = advance
+  const handleStackSave = useCallback((dealId: string) => {
+    toggleSavedDeal(dealId);
+    deck.dismissImmediate(dealId); // advance past it in the deck
+  }, [toggleSavedDeal, deck]);
+
+  const handleStackDismiss = useCallback((dealId: string) => {
+    deck.dismissImmediate(dealId);
+    onDismissDeal?.();
+  }, [deck, onDismissDeal]);
 
   return (
     <>
@@ -113,13 +139,49 @@ export function DealsPage({
                 <span className="text-xs text-slate-500 font-normal truncate">{formatUpdateTime(deals)}</span>
               )}
             </div>
-            <span className="text-[11px] text-slate-600 shrink-0">
-              {countdown}
-            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* View mode toggle */}
+              <div
+                data-coach="view-toggle"
+                className="flex items-center bg-slate-800/60 rounded-lg p-0.5 border border-slate-700/50"
+                role="radiogroup"
+                aria-label="View mode"
+              >
+                <button
+                  role="radio"
+                  aria-checked={viewMode === 'grid'}
+                  aria-label="Grid view"
+                  onClick={() => setViewMode('grid')}
+                  className={`p-1.5 rounded-md transition-all ${
+                    viewMode === 'grid'
+                      ? 'bg-purple-500/20 text-purple-400'
+                      : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  role="radio"
+                  aria-checked={viewMode === 'stack'}
+                  aria-label="Swipe view"
+                  onClick={() => setViewMode('stack')}
+                  className={`p-1.5 rounded-md transition-all ${
+                    viewMode === 'stack'
+                      ? 'bg-purple-500/20 text-purple-400'
+                      : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <span className="text-[11px] text-slate-600">
+                {countdown}
+              </span>
+            </div>
           </div>
 
-          {/* Deck progress bar — only in deck mode after first dismiss */}
-          {showDeckUI && deck.totalDeals > 0 && deck.dismissedCount > 0 && (
+          {/* Deck progress bar — grid mode only, after first dismiss */}
+          {viewMode === 'grid' && deck.totalDeals > 0 && deck.dismissedCount > 0 && (
             <div className="mb-4">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-[11px] text-slate-500">
@@ -153,14 +215,14 @@ export function DealsPage({
             </div>
           )}
 
-          {/* Deal grid */}
+          {/* Deal content */}
           {isLoading ? (
             <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
               {Array.from({ length: 9 }).map((_, i) => (
                 <DealCardSkeleton key={i} />
               ))}
             </div>
-          ) : deck.isComplete && showDeckUI ? (
+          ) : deck.isComplete ? (
             /* End-of-deck message */
             <div className="text-center py-16">
               <div className="text-4xl mb-4">&#127881;</div>
@@ -174,7 +236,7 @@ export function DealsPage({
                 Refreshes in {countdown}
               </p>
             </div>
-          ) : visibleDeals.length === 0 && hasActiveFilters ? (
+          ) : filteredDeals.length === 0 && hasActiveFilters ? (
             <div className="text-center py-16">
               <p className="text-slate-400 text-sm mb-2">
                 Nothing matches right now
@@ -190,16 +252,28 @@ export function DealsPage({
               </button>
               <InlineFeedbackPrompt context="filter_no_results" />
             </div>
-          ) : visibleDeals.length === 0 ? (
+          ) : filteredDeals.length === 0 ? (
             <div className="text-center py-20">
               <p className="text-slate-300 text-xl font-medium mb-2">
                 No deals yet today
               </p>
               <p className="text-slate-500">Deals refresh every morning. Check back soon.</p>
             </div>
+          ) : viewMode === 'stack' ? (
+            /* Stack / Swipe mode */
+            <DealStack
+              deals={deck.remaining}
+              savedDeals={savedDeals}
+              onSave={handleStackSave}
+              onDismiss={handleStackDismiss}
+              onSelectDeal={(deal) => setSelectedDeal(deal)}
+              totalDeals={deck.totalDeals}
+              seenCount={deck.seenCount}
+            />
           ) : (
+            /* Grid mode */
             <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-              {visibleDeals.map((deal, index) => {
+              {deck.visible.map((deal, index) => {
                 const isDismissing = deck.dismissingId === deal.id;
                 const isAppearing = deck.appearingId === deal.id;
                 const distance = getDistance(deal.dispensary.latitude, deal.dispensary.longitude);
@@ -228,7 +302,7 @@ export function DealsPage({
                       isSaved={savedDeals.has(deal.id)}
                       isUsed={usedDeals.has(deal.id)}
                       onSave={() => toggleSavedDeal(deal.id)}
-                      onDismiss={showDeckUI ? () => { deck.dismissDeal(deal.id); onDismissDeal?.(); } : undefined}
+                      onDismiss={() => { deck.dismissDeal(deal.id); onDismissDeal?.(); }}
                       onClick={() => setSelectedDeal(deal)}
                       distanceLabel={distance !== null ? formatDistance(distance) : undefined}
                     />
