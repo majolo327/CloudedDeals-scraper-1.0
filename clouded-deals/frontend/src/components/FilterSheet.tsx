@@ -98,6 +98,7 @@ export function FilterSheet({
   activeFilterCount: externalActiveCount,
 }: FilterSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
@@ -307,6 +308,39 @@ export function FilterSheet({
 
             {/* Scrollable content */}
             <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain">
+              {/* Sort By (collapsible at top) */}
+              <section>
+                <button
+                  onClick={() => setSortOpen(!sortOpen)}
+                  className="flex items-center justify-between w-full"
+                >
+                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                    Sort: <span className="text-slate-300 normal-case">{SORT_OPTIONS.find(o => o.id === filters.sortBy)?.label}</span>
+                  </h3>
+                  <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${sortOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {sortOpen && (
+                  <div className="mt-2 space-y-0.5 rounded-xl bg-slate-800/50 p-1.5">
+                    {SORT_OPTIONS.filter(opt => opt.id !== 'distance' || hasLocation).map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => {
+                          onFiltersChange({ ...filters, sortBy: opt.id });
+                          setSortOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${
+                          filters.sortBy === opt.id
+                            ? 'bg-purple-500/15 text-purple-400'
+                            : 'text-slate-400 hover:bg-slate-800'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+
               {/* Category */}
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Category</h3>
@@ -331,105 +365,20 @@ export function FilterSheet({
                 </div>
               </section>
 
-              {/* Price Range */}
-              <section>
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Price Range</h3>
-                <div className="flex flex-wrap gap-2">
-                  {PRICE_RANGES.map((range) => (
-                    <button
-                      key={range.id}
-                      onClick={() => onFiltersChange({ ...filters, priceRange: range.id, quickFilter: 'none' })}
-                      className={`px-3 py-2 min-h-[40px] rounded-full text-xs font-medium transition-all ${
-                        filters.priceRange === range.id
-                          ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                          : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
-                      }`}
-                    >
-                      {range.label}
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              {/* Weight / Size */}
-              <section>
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                  Size / Weight
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {weightOptions.map((opt) => (
-                    <button
-                      key={opt.id}
-                      onClick={() => {
-                        onFiltersChange({ ...filters, weightFilter: opt.id });
-                        if (opt.id !== 'all') trackEvent('filter_change', undefined, { weight: opt.id });
-                      }}
-                      className={`px-3 py-2 min-h-[40px] rounded-full text-xs font-medium transition-all ${
-                        filters.weightFilter === opt.id
-                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                          : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              {/* Min Discount */}
-              <section>
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                  Min Discount: {filters.minDiscount > 0 ? `${filters.minDiscount}%+` : 'Any'}
-                </h3>
-                <input
-                  type="range"
-                  min={0}
-                  max={70}
-                  step={5}
-                  value={filters.minDiscount}
-                  onChange={(e) => onFiltersChange({ ...filters, minDiscount: Number(e.target.value), quickFilter: 'none' })}
-                  className="w-full accent-purple-500"
-                />
-                <div className="flex justify-between text-[10px] text-slate-600 mt-1">
-                  <span>Any</span>
-                  <span>70%+</span>
-                </div>
-              </section>
-
-              {/* Sort By */}
-              <section>
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Sort By</h3>
-                <div className="space-y-1">
-                  {SORT_OPTIONS.filter(opt => opt.id !== 'distance' || hasLocation).map((opt) => (
-                    <button
-                      key={opt.id}
-                      onClick={() => onFiltersChange({ ...filters, sortBy: opt.id })}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${
-                        filters.sortBy === opt.id
-                          ? 'bg-purple-500/15 text-purple-400'
-                          : 'text-slate-400 hover:bg-slate-800'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              {/* Location (collapsible) */}
+              {/* Location & Dispensary (collapsible) */}
               <section>
                 <button
                   onClick={() => setLocationOpen(!locationOpen)}
-                  className="flex items-center justify-between w-full mb-3"
+                  className="flex items-center justify-between w-full"
                 >
                   <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center">
                     <MapPin className="w-3 h-3 mr-1" />
-                    Location
+                    Location & Dispensary
                   </h3>
                   <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${locationOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {locationOpen && (
-                  <div className="space-y-5">
+                  <div className="mt-3 space-y-5">
                     {/* Distance */}
                     {hasLocation && (
                       <div>
@@ -509,6 +458,71 @@ export function FilterSheet({
                     </div>
                   </div>
                 )}
+              </section>
+
+              {/* Price Range */}
+              <section>
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Price Range</h3>
+                <div className="flex flex-wrap gap-2">
+                  {PRICE_RANGES.map((range) => (
+                    <button
+                      key={range.id}
+                      onClick={() => onFiltersChange({ ...filters, priceRange: range.id, quickFilter: 'none' })}
+                      className={`px-3 py-2 min-h-[40px] rounded-full text-xs font-medium transition-all ${
+                        filters.priceRange === range.id
+                          ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                          : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
+                      }`}
+                    >
+                      {range.label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* Weight / Size */}
+              <section>
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                  Size / Weight
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {weightOptions.map((opt) => (
+                    <button
+                      key={opt.id}
+                      onClick={() => {
+                        onFiltersChange({ ...filters, weightFilter: opt.id });
+                        if (opt.id !== 'all') trackEvent('filter_change', undefined, { weight: opt.id });
+                      }}
+                      className={`px-3 py-2 min-h-[40px] rounded-full text-xs font-medium transition-all ${
+                        filters.weightFilter === opt.id
+                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                          : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* Min Discount (least used — at bottom) */}
+              <section>
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                  Min Discount: {filters.minDiscount > 0 ? `${filters.minDiscount}%+` : 'Any'}
+                </h3>
+                <input
+                  type="range"
+                  min={0}
+                  max={70}
+                  step={5}
+                  value={filters.minDiscount}
+                  onChange={(e) => onFiltersChange({ ...filters, minDiscount: Number(e.target.value), quickFilter: 'none' })}
+                  className="w-full accent-purple-500"
+                />
+                <div className="flex justify-between text-[10px] text-slate-600 mt-1">
+                  <span>Any</span>
+                  <span>70%+</span>
+                </div>
               </section>
             </div>
 

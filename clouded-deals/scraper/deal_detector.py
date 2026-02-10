@@ -41,7 +41,11 @@ CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
     },
     "vape": 35,           # carts/pods — relaxed from $25
     "edible": 15,         # gummies/chocolates — relaxed from $9
-    "concentrate": 35,    # wax/shatter/live resin — relaxed from $25
+    "concentrate": {      # weight-based: live rosin can be pricier
+        "0.5": 25,        # half gram
+        "1": 45,          # gram — raised from flat $35
+        "2": 75,          # 2g buckets
+    },
     "preroll": 10,        # single prerolls — relaxed from $6
     "preroll_pack": 25,   # preroll multi-packs — relaxed from $20
 }
@@ -196,25 +200,32 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
         return sale_price <= 50
 
     if isinstance(caps, dict):
-        # Weight-based caps (flower)
+        # Weight-based caps (flower, concentrate)
+        sorted_keys = sorted(caps.keys(), key=lambda k: float(k))
+
         if weight_value:
             weight_str = str(weight_value)
             # Normalize: 3.5 → "3.5", 7.0 → "7", 28.0 → "28"
             if float(weight_value) == int(float(weight_value)):
                 weight_str = str(int(float(weight_value)))
             cap = caps.get(weight_str)
-            if cap and sale_price > cap:
-                return False
-            # If weight doesn't match any cap key, let it through
-            # (uncommon weight — don't penalize)
-            if cap is None:
-                # Fall back to 3.5g cap as default for flower
-                default_cap = caps.get("3.5", 25)
-                if sale_price > default_cap:
+            if cap is not None:
+                if sale_price > cap:
+                    return False
+            else:
+                # No exact key match — find the best cap for this weight.
+                # Use the largest defined cap that is ≤ weight, or the
+                # smallest cap if weight is below all keys.
+                wv = float(weight_value)
+                best_cap = caps[sorted_keys[0]]  # default: smallest key
+                for k in sorted_keys:
+                    if float(k) <= wv:
+                        best_cap = caps[k]
+                if sale_price > best_cap:
                     return False
         else:
-            # Flower with no weight detected — use 3.5g cap as default
-            if sale_price > caps.get("3.5", 25):
+            # No weight detected — use smallest-weight cap as default
+            if sale_price > caps[sorted_keys[0]]:
                 return False
     else:
         # Flat cap for category

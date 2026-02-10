@@ -54,6 +54,9 @@ class TestDetectCategory:
         "Dogwalker Indica 1g",
         "Infused Blunt 1.5g",
         "Diamond Infused Preroll 1g",
+        "1G | LV Kush Cake BaM Hybrid 10 PR's - $50",
+        "1g | Cotton Kandy Grapes BaM Hybrid 10 PRs - $50",
+        "1g | GMO Sherbert Jasper Indica-Hybrid 10 PR's - $50",
     ])
     def test_preroll(self, logic, text):
         assert logic.detect_category(text) == "preroll"
@@ -83,6 +86,12 @@ class TestDetectCategory:
     def test_live_resin_without_vape_keyword_is_concentrate(self, logic):
         """'AMA Live Resin 1g' — no vape keyword = concentrate."""
         assert logic.detect_category("AMA Live Resin 1g") == "concentrate"
+
+    def test_shatter_is_concentrate_not_vape(self, logic):
+        """Shatter with weight and no vape keywords = concentrate."""
+        assert logic.detect_category(
+            "Orange Push Pop .5g Shatter Medizin Hybrid 2g For $30 .5g Shatter (.5g)"
+        ) == "concentrate"
 
     # ── Flower by weight (BEFORE vape) ─────────────────────────────
 

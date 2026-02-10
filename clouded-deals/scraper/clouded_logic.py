@@ -619,6 +619,9 @@ class CloudedLogic:
         preroll_keywords = ['preroll', 'pre-roll', 'joint', 'blunt', 'dogwalker']
         if any(w in t for w in preroll_keywords):
             return 'preroll'
+        # "PR" / "PR's" / "PRs" is a common abbreviation for pre-rolls
+        if re.search(r"\bpr'?s?\b", t, re.IGNORECASE):
+            return 'preroll'
 
         # 4. CONCENTRATE (requires BOTH keyword AND weight)
         # IMPORTANT: If the product also has vape keywords (cart, pod, etc.),
