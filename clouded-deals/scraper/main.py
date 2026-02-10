@@ -34,6 +34,7 @@ from playwright.async_api import async_playwright
 from config.dispensaries import BROWSER_ARGS, DISPENSARIES, SITE_TIMEOUT_SEC
 from clouded_logic import CloudedLogic
 from deal_detector import detect_deals, get_last_report_data
+from metrics_collector import collect_daily_metrics
 from product_classifier import classify_product
 from platforms import CuraleafScraper, DutchieScraper, JaneScraper
 
@@ -807,6 +808,18 @@ async def run(slug_filter: str | None = None) -> None:
         for f in sites_failed:
             logger.info("    - %s: %s", f["slug"], f["error"])
     logger.info("=" * 60)
+
+    # ─── Daily Metrics (pipeline quality tracking) ───────────────
+    collect_daily_metrics(
+        db,
+        all_top_deals,
+        run_id=run_id,
+        total_products=total_products,
+        sites_scraped=len(sites_scraped),
+        sites_failed=len(sites_failed),
+        runtime_seconds=int(elapsed),
+        dry_run=DRY_RUN,
+    )
 
     # ─── Detailed Deal Report ─────────────────────────────────────
     _log_deal_report(all_top_deals, all_cut_deals)
