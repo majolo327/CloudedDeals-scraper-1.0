@@ -2,14 +2,14 @@
 Dispensary configuration for Las Vegas locations across 6 platforms.
 
 Platforms:
-  - dutchie: iframe-based menus (Dutchie/TD sites)  — 16 sites
+  - dutchie: iframe-based menus (Dutchie/TD sites)  — 20 sites
   - curaleaf: direct page loads (Curaleaf + Zen Leaf) — 6 sites
   - jane: hybrid iframe/direct with "View More" pagination — 19 sites
   - rise: proprietary Next.js SPA (Rise/GTI + Cookies) — 9 sites
   - carrot: JS widget via getcarrot.io               — 6 sites
-  - aiq: Alpine IQ / Dispense React SPA              — 5 active (+2 inactive)
+  - aiq: Alpine IQ / Dispense React SPA              — 3 sites
 
-Total active: 61 dispensaries (+ 2 inactive AIQ sites)
+Total active: 63 dispensaries
 
 Sites marked ``is_active: False`` are known-broken (redirects, rebrands,
 etc.) and will be skipped by the orchestrator.  They remain in the config
@@ -100,7 +100,7 @@ PLATFORM_DEFAULTS = {
 
 DISPENSARIES = [
     # ------------------------------------------------------------------
-    # DUTCHIE SITES  (15)
+    # DUTCHIE SITES  (20 — incl. SLV + 4 Nevada Made below)
     # ------------------------------------------------------------------
     {
         "name": "The Dispensary - Gibson",
@@ -381,10 +381,12 @@ DISPENSARIES = [
         "region": "southern-nv",
     },
     {
+        # NuLeaf at 430 E Twain — acquired by Jushi (Beyond/Hello parent).
+        # Use beyond-hello.com URL for consistency with Jane scraper.
         "name": "Beyond/Hello Twain",
         "slug": "beyond-hello-twain",
         "platform": "jane",
-        "url": "https://nuleafnv.com/dispensaries/las-vegas/menu/",
+        "url": "https://beyond-hello.com/nevada-dispensaries/las-vegas-twain/adult-use-menu/",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -513,7 +515,7 @@ DISPENSARIES = [
         "name": "Rise Henderson (Sunset)",
         "slug": "rise-henderson",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/henderson/887/pickup-menu/",
+        "url": "https://risecannabis.com/dispensaries/nevada/henderson/recreational-menu",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -523,12 +525,11 @@ DISPENSARIES = [
     # ------------------------------------------------------------------
     {
         # Double age gate: first "Yes", then "I'M AT LEAST 21 YEARS OLD".
-        # Treez-powered catalog (593 products, numbered pagination).
-        # Dutchie embed may be present on homepage — scraper will probe.
+        # Dutchie-powered — specials page targets deals directly.
         "name": "SLV Dispensary",
         "slug": "slv",
         "platform": "dutchie",
-        "url": "https://slvcannabis.com/shop/",
+        "url": "https://slvcannabis.com/specials/",
         "embed_type": "direct",
         "is_active": True,
         "region": "southern-nv",
@@ -587,7 +588,8 @@ DISPENSARIES = [
     },
 
     # ------------------------------------------------------------------
-    # AIQ / DISPENSE SITES (7) — Alpine IQ React SPA menus
+    # AIQ / DISPENSE SITES (3) — Alpine IQ React SPA menus
+    # + 4 former-AIQ sites now on Dutchie (Nevada Made)
     # ------------------------------------------------------------------
     {
         # Recon: 628 products, alpineiq scripts detected
