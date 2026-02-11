@@ -1,7 +1,7 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { trackEvent } from './analytics';
-import { applyDispensaryDiversityCap } from '@/utils/dealFilters';
 import { normalizeWeightForDisplay } from '@/utils/weightNormalizer';
+import { applyChainDiversityCap, applyGlobalBrandCap } from '@/utils/dealFilters';
 import { getRegion, DEFAULT_REGION } from './region';
 import { DISPENSARIES as DISPENSARIES_STATIC } from '@/data/dispensaries';
 import type { Deal, Category, Dispensary, Brand } from '@/types';
@@ -237,7 +237,7 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
         .gt('deal_score', 0)
         .gt('sale_price', 0)
         .order('deal_score', { ascending: false })
-        .limit(200),
+        .limit(500),
       supabase
         .from('deal_save_counts')
         .select('deal_id, save_count'),
@@ -268,10 +268,15 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
           })
       : [];
 
-    // Enforce dispensary diversity: max 15 deals per dispensary.
-    // Backend curation already limits to 25 per dispo with brand dedup —
-    // this is a lighter client-side safety net, not the primary filter.
-    const deals = applyDispensaryDiversityCap(allDeals, 15);
+    // Chain-level cap: multi-location chains (Rise=7, Thrive=5, etc.)
+    // can flood the feed. Cap at 15 per chain while guaranteeing at least
+    // 1 deal per individual dispensary. Backend already caps per-store at 10.
+    const chainCapped = applyChainDiversityCap(allDeals, 15);
+
+    // Global brand cap: detect_deals runs per-store so brand caps reset
+    // per dispensary. A brand at 16 stores × 4/store = 64 of one brand.
+    // Cap at 8 per brand to keep the deck diverse.
+    const deals = applyGlobalBrandCap(chainCapped, 8);
 
     // Cache for offline use
     setCachedDeals(deals);

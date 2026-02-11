@@ -80,6 +80,122 @@ export function applyDispensaryDiversityCap(
   });
 }
 
+// ---------------------------------------------------------------------------
+// Chain mapping — multi-location dispensaries that share inventory/brands.
+// Prevents any single chain (e.g. Rise with 7 locations) from dominating.
+// ---------------------------------------------------------------------------
+
+const DISPENSARY_CHAINS: Record<string, string> = {
+  // The Dispensary NV (3 locations)
+  'td-gibson': 'the-dispensary', 'td-eastern': 'the-dispensary', 'td-decatur': 'the-dispensary',
+  // Planet 13 / Medizin (same owner)
+  'planet13': 'planet13', 'medizin': 'planet13',
+  // Greenlight (2 locations)
+  'greenlight-downtown': 'greenlight', 'greenlight-paradise': 'greenlight',
+  // The Grove (2 locations)
+  'the-grove': 'the-grove', 'grove-pahrump': 'the-grove',
+  // Mint (2 locations)
+  'mint-paradise': 'mint', 'mint-rainbow': 'mint',
+  // Jade Cannabis (2 locations)
+  'jade-desert-inn': 'jade', 'jade-sky-pointe': 'jade',
+  // Curaleaf (4 locations)
+  'curaleaf-western': 'curaleaf', 'curaleaf-north-lv': 'curaleaf',
+  'curaleaf-strip': 'curaleaf', 'curaleaf-the-reef': 'curaleaf',
+  // Zen Leaf (2 locations)
+  'zen-leaf-flamingo': 'zen-leaf', 'zen-leaf-north-lv': 'zen-leaf',
+  // Deep Roots (4 locations)
+  'deep-roots-cheyenne': 'deep-roots', 'deep-roots-craig': 'deep-roots',
+  'deep-roots-blue-diamond': 'deep-roots', 'deep-roots-parkson': 'deep-roots',
+  // Cultivate (2 locations)
+  'cultivate-spring': 'cultivate', 'cultivate-durango': 'cultivate',
+  // Thrive (5 locations)
+  'thrive-sahara': 'thrive', 'thrive-cheyenne': 'thrive',
+  'thrive-strip': 'thrive', 'thrive-main': 'thrive',
+  'thrive-southern-highlands': 'thrive',
+  // Beyond/Hello (2 locations)
+  'beyond-hello-sahara': 'beyond-hello', 'beyond-hello-twain': 'beyond-hello',
+  // Tree of Life (2 locations)
+  'tree-of-life-jones': 'tree-of-life', 'tree-of-life-centennial': 'tree-of-life',
+  // Rise / GTI (7 locations)
+  'rise-tropicana': 'rise', 'rise-rainbow': 'rise', 'rise-nellis': 'rise',
+  'rise-durango': 'rise', 'rise-craig': 'rise', 'rise-boulder': 'rise',
+  'rise-henderson': 'rise',
+  // Cookies (Rise-operated, 2 locations)
+  'cookies-strip-rise': 'cookies-rise', 'cookies-flamingo': 'cookies-rise',
+  // Nevada Made (4 locations)
+  'nevada-made-casino-dr': 'nevada-made', 'nevada-made-charleston': 'nevada-made',
+  'nevada-made-henderson': 'nevada-made', 'nevada-made-warm-springs': 'nevada-made',
+};
+
+/** Get chain ID for a dispensary. Standalone stores return their own ID. */
+export function getChainId(dispensaryId: string): string {
+  return DISPENSARY_CHAINS[dispensaryId] ?? dispensaryId;
+}
+
+/**
+ * Cap deals per chain while guaranteeing at least 1 deal per dispensary.
+ * Input should be sorted by deal_score DESC so highest-scored deals survive.
+ */
+export function applyChainDiversityCap(
+  deals: Deal[],
+  maxPerChain: number = 15,
+): Deal[] {
+  // First pass: guarantee 1 per dispensary (best-scored since input is sorted)
+  const guaranteed = new Set<string>();
+  const guaranteedDeals: Deal[] = [];
+  const remainder: Deal[] = [];
+
+  for (const deal of deals) {
+    const dispId = deal.dispensary.id;
+    if (!guaranteed.has(dispId)) {
+      guaranteed.add(dispId);
+      guaranteedDeals.push(deal);
+    } else {
+      remainder.push(deal);
+    }
+  }
+
+  // Second pass: fill up to chain cap from remainder
+  const chainCounts = new Map<string, number>();
+  // Count guaranteed deals per chain
+  for (const deal of guaranteedDeals) {
+    const chain = getChainId(deal.dispensary.id);
+    chainCounts.set(chain, (chainCounts.get(chain) ?? 0) + 1);
+  }
+
+  const result = [...guaranteedDeals];
+  for (const deal of remainder) {
+    const chain = getChainId(deal.dispensary.id);
+    const count = chainCounts.get(chain) ?? 0;
+    if (count >= maxPerChain) continue;
+    chainCounts.set(chain, count + 1);
+    result.push(deal);
+  }
+
+  return result;
+}
+
+/**
+ * Cap deals per brand globally. Since detect_deals runs per-store,
+ * there is no cross-store brand limit — a brand at 16 stores × 4 per
+ * store = 64 deals of one brand. This caps it to a sane maximum.
+ * Input should be sorted by deal_score DESC.
+ */
+export function applyGlobalBrandCap(
+  deals: Deal[],
+  maxPerBrand: number = 8,
+): Deal[] {
+  const brandCounts = new Map<string, number>();
+  return deals.filter((deal) => {
+    const brand = deal.brand?.name ?? '';
+    if (!brand) return true; // keep unbranded deals
+    const count = brandCounts.get(brand) ?? 0;
+    if (count >= maxPerBrand) return false;
+    brandCounts.set(brand, count + 1);
+    return true;
+  });
+}
+
 /**
  * Calculate price per unit for display on deal cards.
  * - Flower, vape, concentrate, preroll: $/g

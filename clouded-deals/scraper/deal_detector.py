@@ -134,10 +134,10 @@ CATEGORY_TARGETS: dict[str, int] = {
     "other": 10,
 }
 
-MAX_SAME_BRAND_TOTAL = 6
-MAX_SAME_DISPENSARY_TOTAL = 25
+MAX_SAME_BRAND_TOTAL = 4
+MAX_SAME_DISPENSARY_TOTAL = 10
 MAX_CONSECUTIVE_SAME_CATEGORY = 3
-MAX_SAME_BRAND_PER_DISPENSARY = 3  # similarity dedup
+MAX_SAME_BRAND_PER_DISPENSARY = 2  # similarity dedup
 
 # =====================================================================
 # Phase 4: Badge thresholds

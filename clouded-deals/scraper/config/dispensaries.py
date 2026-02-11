@@ -659,8 +659,81 @@ DISPENSARIES = [
 ]
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Chain mapping — multi-location dispensaries that share inventory/brands.
+# Used to cap per-chain representation so no single chain dominates the feed.
+# Dispensaries NOT listed here are treated as their own standalone chain.
 # ---------------------------------------------------------------------------
+
+DISPENSARY_CHAINS: dict[str, str] = {
+    # The Dispensary NV (3 locations)
+    "td-gibson": "the-dispensary",
+    "td-eastern": "the-dispensary",
+    "td-decatur": "the-dispensary",
+    # Planet 13 / Medizin (same owner)
+    "planet13": "planet13",
+    "medizin": "planet13",
+    # Greenlight (2 locations)
+    "greenlight-downtown": "greenlight",
+    "greenlight-paradise": "greenlight",
+    # The Grove (2 locations)
+    "the-grove": "the-grove",
+    "grove-pahrump": "the-grove",
+    # Mint (2 locations)
+    "mint-paradise": "mint",
+    "mint-rainbow": "mint",
+    # Jade Cannabis (2 locations)
+    "jade-desert-inn": "jade",
+    "jade-sky-pointe": "jade",
+    # Curaleaf (4 locations)
+    "curaleaf-western": "curaleaf",
+    "curaleaf-north-lv": "curaleaf",
+    "curaleaf-strip": "curaleaf",
+    "curaleaf-the-reef": "curaleaf",
+    # Zen Leaf / Verano (2 locations)
+    "zen-leaf-flamingo": "zen-leaf",
+    "zen-leaf-north-lv": "zen-leaf",
+    # Deep Roots Harvest (4 locations)
+    "deep-roots-cheyenne": "deep-roots",
+    "deep-roots-craig": "deep-roots",
+    "deep-roots-blue-diamond": "deep-roots",
+    "deep-roots-parkson": "deep-roots",
+    # Cultivate (2 locations)
+    "cultivate-spring": "cultivate",
+    "cultivate-durango": "cultivate",
+    # Thrive (5 locations)
+    "thrive-sahara": "thrive",
+    "thrive-cheyenne": "thrive",
+    "thrive-strip": "thrive",
+    "thrive-main": "thrive",
+    "thrive-southern-highlands": "thrive",
+    # Beyond/Hello (2 locations)
+    "beyond-hello-sahara": "beyond-hello",
+    "beyond-hello-twain": "beyond-hello",
+    # Tree of Life (2 locations)
+    "tree-of-life-jones": "tree-of-life",
+    "tree-of-life-centennial": "tree-of-life",
+    # Rise / GTI (7 locations)
+    "rise-tropicana": "rise",
+    "rise-rainbow": "rise",
+    "rise-nellis": "rise",
+    "rise-durango": "rise",
+    "rise-craig": "rise",
+    "rise-boulder": "rise",
+    "rise-henderson": "rise",
+    # Cookies (Rise-operated, 2 locations)
+    "cookies-strip-rise": "cookies-rise",
+    "cookies-flamingo": "cookies-rise",
+    # Nevada Made (4 locations)
+    "nevada-made-casino-dr": "nevada-made",
+    "nevada-made-charleston": "nevada-made",
+    "nevada-made-henderson": "nevada-made",
+    "nevada-made-warm-springs": "nevada-made",
+}
+
+
+def get_chain_id(dispensary_slug: str) -> str:
+    """Get chain ID for a dispensary. Standalone stores return their own slug."""
+    return DISPENSARY_CHAINS.get(dispensary_slug, dispensary_slug)
 
 
 # ---------------------------------------------------------------------------

@@ -96,6 +96,9 @@ export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState {
   const [replacementDealScore, setReplacementDealScore] = useState<number | null>(null);
   const dismissTimeoutRef = useRef<NodeJS.Timeout>();
   const appearTimeoutRef = useRef<NodeJS.Timeout>();
+  const lastSwipeRef = useRef<number>(0);
+  /** Minimum ms between swipes to prevent spam-swiping */
+  const SWIPE_COOLDOWN = 300;
 
   // Build the deck: shuffled for default sort, or preserve order for custom sorts
   const shuffledDeck = useMemo(() => {
@@ -210,8 +213,13 @@ export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState {
   );
 
   // Immediate dismiss (no animation) — used by stack/swipe mode
+  // Rate-limited to prevent spam-swiping
   const dismissImmediate = useCallback(
     (dealId: string) => {
+      const now = Date.now();
+      if (now - lastSwipeRef.current < SWIPE_COOLDOWN) return;
+      lastSwipeRef.current = now;
+
       const deal = shuffledDeck.find((d) => d.id === dealId);
       trackEvent('deal_dismissed', dealId, {
         category: deal?.category,

@@ -40,7 +40,12 @@ export interface Brand {
 
 export type BadgeType = 'steal' | 'fire' | 'solid';
 
-export type ProductSubtype = 'infused_preroll' | 'preroll_pack';
+export type ProductSubtype =
+  | 'infused_preroll'
+  | 'preroll_pack'
+  | 'disposable'
+  | 'cartridge'
+  | 'pod';
 
 export interface Deal {
   id: string;

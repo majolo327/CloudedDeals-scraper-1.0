@@ -188,7 +188,14 @@ export function SwipeableCard({
 
           {/* Meta */}
           <p className="text-sm text-slate-400 mb-auto">
-            {deal.weight} &bull; {deal.category.charAt(0).toUpperCase() + deal.category.slice(1)}
+            {deal.weight} &bull; {
+              deal.product_subtype === 'disposable' ? 'Disposable Vape'
+              : deal.product_subtype === 'cartridge' ? 'Vape Cartridge'
+              : deal.product_subtype === 'pod' ? 'Vape Pod'
+              : deal.product_subtype === 'infused_preroll' ? 'Infused Pre-Roll'
+              : deal.product_subtype === 'preroll_pack' ? 'Pre-Roll Pack'
+              : deal.category.charAt(0).toUpperCase() + deal.category.slice(1)
+            }
           </p>
 
           {/* Price block */}
