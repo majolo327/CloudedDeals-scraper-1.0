@@ -11,6 +11,7 @@ interface DealCardProps {
   deal: Deal;
   isSaved: boolean;
   isUsed?: boolean;
+  isExpired?: boolean;
   onSave: () => void;
   onDismiss?: () => void;
   onClick: () => void;
@@ -25,7 +26,7 @@ const categoryLabels: Record<string, string> = {
   preroll: 'Pre-Roll',
 };
 
-export function DealCard({ deal, isSaved, isUsed = false, onSave, onDismiss, onClick, distanceLabel }: DealCardProps) {
+export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onSave, onDismiss, onClick, distanceLabel }: DealCardProps) {
   const [showShare, setShowShare] = useState(false);
 
   const distance = useMemo(() => {
@@ -51,6 +52,8 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onDismiss, onC
       data-coach="deal-card"
       onClick={onClick}
       className={`group glass frost rounded-xl p-4 cursor-pointer transition-gentle card-interactive ${
+        isExpired ? 'opacity-50 saturate-[0.6]' : ''
+      } ${
         isSaved
           ? 'card-saved'
           : 'hover:border-[rgba(99,115,171,0.22)] hover:bg-[rgba(28,35,56,0.8)]'
@@ -65,6 +68,11 @@ export function DealCard({ deal, isSaved, isUsed = false, onSave, onDismiss, onC
           {isUsed && (
             <span className="text-[10px] font-medium text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded-md">
               Used
+            </span>
+          )}
+          {isExpired && (
+            <span className="text-[10px] font-medium text-slate-400 bg-slate-500/10 px-1.5 py-0.5 rounded-md">
+              Yesterday
             </span>
           )}
         </div>

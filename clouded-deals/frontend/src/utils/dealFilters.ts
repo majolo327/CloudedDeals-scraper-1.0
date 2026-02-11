@@ -176,22 +176,33 @@ export function applyChainDiversityCap(
 }
 
 /**
- * Cap deals per brand globally. Since detect_deals runs per-store,
- * there is no cross-store brand limit — a brand at 16 stores × 4 per
- * store = 64 deals of one brand. This caps it to a sane maximum.
- * Input should be sorted by deal_score DESC.
+ * Two-tier brand cap to prevent any single brand from dominating the feed.
+ *
+ * Tier 1 — Per brand per category (default 4): ensures concentrates aren't
+ *   crowded out by flower/vape from the same brand.
+ * Tier 2 — Total brand ceiling (default 12): prevents a brand with deals
+ *   across many categories (e.g. 4 flower + 4 vape + 4 concentrate + 4
+ *   preroll) from taking too many slots overall.
+ *
+ * Input should be sorted by deal_score DESC so highest-scored deals survive.
  */
 export function applyGlobalBrandCap(
   deals: Deal[],
-  maxPerBrand: number = 8,
+  maxPerBrandPerCategory: number = 4,
+  maxPerBrandTotal: number = 12,
 ): Deal[] {
-  const brandCounts = new Map<string, number>();
+  const brandTotalCounts = new Map<string, number>();
+  const brandCategoryCounts = new Map<string, number>();
   return deals.filter((deal) => {
     const brand = deal.brand?.name ?? '';
     if (!brand) return true; // keep unbranded deals
-    const count = brandCounts.get(brand) ?? 0;
-    if (count >= maxPerBrand) return false;
-    brandCounts.set(brand, count + 1);
+    const total = brandTotalCounts.get(brand) ?? 0;
+    if (total >= maxPerBrandTotal) return false;
+    const catKey = `${brand}::${deal.category}`;
+    const catCount = brandCategoryCounts.get(catKey) ?? 0;
+    if (catCount >= maxPerBrandPerCategory) return false;
+    brandTotalCounts.set(brand, total + 1);
+    brandCategoryCounts.set(catKey, catCount + 1);
     return true;
   });
 }

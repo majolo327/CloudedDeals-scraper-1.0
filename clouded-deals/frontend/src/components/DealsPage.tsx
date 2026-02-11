@@ -6,6 +6,7 @@ import type { Deal } from '@/types';
 import { DealCard } from './cards';
 import { SwipeOverlay } from './SwipeOverlay';
 import { InlineFeedbackPrompt } from './FeedbackWidget';
+import { ExpiredDealsBanner } from './ExpiredDealsBanner';
 import { FilterSheet } from './FilterSheet';
 import { StickyStatsBar } from './layout';
 import { DealCardSkeleton } from './Skeleton';
@@ -23,6 +24,7 @@ interface DealsPageProps {
   setSelectedDeal: (deal: Deal | null) => void;
   savedCount: number;
   streak: number;
+  isExpired?: boolean;
   onDismissDeal?: () => void;
   onShareSaves?: () => void;
 }
@@ -35,6 +37,7 @@ export function DealsPage({
   setSelectedDeal,
   savedCount,
   streak,
+  isExpired = false,
   onDismissDeal,
   onShareSaves,
 }: DealsPageProps) {
@@ -114,14 +117,20 @@ export function DealsPage({
 
       <div className="max-w-6xl mx-auto px-4 py-4">
         <div className="animate-in fade-in">
+          {/* Expired deals banner */}
+          {isExpired && <ExpiredDealsBanner expiredCount={deals.length} />}
+
           {/* Header row */}
           <div className="flex items-center justify-between mb-4 gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <h2 className="text-sm font-medium text-slate-300 shrink-0">
-                Today&apos;s deals{deals.length > 0 ? ` (${deals.length})` : ''}
+                {isExpired ? "Yesterday's deals" : "Today's deals"}{deals.length > 0 ? ` (${deals.length})` : ''}
               </h2>
-              {deals.length > 0 && (
+              {deals.length > 0 && !isExpired && (
                 <span className="text-xs text-slate-500 font-normal truncate">{formatUpdateTime(deals)}</span>
+              )}
+              {isExpired && (
+                <span className="text-xs text-amber-500/70 font-normal truncate">prices may have changed</span>
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -226,9 +235,11 @@ export function DealsPage({
           ) : filteredDeals.length === 0 ? (
             <div className="text-center py-20">
               <p className="text-slate-300 text-xl font-medium mb-2">
-                No deals yet today
+                {isExpired ? "All yesterday's deals have been browsed" : 'No deals yet today'}
               </p>
-              <p className="text-slate-500">Deals refresh every morning. Check back soon.</p>
+              <p className="text-slate-500">
+                {isExpired ? 'New deals drop every morning around 8 AM PT.' : 'Deals refresh every morning. Check back soon.'}
+              </p>
             </div>
           ) : (
             /* Grid mode — position-stable: replacements appear in-place */
@@ -268,6 +279,7 @@ export function DealsPage({
                       deal={deal}
                       isSaved={savedDeals.has(deal.id)}
                       isUsed={usedDeals.has(deal.id)}
+                      isExpired={isExpired}
                       onSave={() => toggleSavedDeal(deal.id)}
                       onDismiss={() => { deck.dismissDeal(deal.id); onDismissDeal?.(); }}
                       onClick={() => setSelectedDeal(deal)}
