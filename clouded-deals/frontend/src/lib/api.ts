@@ -299,10 +299,10 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
     // 1 deal per individual dispensary. Backend already caps per-store at 10.
     const chainCapped = applyChainDiversityCap(allDeals, 15);
 
-    // Global brand cap: detect_deals runs per-store so brand caps reset
-    // per dispensary. A brand at 16 stores × 4/store = 64 of one brand.
-    // Cap at 8 per brand to keep the deck diverse.
-    const deals = applyGlobalBrandCap(chainCapped, 8);
+    // Two-tier brand cap: (1) max 4 per brand per category so one brand
+    // can't crowd out an entire category, (2) max 12 per brand total so
+    // a brand with deals across every category can't flood the deck.
+    const deals = applyGlobalBrandCap(chainCapped, 4, 12);
 
     // Cache for offline use + as expired fallback for next morning
     setCachedDeals(deals);
@@ -382,7 +382,7 @@ export async function fetchExpiredDeals(region?: string): Promise<FetchDealsResu
       : [];
 
     const chainCapped = applyChainDiversityCap(allDeals, 15);
-    const deals = applyGlobalBrandCap(chainCapped, 8);
+    const deals = applyGlobalBrandCap(chainCapped, 4, 12);
 
     setCachedExpiredDeals(deals);
     return { deals, error: null };
