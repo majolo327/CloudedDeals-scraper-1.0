@@ -117,40 +117,22 @@ _JS_EXTRACT_PRODUCTS = """
     const products = [];
     const seen = new Set();
 
-    // Strategy 1: Find all product links and walk up to the price container
+    // Strategy 1: Find all product links and walk up to the price container.
+    // Carrot renders product links as <a href="/product/..."> with the name
+    // inside, and prices in a sibling or nearby ancestor element.
     const links = document.querySelectorAll('a[href*="/product/"]');
 
     for (const link of links) {
         const href = link.href;
         if (!href || seen.has(href)) continue;
 
-        // Walk up from the link to find the nearest ancestor with a price
-        let container = link;
-        let foundPrice = false;
-        for (let i = 0; i < 6; i++) {
-            const parent = container.parentElement;
-            if (!parent) break;
-            container = parent;
-            if (container.textContent && container.textContent.includes('$')) {
-                foundPrice = true;
-                // Check if this container is reasonably sized (not the whole page)
-                if (container.textContent.length < 2000) break;
-            }
-        }
-
-        // Get text from the container
-        const text = container.innerText || '';
-        if (text.length < 5) continue;
-
         // Extract name from the link itself (cleanest source)
         let name = '';
-        // Try to find a heading or strong text inside the link
         const heading = link.querySelector('h1, h2, h3, h4, h5, h6, strong, b, [class*="name"], [class*="title"]');
         if (heading) {
             name = heading.innerText.trim();
         }
         if (!name) {
-            // Use the link's text, excluding price-like content
             const linkLines = (link.innerText || '').split('\\n').filter(l => l.trim());
             for (const line of linkLines) {
                 const trimmed = line.trim();
@@ -162,19 +144,69 @@ _JS_EXTRACT_PRODUCTS = """
         }
         if (!name) name = 'Unknown';
 
-        // Extract price from the container text
-        let price = '';
-        const priceMatch = text.match(/\\$[\\d]+\\.?\\d{0,2}/);
-        if (priceMatch) {
-            price = priceMatch[0];
+        // Walk up from the link to find the nearest ancestor with a price.
+        // Also check siblings at each level (Carrot often puts price in a
+        // sibling div, not inside the link's ancestor chain).
+        let container = link;
+        let priceText = '';
+        let rawText = '';
+        for (let i = 0; i < 8; i++) {
+            const parent = container.parentElement;
+            if (!parent) break;
+            container = parent;
+            const cText = container.innerText || '';
+
+            // Check if this container has a price
+            if (cText.includes('$')) {
+                // Is it a reasonable product card size? (not the whole grid)
+                if (cText.length < 2000) {
+                    rawText = cText;
+                    const pm = cText.match(/\\$[\\d]+\\.?\\d{0,2}/);
+                    if (pm) priceText = pm[0];
+                    break;
+                }
+                // Container too big — check direct children for a price element
+                const children = container.children;
+                for (const child of children) {
+                    const childText = child.innerText || '';
+                    if (childText.includes('$') && childText.length < 500 && childText.length > 3) {
+                        const pm = childText.match(/\\$[\\d]+\\.?\\d{0,2}/);
+                        if (pm) {
+                            priceText = pm[0];
+                            rawText = name + '\\n' + childText;
+                            break;
+                        }
+                    }
+                }
+                if (priceText) break;
+            }
         }
+
+        // Fallback: check siblings of the link for price info
+        if (!priceText && link.parentElement) {
+            const siblings = link.parentElement.children;
+            for (const sib of siblings) {
+                if (sib === link) continue;
+                const sibText = sib.innerText || '';
+                if (sibText.includes('$') && sibText.length < 500) {
+                    const pm = sibText.match(/\\$[\\d]+\\.?\\d{0,2}/);
+                    if (pm) {
+                        priceText = pm[0];
+                        rawText = name + '\\n' + sibText;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!rawText) rawText = (container.innerText || '').substring(0, 1000);
 
         seen.add(href);
         products.push({
             name: name,
-            raw_text: text.substring(0, 1000),
+            raw_text: rawText.substring(0, 1000),
             product_url: href,
-            price: price || null,
+            price: priceText || null,
         });
     }
 
@@ -188,15 +220,17 @@ _JS_EXTRACT_PRODUCTS = """
         for (const card of cards) {
             const text = card.innerText || '';
             if (!text.includes('$') || text.length < 10) continue;
+            // Skip grid containers that are too large (contain many products)
+            if (text.length > 3000) continue;
 
             const lines = text.split('\\n').map(l => l.trim()).filter(l => l);
-            let name = 'Unknown';
+            let cname = 'Unknown';
             let price = '';
 
             for (const line of lines) {
-                if (!name || name === 'Unknown') {
+                if (cname === 'Unknown') {
                     if (line.length >= 3 && !line.includes('$') && !/^(indica|sativa|hybrid|cbd|thc)$/i.test(line)) {
-                        name = line;
+                        cname = line;
                     }
                 }
                 if (!price && line.includes('$')) {
@@ -204,16 +238,16 @@ _JS_EXTRACT_PRODUCTS = """
                 }
             }
 
-            const link = card.querySelector('a');
-            const href = link ? link.href : window.location.href;
-            const key = name + '|' + price;
+            const clink = card.querySelector('a');
+            const chref = clink ? clink.href : window.location.href;
+            const key = cname + '|' + price;
             if (seen.has(key)) continue;
             seen.add(key);
 
             products.push({
-                name: name,
+                name: cname,
                 raw_text: text.substring(0, 1000),
-                product_url: href,
+                product_url: chref,
                 price: price || null,
             });
         }
@@ -287,6 +321,31 @@ class CarrotScraper(BaseScraper):
 
         # Additional settle time for JS rendering
         await asyncio.sleep(_POST_AGE_GATE_WAIT)
+
+        # Wait for prices to appear — Carrot sometimes renders links before
+        # prices are loaded (separate API call / lazy hydration).
+        try:
+            await self.page.wait_for_function(
+                """() => {
+                    const els = document.querySelectorAll('a[href*="/product/"]');
+                    if (els.length === 0) return true;  // no products, don't wait
+                    // Check if at least some elements near product links contain '$'
+                    let withPrice = 0;
+                    for (const el of els) {
+                        const parent = el.parentElement;
+                        if (!parent) continue;
+                        const grandparent = parent.parentElement;
+                        const text = (grandparent || parent).innerText || '';
+                        if (text.includes('$')) withPrice++;
+                        if (withPrice >= 3) return true;
+                    }
+                    return false;
+                }""",
+                timeout=15_000,
+            )
+            logger.info("[%s] Prices detected near product links", self.slug)
+        except PlaywrightTimeout:
+            logger.warning("[%s] Prices not detected near product links after 15s", self.slug)
 
         # --- Expand all products (scroll + click Load More) ---
         await self._expand_all_products()
@@ -441,6 +500,12 @@ class CarrotScraper(BaseScraper):
 
                     # Skip tiny fragments
                     if len(text_block.strip()) < 10:
+                        continue
+
+                    # Skip grid containers that are too large — they contain
+                    # many products, not one.  A single Carrot product card
+                    # typically has <500 chars of text.
+                    if len(text_block.strip()) > 2000:
                         continue
 
                     lines = [ln.strip() for ln in text_block.split("\n") if ln.strip()]

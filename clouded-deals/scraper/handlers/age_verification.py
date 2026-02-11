@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 PRIMARY_AGE_GATE_SELECTORS = [
     "button:has-text('I am 21 or older')",
     "button:has-text('Yes')",
+    "button:has-text('I Confirm')",
     "button:has-text('at least 21')",
     "button#agc_yes",
     "#agc_form button",
@@ -35,12 +36,15 @@ SECONDARY_AGE_GATE_SELECTORS = [
     "button:has-text('over 21')",
     "button:has-text('21+')",
     "button:has-text('Enter')",
+    "button:has-text('Confirm')",
     "a:has-text('I am 21 or older')",
+    "a:has-text('I Confirm')",
     "a:has-text('at least 21')",
     "a:has-text('over 21')",
     "a:has-text('21+')",
     "a:has-text('Enter')",
     "a:has-text('Yes')",
+    "a:has-text('Confirm')",
 ]
 SECONDARY_SELECTOR_TIMEOUT_MS = 3_000
 
@@ -139,20 +143,30 @@ async def dismiss_age_gate(
         try:
             locator = target.locator(selector).first
 
-            # Debug: probe whether the button exists / is visible BEFORE waiting
+            # Fast check: skip immediately if element doesn't exist in DOM
             try:
                 count = await target.locator(selector).count()
-                is_visible = await locator.is_visible() if count > 0 else False
-                logger.info(
-                    "Age gate probe: %s → %d match(es), visible=%s",
-                    selector, count, is_visible,
-                )
             except Exception:
-                pass
+                continue
+            if count == 0:
+                continue
 
-            await locator.wait_for(state="visible", timeout=timeout)
-            await locator.click()
-            logger.info("Age gate CLICKED via: %s (timeout=%dms)", selector, timeout)
+            # Element exists — check if already visible
+            try:
+                is_visible = await locator.is_visible()
+            except Exception:
+                is_visible = False
+
+            if is_visible:
+                # Click immediately — no need to wait
+                await locator.click()
+                logger.info("Age gate CLICKED via: %s (immediate)", selector)
+            else:
+                # Element exists but not visible — wait briefly for it
+                logger.debug("Age gate: %s exists (%d) but not visible — waiting %dms", selector, count, timeout)
+                await locator.wait_for(state="visible", timeout=timeout)
+                await locator.click()
+                logger.info("Age gate CLICKED via: %s (after wait, timeout=%dms)", selector, timeout)
 
             if post_dismiss_wait_sec > 0:
                 logger.info(

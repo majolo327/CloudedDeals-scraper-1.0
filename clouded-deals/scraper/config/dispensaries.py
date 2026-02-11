@@ -443,21 +443,26 @@ DISPENSARIES = [
     },
 
     # ------------------------------------------------------------------
-    # RISE SITES  (8) — proprietary Next.js SPA via cdn-bong.risecannabis.com
+    # RISE SITES — proprietary Next.js SPA via cdn-bong.risecannabis.com
+    #
+    # URL pattern changed ~early 2026:
+    #   OLD: /dispensaries/nevada/{slug}/recreational-menu
+    #   NEW: /dispensaries/nevada/{slug}/{store-id}/pickup-menu/
+    # Rise also rebranded several location slugs (e.g. rainbow → south-rainbow).
     # ------------------------------------------------------------------
     {
         "name": "Rise Tropicana West",
         "slug": "rise-tropicana",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/tropicana-west/recreational-menu",
+        "url": "https://risecannabis.com/dispensaries/nevada/west-tropicana/886/pickup-menu/",
         "is_active": True,
         "region": "southern-nv",
     },
     {
-        "name": "Rise Rainbow",
+        "name": "Rise South Rainbow",
         "slug": "rise-rainbow",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/rainbow/recreational-menu",
+        "url": "https://risecannabis.com/dispensaries/nevada/south-rainbow/1718/pickup-menu/",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -465,15 +470,15 @@ DISPENSARIES = [
         "name": "Rise Nellis",
         "slug": "rise-nellis",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/nellis/recreational-menu",
+        "url": "https://risecannabis.com/dispensaries/nevada/nellis/5267/pickup-menu/",
         "is_active": True,
         "region": "southern-nv",
     },
     {
-        "name": "Rise Durango",
+        "name": "Rise South Durango",
         "slug": "rise-durango",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/durango/recreational-menu",
+        "url": "https://risecannabis.com/dispensaries/nevada/south-durango/1885/pickup-menu/",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -481,41 +486,42 @@ DISPENSARIES = [
         "name": "Rise Craig",
         "slug": "rise-craig",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/craig/recreational-menu",
+        "url": "https://risecannabis.com/dispensaries/nevada/craig-rd/5429/pickup-menu/",
         "is_active": True,
         "region": "southern-nv",
     },
     {
-        "name": "Rise Boulder Highway",
+        # Rebranded from "Boulder Highway" to "Henderson on Boulder"
+        "name": "Rise Henderson (Boulder)",
         "slug": "rise-boulder",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/boulder-highway/recreational-menu",
+        "url": "https://risecannabis.com/dispensaries/nevada/henderson-boulder/6211/pickup-menu/",
         "is_active": True,
         "region": "southern-nv",
     },
     {
+        # Cookies on the Strip still uses /recreational-menu/ (not pickup-menu)
         "name": "Cookies on the Strip",
         "slug": "cookies-strip-rise",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/cookies-on-the-strip/recreational-menu",
+        "url": "https://risecannabis.com/dispensaries/nevada/cookies-on-the-strip/888/recreational-menu/",
         "is_active": True,
         "region": "southern-nv",
     },
     {
-        # Rise-operated (recon confirmed: Rise score=2, 89 products)
+        # Cookies Flamingo merged into "Cookies on the Strip" (888) — deactivated.
         "name": "Cookies Flamingo",
         "slug": "cookies-flamingo",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/cookies-flamingo/recreational-menu",
-        "is_active": True,
+        "url": "https://risecannabis.com/dispensaries/nevada/cookies-on-the-strip/888/recreational-menu/",
+        "is_active": False,
         "region": "southern-nv",
     },
     {
-        # Listed as "Henderson" on risecannabis.com but located on Sunset Rd
         "name": "Rise Henderson (Sunset)",
         "slug": "rise-henderson",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/henderson/recreational-menu",
+        "url": "https://risecannabis.com/dispensaries/nevada/henderson/887/pickup-menu/",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -539,12 +545,10 @@ DISPENSARIES = [
     # CARROT SITES (6) — JS widget via nevada-store-core.getcarrot.io
     # ------------------------------------------------------------------
     {
-        # Note: /deals/ redirects to a non-menu page. Use /order/ which
-        # hosts the Carrot storefront with product listings.
         "name": "Wallflower Blue Diamond",
         "slug": "wallflower-blue-diamond",
         "platform": "carrot",
-        "url": "https://wallflower-house.com/order/",
+        "url": "https://wallflower-house.com/store/category/specials",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -560,15 +564,17 @@ DISPENSARIES = [
         "name": "Jenny's Dispensary",
         "slug": "jennys",
         "platform": "carrot",
-        "url": "https://jennysdispensary.com/store/",
+        "url": "https://jennysdispensary.com/store/category/specials",
         "is_active": True,
         "region": "southern-nv",
     },
     {
+        # Euphoria's Carrot integration renders deals/specials on the main
+        # /menu page — /menu/category/specials is not a valid route.
         "name": "Euphoria Wellness",
         "slug": "euphoria-wellness",
         "platform": "carrot",
-        "url": "https://euphoriawellnessnv.com/menu/",
+        "url": "https://euphoriawellnessnv.com/menu",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -576,7 +582,7 @@ DISPENSARIES = [
         "name": "Silver Sage Wellness",
         "slug": "silver-sage",
         "platform": "carrot",
-        "url": "https://store.sswlv.com/",
+        "url": "https://store.sswlv.com/category/specials",
         "is_active": True,
         "region": "southern-nv",
     },
