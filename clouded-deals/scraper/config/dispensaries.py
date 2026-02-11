@@ -459,13 +459,11 @@ DISPENSARIES = [
         "region": "southern-nv",
     },
     {
-        # Rebranded from "Rainbow" to "South Rainbow". Needs human URL
-        # confirmation — deactivated until store ID is confirmed.
         "name": "Rise South Rainbow",
         "slug": "rise-rainbow",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensary-menu/nevada/south-rainbow-pickup-menu/",
-        "is_active": False,
+        "url": "https://risecannabis.com/dispensaries/nevada/south-rainbow/1718/pickup-menu/",
+        "is_active": True,
         "region": "southern-nv",
     },
     {
@@ -477,13 +475,11 @@ DISPENSARIES = [
         "region": "southern-nv",
     },
     {
-        # Rebranded from "Durango" to "South Durango". Needs human URL
-        # confirmation — deactivated until store ID is confirmed.
         "name": "Rise South Durango",
         "slug": "rise-durango",
         "platform": "rise",
         "url": "https://risecannabis.com/dispensaries/nevada/south-durango/1885/pickup-menu/",
-        "is_active": False,
+        "is_active": True,
         "region": "southern-nv",
     },
     {
@@ -513,12 +509,11 @@ DISPENSARIES = [
         "region": "southern-nv",
     },
     {
-        # Cannot find "Cookies Flamingo" on risecannabis.com — may have
-        # closed or merged.  Deactivated until human confirmation.
+        # Cookies Flamingo merged into "Cookies on the Strip" (888) — deactivated.
         "name": "Cookies Flamingo",
         "slug": "cookies-flamingo",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/cookies-flamingo/recreational-menu",
+        "url": "https://risecannabis.com/dispensaries/nevada/cookies-on-the-strip/888/recreational-menu/",
         "is_active": False,
         "region": "southern-nv",
     },
