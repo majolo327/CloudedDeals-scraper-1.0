@@ -57,6 +57,10 @@ const NORTH_LV_ZIPS = new Set([
   "89081", "89084", "89085", "89086", "89087",
 ]);
 
+const SUMMERLIN_ZIPS = new Set([
+  "89128", "89134", "89135", "89138", "89144", "89145",
+]);
+
 const BOULDER_CITY_ZIPS = new Set(["89005", "89006"]);
 const MESQUITE_ZIPS = new Set(["89024", "89027"]);
 const LAUGHLIN_ZIPS = new Set(["89028", "89029"]);
@@ -69,6 +73,7 @@ export function getVegasCityLabel(zip: string): string {
   const z = zip.trim();
   if (HENDERSON_ZIPS.has(z)) return 'Henderson';
   if (NORTH_LV_ZIPS.has(z)) return 'North Las Vegas';
+  if (SUMMERLIN_ZIPS.has(z)) return 'Summerlin';
   if (BOULDER_CITY_ZIPS.has(z)) return 'Boulder City';
   if (MESQUITE_ZIPS.has(z)) return 'Mesquite';
   if (LAUGHLIN_ZIPS.has(z)) return 'Laughlin';
@@ -78,12 +83,10 @@ export function getVegasCityLabel(zip: string): string {
 
 /**
  * Returns a display label suitable for the header.
- * "Henderson (Vegas Metro)" for suburbs, "Las Vegas" for LV proper.
+ * Uses the specific city/community name (e.g. "Henderson", "Summerlin").
  */
 export function getLocationDisplayLabel(zip: string): string {
-  const city = getVegasCityLabel(zip);
-  if (city === 'Las Vegas') return 'Las Vegas';
-  return `${city} (Vegas Metro)`;
+  return getVegasCityLabel(zip);
 }
 
 // ---- ZIP code → approximate lat/lng for distance calculations ----
