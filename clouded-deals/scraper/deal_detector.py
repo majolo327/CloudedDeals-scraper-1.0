@@ -154,11 +154,24 @@ BADGE_THRESHOLDS = {
 # =====================================================================
 
 
+# Non-cannabis product keywords — reject from deal curation.
+# These are accessories, apparel, and non-consumable items that sometimes
+# appear on dispensary menus and slip through category detection.
+_NON_CANNABIS_KEYWORDS = {
+    "apparel", "clothing", "shirt", "t-shirt", "tshirt", "hoodie",
+    "hat", "cap", "beanie", "socks", "merch", "merchandise",
+    "accessory", "accessories", "grinder", "lighter", "tray",
+    "rolling paper", "pipe", "bong", "stash", "bag", "backpack",
+    "lanyard", "keychain", "pin", "sticker", "poster",
+    "gift card", "gift certificate",
+}
+
+
 def passes_hard_filters(product: dict[str, Any]) -> bool:
     """Return ``False`` if the product should be completely excluded.
 
     Checks global price bounds, minimum discount, original price
-    presence, and category-specific price caps.
+    presence, category-specific price caps, and non-cannabis keywords.
 
     Infused pre-rolls are now ALLOWED (they're popular products).
     Only preroll multi-packs remain excluded from curation.
@@ -167,6 +180,13 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     subtype = product.get("product_subtype")
     if subtype == "preroll_pack":
         return False
+
+    # Exclude non-cannabis products (apparel, accessories, merch, etc.)
+    name_lower = (product.get("name") or "").lower()
+    raw_lower = (product.get("raw_text") or "").lower()
+    for keyword in _NON_CANNABIS_KEYWORDS:
+        if keyword in name_lower or keyword in raw_lower:
+            return False
 
     sale_price = product.get("sale_price") or product.get("current_price") or 0
     original_price = product.get("original_price") or 0

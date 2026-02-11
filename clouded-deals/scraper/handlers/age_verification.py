@@ -77,6 +77,30 @@ _JS_REMOVE_OVERLAY = """
 """
 
 
+async def _is_empty_or_error_page(target: Page | Frame) -> bool:
+    """Quick check if the target is an error page or has an empty body.
+
+    Returns True if we should skip the age gate entirely.
+    """
+    try:
+        result = await target.evaluate("""
+            () => {
+                const html = document.documentElement;
+                // Next.js error page
+                if (html.id === '__next_error__') return true;
+                // No body or very short body text
+                const body = document.body;
+                if (!body) return true;
+                const text = (body.innerText || '').trim();
+                if (text.length < 20) return true;
+                return false;
+            }
+        """)
+        return result
+    except Exception:
+        return False
+
+
 async def dismiss_age_gate(
     target: Page | Frame,
     *,
@@ -97,6 +121,12 @@ async def dismiss_age_gate(
     bool
         ``True`` if a gate was found and dismissed, ``False`` otherwise.
     """
+    # Fast exit: skip the entire selector loop on error/empty pages.
+    # This saves ~57s on pages that will never have an age gate.
+    if isinstance(target, Page) and await _is_empty_or_error_page(target):
+        logger.debug("Skipping age gate — error or empty page detected")
+        return False
+
     # Try primary selectors first (text-based "I am 21 or older" then
     # TD-specific IDs) with a longer timeout, then secondary generics.
     all_selectors = [

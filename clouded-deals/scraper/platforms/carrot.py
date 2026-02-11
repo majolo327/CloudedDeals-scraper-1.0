@@ -5,22 +5,24 @@ Carrot is a cannabis ecommerce platform headquartered in Las Vegas that
 powers online menus for dispensaries like Wallflower, Inyo, Jenny's,
 Euphoria, Silver Sage, and ShowGrow.
 
-The menu widget is injected into the page via a ``<script>`` tag from
-``nevada-store-core.getcarrot.io/carrot.js`` which renders product cards
-directly into the page DOM (no cross-origin iframe).
+Two deployment modes:
+  1. **Standalone SPA** — ``store.sswlv.com``, ``store.showgrowvegas.com``
+     use Carrot as the full page app with ``#carrot-store-root``.
+  2. **WordPress embed** — ``jennysdispensary.com``, ``inyolasvegas.com``,
+     ``wallflower-house.com``, ``euphoriawellnessnv.com`` integrate via
+     ``<script>`` from ``nevada-store-core.getcarrot.io/carrot.js`` or
+     a SiteGen build, rendering products into the page DOM.
+
+Both modes render product links as ``<a href="/product/...">`` elements
+containing product name, and prices in sibling or parent containers.
 
 Flow:
   1. Navigate to the dispensary menu page.
   2. Dismiss any age gate (up to 3 attempts for multi-gate sites).
-  3. Wait for carrot.js to render the product menu into the DOM.
+  3. Wait for Carrot content to render (detect via multiple signatures).
   4. Scroll the page to trigger any lazy-loaded products.
   5. Click "Load More" / "View More" buttons if present.
-  6. Extract product cards.
-
-Key recon signatures (Feb 2026):
-  - Script src: ``nevada-store-core.getcarrot.io/carrot.js``
-  - DOM containers: ``#carrot-menu``, ``[data-carrot]``
-  - Product counts: ~50-62 per site (small catalogs, no pagination expected)
+  6. Extract products via JS evaluation that walks the DOM tree.
 """
 
 from __future__ import annotations
@@ -43,49 +45,181 @@ _POST_AGE_GATE_WAIT = _CARROT_CFG.get("wait_after_age_gate_sec", 10)
 # Strain-only words that are NOT product names — skip to next line.
 _STRAIN_ONLY = {"indica", "sativa", "hybrid", "cbd", "thc"}
 
-# Carrot-specific selectors tried first, then generic fallbacks.
+# Carrot product card selectors — for element-based extraction fallback.
 _PRODUCT_SELECTORS = [
-    # Carrot-specific containers
+    # Carrot standalone SPA containers
+    '#carrot-store-root [class*="product"]',
+    '#carrot-store-root [class*="card"]',
+    '#carrot-store [class*="product"]',
+    # Carrot WordPress embeds (data-carrot-route is the actual attribute)
+    '[data-carrot-route] [class*="product"]',
+    '[data-carrot-route-root] [class*="product"]',
+    # Legacy selectors
     '#carrot-menu [class*="product"]',
     '[data-carrot] [class*="product"]',
-    '#carrot-menu [class*="card"]',
-    '[data-carrot] [class*="card"]',
-    '#carrot-menu [class*="item"]',
-    '[data-carrot] [class*="item"]',
-    # Generic product selectors (Carrot may render with standard classes)
+    # Generic product selectors
     '[class*="product-card"]',
     '[class*="ProductCard"]',
     '[data-testid*="product"]',
     'div[class*="product"]',
-    '[class*="menu-item"]',
-    '[class*="MenuItem"]',
     'article',
-    '[class*="card"]',
 ]
 
-# Wait for Carrot content to appear in the DOM (polled by wait_for_function).
+# Updated Carrot detection — checks for both standalone SPA and WordPress embed
+# signatures, plus product links as the strongest signal.
 _WAIT_FOR_CARROT_JS = """
 () => {
-    // Check for Carrot-specific containers
+    // Standalone Carrot SPA: #carrot-store-root with content
+    const storeRoot = document.querySelector('#carrot-store-root');
+    if (storeRoot && storeRoot.children.length > 0) {
+        const inner = storeRoot.innerHTML;
+        if (inner.length > 500) return true;
+    }
+
+    // WordPress+Carrot: data-carrot-route attribute on <html>
+    const html = document.documentElement;
+    if (html.hasAttribute('data-carrot-route') || html.hasAttribute('data-carrot-route-root')) {
+        // Check for product links (the definitive signal)
+        const links = document.querySelectorAll('a[href*="/product/"]');
+        if (links.length >= 3) return true;
+    }
+
+    // SiteGen Carrot: look for hydrated class + product links
+    if (html.classList.contains('hydrated')) {
+        const links = document.querySelectorAll('a[href*="/product/"]');
+        if (links.length >= 3) return true;
+    }
+
+    // Legacy containers
     const carrotMenu = document.querySelector('#carrot-menu');
     const dataCarrot = document.querySelector('[data-carrot]');
     const carrotClass = document.querySelector('[class*="carrot"]');
-
     const container = carrotMenu || dataCarrot || carrotClass;
     if (container) {
-        // Check if products are rendered inside
         const products = container.querySelectorAll(
             '[class*="product"], [class*="card"], [class*="item"], article'
         );
-        return products.length >= 1;
+        if (products.length >= 1) return true;
     }
 
-    // Fallback: check for any product-like content on the page
-    // (some Carrot embeds may not use named containers)
-    const cards = document.querySelectorAll(
-        '[class*="product-card"], [class*="ProductCard"], [class*="menu-item"]'
-    );
-    return cards.length >= 3;
+    // Broadest fallback: enough product links on any page
+    const allLinks = document.querySelectorAll('a[href*="/product/"]');
+    return allLinks.length >= 5;
+}
+"""
+
+# JS to extract products by walking the DOM from product links upward.
+# This is the primary extraction method — more robust than CSS selector
+# matching because it finds the nearest ancestor containing both name
+# and price regardless of class names.
+_JS_EXTRACT_PRODUCTS = """
+() => {
+    const products = [];
+    const seen = new Set();
+
+    // Strategy 1: Find all product links and walk up to the price container
+    const links = document.querySelectorAll('a[href*="/product/"]');
+
+    for (const link of links) {
+        const href = link.href;
+        if (!href || seen.has(href)) continue;
+
+        // Walk up from the link to find the nearest ancestor with a price
+        let container = link;
+        let foundPrice = false;
+        for (let i = 0; i < 6; i++) {
+            const parent = container.parentElement;
+            if (!parent) break;
+            container = parent;
+            if (container.textContent && container.textContent.includes('$')) {
+                foundPrice = true;
+                // Check if this container is reasonably sized (not the whole page)
+                if (container.textContent.length < 2000) break;
+            }
+        }
+
+        // Get text from the container
+        const text = container.innerText || '';
+        if (text.length < 5) continue;
+
+        // Extract name from the link itself (cleanest source)
+        let name = '';
+        // Try to find a heading or strong text inside the link
+        const heading = link.querySelector('h1, h2, h3, h4, h5, h6, strong, b, [class*="name"], [class*="title"]');
+        if (heading) {
+            name = heading.innerText.trim();
+        }
+        if (!name) {
+            // Use the link's text, excluding price-like content
+            const linkLines = (link.innerText || '').split('\\n').filter(l => l.trim());
+            for (const line of linkLines) {
+                const trimmed = line.trim();
+                if (trimmed.length >= 3 && !trimmed.includes('$') && !/^(indica|sativa|hybrid|cbd|thc)$/i.test(trimmed)) {
+                    name = trimmed;
+                    break;
+                }
+            }
+        }
+        if (!name) name = 'Unknown';
+
+        // Extract price from the container text
+        let price = '';
+        const priceMatch = text.match(/\\$[\\d]+\\.?\\d{0,2}/);
+        if (priceMatch) {
+            price = priceMatch[0];
+        }
+
+        seen.add(href);
+        products.push({
+            name: name,
+            raw_text: text.substring(0, 1000),
+            product_url: href,
+            price: price || null,
+        });
+    }
+
+    // Strategy 2: If no product links found, try standalone SPA cards
+    if (products.length === 0) {
+        const root = document.querySelector('#carrot-store-root') || document.body;
+        const cards = root.querySelectorAll(
+            '[class*="product-card"], [class*="ProductCard"], '
+            + '[data-testid*="product"], div[class*="product"]'
+        );
+        for (const card of cards) {
+            const text = card.innerText || '';
+            if (!text.includes('$') || text.length < 10) continue;
+
+            const lines = text.split('\\n').map(l => l.trim()).filter(l => l);
+            let name = 'Unknown';
+            let price = '';
+
+            for (const line of lines) {
+                if (!name || name === 'Unknown') {
+                    if (line.length >= 3 && !line.includes('$') && !/^(indica|sativa|hybrid|cbd|thc)$/i.test(line)) {
+                        name = line;
+                    }
+                }
+                if (!price && line.includes('$')) {
+                    price = line;
+                }
+            }
+
+            const link = card.querySelector('a');
+            const href = link ? link.href : window.location.href;
+            const key = name + '|' + price;
+            if (seen.has(key)) continue;
+            seen.add(key);
+
+            products.push({
+                name: name,
+                raw_text: text.substring(0, 1000),
+                product_url: href,
+                price: price || null,
+            });
+        }
+    }
+
+    return products;
 }
 """
 
@@ -211,12 +345,73 @@ class CarrotScraper(BaseScraper):
     # ------------------------------------------------------------------
 
     async def _extract_products(self) -> list[dict[str, Any]]:
-        """Extract product cards from the Carrot-rendered page.
+        """Extract product data from the Carrot-rendered page.
 
-        Tries selectors in order, uses the first one that yields results
-        with at least one price (``$``).  Each card's ``inner_text()``
-        is captured as ``raw_text`` for downstream parsing by CloudedLogic.
+        Primary method: JS evaluation that walks from product links
+        (``a[href*="/product/"]``) up to price containers.  This works
+        for both standalone Carrot SPAs and WordPress+Carrot embeds.
+
+        Fallback: traditional CSS selector cascade for non-standard layouts.
         """
+        # --- Primary: JS-based extraction ---
+        products = await self._extract_via_js()
+
+        if products:
+            logger.info(
+                "[%s] JS extraction found %d products", self.slug, len(products),
+            )
+            return products
+
+        # --- Fallback: CSS selector cascade ---
+        logger.info("[%s] JS extraction found 0 — trying selector cascade", self.slug)
+        products = await self._extract_via_selectors()
+
+        return products
+
+    async def _extract_via_js(self) -> list[dict[str, Any]]:
+        """Extract products using JS evaluation (walks DOM from product links)."""
+        try:
+            raw_products = await self.page.evaluate(_JS_EXTRACT_PRODUCTS)
+        except Exception:
+            logger.debug("JS product extraction failed", exc_info=True)
+            return []
+
+        products: list[dict[str, Any]] = []
+        for raw in raw_products:
+            name = raw.get("name", "Unknown")
+            raw_text = raw.get("raw_text", "")
+            clean_text = _JUNK_PATTERNS.sub("", raw_text).strip()
+
+            product: dict[str, Any] = {
+                "name": name,
+                "raw_text": clean_text,
+                "product_url": raw.get("product_url", self.url),
+            }
+            if raw.get("price"):
+                product["price"] = raw["price"]
+
+            products.append(product)
+
+        # Dedup
+        if products:
+            seen: set[str] = set()
+            unique: list[dict[str, Any]] = []
+            for p in products:
+                key = f"{p.get('name', '')}|{p.get('price', '')}"
+                if key not in seen:
+                    seen.add(key)
+                    unique.append(p)
+            if len(unique) < len(products):
+                logger.info(
+                    "[%s] Deduped %d → %d products",
+                    self.slug, len(products), len(unique),
+                )
+            products = unique
+
+        return products
+
+    async def _extract_via_selectors(self) -> list[dict[str, Any]]:
+        """Fallback: extract via CSS selector cascade (traditional method)."""
         products: list[dict[str, Any]] = []
 
         for selector in _PRODUCT_SELECTORS:
@@ -240,24 +435,22 @@ class CarrotScraper(BaseScraper):
                 try:
                     text_block = await el.inner_text()
 
-                    # Skip elements without a price — not a real product card
+                    # Skip elements without a price
                     if "$" not in text_block:
                         continue
 
-                    # Skip tiny fragments (sub-elements of a real card)
+                    # Skip tiny fragments
                     if len(text_block.strip()) < 10:
                         continue
 
                     lines = [ln.strip() for ln in text_block.split("\n") if ln.strip()]
 
-                    # Pick the first line that isn't a strain type or price
                     name = "Unknown"
                     for ln in lines:
                         if ln.lower() not in _STRAIN_ONLY and "$" not in ln and len(ln) >= 3:
                             name = ln
                             break
 
-                    # Clean junk from raw text
                     clean_text = _JUNK_PATTERNS.sub("", text_block).strip()
 
                     product: dict[str, Any] = {
@@ -266,7 +459,6 @@ class CarrotScraper(BaseScraper):
                         "product_url": self.url,
                     }
 
-                    # Extract product link from element or ancestor <a>
                     try:
                         href = await el.evaluate(
                             """el => {
@@ -280,7 +472,6 @@ class CarrotScraper(BaseScraper):
                     except Exception:
                         pass
 
-                    # Extract first price line
                     for line in lines:
                         if "$" in line:
                             product["price"] = line
@@ -297,7 +488,7 @@ class CarrotScraper(BaseScraper):
                 )
                 break
 
-        # --- Dedup by name+price (safety net) ---
+        # Dedup
         if products:
             seen: set[str] = set()
             unique: list[dict[str, Any]] = []
