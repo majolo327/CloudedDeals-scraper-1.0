@@ -139,20 +139,30 @@ async def dismiss_age_gate(
         try:
             locator = target.locator(selector).first
 
-            # Debug: probe whether the button exists / is visible BEFORE waiting
+            # Fast check: skip immediately if element doesn't exist in DOM
             try:
                 count = await target.locator(selector).count()
-                is_visible = await locator.is_visible() if count > 0 else False
-                logger.info(
-                    "Age gate probe: %s → %d match(es), visible=%s",
-                    selector, count, is_visible,
-                )
             except Exception:
-                pass
+                continue
+            if count == 0:
+                continue
 
-            await locator.wait_for(state="visible", timeout=timeout)
-            await locator.click()
-            logger.info("Age gate CLICKED via: %s (timeout=%dms)", selector, timeout)
+            # Element exists — check if already visible
+            try:
+                is_visible = await locator.is_visible()
+            except Exception:
+                is_visible = False
+
+            if is_visible:
+                # Click immediately — no need to wait
+                await locator.click()
+                logger.info("Age gate CLICKED via: %s (immediate)", selector)
+            else:
+                # Element exists but not visible — wait briefly for it
+                logger.debug("Age gate: %s exists (%d) but not visible — waiting %dms", selector, count, timeout)
+                await locator.wait_for(state="visible", timeout=timeout)
+                await locator.click()
+                logger.info("Age gate CLICKED via: %s (after wait, timeout=%dms)", selector, timeout)
 
             if post_dismiss_wait_sec > 0:
                 logger.info(

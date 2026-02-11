@@ -539,12 +539,12 @@ DISPENSARIES = [
     # CARROT SITES (6) — JS widget via nevada-store-core.getcarrot.io
     # ------------------------------------------------------------------
     {
-        # Note: /deals/ redirects to a non-menu page. Use /order/ which
-        # hosts the Carrot storefront with product listings.
+        # /order/ returned 404 as of Feb 2026.  /store/category/all/ is the
+        # current Carrot-powered storefront showing all products.
         "name": "Wallflower Blue Diamond",
         "slug": "wallflower-blue-diamond",
         "platform": "carrot",
-        "url": "https://wallflower-house.com/order/",
+        "url": "https://wallflower-house.com/store/category/all/",
         "is_active": True,
         "region": "southern-nv",
     },

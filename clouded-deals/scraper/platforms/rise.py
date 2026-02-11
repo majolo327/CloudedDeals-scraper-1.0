@@ -31,7 +31,7 @@ from typing import Any
 
 from playwright.async_api import TimeoutError as PlaywrightTimeout
 
-from config.dispensaries import PLATFORM_DEFAULTS
+from config.dispensaries import GOTO_TIMEOUT_MS, PLATFORM_DEFAULTS
 from handlers import dismiss_age_gate
 from .base import BaseScraper
 
@@ -95,6 +95,9 @@ _JS_IS_ERROR_PAGE = """
     if (!body) return 'no_body';
     const text = body.innerText || '';
     if (text.trim().length < 50) return 'empty_body';
+    // Cloudflare challenge page
+    const title = document.title || '';
+    if (title.includes('Just a moment')) return 'cloudflare_challenge';
     // Check for common error indicators
     if (text.includes('404') && text.includes('not found')) return '404';
     if (text.includes('500') && text.includes('error')) return '500';
@@ -145,21 +148,53 @@ _JS_STEALTH = """
 class RiseScraper(BaseScraper):
     """Scraper for Rise (GTI) direct-page dispensary menus."""
 
+    # Maximum number of reload attempts when Rise returns a nextjs_error.
+    _MAX_RELOAD_ATTEMPTS = 2
+    _RELOAD_DELAY_SEC = 5
+
     async def scrape(self) -> list[dict[str, Any]]:
         # Apply stealth before navigation
         await self.page.add_init_script(_JS_STEALTH)
 
         await self.goto()
-        logger.info("[%s] After navigation, URL is: %s", self.slug, self.page.url)
+        products = await self._attempt_scrape()
+
+        # If first attempt got 0 products due to error page, retry with reload
+        if not products:
+            for reload_num in range(1, self._MAX_RELOAD_ATTEMPTS + 1):
+                logger.info(
+                    "[%s] Reload attempt %d/%d — waiting %ds then reloading",
+                    self.slug, reload_num, self._MAX_RELOAD_ATTEMPTS,
+                    self._RELOAD_DELAY_SEC,
+                )
+                await asyncio.sleep(self._RELOAD_DELAY_SEC)
+                try:
+                    await self.page.reload(wait_until="load", timeout=GOTO_TIMEOUT_MS)
+                except Exception as exc:
+                    logger.warning("[%s] Reload failed: %s", self.slug, exc)
+                    continue
+                products = await self._attempt_scrape()
+                if products:
+                    break
+
+        if not products:
+            await self.save_debug_info("zero_products")
+            logger.warning("[%s] No products found after all attempts — see debug artifacts", self.slug)
+
+        logger.info("[%s] Scrape complete — %d products", self.slug, len(products))
+        return products
+
+    async def _attempt_scrape(self) -> list[dict[str, Any]]:
+        """Single attempt to extract products from the current page state."""
+        logger.info("[%s] Page URL: %s", self.slug, self.page.url)
 
         # --- Early error page detection ---
         error_type = await self._detect_error_page()
         if error_type:
             logger.warning(
-                "[%s] Error page detected (%s) — skipping age gate and extraction",
+                "[%s] Error page detected (%s) — will retry via reload",
                 self.slug, error_type,
             )
-            await self.save_debug_info("error_page")
             return []
 
         # --- Dismiss age gate ---
@@ -178,7 +213,6 @@ class RiseScraper(BaseScraper):
             error_type = await self._detect_error_page()
             if error_type:
                 logger.warning("[%s] Page became error after hydration (%s)", self.slug, error_type)
-                await self.save_debug_info("error_after_hydration")
                 return []
             logger.warning("[%s] No product content detected after waiting — will attempt extraction", self.slug)
 
@@ -190,14 +224,7 @@ class RiseScraper(BaseScraper):
             pass
 
         # --- Extract products ---
-        products = await self._extract_products()
-
-        if not products:
-            await self.save_debug_info("zero_products")
-            logger.warning("[%s] No products found — see debug artifacts", self.slug)
-
-        logger.info("[%s] Scrape complete — %d products", self.slug, len(products))
-        return products
+        return await self._extract_products()
 
     # ------------------------------------------------------------------
     # Error detection & readiness checks
