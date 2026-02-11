@@ -501,7 +501,62 @@ def _upsert_products(
                 dispensary_id, i + 1, i + len(chunk), len(rows),
             )
 
+    # --- Log price history (append-only time-series) -------------------
+    # Every product observation gets recorded so price changes are never lost.
+    _log_price_history(all_results, run_id=None)
+
     return all_results
+
+
+def _log_price_history(
+    product_rows: list[dict[str, Any]],
+    *,
+    run_id: str | None = None,
+) -> None:
+    """Append price observations to the price_history table.
+
+    Called after every successful upsert so we capture every price point.
+    Uses upsert on (product_id, observed_date) so re-runs on the same day
+    update in place rather than duplicating.
+    """
+    if DRY_RUN or not product_rows:
+        return
+
+    history_rows = []
+    for pr in product_rows:
+        product_id = pr.get("id")
+        if not product_id or str(product_id).startswith("dry-"):
+            continue
+        history_rows.append(
+            {
+                "product_id": product_id,
+                "dispensary_id": pr.get("dispensary_id"),
+                "sale_price": pr.get("sale_price"),
+                "original_price": pr.get("original_price"),
+                "discount_percent": pr.get("discount_percent"),
+                "name": pr.get("name"),
+                "brand": pr.get("brand"),
+                "category": pr.get("category"),
+                "weight_value": pr.get("weight_value"),
+                "weight_unit": pr.get("weight_unit"),
+                "deal_score": pr.get("deal_score", 0),
+                "scrape_run_id": run_id if run_id and run_id != "dry-run" else None,
+            }
+        )
+
+    if not history_rows:
+        return
+
+    try:
+        for i in range(0, len(history_rows), _UPSERT_CHUNK_SIZE):
+            chunk = history_rows[i : i + _UPSERT_CHUNK_SIZE]
+            db.table("price_history").upsert(
+                chunk, on_conflict="product_id,observed_date"
+            ).execute()
+        logger.info("Logged %d price observations to price_history", len(history_rows))
+    except Exception as exc:
+        # Price history is best-effort — never crash the main pipeline
+        logger.warning("Failed to log price history: %s", exc)
 
 
 def _insert_deals(
@@ -544,7 +599,108 @@ def _insert_deals(
         return len(deal_rows)
 
     db.table("deals").insert(deal_rows).execute()
+
+    # --- Log deal lifecycle history (best-effort) -------------------------
+    _log_deal_history(dispensary_id, deals, product_rows)
+
     return len(deal_rows)
+
+
+def _log_deal_history(
+    dispensary_id: str,
+    deals: list[dict[str, Any]],
+    product_rows: list[dict[str, Any]],
+) -> None:
+    """Upsert deal observations into deal_history for lifecycle tracking.
+
+    On first observation: creates a new row with first_seen = now.
+    On re-observation: updates last_seen, increments times_seen, refreshes score.
+    Deals not seen in a run are expired by _expire_stale_deal_history().
+    """
+    if DRY_RUN or not deals:
+        return
+
+    # Build lookup: (name, sale_price) -> product row
+    product_lookup: dict[tuple[str, float | None], dict[str, Any]] = {}
+    for pr in product_rows:
+        key = (pr["name"], pr.get("sale_price"))
+        product_lookup[key] = pr
+
+    history_rows = []
+    for d in deals:
+        key = (d.get("name", ""), d.get("sale_price"))
+        pr = product_lookup.get(key)
+        if not pr:
+            continue
+        product_id = pr.get("id")
+        if not product_id or str(product_id).startswith("dry-"):
+            continue
+
+        history_rows.append(
+            {
+                "product_id": product_id,
+                "dispensary_id": dispensary_id,
+                "deal_score": int(round(d.get("deal_score", 0))),
+                "sale_price": d.get("sale_price"),
+                "original_price": d.get("original_price"),
+                "discount_percent": d.get("discount_percent"),
+                "name": d.get("name"),
+                "brand": d.get("brand"),
+                "category": d.get("category"),
+                "last_seen_at": datetime.now(timezone.utc).isoformat(),
+                "last_seen_date": datetime.now(timezone.utc).date().isoformat(),
+                "is_active": True,
+                "times_seen": 1,  # Will be incremented by SQL on conflict
+            }
+        )
+
+    if not history_rows:
+        return
+
+    try:
+        # Upsert: on conflict (product_id, dispensary_id), update last_seen
+        # and increment times_seen.  Supabase/PostgREST upsert overwrites,
+        # so we handle the increment via a follow-up RPC or accept the
+        # simpler overwrite for now (times_seen = 1 is reset each time).
+        # TODO: Use a Postgres function for atomic increment when RPC is set up.
+        for i in range(0, len(history_rows), _UPSERT_CHUNK_SIZE):
+            chunk = history_rows[i : i + _UPSERT_CHUNK_SIZE]
+            db.table("deal_history").upsert(
+                chunk, on_conflict="product_id,dispensary_id"
+            ).execute()
+        logger.info(
+            "[%s] Logged %d deal observations to deal_history",
+            dispensary_id, len(history_rows),
+        )
+    except Exception as exc:
+        logger.warning("[%s] Failed to log deal history: %s", dispensary_id, exc)
+
+
+def _expire_stale_deal_history(group_slugs: list[str] | None = None) -> None:
+    """Mark deal_history rows as inactive if not seen today.
+
+    Called once per run after all sites are scraped.  Deals that were
+    active yesterday but not re-observed today get is_active=False.
+    """
+    if DRY_RUN:
+        return
+
+    today = datetime.now(timezone.utc).date().isoformat()
+    try:
+        query = (
+            db.table("deal_history")
+            .update({"is_active": False})
+            .eq("is_active", True)
+            .lt("last_seen_date", today)
+        )
+        if group_slugs:
+            query = query.in_("dispensary_id", group_slugs)
+        result = query.execute()
+        count = len(result.data) if result.data else 0
+        if count > 0:
+            logger.info("Expired %d stale deal_history entries", count)
+    except Exception as exc:
+        logger.warning("Failed to expire stale deal history: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -855,6 +1011,7 @@ async def run(slug_filter: str | None = None) -> None:
     # so a "stable" run doesn't wipe yesterday's "new" products.
     group_slugs = [d["slug"] for d in dispensaries] if PLATFORM_GROUP != "all" else None
     _deactivate_old_deals(group_slugs)
+    _expire_stale_deal_history(group_slugs)
     if not dispensaries:
         logger.error("No dispensaries to scrape")
         return
