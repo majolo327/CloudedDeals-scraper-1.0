@@ -101,9 +101,9 @@ BRANDS = sorted(set([
     # A
     'Advanced Vapor Devices', 'Airo', 'AiroPro', 'Alien Labs', 'AMA', 'Avexia', 'Amp',
     # B
-    'Backpack Boyz', 'Bad Batch', 'Bad Boy', 'BaM', 'Bear Quartz',
-    'Beboe', 'Bic', 'Big Chief Extracts', 'BirthJays', 'Blazer',
-    'Blazy Susan', 'BLUEBIRDS', 'BLVD', 'Bonanza Cannabis',
+    'Backpack Boyz', 'Bad Batch', 'Bad Boy', 'BaM', 'Ballers', 'Bear Quartz',
+    'Beboe', 'Bic', 'Big Chief Extracts', 'BirthJays', 'Bits', 'Blazer',
+    'Blazy Susan', 'Blink', 'BLUEBIRDS', 'BLVD', 'Bonanza Cannabis',
     'Boom Town', 'Bounti', 'Brass Knuckles', 'Bud Bandz',
     # C
     'Cake', 'Cali Traditional', 'Camino', 'Camo', 'CAMP', 'Cannafornia',
@@ -129,16 +129,16 @@ BRANDS = sorted(set([
     'Green Life Productions', 'Greenway LV', 'Groove',
     # H
     'HaHa Edibles', 'Hamilton Devices', 'Haze', 'Heavy Hitters', 'High Hemp',
-    'Hijinks', 'Hippies Peaces', 'Hits Blunt',
+    'Highlights', 'Hijinks', 'Hippies Peaces', 'Hits Blunt',
     'Houseplant', 'Huni Badger', 'Hustlers Ambition', "Hustler's Ambition",
     # I
-    'Incredibles',
+    'Incredibles', 'INDO',
     # J-K
-    'Jasper', 'Jeeter', 'Jungle Boys',
+    'JAMS', 'Jasper', 'Jeeter', 'Jungle Boys', 'Just Edibles',
     'KANHA', 'Kannabis', 'Keef', 'Khalifa Kush', 'Khalifa Yellow',
     'Kingpen', 'Kiva', 'Kiva Lost Farm', 'Kynd',
     # L
-    'Later Days', 'LAVI', 'Lift Tickets',
+    'Later Days', 'LAVI', 'LEVEL', 'Lift Tickets', 'LIT',
     "Local's Only", 'Lost Farm', 'LP Exotics',
     # M
     'Matrix', 'Medizin', 'Mojo', 'Moxie', 'Mystic Timbers',
@@ -147,18 +147,18 @@ BRANDS = sorted(set([
     'Nordic Goddess',
     'OCB Rolling Papers & Cones', 'Old Pal', 'OMG THC',
     # P
-    'Pacific Stone', 'Packwoods', 'PANNA Extracts', 'PAX',
+    'Pacific Stone', 'PACKS', 'Packwoods', 'PANNA Extracts', 'PAX',
     'Phantom Farms', 'Pheno Exotics', 'Pis WMS', 'Planet 13', 'Plug Play',
     'Poke a Bowl', 'Polaris', 'Presidential', 'Prime', 'Prospectors',
     'Provisions',
     # R
-    'Raw Garden', 'Redwood', 'REEFORM', 'Remedy', 'RNBW',
+    'Raw Garden', 'Redwood', 'REEFORM', 'Remedy', 'Reserve', 'RNBW',
     'Rove', 'Royalesque', 'Ruby Pearl Co.', 'Runtz', 'RYTHM',
     # S
     'Sauce Essentials', 'Savvy', 'SeCHe', 'SELECT', 'Sip',
     'Sin City', 'Smokiez Edibles', 'Smyle Labs', 'Special Blue',
     'Srene', 'StackHouse NV', 'State Flower', 'STIIIZY', 'Storz & Bickel',
-    'Sundae Co.', 'Super Good',
+    'Sundae Co.', 'Super Good', 'Superior',
     # T
     'Tahoe Hydro', 'THC Design', 'The Bank',
     'The Grower Circle', 'The Lab', 'Toker Poker', 'Trendi', 'Tryke',
