@@ -385,3 +385,318 @@ Coach marks use `data-coach` attributes on elements for targeting. State stored 
 - [ ] Add price history tracking (track trends over time)
 - [ ] Alert system for exceptional deals (Slack/email notification)
 - [ ] Frontend search/filter improvements based on richer product data
+
+---
+
+## Q2 2026 Upgrade Plan (Target: April 1 Build Start)
+
+*Planned during inner circle beta (Feb–Mar 2026). Build after 6-7 weeks of real user testing data.*
+
+### Upgrade 1: LLM Classification Fallback (The Invisible Brain)
+
+**Goal:** Replace 500+ lines of brittle regex with a cheap API call that classifies ambiguous products correctly — brand, category, weight, strain — without users ever knowing AI is involved.
+
+**Why:** The scraper currently misclassifies or rejects ~15-20% of products daily (~200-300 deals). Users experience this as "not enough concentrate deals" or "where's [brand]?" The root cause is hardcoded rules that can't handle new brands, weird product names, or edge-case formatting.
+
+**How it works:**
+
+```
+For each scraped product:
+  1. Run existing regex classification (fast, free, works for ~80% of products)
+  2. If regex returns confident result → use it (no API call)
+  3. If regex fails or returns low confidence → send to Claude Haiku API:
+
+     Prompt: "Classify this Las Vegas dispensary product. Return JSON.
+              Name: {name}, Price: ${sale_price}, Original: ${original_price},
+              Page category: {raw_category}, Dispensary: {dispensary_name}"
+
+     Response: {"brand": "City Trees", "category": "concentrate",
+                "weight": "1g", "strain": "Gary Peyton", "subtype": "badder"}
+
+  4. Merge API result with regex result (API wins on conflicts)
+  5. Cache results by product name hash (same product name = same classification)
+```
+
+**What this replaces:**
+
+| Current (regex) | Problem | LLM fix |
+|-----------------|---------|---------|
+| 200+ hardcoded brand entries in `clouded_logic.py` | New brands not recognized (Solventless Labs, etc.) | Haiku knows brands from training data, no list maintenance |
+| 15-step category keyword chain | "Live Resin Cart" vs "Live Resin 1g" edge cases | Understands product context, not just keywords |
+| Weight inference from keywords only | "Pod" = 0.5g? "Disposable" = 0.3g or 1g? | Infers from product name + price + dispensary norms |
+| Quality gate rejects unknown brands | House brands, new brands = rejected | Recognizes "Greenhouse Smalls" as house flower, "CT" as City Trees |
+| Two inconsistent brand lists (`clouded_logic.py` + `parser.py`) | Maintenance debt, drift | Single source of truth (the LLM) |
+
+**Architecture:**
+
+```
+clouded_logic.py (existing)
+  ├── detect_brand()     → regex first, Haiku fallback
+  ├── detect_category()  → regex first, Haiku fallback
+  └── validate_weight()  → regex first, Haiku fallback
+
+New file: llm_classifier.py
+  ├── classify_product(name, price, raw_category, dispensary) → dict
+  ├── _build_prompt(product_data) → str
+  ├── _parse_response(raw_json) → ClassificationResult
+  └── _cache_lookup(name_hash) → ClassificationResult | None
+```
+
+**Key implementation details:**
+
+- **Model:** Claude Haiku (fastest, cheapest — ~$0.001 per call)
+- **Fallback only:** Regex handles ~80% of products. LLM only called for the ~20% that regex can't confidently classify. Estimated ~2,400 API calls per morning scrape.
+- **Cost:** ~$0.50-1.00/day, ~$15-30/month
+- **Cache:** Hash product name → store classification result in Supabase. Same product name from same dispensary tomorrow = cache hit, no API call. Cache grows over time, API calls decrease.
+- **Timeout/failure:** If Haiku API is down or slow (>3s), fall back to regex result. Never block the scrape.
+- **No user-facing AI:** Zero UI changes. Users just see better deals.
+
+**Confidence scoring (when to call the LLM):**
+
+```python
+# In clouded_logic.py, after regex classification:
+confidence = 1.0
+if brand is None: confidence -= 0.4        # Unknown brand
+if category == 'other': confidence -= 0.3   # Fell through all rules
+if weight is None and category in WEIGHT_REQUIRED: confidence -= 0.2
+if price_seems_wrong(sale_price, category): confidence -= 0.1
+
+if confidence < 0.7:
+    llm_result = classify_product(name, price, raw_category, dispensary)
+    # Merge: LLM wins on missing fields, regex wins if both present
+```
+
+**What to measure (proof it works):**
+
+| Metric | Before LLM | Target after LLM |
+|--------|-----------|-----------------|
+| Products classified as "other" | ~5-10% | < 2% |
+| Products rejected for "no brand" | ~5-10% | < 1% |
+| Concentrate deals in Top 200 | 10-15 | 25-30 |
+| Edible deals in Top 200 | 8-12 | 20-25 |
+| Unique brands detected per scrape | ~80 | ~120+ |
+
+**Files to modify:**
+
+| File | Change |
+|------|--------|
+| `clouded_logic.py` | Add confidence scoring after regex, call LLM fallback |
+| `deal_detector.py` | Relax quality gate — accept LLM-classified brands |
+| `main.py` | Pass dispensary context to classification |
+| **New:** `llm_classifier.py` | Haiku API client, prompt template, cache layer |
+| `config/dispensaries.py` | No change |
+| `.github/workflows/scrape.yml` | Add `ANTHROPIC_API_KEY` secret |
+
+**Environment variables to add:**
+
+| Secret | What |
+|--------|------|
+| `ANTHROPIC_API_KEY` | Claude API key for Haiku calls |
+
+**Estimated build time:** 1-2 days
+
+---
+
+### Upgrade 2: Engagement Feedback Loop (Deals Get Better Every Week)
+
+**Goal:** Track what users actually save, dismiss, click, and search for — then feed that signal back into deal scoring so the Top 200 self-improves weekly. No ML models, no training pipelines. Just SQL queries that adjust weights.
+
+**Why:** Right now the scraper-to-user pipeline is one-way. The scraper doesn't know that STIIIZY gets saved 5x more than Remedy, or that your users skip preroll packs, or that Henderson users prefer different dispensaries. All scoring weights are hardcoded and never change.
+
+**How it works:**
+
+```
+Weekly cron (Sunday night):
+  1. Query: saves per brand (last 7 days) → brand_popularity table
+  2. Query: saves per category → adjust Top 200 category targets
+  3. Query: saves per dispensary → dispensary_trust_score
+  4. Query: search terms with 0 results → surface unmet demand
+  5. Write adjusted weights to a config table in Supabase
+  6. Next morning's scrape reads from config table instead of hardcoded constants
+```
+
+**Three feedback signals:**
+
+**Signal 1 — Brand heat (replaces static brand tiers)**
+
+Current: `PREMIUM_BRANDS = ["STIIIZY", "Cookies", ...]` hardcoded, never changes.
+After: Brand tier determined by actual user saves.
+
+```sql
+-- Materialized view: brand_popularity
+SELECT
+  brand,
+  COUNT(*) as save_count_7d,
+  COUNT(DISTINCT anon_id) as unique_savers,
+  CASE
+    WHEN COUNT(*) >= 20 THEN 'premium'    -- 20+ saves/week = premium
+    WHEN COUNT(*) >= 5  THEN 'popular'    -- 5-19 saves/week = popular
+    ELSE 'standard'
+  END as tier
+FROM analytics_events ae
+JOIN products p ON ae.properties->>'deal_id' = p.id::text
+WHERE ae.event_type = 'deal_saved'
+  AND ae.created_at > NOW() - INTERVAL '7 days'
+GROUP BY brand
+ORDER BY save_count_7d DESC;
+```
+
+What changes in `deal_detector.py`:
+```python
+# Before (hardcoded):
+BRAND_SCORE = {"premium": 20, "popular": 12, "standard": 5}
+
+# After (reads from Supabase weekly):
+brand_tiers = fetch_brand_popularity()  # Returns dict from materialized view
+# STIIIZY: 47 saves → premium → 20pts
+# City Trees: 12 saves → popular → 12pts
+# New unknown brand: 0 saves → standard → 5pts
+# Next week if unknown brand gets 8 saves → popular → 12pts (auto-promoted)
+```
+
+**Signal 2 — Category demand (replaces static Top 200 targets)**
+
+Current: Flower always 60, Vape always 50, Concentrate always 30 — never adjusts.
+After: Category slots proportional to user engagement.
+
+```sql
+-- Category save distribution
+SELECT
+  p.category,
+  COUNT(*) as saves,
+  ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 1) as pct
+FROM analytics_events ae
+JOIN products p ON ae.properties->>'deal_id' = p.id::text
+WHERE ae.event_type = 'deal_saved'
+  AND ae.created_at > NOW() - INTERVAL '14 days'
+GROUP BY p.category;
+```
+
+Example output after 2 weeks of testing:
+```
+flower:      45% → 90 slots (was 60)
+vape:        20% → 40 slots (was 50)
+concentrate: 18% → 36 slots (was 30)
+edible:      12% → 24 slots (was 30)
+preroll:      5% → 10 slots (was 20)
+```
+
+Guard rails: No category below 10 slots, no category above 100. Prevents one category from completely dominating.
+
+**Signal 3 — Dispensary trust (new scoring dimension)**
+
+Current: All dispensaries scored equally.
+After: Dispensaries with higher save rates get a small boost.
+
+```sql
+-- Dispensary engagement score
+SELECT
+  dispensary_id,
+  COUNT(*) FILTER (WHERE event_type = 'deal_saved') as saves,
+  COUNT(*) FILTER (WHERE event_type = 'get_deal_click') as clicks,
+  ROUND(
+    COUNT(*) FILTER (WHERE event_type = 'deal_saved') * 1.0 /
+    NULLIF(COUNT(*) FILTER (WHERE event_type = 'deal_modal_open'), 0),
+    3
+  ) as save_rate
+FROM analytics_events ae
+JOIN products p ON ae.properties->>'deal_id' = p.id::text
+WHERE ae.created_at > NOW() - INTERVAL '14 days'
+GROUP BY dispensary_id
+ORDER BY save_rate DESC;
+```
+
+What changes in `deal_detector.py`:
+```python
+# New: +0 to +5 dispensary trust bonus
+# Top quartile dispensaries (highest save_rate): +5
+# Second quartile: +3
+# Third quartile: +1
+# Bottom quartile: +0
+```
+
+**Bonus signal — Unmet demand (search misses)**
+
+```sql
+-- What are users searching for that returns 0 results?
+SELECT
+  properties->>'query' as search_term,
+  COUNT(*) as search_count
+FROM analytics_events
+WHERE event_type = 'search_performed'
+  AND (properties->>'result_count')::int = 0
+  AND created_at > NOW() - INTERVAL '7 days'
+GROUP BY search_term
+ORDER BY search_count DESC
+LIMIT 20;
+```
+
+This doesn't auto-fix anything — it tells you what brands/products users want that you're not surfacing. Manual review weekly. If "Solventless Labs" shows up 15 times with 0 results, you know to add it to the brand list (or let the LLM handle it if Upgrade 1 is live).
+
+**Architecture:**
+
+```
+New file: feedback_loop.py
+  ├── update_brand_popularity()     → writes to brand_popularity table
+  ├── update_category_targets()     → writes to scoring_config table
+  ├── update_dispensary_trust()     → writes to dispensary_trust table
+  └── report_unmet_demand()         → writes to weekly_report table
+
+Modified: deal_detector.py
+  ├── load_scoring_config()         → reads from Supabase instead of constants
+  ├── calculate_deal_score()        → uses dynamic brand tiers + dispensary trust
+  └── select_top_deals()            → uses dynamic category targets
+
+New workflow: .github/workflows/feedback.yml
+  └── Runs Sunday 11 PM PT, before Monday morning scrape
+```
+
+**Supabase tables to add:**
+
+| Table | Columns | Updated |
+|-------|---------|---------|
+| `brand_popularity` | brand, save_count_7d, unique_savers, tier | Weekly |
+| `scoring_config` | category, target_slots, updated_at | Weekly |
+| `dispensary_trust` | dispensary_id, save_rate, trust_tier, updated_at | Weekly |
+
+**What to measure (proof it works):**
+
+| Metric | Before feedback | Target after feedback |
+|--------|----------------|---------------------|
+| Day-1 return rate | Baseline from beta | +10-15% improvement |
+| Saves per session | Baseline from beta | +20-30% improvement |
+| "Nothing matches" filter results | Baseline | -50% reduction |
+| Brand coverage (unique brands in Top 200) | ~40-50 | ~60-80 |
+
+**Estimated build time:** 0.5-1 day (it's mostly SQL + a small Python script)
+
+---
+
+### Build Order (April 1 onwards)
+
+| Week | What | Why this order |
+|------|------|---------------|
+| **Week 1 (Apr 1-4)** | Upgrade 2 — Feedback loop | Needs real data from 6 weeks of testing. Zero API cost. Immediate scoring improvement. |
+| **Week 2 (Apr 7-11)** | Upgrade 1 — LLM classification | Feed loop tells us which brands/categories are being missed. LLM fixes them. |
+| **Week 3 (Apr 14-18)** | Measure + tune | Compare Top 200 quality before/after. Adjust confidence threshold, brand tier cutoffs, category slot guard rails. |
+
+**Total cost after both upgrades:** ~$15-30/month (Haiku API) + $0 (feedback loop is just SQL)
+
+**Total user-facing changes:** Zero. No new buttons, no "AI" badge, no feature announcements. Deals just get noticeably better.
+
+---
+
+### Data We Need to Collect During Beta (Feb-Mar) for These Upgrades
+
+The analytics system already tracks everything we need. Confirm these events are firing:
+
+| Event | Used by | Already tracked? |
+|-------|---------|-----------------|
+| `deal_saved` with `deal_id` | Brand heat, category demand, dispensary trust | Yes (`analytics_events`) |
+| `deal_dismissed` with `deal_id` | Negative signal (future use) | Yes |
+| `deal_modal_open` with `deal_id` | Save rate denominator | Yes |
+| `get_deal_click` with `deal_id` | Dispensary trust (click-through) | Yes |
+| `search_performed` with `query` + `result_count` | Unmet demand | Yes |
+| `filter_change` with categories/sort | Category preference signal | Yes |
+
+No new instrumentation needed. Just run the beta, let users use the app naturally, and the data accumulates.
