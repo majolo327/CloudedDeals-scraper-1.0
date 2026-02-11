@@ -196,6 +196,24 @@ export function getZipCoordinates(zip: string): ZipCoords | null {
 }
 
 /**
+ * Find the nearest known ZIP code to the given coordinates.
+ * Uses squared Euclidean distance (fine for short ranges within NV).
+ * Returns the zip string, or null if the coordinate map is empty.
+ */
+export function nearestZipFromCoords(lat: number, lng: number): string | null {
+  let best: string | null = null;
+  let bestDist = Infinity;
+  for (const [zip, c] of Object.entries(ZIP_COORDINATES)) {
+    const d = (c.lat - lat) ** 2 + (c.lng - lng) ** 2;
+    if (d < bestDist) {
+      bestDist = d;
+      best = zip;
+    }
+  }
+  return best;
+}
+
+/**
  * Get the user's stored zip code from localStorage.
  */
 export function getStoredZip(): string | null {
