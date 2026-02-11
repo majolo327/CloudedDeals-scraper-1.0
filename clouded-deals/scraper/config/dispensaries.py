@@ -31,7 +31,7 @@ VIEWPORT = {"width": 1920, "height": 1080}
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/120.0.0.0 Safari/537.36"
+    "Chrome/131.0.0.0 Safari/537.36"
 )
 
 # Use 'domcontentloaded' — NOT 'networkidle' — to avoid hanging on
@@ -76,7 +76,7 @@ PLATFORM_DEFAULTS = {
     "rise": {
         "wait_after_age_gate_sec": 15,
         "embed_type": "direct",           # proprietary Next.js SPA, no iframe
-        "wait_until": "domcontentloaded",
+        "wait_until": "load",             # SPA needs full script execution to hydrate
     },
     "carrot": {
         "wait_after_age_gate_sec": 10,
@@ -539,10 +539,12 @@ DISPENSARIES = [
     # CARROT SITES (6) — JS widget via nevada-store-core.getcarrot.io
     # ------------------------------------------------------------------
     {
+        # Note: /deals/ redirects to a non-menu page. Use /order/ which
+        # hosts the Carrot storefront with product listings.
         "name": "Wallflower Blue Diamond",
         "slug": "wallflower-blue-diamond",
         "platform": "carrot",
-        "url": "https://wallflower-house.com/deals/",
+        "url": "https://wallflower-house.com/order/",
         "is_active": True,
         "region": "southern-nv",
     },

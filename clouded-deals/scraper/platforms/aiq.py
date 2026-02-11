@@ -50,8 +50,11 @@ _POST_AGE_GATE_WAIT = _AIQ_CFG.get("wait_after_age_gate_sec", 15)
 # Strain-only words — skip to next line when picking a product name.
 _STRAIN_ONLY = {"indica", "sativa", "hybrid", "cbd", "thc"}
 
-# Product selectors — AIQ-specific first, then generic fallbacks.
+# Product selectors — data-testid preferred (cleanest, avoids sub-elements),
+# then AIQ-specific, then generic fallbacks.
 _PRODUCT_SELECTORS = [
+    # data-testid is the cleanest — Jardin confirmed working with this
+    '[data-testid*="product"]',
     # AIQ / Dispense specific containers
     '#dispense-menu [class*="product"]',
     '#aiq-menu [class*="product"]',
@@ -59,12 +62,12 @@ _PRODUCT_SELECTORS = [
     '#dispense-menu [class*="card"]',
     '#aiq-menu [class*="card"]',
     # Dispense SPA selectors (React-rendered)
-    '[class*="product-card"]',
     '[class*="ProductCard"]',
     '[class*="productCard"]',
     '[class*="menu-product"]',
     '[class*="MenuProduct"]',
-    '[data-testid*="product"]',
+    # product-card last among specific selectors (matches sub-elements)
+    '[class*="product-card"]',
     # Generic fallbacks
     'div[class*="product"]',
     '[class*="menu-item"]',
@@ -79,6 +82,19 @@ _IFRAME_PATTERNS = [
     "alpineiq.com",
     "getaiq.com",
     "dispense",
+]
+
+# iframe URL substrings that indicate a non-menu iframe (chat widgets,
+# support embeds, etc.) — these must be excluded even if they match
+# _IFRAME_PATTERNS above.
+_IFRAME_EXCLUDE_PATTERNS = [
+    "chat-widget",
+    "chat",
+    "support",
+    "help",
+    "stripe.com",
+    "google.com/maps",
+    "recaptcha",
 ]
 
 # Wait for Dispense/AIQ content to appear in the DOM.
@@ -203,6 +219,12 @@ class AIQScraper(BaseScraper):
         # --- Extract products ---
         products = await self._extract_products(target)
 
+        # --- Fallback: if iframe extraction yielded 0, try page context ---
+        if not products and isinstance(target, Frame):
+            logger.info("[%s] Iframe extraction yielded 0 — falling back to page context", self.slug)
+            await self._expand_all_products(self.page)
+            products = await self._extract_products(self.page)
+
         if not products:
             await self.save_debug_info("zero_products", target)
             logger.warning("[%s] No products found — see debug artifacts", self.slug)
@@ -221,6 +243,9 @@ class AIQScraper(BaseScraper):
         page itself.  For embedded sites (Jardin, Pisos, Green NV), the
         menu may be inside an iframe.
 
+        Excludes non-menu iframes (chat widgets, payment processors, etc.)
+        to avoid extracting from the wrong context.
+
         Returns the Page or Frame to extract products from.
         """
         # If we're already on a dispenseapp.com URL, products are on the page
@@ -228,19 +253,43 @@ class AIQScraper(BaseScraper):
             logger.info("[%s] Direct dispenseapp.com page — using page context", self.slug)
             return self.page
 
-        # Check for iframes from dispenseapp / alpineiq
+        # Check for iframes from dispenseapp / alpineiq, excluding non-menu iframes
+        menu_frame: Frame | None = None
         iframes = self.page.frames
         for frame in iframes:
             frame_url = frame.url or ""
+            if not frame_url:
+                continue
+
+            # Skip non-menu iframes (chat widgets, payments, maps, etc.)
+            is_excluded = any(excl in frame_url.lower() for excl in _IFRAME_EXCLUDE_PATTERNS)
+            if is_excluded:
+                logger.debug("[%s] Skipping non-menu iframe: %s", self.slug, frame_url[:80])
+                continue
+
             for pattern in _IFRAME_PATTERNS:
                 if pattern in frame_url:
-                    logger.info(
-                        "[%s] Found Dispense iframe: %s",
-                        self.slug, frame_url[:120],
-                    )
-                    # Dismiss age gate inside iframe too
-                    await dismiss_age_gate(frame, post_dismiss_wait_sec=3)
-                    return frame
+                    # Prefer iframes with "menu" in the URL over others
+                    if "menu" in frame_url.lower():
+                        logger.info(
+                            "[%s] Found Dispense menu iframe: %s",
+                            self.slug, frame_url[:120],
+                        )
+                        await dismiss_age_gate(frame, post_dismiss_wait_sec=3)
+                        return frame
+                    # Store as candidate but keep looking for a better match
+                    if menu_frame is None:
+                        menu_frame = frame
+                    break
+
+        if menu_frame:
+            frame_url = menu_frame.url or ""
+            logger.info(
+                "[%s] Found Dispense iframe (non-menu): %s",
+                self.slug, frame_url[:120],
+            )
+            await dismiss_age_gate(menu_frame, post_dismiss_wait_sec=3)
+            return menu_frame
 
         # No iframe found — products may be injected directly into the page
         logger.info("[%s] No Dispense iframe — using page context (embedded or direct)", self.slug)
