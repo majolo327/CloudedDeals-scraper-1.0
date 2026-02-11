@@ -454,6 +454,13 @@ KNOWN_BRANDS: list[str] = [
     "Verano",
     "Voon",
     "Wana",
+    # -- Added from Gibson brand audit (2026-02-11) --
+    "Bohemian Brothers",
+    "Flower One",
+    "Fumeur",
+    "GLP",
+    "HSH",
+    "Kanji",
 ]
 
 # Brand name variations for fuzzy matching — maps variant spellings
@@ -472,6 +479,10 @@ BRAND_VARIATIONS: dict[str, list[str]] = {
     "OLD PAL": ["Old Pal", "OLDPAL"],
     "Tyson 2.0": ["Tyson", "Mike Tyson"],
     "Khalifa Kush": ["KK", "Wiz Khalifa"],
+    "Cannabiotix": ["CBX", "C.B.X"],
+    "GLP": ["Green Life Productions", "Green Life"],
+    "Tumbleweed": ["Tumbleweed Extracts"],
+    "Flower One": ["Flower 1", "FlowerOne"],
 }
 
 # Pre-compile a single pattern for speed (case-insensitive) with word boundaries
