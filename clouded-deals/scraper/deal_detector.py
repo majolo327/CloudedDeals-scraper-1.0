@@ -149,6 +149,7 @@ CATEGORY_MINIMUMS: dict[str, int] = {
 MAX_SAME_BRAND_TOTAL = 8          # was 16 — tighter cap for better brand diversity
 MAX_SAME_DISPENSARY_TOTAL = 10
 MAX_CONSECUTIVE_SAME_CATEGORY = 3
+MAX_CONSECUTIVE_SAME_BRAND = 1        # no same-brand cards adjacent in the feed
 MAX_SAME_BRAND_PER_DISPENSARY = 2  # similarity dedup
 MAX_SAME_BRAND_PER_CATEGORY = 3    # cap per brand within a single category across all dispensaries
 
@@ -680,6 +681,7 @@ def select_top_deals(
     }
     cat_cycle = cycle(cat_order)
     last_cats: list[str] = []
+    last_brands: list[str] = []
 
     while len(result) < target:
         # Try each category in round-robin
@@ -697,9 +699,40 @@ def select_top_deals(
                 continue
 
             if cat_iters.get(cat):
-                deal = cat_iters[cat].pop(0)
+                deal = cat_iters[cat][0]
+                deal_brand = deal.get("brand") or ""
+
+                # Check consecutive-same-brand constraint: don't place
+                # the same brand adjacent in the feed
+                if (
+                    deal_brand
+                    and len(last_brands) >= MAX_CONSECUTIVE_SAME_BRAND
+                    and all(b == deal_brand for b in last_brands[-MAX_CONSECUTIVE_SAME_BRAND:])
+                ):
+                    # Try to find a non-conflicting deal deeper in this
+                    # category's queue (swap it to front if found)
+                    swapped = False
+                    for j in range(1, len(cat_iters[cat])):
+                        alt = cat_iters[cat][j]
+                        alt_brand = alt.get("brand") or ""
+                        if alt_brand != deal_brand:
+                            cat_iters[cat][0], cat_iters[cat][j] = (
+                                cat_iters[cat][j],
+                                cat_iters[cat][0],
+                            )
+                            deal = cat_iters[cat][0]
+                            deal_brand = alt_brand
+                            swapped = True
+                            break
+                    if not swapped:
+                        # All remaining deals in this category are the
+                        # same brand — skip to another category
+                        continue
+
+                cat_iters[cat].pop(0)
                 result.append(deal)
                 last_cats.append(cat)
+                last_brands.append(deal_brand)
                 placed = True
                 break
 

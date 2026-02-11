@@ -225,6 +225,35 @@ _RE_PREPACK = re.compile(
 )
 _RE_TRAILING_STRAIN = re.compile(r"\s*(Indica|Sativa|Hybrid)\s*$", re.IGNORECASE)
 
+# Brand abbreviations that appear in product names instead of the full brand
+_BRAND_ABBREVIATIONS: dict[str, list[str]] = {
+    "Circle S Farms": ["CSF"],
+}
+
+# Weight prefix patterns: "3.5g |", "1g |", ".5g |"
+_RE_WEIGHT_PREFIX = re.compile(r"^\.?\d+\.?\d*\s*g\s*\|\s*", re.IGNORECASE)
+
+# Bundle quantity text: "3 Eighths", "5 Pack", "2 Quarters"
+_RE_BUNDLE_QTY = re.compile(
+    r"\b\d+\s+(?:Eighths?|Quarters?|Halves|Half)\b\s*",
+    re.IGNORECASE,
+)
+
+# Strain type anywhere in name (not just trailing)
+_RE_STRAIN_TYPE = re.compile(r"\b(?:Indica|Sativa|Hybrid)\b", re.IGNORECASE)
+
+# Redundant vape category words in display name
+_RE_VAPE_WORDS = re.compile(
+    r"\b(?:Cartridges?|Carts?|Distillate|Disposable|Pod|Vape)\b",
+    re.IGNORECASE,
+)
+
+# Marketing junk names that don't add useful info to a product name
+_RE_MARKETING_JUNK = re.compile(
+    r"\bHigh\s+Octane\b|\bX(?:treme|XX)\b",
+    re.IGNORECASE,
+)
+
 # Patterns that indicate promotional / sale copy rather than a real product name
 _SALE_COPY_PATTERNS = [
     re.compile(r"^\d+%\s*off", re.IGNORECASE),
@@ -796,30 +825,53 @@ async def _scrape_site_inner(
         # CloudedLogic's product_name is derived from the full combined text
         # blob (name + raw_text + price), which is often messy and causes
         # brand name duplication.  Instead, use raw_name as the base and
-        # strip the brand prefix from it.
+        # strip clutter (brand, weight prefix, strain type, bundle text,
+        # redundant category words, marketing junk) to leave just the
+        # strain/product name.
         brand = product.get("brand")
         display_name = raw_name
+
+        # 1. Strip weight prefix: "3.5g | Blue Maui" → "Blue Maui"
+        if display_name:
+            display_name = _RE_WEIGHT_PREFIX.sub("", display_name).strip()
+
+        # 2. Strip brand name from ANYWHERE in the name (not just prefix)
         if brand and display_name:
             display_name = re.sub(
-                rf'^{re.escape(brand)}\s*[-:|]?\s*',
+                rf'\b{re.escape(brand)}\b\s*[-:|]?\s*',
                 '', display_name, flags=re.IGNORECASE,
             ).strip()
+            # Also strip known abbreviations for this brand
+            for abbr in _BRAND_ABBREVIATIONS.get(brand, []):
+                display_name = re.sub(
+                    rf'\b{re.escape(abbr)}\b\s*[-:|]?\s*',
+                    '', display_name, flags=re.IGNORECASE,
+                ).strip()
             if len(display_name) < 3:
                 display_name = raw_name
+
         display_name = display_name or raw_name or "Unknown"
 
-        # --- Strip redundant category words from display name --------
-        # When category is already "preroll", words like "Pre-Roll",
-        # "Preroll", "Pre Roll" in the name are redundant information
-        # (shown in the category line below the name on the card).
+        # 3. Strip strain type from anywhere: "Blue Maui Sativa" → "Blue Maui"
+        display_name = _RE_STRAIN_TYPE.sub("", display_name).strip()
+
+        # 4. Strip bundle quantity text: "3 Eighths" → ""
+        display_name = _RE_BUNDLE_QTY.sub("", display_name).strip()
+
+        # 5. Strip redundant category words from display name
         effective_cat = category if (category and category != 'other') else product.get("category")
         if effective_cat == "preroll":
             display_name = re.sub(
                 r"\s*\b(?:Pre[-\s]?Rolls?|Prerolls?)\b", "",
                 display_name, flags=re.IGNORECASE,
             ).strip()
+        if effective_cat == "vape":
+            display_name = _RE_VAPE_WORDS.sub("", display_name).strip()
 
-        # --- Strip parenthetical weight and strain-type indicators ---
+        # 6. Strip marketing junk: "High Octane Xtreme" etc.
+        display_name = _RE_MARKETING_JUNK.sub("", display_name).strip()
+
+        # 7. Strip parenthetical weight and strain-type indicators
         # "(100mg)" duplicates the weight field; "(I)"/"(S)"/"(H)" are
         # strain-type shorthand already captured in the strain_type field.
         display_name = re.sub(

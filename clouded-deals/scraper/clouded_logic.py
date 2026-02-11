@@ -271,6 +271,9 @@ _STRAIN_BRAND_BLOCKERS = [
 
     # "Element" — "5th Element" is a strain
     (re.compile(r'\b5th\s+element\b', re.IGNORECASE), 'Element'),
+
+    # "SELECT" — "Seche Select" is a product line from SeCHe, not the SELECT brand
+    (re.compile(r'\bseche\s+select\b', re.IGNORECASE), 'SELECT'),
 ]
 
 # ============================================================================
