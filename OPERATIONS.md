@@ -359,29 +359,242 @@ Coach marks use `data-coach` attributes on elements for targeting. State stored 
 
 ---
 
-## What's Next
+## What's Next — Full Roadmap
 
-### Short-term (prove new platforms)
-- [ ] Run "new" group manually for 1-2 weeks, check data quality
+Everything below is sequenced deliberately. Each phase depends on the one before it. Don't skip ahead.
+
+---
+
+### Phase A: Prove It Works for Real People (Now — Next 4-6 Weeks)
+
+This is the only thing that matters right now. Multi-state expansion, B2B, and ML work all mean nothing if Vegas users don't come back daily.
+
+#### A1. Stabilize all 63 dispensaries on daily cron
+- [ ] Run "new" group (Rise/Carrot/AIQ) manually for 1-2 weeks, check data quality
 - [ ] Monitor Rise (9 sites), Carrot (6 sites), AIQ (5 sites) for failures
-- [ ] Promote to stable once reliable
+- [ ] Promote to stable once reliable — move platform names into `PLATFORM_GROUPS["stable"]`
 - [ ] Investigate SLV — may need Treez-specific scraper if Dutchie fallback fails
+- [ ] Nevada Made Henderson/Warm Springs — retry periodically, may come back online
 
-### Short-term (inner circle beta)
-- [ ] Recruit 10-20 inner circle testers (cannabis-savvy, deal-conscious locals)
-- [ ] Monitor analytics dashboard for engagement signals (save rate, return visits, deal clicks)
+More coverage in Vegas = better product = better retention. This is the cheapest win available.
+
+#### A2. Get 15-25 inner circle testers actually using it daily
+- [ ] Recruit cannabis-savvy locals who already shop deals — budtenders, daily consumers, r/vegastrees deal hunters, cannabis Twitter/X. People who currently check 3-4 dispensary sites every morning
+- [ ] Give them the app. Don't explain it. If they need an explanation, the UX has a problem
 - [ ] Collect qualitative feedback via in-app feedback widget + direct conversations
 - [ ] Track VIP waitlist signups via SMS banner
 
-### Medium-term (coverage & quality)
-- [ ] Nevada Made Henderson/Warm Springs — retry periodically, may come back online
-- [ ] Top Notch (Weedmaps) — evaluate if worth building a 7th scraper
-- [ ] Add more dispensaries as new ones open in the market
-- [ ] Tune deal scoring weights based on user engagement data
+#### A3. Track 3 numbers and nothing else
+- [ ] **D1 → D7 retention**: Do people come back? If less than 30% return by day 7, the product has a problem
+- [ ] **Save rate**: What % of users save at least 1 deal per session? If under 20%, the deals aren't resonating
+- [ ] **Session frequency**: Are deal hunters checking daily? That's the core behavior we need
+
+#### A4. Fix what testers say is broken — not what we think needs improving
+- [ ] Testers will say the deals aren't good enough, or the categories are wrong, or they can't find their dispensary. Listen to that feedback. Don't build ML or expand to Michigan. Fix the core loop first
 - [x] Add `og:image` for social share previews (shipped Feb 10)
 
-### Longer-term (scale)
-- [ ] Expand beyond Southern Nevada (Reno, other states)
-- [ ] Add price history tracking (track trends over time)
-- [ ] Alert system for exceptional deals (Slack/email notification)
-- [ ] Frontend search/filter improvements based on richer product data
+**Phase A exit criteria:** 15+ active testers, 30%+ D7 retention, users sharing the app organically.
+
+---
+
+### Phase B: Prove the Value Prop with Data (Weeks 4-10)
+
+Start this once testers are retained and engaged. Still Vegas-only.
+
+#### B1. Track what people actually save and click
+- [ ] Log every save, dismiss, search, filter action with anonymous user ID + timestamp
+- [ ] This tells us which brands, categories, price points, and dispensaries our users care about
+- [ ] This dataset is the foundation for scoring model tuning AND the future B2B pitch deck
+
+#### B2. Tune deal scoring with real engagement data
+- [ ] Overlay actual save/click rates onto deal scores to validate the scoring model
+- [ ] A deal that scores 90 but nobody saves is a bad deal — the model is wrong
+- [ ] A deal that scores 40 but everyone saves means the model is missing something
+- [ ] Adjust brand boosts, category weights, and price sweet-spot thresholds based on real behavior
+
+#### B3. Start price history tracking
+- [ ] Log daily prices per product per dispensary (no UI needed — just collect the data in a `price_history` table)
+- [ ] After 30 days of history: trend data for improving deal detection, showing brands/dispensaries their own pricing patterns, and training ML models later
+- [ ] Schema: `(dispensary_id, product_name, brand, category, price, scraped_date)`
+
+**Phase B exit criteria:** Engagement data flowing, scoring model tuned to user behavior, 30+ days of price history logged.
+
+---
+
+### Phase C: Multi-State Expansion (Weeks 8-16)
+
+Only start once Vegas retention is solid (30%+ D7, growing user base, organic sharing). Full market research is complete — see `docs/research-michigan-illinois.md` and `docs/research-batch2-markets.md`.
+
+#### C1. Michigan first (easiest expansion)
+- [ ] Add `state` field to dispensaries table + DB migration
+- [ ] Add state-specific price caps to `clouded_logic.py` (MI prices are 40-60% cheaper than NV)
+- [ ] Add ~35-40 Michigan-native brands to brand DB (Platinum Vape, MKX, Lume, Skymint, Element, Michigrown, Redbud Roots, etc.)
+- [ ] Wave 1: Detroit metro Dutchie sites (Lume, Skymint, JARS, Cloud Cannabis) — ~80 locations with existing `dutchie.py`
+- [ ] Wave 2: Herbana, Joyology, High Profile, Pleasantrees, Pinnacle — ~30 locations
+- [ ] Wave 3: Curaleaf MI + Zen Leaf MI — ~8 locations with existing `curaleaf.py`
+- [ ] Wave 4: Jane independents (Nirvana Center, etc.) — ~50+ locations
+- [ ] Target: ~170 MI dispensaries scraped with zero new scraper development
+
+Why Michigan first: lowest US prices = deal-obsessed consumers, Dutchie dominant = our best scraper, 350+ addressable dispensaries Day 1, no aggressive bot protection.
+
+#### C2. Illinois second (higher complexity, MSO-heavy)
+- [ ] Add IL-specific price caps (IL is 30-50% MORE expensive than NV — current caps would filter out most products)
+- [ ] Add ~30-40 IL brands (Revolution, Aeriz, Bedford Grow, Cresco sub-brands: High Supply, Mindy's, Good News)
+- [ ] Map MSO brand families: Cresco→High Supply/Mindy's/Good News, GTI→Rhythm/Dogwalkers/Beboe, Verano→Encore/Avexia, Ascend→Ozone/Simply Herb
+- [ ] Wave 1: Rise IL (10-12 locations) — existing `rise.py` works
+- [ ] Wave 2: Zen Leaf IL + Curaleaf IL — ~14 locations with existing scrapers
+- [ ] Wave 3: Ascend, Nature's Care, EarthMed, Cannabist (Dutchie) — ~20 locations
+- [ ] Wave 4: Beyond/Hello, Verilife, Consume, Thrive IL (Jane) — ~15 locations
+- [ ] Wave 5: Remaining Dutchie + Jane independents — ~30+ locations
+- [ ] **Sunnyside scraper** (Cresco's 12-15 IL locations) — proprietary React SPA, needs `platforms/sunnyside.py`. This is IL's #1 MSO and the single largest platform gap
+- [ ] Target: ~105 IL dispensaries (90 with existing scrapers + 15 with new Sunnyside scraper)
+
+Why Illinois second: high prices = strong deal-seeking behavior, MSO-dominated = reusable patterns, but less price variance = harder to find item-level deals. Many IL dispensaries run store-wide daily specials rather than item-level markdowns — deal detection needs to adapt.
+
+#### C3. Don't touch AZ/MO/NJ until MI+IL are stable and growing
+- [ ] Research is complete and waiting in `docs/research-batch2-markets.md`
+- [ ] When ready: Arizona first (87% platform overlap, same prices as NV, 170+ dispensaries)
+- [ ] Then Missouri (fastest-growing market, 84% overlap, zero deal-aggregator competitors)
+- [ ] Then New Jersey (NYC metro 20M+ pop, MSO-heavy = highest scraper reuse)
+
+**Phase C exit criteria:** MI + IL scraping stable on daily cron, 250+ dispensaries across 3 states, brand DB covering all markets.
+
+---
+
+### Phase D: Build the B2B Foundation (Months 4-8)
+
+Consumer product must be working first. B2B only cares about your audience size and engagement.
+
+#### D1. Brand analytics dashboard (internal first)
+- [ ] Use scrape data + user engagement data to build brand-level insights
+- [ ] Example metrics: "STIIIZY carts at 30% off get 4x the save rate of full-price listings." "Cookies flower under $35 gets saved within 2 minutes of posting."
+- [ ] Track per brand: average discount offered across dispensaries, frequency of deals, user save rate, dispensary coverage
+- [ ] Build this for ourselves first to validate the insights are real and actionable
+
+#### D2. Dispensary performance reporting
+- [ ] "Your dispensary ranked #14 out of 63 in Las Vegas for deal engagement this week."
+- [ ] "Your top-performing deal was X. Users saved it Y times."
+- [ ] "You're underpriced on concentrates vs market average — consider featuring them."
+- [ ] This is the pitch to dispensaries: "We send deal-hungry customers to your store. Here's the proof."
+
+#### D3. Price history + market intelligence
+- [ ] Surface 30/60/90-day price trends per product per dispensary per state
+- [ ] Cross-dispensary price comparison: "This STIIIZY pod is $25 at TD Gibson but $35 at Planet 13 right now"
+- [ ] Category-level market snapshots: "Average flower eighth price dropped 8% across Las Vegas this month"
+- [ ] This data is extremely valuable to brands and dispensaries and does not exist anywhere else at this granularity
+
+**Phase D exit criteria:** Internal brand dashboard operational, dispensary reporting prototype, 90+ days of price history data.
+
+---
+
+### Phase E: Initiate Revenue (Months 6-10)
+
+Three revenue tiers, activated in order based on audience size and data depth.
+
+#### Tier 1 — Dispensary Leads (free → paid)
+- [ ] Track referral traffic: clicks on "Get Directions", menu link clicks, deal card → dispensary website
+- [ ] Show dispensaries the referral data for free initially to build relationship
+- [ ] Once referral volume is meaningful (50+ clicks/week to a dispensary), introduce premium placement or featured dispensary status
+- [ ] Pricing model: free tier (standard listing) vs paid tier ($200-500/month for featured placement, priority in shuffle, branded dispensary card)
+
+#### Tier 2 — Brand Intelligence (data product)
+- [ ] Brands have zero cross-dispensary visibility into how their products perform at retail vs competitors
+- [ ] Our scrape data shows: pricing, discount frequency, availability across dispensaries, and (with user data) consumer engagement per brand per market
+- [ ] Package as SaaS dashboard: per-brand pricing analytics, competitive benchmarking, deal performance, market share estimates
+- [ ] Pricing model: $500-2,000/month per brand depending on markets covered
+- [ ] Target customers: brand marketing teams, sales reps, category managers
+
+#### Tier 3 — Market Intelligence for MSOs (enterprise)
+- [ ] Multi-state operators (Curaleaf, GTI, Cresco, Verano) want: "How are my stores pricing vs competitors in each market?" "Which of my brands are being discounted most?" "What's the deal landscape in Detroit vs Chicago?"
+- [ ] We build this data passively through multi-state scraping. Package as quarterly market reports or live dashboard
+- [ ] Pricing model: $5,000-20,000/month per MSO depending on scope
+- [ ] Target customers: MSO strategy teams, pricing analysts, state-level operations leads
+
+**Revenue activation criteria:** 5,000+ monthly active users across 2+ states, 90+ days of multi-state data, brand dashboard operational.
+
+---
+
+### Phase F: ML/LLM Layer (Months 6-12)
+
+Only makes sense once multi-state scraping is producing real volume. Full technical spec in `docs/research-cross-market-synthesis.md`.
+
+#### F1. Product description normalization (LLM)
+- [ ] 50,000+ product texts per day across 6 states creates natural training corpus
+- [ ] Input: raw menu text ("STIIIZY - Blue Dream - Live Resin Pod - 1g - $45 $32")
+- [ ] Output: structured JSON `{brand, strain, category, subcategory, weight, original_price, sale_price}`
+- [ ] Replaces regex-heavy parsing with LLM-powered extraction — more accurate, handles edge cases better, adapts to new formats automatically
+
+#### F2. Personalized deal scoring
+- [ ] User X saves concentrate deals at Curaleaf. User Y saves budget flower under $20. Scoring model becomes per-user
+- [ ] Collaborative filtering: "Users who saved this deal also saved these"
+- [ ] This is the moat — Weedmaps and Leafly can't do this because they don't track deal engagement at the individual level
+
+#### F3. Price prediction + deal alerts
+- [ ] "STIIIZY Live Resin Cart has been dropping in price at TD Gibson for 3 weeks. Likely to hit $25 this weekend."
+- [ ] "Planet 13 runs 30% off concentrates every other Tuesday — next one predicted for Feb 18."
+- [ ] This is the feature that makes consumers addicted AND that brands/dispensaries would pay to suppress or promote
+- [ ] Requires 90+ days of price history data across multiple dispensaries
+
+#### F4. Brand detection + category classification model
+- [ ] Cross-state brand name variations create robust training data for fuzzy matching
+- [ ] Strain-vs-brand disambiguation gets richer with multi-market context
+- [ ] Subcategory granularity (live resin vs cured resin vs rosin vs hash rosin) improves with more data
+- [ ] State-specific terminology handling (IL "FSHO", MI "cured badder")
+
+**Phase F exit criteria:** LLM normalization pipeline in production, personalized scoring A/B tested, price prediction model trained on 90+ days of multi-state data.
+
+---
+
+### Phase G: Platform Domination + Scale (Months 10-18)
+
+#### G1. Expand to all researched markets
+- [ ] Arizona (87% platform overlap, tourist market like NV)
+- [ ] Missouri (fastest-growing, zero competitors)
+- [ ] New Jersey (NYC metro 20M+ population)
+- [ ] Evaluate: Colorado (fragmented but huge), Ohio (maturing), Maryland (DC metro)
+- [ ] Target: 1,200+ dispensaries across 6+ states
+
+#### G2. Weedmaps embed scraper
+- [ ] Single biggest platform gap across all expansion markets (~165 dispensaries)
+- [ ] Unlocks Puff Cannabis (MI), Sticky Saguaro (AZ), Clovr (MO), and hundreds of independents
+- [ ] Combined with Sunnyside scraper: raises total national coverage from 68% to ~78% of all licensed dispensaries
+
+#### G3. Consumer network effects
+- [ ] Users create accounts, save preferences, build deal history
+- [ ] Social features: share deals with friends, see what's trending in your city
+- [ ] Push notifications for deal alerts on saved brands/dispensaries
+- [ ] The more users, the better the personalization, the stickier the product
+
+#### G4. B2B network effects
+- [ ] More dispensaries covered = more data = better brand intelligence = more brand customers
+- [ ] Brand customers want presence in more markets = pressure to expand coverage = more dispensaries covered
+- [ ] Dispensaries want featured placement because users trust the platform = more dispensary customers
+- [ ] Flywheel: consumer audience drives B2B revenue, B2B revenue funds expansion, expansion grows consumer audience
+
+---
+
+### Summary — The Whole Picture in One Table
+
+| Phase | When | Focus | Key Metric |
+|-------|------|-------|------------|
+| **A** | Now — Week 6 | Prove Vegas users love it | 30%+ D7 retention, 15+ active testers |
+| **B** | Weeks 4-10 | Data-driven scoring + price history | Engagement data flowing, scoring tuned |
+| **C** | Weeks 8-16 | MI + IL expansion | 250+ dispensaries, 3 states stable |
+| **D** | Months 4-8 | Brand + dispensary analytics (internal) | Dashboard operational, 90 days data |
+| **E** | Months 6-10 | First revenue | Paying brand or dispensary customers |
+| **F** | Months 6-12 | ML/LLM layer | Personalized scoring, price prediction |
+| **G** | Months 10-18 | Platform domination | 1,200+ dispensaries, 6+ states, B2B flywheel |
+
+The bottom line: get 20 people addicted to checking CloudedDeals every morning before their dispensary run. That's the only KPI that matters right now. Everything else is amplified by having a product that retains users. Without retention, we're scaling infrastructure nobody uses. With retention, every piece of tech we've built becomes a force multiplier.
+
+---
+
+### Research Documents (completed Feb 2026)
+
+Multi-state expansion groundwork is complete and ready when Phase C begins:
+
+| Document | Contents |
+|----------|----------|
+| `docs/research-michigan-illinois.md` | MI (1,000+ dispensaries, 55-65% platform overlap, 35-40 new brands) + IL (230 dispensaries, 65-75% overlap, 30-40 new brands). Platform audit of 20+ chains per state, brand ecosystem by category, state-specific price caps, technical feasibility, data model changes, rollout order |
+| `docs/research-batch2-markets.md` | Scored 8 candidates → selected AZ (43/50), MO (38/50), NJ (38/50). Per-market: dispensary lists, platform audits, brand maps, scrapeability. Combined platform coverage matrix across all 5 new states |
+| `docs/research-cross-market-synthesis.md` | 130-160 net-new brands with aliases + strain blockers. Master platform coverage (1,823 licensed dispensaries → ~1,280 scrapeable). Data normalization challenges for ML. Multi-state schema migration plan. LLM training data opportunities |
