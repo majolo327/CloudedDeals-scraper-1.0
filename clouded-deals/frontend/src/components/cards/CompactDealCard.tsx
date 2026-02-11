@@ -73,6 +73,9 @@ export function CompactDealCard({
 
   const categoryLabel = deal.product_subtype === 'infused_preroll' ? 'Infused Pre-Roll'
     : deal.product_subtype === 'preroll_pack' ? 'Pre-Roll Pack'
+    : deal.product_subtype === 'disposable' ? 'Disposable Vape'
+    : deal.product_subtype === 'cartridge' ? 'Vape Cartridge'
+    : deal.product_subtype === 'pod' ? 'Vape Pod'
     : categoryLabels[deal.category] || deal.category;
 
   return (

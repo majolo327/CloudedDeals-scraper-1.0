@@ -176,6 +176,27 @@ export function applyChainDiversityCap(
 }
 
 /**
+ * Cap deals per brand globally. Since detect_deals runs per-store,
+ * there is no cross-store brand limit — a brand at 16 stores × 4 per
+ * store = 64 deals of one brand. This caps it to a sane maximum.
+ * Input should be sorted by deal_score DESC.
+ */
+export function applyGlobalBrandCap(
+  deals: Deal[],
+  maxPerBrand: number = 8,
+): Deal[] {
+  const brandCounts = new Map<string, number>();
+  return deals.filter((deal) => {
+    const brand = deal.brand?.name ?? '';
+    if (!brand) return true; // keep unbranded deals
+    const count = brandCounts.get(brand) ?? 0;
+    if (count >= maxPerBrand) return false;
+    brandCounts.set(brand, count + 1);
+    return true;
+  });
+}
+
+/**
  * Calculate price per unit for display on deal cards.
  * - Flower, vape, concentrate, preroll: $/g
  * - Edible: $/10mg

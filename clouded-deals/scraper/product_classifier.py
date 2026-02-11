@@ -1,13 +1,16 @@
 """
-Product classification for infused pre-rolls and pre-roll packs.
+Product classification: subtypes for prerolls and vapes.
 
-Rules:
-  - Infused pre-rolls: categorized as 'preroll', badge "Infused Pre-Roll",
-    excluded from Top 100 but searchable everywhere.
-  - Pre-roll packs: categorized as 'preroll', badge "Pre-Roll Pack",
-    excluded from Top 100 but searchable everywhere.
-  - Regular pre-rolls: categorized as 'preroll', badge "Pre-Roll",
-    included in Top 100.
+Preroll subtypes:
+  - infused_preroll: excluded from Top 100 but searchable
+  - preroll_pack: excluded from Top 100 but searchable
+  - (regular prerolls have subtype=None)
+
+Vape subtypes (displayed on deal cards):
+  - disposable: self-contained device, discarded after use (0.3-1g)
+  - cartridge: threaded 510 cart, requires battery (0.5-1g)
+  - pod: proprietary pod system (STIIIZY, PAX, Plug Play)
+  - (fallback: None if subtype can't be determined)
 """
 
 from __future__ import annotations
@@ -49,6 +52,56 @@ _INFUSED_BRAND_LINES: dict[str, list[re.Pattern]] = {
     "presidential": [re.compile(r"\binfused\b", re.IGNORECASE)],
     "heavy hitters": [re.compile(r"\bdiamond\b", re.IGNORECASE)],
 }
+
+# =====================================================================
+# Vape subtype detection
+# =====================================================================
+
+_VAPE_DISPOSABLE_INDICATORS = [
+    re.compile(r"\bdisposable\b", re.IGNORECASE),
+    re.compile(r"\ball[- ]?in[- ]?one\b", re.IGNORECASE),
+    re.compile(r"\baio\b", re.IGNORECASE),
+]
+
+_VAPE_CARTRIDGE_INDICATORS = [
+    re.compile(r"\bcart(?:ridge)?\b", re.IGNORECASE),
+    re.compile(r"\b510\b"),
+]
+
+_VAPE_POD_INDICATORS = [
+    re.compile(r"\bpod\b", re.IGNORECASE),
+]
+
+# Brands whose vapes are ALWAYS pods (proprietary systems)
+_POD_BRANDS = {"stiiizy", "pax", "plug play"}
+
+# Brands whose vapes are ALWAYS cartridges (510 thread)
+_CART_BRANDS = {"rove", "select", "kingpen", "brass knuckles", "raw garden"}
+
+
+def _classify_vape_subtype(name_lower: str, brand_lower: str) -> str | None:
+    """Determine vape subtype from product name and brand."""
+    # Explicit keyword matches take priority
+    if any(p.search(name_lower) for p in _VAPE_POD_INDICATORS):
+        return "pod"
+    if any(p.search(name_lower) for p in _VAPE_DISPOSABLE_INDICATORS):
+        return "disposable"
+    if any(p.search(name_lower) for p in _VAPE_CARTRIDGE_INDICATORS):
+        return "cartridge"
+
+    # Brand-based fallback
+    if brand_lower in _POD_BRANDS:
+        return "pod"
+    if brand_lower in _CART_BRANDS:
+        return "cartridge"
+
+    # Keyword heuristics in product name
+    # "pen" without other indicators usually means disposable
+    if re.search(r"\bpen\b", name_lower):
+        return "disposable"
+
+    return None
+
 
 # =====================================================================
 # Pack detection
@@ -131,6 +184,12 @@ def classify_product(
                 logger.info(
                     "[CLASSIFY] %r recategorized → preroll (pack)", name[:60],
                 )
+
+    # --- Vape subtype detection ---
+    if cat == "vape" and subtype is None:
+        vape_sub = _classify_vape_subtype(name_lower, brand_lower)
+        if vape_sub:
+            subtype = vape_sub
 
     return {
         "is_infused": is_infused,
