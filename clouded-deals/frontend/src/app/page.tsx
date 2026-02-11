@@ -50,7 +50,7 @@ export default function Home() {
   });
   const [showCoachMarks, setShowCoachMarks] = useState(false);
 
-  const { savedDeals, usedDeals, toggleSavedDeal, markDealUsed, isDealUsed, savedCount } =
+  const { savedDeals, usedDeals, toggleSavedDeal, removeSavedDeals, markDealUsed, isDealUsed, savedCount } =
     useSavedDeals();
   const dealHistory = useDealHistory();
   const { streak, isNewMilestone, clearMilestone } = useStreak();
@@ -187,10 +187,8 @@ export default function Home() {
     const currentIds = new Set(deals.map(d => d.id));
     const archived = dealHistory.archiveExpired(savedDeals, currentIds);
     if (archived.length > 0) {
-      // Remove archived IDs from active saved set
-      for (const id of archived) {
-        if (savedDeals.has(id)) toggleSavedDeal(id);
-      }
+      // Silently remove archived IDs — no analytics for automated expiry
+      removeSavedDeals(archived);
     }
   }, [deals, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -103,6 +103,20 @@ export function useSavedDeals() {
     });
   }, []);
 
+  // Silently remove multiple deal IDs without firing analytics.
+  // Used by the expiry archiver so automated cleanup doesn't pollute event data.
+  const removeSavedDeals = useCallback((dealIds: string[]) => {
+    if (dealIds.length === 0) return;
+    setSavedDeals(prev => {
+      const newSet = new Set(prev);
+      let changed = false;
+      for (const id of dealIds) {
+        if (newSet.delete(id)) changed = true;
+      }
+      return changed ? newSet : prev;
+    });
+  }, []);
+
   const markDealUsed = useCallback((dealId: string) => {
     setUsedDeals(prev => {
       if (prev.has(dealId)) return prev;
@@ -120,6 +134,7 @@ export function useSavedDeals() {
     savedDeals,
     usedDeals,
     toggleSavedDeal,
+    removeSavedDeals,
     markDealUsed,
     isDealUsed,
     savedCount: savedDeals.size,

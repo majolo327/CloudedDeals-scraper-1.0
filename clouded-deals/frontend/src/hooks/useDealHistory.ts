@@ -16,6 +16,7 @@ export interface DealSnapshot {
   deal_price: number;
   original_price: number | null;
   deal_score: number;
+  saved_at: number;   // timestamp when deal was saved
 }
 
 export type HistoryStatus = 'expired' | 'purchased';
@@ -33,6 +34,7 @@ export interface HistoryEntry {
 
 const SNAPSHOTS_KEY = 'clouded_deal_snapshots_v1';
 const HISTORY_KEY = 'clouded_deal_history_v1';
+const MAX_HISTORY_ENTRIES = 200;
 
 // ---- Loaders ----
 
@@ -75,6 +77,7 @@ function createSnapshot(deal: Deal): DealSnapshot {
     deal_price: deal.deal_price,
     original_price: deal.original_price,
     deal_score: deal.deal_score,
+    saved_at: Date.now(),
   };
 }
 
@@ -145,14 +148,14 @@ export function useDealHistory() {
 
       newEntries.push({
         deal: snapshot,
-        saved_at: now - 86400000, // approximate: saved ~yesterday
+        saved_at: snapshot.saved_at || now - 86400000,
         expired_at: now,
         status: 'expired',
       });
     }
 
     if (newEntries.length > 0) {
-      setHistory(prev => [...newEntries, ...prev]);
+      setHistory(prev => [...newEntries, ...prev].slice(0, MAX_HISTORY_ENTRIES));
       // Clean up snapshots for archived deals
       setSnapshots(prev => {
         const next = { ...prev };
