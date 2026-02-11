@@ -207,7 +207,7 @@ DISPENSARIES = [
         "slug": "grove-pahrump",
         "platform": "dutchie",
         "url": "https://www.thegrovenv.com/pahrump/?dtche%5Bpath%5D=specials",
-        "is_active": True,
+        "is_active": False,  # Pahrump is outside Vegas metro — excluded for now
         "region": "southern-nv",
     },
     {
@@ -675,9 +675,8 @@ DISPENSARY_CHAINS: dict[str, str] = {
     # Greenlight (2 locations)
     "greenlight-downtown": "greenlight",
     "greenlight-paradise": "greenlight",
-    # The Grove (2 locations)
+    # The Grove (Pahrump location excluded — outside Vegas metro)
     "the-grove": "the-grove",
-    "grove-pahrump": "the-grove",
     # Mint (2 locations)
     "mint-paradise": "mint",
     "mint-rainbow": "mint",
