@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Star, Heart, Search, Bookmark, Compass, AlertCircle } from 'lucide-react';
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { fetchDeals, fetchDispensaries } from '@/lib/api';
+import { fetchDeals, fetchExpiredDeals, fetchDispensaries } from '@/lib/api';
 import type { BrowseDispensary } from '@/lib/api';
 import type { Deal } from '@/types';
 import { AgeGate, Footer } from '@/components/layout';
@@ -35,6 +35,8 @@ type AppPage = 'home' | 'search' | 'browse' | 'saved' | 'about' | 'terms' | 'pri
 export default function Home() {
   const [isAgeVerified, setIsAgeVerified] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [expiredDeals, setExpiredDeals] = useState<Deal[]>([]);
+  const [isShowingExpired, setIsShowingExpired] = useState(false);
   const [browseDispensaries, setBrowseDispensaries] = useState<BrowseDispensary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -156,7 +158,7 @@ export default function Home() {
     }
   }, [selectedDeal, activePage]);
 
-  // Fetch deals and dispensaries
+  // Fetch deals and dispensaries. If no active deals, fetch expired deals as fallback.
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -168,6 +170,17 @@ export default function Home() {
       setDeals(dealsResult.deals);
       setError(dealsResult.error);
       setBrowseDispensaries(dispResult.dispensaries);
+
+      // No active deals and no error → fetch expired deals for browsing
+      if (dealsResult.deals.length === 0 && !dealsResult.error && isSupabaseConfigured) {
+        const expiredResult = await fetchExpiredDeals();
+        if (cancelled) return;
+        if (expiredResult.deals.length > 0) {
+          setExpiredDeals(expiredResult.deals);
+          setIsShowingExpired(true);
+        }
+      }
+
       setLoading(false);
     }
     load();
@@ -179,7 +192,8 @@ export default function Home() {
   // Show all active deals — the server-side is_active=true filter already
   // ensures we only get the latest scrape run's products. A client-side
   // midnight filter would incorrectly hide deals due to UTC/PST offsets.
-  const todaysDeals = deals;
+  // When no active deals exist, fall back to expired deals for browsing.
+  const todaysDeals = deals.length > 0 ? deals : expiredDeals;
 
   const brands = useMemo(() => {
     const seen = new Map<string, Deal['brand']>();
@@ -368,16 +382,16 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Mobile: just show saved count */}
+          {/* Mobile: just show deal count */}
           <div className="sm:hidden flex items-center gap-2 text-xs text-slate-500">
-            <span>{todaysDeals.length} deals</span>
+            <span>{todaysDeals.length} {isShowingExpired ? "yesterday's" : ''} deals</span>
           </div>
         </div>
       </header>
 
       {/* Main content — bottom padding on mobile for bottom nav */}
       <main className="relative pb-20 sm:pb-0">
-        {/* Deals tab: shows loading/error states */}
+        {/* Deals tab: shows loading/error/expired states */}
         {activePage === 'home' && (
           loading ? (
             <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
@@ -388,7 +402,7 @@ export default function Home() {
                 ))}
               </div>
             </div>
-          ) : error ? (
+          ) : error && !isShowingExpired ? (
             <div className="flex flex-col items-center justify-center py-20 text-center max-w-6xl mx-auto px-4">
               <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mb-4">
                 <AlertCircle className="w-8 h-8 text-red-400" />
@@ -424,6 +438,7 @@ export default function Home() {
               setSelectedDeal={setSelectedDeal}
               savedCount={savedCount}
               streak={streak}
+              isExpired={isShowingExpired}
               onDismissDeal={() => {
                 const tip = smartTips.onDismiss();
                 if (tip?.message) addToast(tip.message, tip.type);
@@ -433,7 +448,7 @@ export default function Home() {
           )
         )}
 
-        {/* Search tab: always renders (works with empty deals) */}
+        {/* Search tab: always renders (works with empty deals + expired deals) */}
         {activePage === 'search' && (
           <SearchPage
             deals={todaysDeals}
@@ -443,6 +458,7 @@ export default function Home() {
             setSelectedDeal={setSelectedDeal}
             initialQuery={searchInitialQuery}
             onQueryConsumed={() => setSearchInitialQuery('')}
+            isExpired={isShowingExpired}
           />
         )}
 

@@ -11,6 +11,7 @@ import type { Deal, Category, Dispensary, Brand } from '@/types';
 // --------------------------------------------------------------------------
 
 const DEALS_CACHE_KEY = 'clouded_deals_cache';
+const EXPIRED_DEALS_CACHE_KEY = 'clouded_expired_deals_cache';
 
 interface DealCache {
   deals: Deal[];
@@ -38,6 +39,31 @@ function setCachedDeals(deals: Deal[]): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(DEALS_CACHE_KEY, JSON.stringify({ deals, timestamp: Date.now() }));
+  } catch {
+    // Storage full — ignore
+  }
+}
+
+function getCachedExpiredDeals(): Deal[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(EXPIRED_DEALS_CACHE_KEY);
+    if (!raw) return null;
+    const cache: DealCache = JSON.parse(raw);
+    // Expired cache valid for 36 hours (covers overnight + morning gap)
+    if (Date.now() - cache.timestamp > 36 * 60 * 60 * 1000) return null;
+    return cache.deals
+      .filter(d => d.brand && d.dispensary)
+      .map(d => ({ ...d, created_at: new Date(d.created_at) }));
+  } catch {
+    return null;
+  }
+}
+
+function setCachedExpiredDeals(deals: Deal[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(EXPIRED_DEALS_CACHE_KEY, JSON.stringify({ deals, timestamp: Date.now() }));
   } catch {
     // Storage full — ignore
   }
@@ -278,8 +304,11 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
     // Cap at 8 per brand to keep the deck diverse.
     const deals = applyGlobalBrandCap(chainCapped, 8);
 
-    // Cache for offline use
+    // Cache for offline use + as expired fallback for next morning
     setCachedDeals(deals);
+    if (deals.length > 0) {
+      setCachedExpiredDeals(deals);
+    }
 
     // Track slow loads
     const duration = performance.now() - start;
@@ -299,6 +328,69 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
     }
 
     return { deals: [], error: message };
+  }
+}
+
+// --------------------------------------------------------------------------
+// Expired deals — yesterday's deals for early-morning browsing
+// --------------------------------------------------------------------------
+
+export async function fetchExpiredDeals(region?: string): Promise<FetchDealsResult> {
+  if (!isSupabaseConfigured) {
+    return { deals: [], error: null };
+  }
+
+  const activeRegion = region ?? getRegion() ?? DEFAULT_REGION;
+
+  // Offline — serve cached expired deals
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    const cached = getCachedExpiredDeals();
+    if (cached) return { deals: cached, error: null };
+    return { deals: [], error: null };
+  }
+
+  try {
+    // Fetch recently deactivated products (is_active = false, scraped within last 48h)
+    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+
+    const { data, error } = await supabase
+      .from('products')
+      .select(
+        `id, name, brand, category, original_price, sale_price, discount_percent,
+         weight_value, weight_unit, deal_score, product_url, scraped_at, created_at,
+         is_infused, product_subtype, strain_type,
+         dispensary:dispensaries!inner(id, name, address, city, state, platform, url, region, latitude, longitude)`
+      )
+      .eq('is_active', false)
+      .eq('dispensaries.region', activeRegion)
+      .gt('deal_score', 0)
+      .gt('sale_price', 0)
+      .gte('scraped_at', cutoff)
+      .order('deal_score', { ascending: false })
+      .limit(200);
+
+    if (error) throw error;
+
+    const allDeals = data
+      ? (data as unknown as ProductRow[])
+          .filter((row) => {
+            if (!row.name || row.name.length < 5 || (row.sale_price ?? 0) <= 0) return false;
+            if (!row.dispensary || Array.isArray(row.dispensary)) return false;
+            return true;
+          })
+          .map(normalizeDeal)
+      : [];
+
+    const chainCapped = applyChainDiversityCap(allDeals, 15);
+    const deals = applyGlobalBrandCap(chainCapped, 8);
+
+    setCachedExpiredDeals(deals);
+    return { deals, error: null };
+  } catch {
+    // Fall back to cached expired deals
+    const cached = getCachedExpiredDeals();
+    if (cached) return { deals: cached, error: null };
+    return { deals: [], error: null };
   }
 }
 

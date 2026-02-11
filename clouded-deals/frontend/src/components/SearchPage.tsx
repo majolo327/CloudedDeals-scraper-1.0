@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Search, Package, MapPin, ChevronRight, X, Clock, Store, ExternalLink, Tag } from 'lucide-react';
 import type { Deal, Brand } from '@/types';
 import { InlineFeedbackPrompt } from './FeedbackWidget';
+import { ExpiredDealsBanner } from './ExpiredDealsBanner';
 import { weightsMatch } from '@/utils/weightNormalizer';
 import { DealCard } from './DealCard';
 import { DealCardSkeleton } from './Skeleton';
@@ -59,6 +60,7 @@ interface SearchPageProps {
   setSelectedDeal: (deal: Deal | null) => void;
   initialQuery?: string;
   onQueryConsumed?: () => void;
+  isExpired?: boolean;
 }
 
 export function SearchPage({
@@ -69,6 +71,7 @@ export function SearchPage({
   setSelectedDeal,
   initialQuery,
   onQueryConsumed,
+  isExpired = false,
 }: SearchPageProps) {
   const [searchQuery, setSearchQuery] = useState(initialQuery || '');
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery || '');
@@ -323,6 +326,11 @@ export function SearchPage({
 
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
+      {/* Expired deals notice */}
+      {isExpired && !debouncedQuery && (
+        <ExpiredDealsBanner expiredCount={deals.length} />
+      )}
+
       {/* Search Input */}
       <div className="mb-5 sm:mb-6">
         <div className="relative">
@@ -332,7 +340,7 @@ export function SearchPage({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search deals, brands, stores..."
+            placeholder={isExpired ? "Search yesterday's deals..." : "Search deals, brands, stores..."}
             autoFocus
             className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 sm:pl-12 pr-10 py-3 sm:py-4 min-h-[48px] text-white placeholder:text-slate-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all text-base sm:text-lg"
           />
@@ -465,7 +473,7 @@ export function SearchPage({
                             <div className="flex items-center gap-3 mt-1">
                               {dealCount > 0 && (
                                 <span className="text-[10px] text-purple-400 font-medium">
-                                  {dealCount} deal{dealCount !== 1 ? 's' : ''} today
+                                  {dealCount} deal{dealCount !== 1 ? 's' : ''} {isExpired ? 'yesterday' : 'today'}
                                 </span>
                               )}
                             </div>
@@ -559,8 +567,11 @@ export function SearchPage({
                   <div className="flex items-center gap-2 mb-3">
                     <Search className="w-4 h-4 text-purple-400" />
                     <span className="text-sm font-medium text-slate-300">
-                      Featured Deals ({filteredDeals.length})
+                      {isExpired ? 'Yesterday\'s' : 'Featured'} Deals ({filteredDeals.length})
                     </span>
+                    {isExpired && (
+                      <span className="text-[10px] text-amber-500/70">prices may have changed</span>
+                    )}
                   </div>
                   <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                     {filteredDeals.map((deal, index) => {
@@ -577,12 +588,13 @@ export function SearchPage({
                           <DealCard
                             deal={deal}
                             isSaved={savedDeals.has(deal.id)}
+                            isExpired={isExpired}
                             onSave={() => toggleSavedDeal(deal.id)}
                             onClick={() => {
                               trackEvent('deal_viewed', deal.id, {
                                 category: deal.category,
                                 brand: deal.brand.name,
-                                source: 'search',
+                                source: isExpired ? 'search_expired' : 'search',
                               });
                               setSelectedDeal(deal);
                             }}
@@ -699,7 +711,9 @@ export function SearchPage({
           <div className="text-center">
             <Search className="w-20 h-20 mx-auto mb-4 text-slate-700" />
             <p className="text-slate-400 text-lg mb-2">
-              Find exactly what you&apos;re looking for
+              {isExpired
+                ? "Search yesterday's deals while we prepare today's"
+                : "Find exactly what you're looking for"}
             </p>
             <p className="text-slate-500 text-sm">
               Search by brand, dispensary, category, or weight
