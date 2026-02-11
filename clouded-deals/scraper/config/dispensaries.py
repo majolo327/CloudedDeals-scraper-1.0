@@ -545,12 +545,10 @@ DISPENSARIES = [
     # CARROT SITES (6) — JS widget via nevada-store-core.getcarrot.io
     # ------------------------------------------------------------------
     {
-        # /order/ returned 404 as of Feb 2026.  /store/category/all/ is the
-        # current Carrot-powered storefront showing all products.
         "name": "Wallflower Blue Diamond",
         "slug": "wallflower-blue-diamond",
         "platform": "carrot",
-        "url": "https://wallflower-house.com/store/category/all/",
+        "url": "https://wallflower-house.com/store/category/specials",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -571,10 +569,12 @@ DISPENSARIES = [
         "region": "southern-nv",
     },
     {
+        # Euphoria's Carrot integration renders deals/specials on the main
+        # /menu page — /menu/category/specials is not a valid route.
         "name": "Euphoria Wellness",
         "slug": "euphoria-wellness",
         "platform": "carrot",
-        "url": "https://euphoriawellnessnv.com/menu/category/specials",
+        "url": "https://euphoriawellnessnv.com/menu",
         "is_active": True,
         "region": "southern-nv",
     },

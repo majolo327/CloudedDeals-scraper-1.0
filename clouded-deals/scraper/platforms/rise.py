@@ -137,6 +137,14 @@ _JS_STEALTH = """
 () => {
     // Remove webdriver flag
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    // Fake Chrome runtime (headless lacks this)
+    if (!window.chrome) window.chrome = {};
+    if (!window.chrome.runtime) window.chrome.runtime = {};
+    // Fake plugins/languages to look like a real browser
+    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+    Object.defineProperty(navigator, 'plugins', {
+        get: () => [1, 2, 3, 4, 5],
+    });
     // Remove automation-related properties
     delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
     delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
@@ -144,17 +152,39 @@ _JS_STEALTH = """
 }
 """
 
+# Third-party analytics domains that commonly break Next.js hydration in
+# headless browsers (timing issues, missing APIs, bot detection).
+_BLOCKED_ANALYTICS_PATTERNS = [
+    "*google-analytics.com*",
+    "*googletagmanager.com*",
+    "*facebook.net*",
+    "*doubleclick.net*",
+    "*hotjar.com*",
+    "*segment.io*",
+    "*amplitude.com*",
+    "*tiktok.com*",
+    "*snap.com*",
+]
+
 
 class RiseScraper(BaseScraper):
     """Scraper for Rise (GTI) direct-page dispensary menus."""
 
     # Maximum number of reload attempts when Rise returns a nextjs_error.
-    _MAX_RELOAD_ATTEMPTS = 2
+    _MAX_RELOAD_ATTEMPTS = 3
     _RELOAD_DELAY_SEC = 5
 
     async def scrape(self) -> list[dict[str, Any]]:
         # Apply stealth before navigation
         await self.page.add_init_script(_JS_STEALTH)
+
+        # Block third-party analytics that commonly break Next.js hydration
+        # in headless browsers (timing conflicts, bot detection, missing APIs).
+        async def _block(route):
+            await route.abort()
+
+        for pattern in _BLOCKED_ANALYTICS_PATTERNS:
+            await self.page.route(pattern, _block)
 
         await self.goto()
         products = await self._attempt_scrape()
@@ -177,12 +207,43 @@ class RiseScraper(BaseScraper):
                 if products:
                     break
 
+        # Final fallback: navigate to the store landing page first, then to
+        # the menu.  This lets Next.js initialise on a lighter page before
+        # loading the heavy product catalog, reducing hydration failures.
+        if not products:
+            products = await self._try_landing_page_first()
+
         if not products:
             await self.save_debug_info("zero_products")
             logger.warning("[%s] No products found after all attempts — see debug artifacts", self.slug)
 
         logger.info("[%s] Scrape complete — %d products", self.slug, len(products))
         return products
+
+    async def _try_landing_page_first(self) -> list[dict[str, Any]]:
+        """Fallback: visit the store landing page first so the Next.js SPA
+        can initialise on a lighter page, then navigate to the menu."""
+        # Derive landing page: strip /{store-id}/{menu-type}/ from URL.
+        # e.g. .../west-tropicana/886/pickup-menu/ → .../west-tropicana/
+        landing = re.sub(r"/\d+/(pickup|recreational|medical)-menu/?$", "/", self.url)
+        if landing == self.url:
+            return []  # could not derive landing page
+
+        logger.info("[%s] Fallback: visiting landing page first: %s", self.slug, landing)
+        try:
+            await self.page.goto(landing, wait_until="load", timeout=GOTO_TIMEOUT_MS)
+            await asyncio.sleep(3)
+
+            # Dismiss age gate on landing page
+            await self.handle_age_gate(post_wait_sec=5)
+
+            # Now navigate to the menu (client-side nav within the SPA)
+            logger.info("[%s] Navigating to menu: %s", self.slug, self.url)
+            await self.page.goto(self.url, wait_until="load", timeout=GOTO_TIMEOUT_MS)
+            return await self._attempt_scrape()
+        except Exception as exc:
+            logger.warning("[%s] Landing-page-first fallback failed: %s", self.slug, exc)
+            return []
 
     async def _attempt_scrape(self) -> list[dict[str, Any]]:
         """Single attempt to extract products from the current page state."""

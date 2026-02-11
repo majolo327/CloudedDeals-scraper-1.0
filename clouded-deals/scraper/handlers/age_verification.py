@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 PRIMARY_AGE_GATE_SELECTORS = [
     "button:has-text('I am 21 or older')",
     "button:has-text('Yes')",
+    "button:has-text('I Confirm')",
     "button:has-text('at least 21')",
     "button#agc_yes",
     "#agc_form button",
@@ -35,12 +36,15 @@ SECONDARY_AGE_GATE_SELECTORS = [
     "button:has-text('over 21')",
     "button:has-text('21+')",
     "button:has-text('Enter')",
+    "button:has-text('Confirm')",
     "a:has-text('I am 21 or older')",
+    "a:has-text('I Confirm')",
     "a:has-text('at least 21')",
     "a:has-text('over 21')",
     "a:has-text('21+')",
     "a:has-text('Enter')",
     "a:has-text('Yes')",
+    "a:has-text('Confirm')",
 ]
 SECONDARY_SELECTOR_TIMEOUT_MS = 3_000
 
