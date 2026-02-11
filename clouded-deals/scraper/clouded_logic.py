@@ -101,9 +101,9 @@ BRANDS = sorted(set([
     # A
     'Advanced Vapor Devices', 'Airo', 'AiroPro', 'Alien Labs', 'AMA', 'Avexia', 'Amp',
     # B
-    'Backpack Boyz', 'Bad Batch', 'Bad Boy', 'BaM', 'Ballers', 'Bear Quartz',
-    'Beboe', 'Bic', 'Big Chief Extracts', 'BirthJays', 'Bits', 'Blazer',
-    'Blazy Susan', 'Blink', 'BLUEBIRDS', 'BLVD', 'Bonanza Cannabis',
+    'Backpack Boyz', 'Bad Batch', 'Bad Boy', 'BaM', 'Bear Quartz',
+    'Beboe', 'Bic', 'Big Chief Extracts', 'BirthJays', 'Blazer',
+    'Blazy Susan', 'BLUEBIRDS', 'BLVD', 'Bonanza Cannabis',
     'Boom Town', 'Bounti', 'Brass Knuckles', 'Bud Bandz',
     # C
     'Cake', 'Cali Traditional', 'Camino', 'Camo', 'CAMP', 'Cannafornia',
@@ -129,38 +129,38 @@ BRANDS = sorted(set([
     'Green Life Productions', 'Greenway LV', 'Groove',
     # H
     'HaHa Edibles', 'Hamilton Devices', 'Haze', 'Heavy Hitters', 'High Hemp',
-    'Highlights', 'Hijinks', 'Hippies Peaces', 'Hits Blunt',
+    'Hijinks', 'Hippies Peaces', 'Hits Blunt',
     'Houseplant', 'Huni Badger', 'Hustlers Ambition', "Hustler's Ambition",
     # I
-    'Incredibles', 'INDO',
+    'Incredibles',
     # J-K
-    'JAMS', 'Jasper', 'Jeeter', 'Jungle Boys', 'Just Edibles',
+    'Jasper', 'Jeeter', 'Jungle Boys',
     'KANHA', 'Kannabis', 'Keef', 'Khalifa Kush', 'Khalifa Yellow',
     'Kingpen', 'Kiva', 'Kiva Lost Farm', 'Kynd',
     # L
-    'Later Days', 'LAVI', 'LEVEL', 'Lift Tickets', 'LIT',
+    'Later Days', 'LAVI', 'Lift Tickets',
     "Local's Only", 'Lost Farm', 'LP Exotics',
     # M
     'Matrix', 'Medizin', 'Mojo', 'Moxie', 'Mystic Timbers',
     # N-O
     "Nature's Chemistry", 'Neon Cactus', 'Nitro Dabs',
-    'No Brand Name', 'Nordic Goddess',
+    'Nordic Goddess',
     'OCB Rolling Papers & Cones', 'Old Pal', 'OMG THC',
     # P
-    'Pacific Stone', 'PACKS', 'Packwoods', 'PANNA Extracts', 'PAX',
+    'Pacific Stone', 'Packwoods', 'PANNA Extracts', 'PAX',
     'Phantom Farms', 'Pheno Exotics', 'Pis WMS', 'Planet 13', 'Plug Play',
     'Poke a Bowl', 'Polaris', 'Presidential', 'Prime', 'Prospectors',
     'Provisions',
     # R
-    'Raw Garden', 'Redwood', 'REEFORM', 'Remedy', 'Reserve', 'RNBW',
+    'Raw Garden', 'Redwood', 'REEFORM', 'Remedy', 'RNBW',
     'Rove', 'Royalesque', 'Ruby Pearl Co.', 'Runtz', 'RYTHM',
     # S
     'Sauce Essentials', 'Savvy', 'SeCHe', 'SELECT', 'Sip',
     'Sin City', 'Smokiez Edibles', 'Smyle Labs', 'Special Blue',
     'Srene', 'StackHouse NV', 'State Flower', 'STIIIZY', 'Storz & Bickel',
-    'Sundae Co.', 'Super Good', 'Superior',
+    'Sundae Co.', 'Super Good',
     # T
-    'Tahoe Hydro', 'THC Design', 'The Bank', 'The Dispensary',
+    'Tahoe Hydro', 'THC Design', 'The Bank',
     'The Grower Circle', 'The Lab', 'Toker Poker', 'Trendi', 'Tryke',
     'Tsunami Labs', 'Tumbleweedz', 'Twisted Hemp', 'Tyson 2.0',
     # U-V
@@ -170,6 +170,27 @@ BRANDS = sorted(set([
     'Wana', 'Wonderbrett', 'Wyld', 'Your Highness',
     # &-prefixed
     '&Shine',
+    # -- Synced from parser.py KNOWN_BRANDS (2026-02-11) --
+    'Aether Gardens', 'Almora', 'Bhang', 'Binske', 'Bohemian Brothers',
+    'CANN', 'Cannabiotix', 'Cresco', 'Crumbs', 'Cultivate',
+    'DGF', 'Dosist', 'Dr. Zodiak', 'Dzyne',
+    'Exhale', 'Fig Farms', 'Flower One', 'Fumeur', 'Fuze',
+    'GLP', 'GTI', 'Garcia Hand Picked', 'Glass House', 'Grandiflora',
+    'Greenway Medical', 'Grön',
+    'HSH', 'Highly Edible', 'Huxton',
+    'IGO', 'Kanji',
+    'Leaf & Vine', 'Lemonnade', 'Local Cannabis', 'Lowell',
+    'MPX', 'MedMen', 'Mellow Vibes', 'Mojave', 'MÜV',
+    'NLVO', 'NuLeaf', 'Nuvaria',
+    'Oasis',
+    'PANNA', 'PLUS', 'Phat Panda', 'Punch Edibles',
+    'Qualcan',
+    'Reina', 'Robhots',
+    'SVC', 'Shango', 'Stillwater', 'Stone Road',
+    'TWE', 'Taproots', 'Terra', 'The Clear', 'The Sanctuary',
+    'The Source', 'Thrive', 'Toast', 'Trulieve', 'Tsunami',
+    'Tumbleweed', 'Vada', 'Vapen',
+    'WYLD CBD', 'Zen Leaf',
 ]), key=str.lower)
 
 # Pre-compute lowercase brand set for fast lookup
