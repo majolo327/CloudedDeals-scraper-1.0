@@ -129,7 +129,7 @@ BRANDS = sorted(set([
     'Green Life Productions', 'Greenway LV', 'Groove',
     # H
     'HaHa Edibles', 'Hamilton Devices', 'Haze', 'Heavy Hitters', 'High Hemp',
-    'Highlights', 'Hijinks', 'Hippies Peaces', 'Hits Blunt',
+    'High Roller', 'Highlights', 'Hijinks', 'Hippies Peaces', 'Hits Blunt',
     'Houseplant', 'Huni Badger', 'Hustlers Ambition', "Hustler's Ambition",
     # I
     'Incredibles', 'INDO',
@@ -260,7 +260,7 @@ _STRAIN_BRAND_BLOCKERS = [
                 r'forum\s*cut|sugar|blueberry|sunset|fire|sour\s*fire|og|'
                 r'mandarin|guava|grape|peanut\s*butter|london\s*pound|kush|'
                 r'berry|tropical|strawberry|orange|purple|white|gelato|'
-                r'biscotti)\s+cookies\b', re.IGNORECASE), 'Cookies'),
+                r'biscotti|garlic)\s+cookies\b', re.IGNORECASE), 'Cookies'),
 
     # "Runtz" is a brand, but these are strains:
     (re.compile(r'\b(?:white|pink|gelatti|gelato|tropical|gruntz|rainbow|'

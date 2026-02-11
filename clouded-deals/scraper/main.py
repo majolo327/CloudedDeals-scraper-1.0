@@ -228,6 +228,7 @@ _RE_TRAILING_STRAIN = re.compile(r"\s*(Indica|Sativa|Hybrid)\s*$", re.IGNORECASE
 # Patterns that indicate promotional / sale copy rather than a real product name
 _SALE_COPY_PATTERNS = [
     re.compile(r"^\d+%\s*off", re.IGNORECASE),
+    re.compile(r"^\$\d+\.?\d*\s*off", re.IGNORECASE),   # "$10.00 off", "$5 off"
     re.compile(r"^buy\s+\d+\s+get", re.IGNORECASE),
     re.compile(r"^bogo", re.IGNORECASE),
     re.compile(r"^sale\b", re.IGNORECASE),
@@ -806,6 +807,30 @@ async def _scrape_site_inner(
             if len(display_name) < 3:
                 display_name = raw_name
         display_name = display_name or raw_name or "Unknown"
+
+        # --- Strip redundant category words from display name --------
+        # When category is already "preroll", words like "Pre-Roll",
+        # "Preroll", "Pre Roll" in the name are redundant information
+        # (shown in the category line below the name on the card).
+        effective_cat = category if (category and category != 'other') else product.get("category")
+        if effective_cat == "preroll":
+            display_name = re.sub(
+                r"\s*\b(?:Pre[-\s]?Rolls?|Prerolls?)\b", "",
+                display_name, flags=re.IGNORECASE,
+            ).strip()
+
+        # --- Strip parenthetical weight and strain-type indicators ---
+        # "(100mg)" duplicates the weight field; "(I)"/"(S)"/"(H)" are
+        # strain-type shorthand already captured in the strain_type field.
+        display_name = re.sub(
+            r"\s*\(\s*\d+\s*mg\s*\)", "", display_name, flags=re.IGNORECASE,
+        )
+        display_name = re.sub(
+            r"\s*\(\s*[ISH]\s*\)", "", display_name, flags=re.IGNORECASE,
+        )
+
+        display_name = re.sub(r"\s{2,}", " ", display_name).strip()
+        display_name = display_name.strip(" -–—") or raw_name or "Unknown"
 
         # Map CloudedLogic output to the DB schema expected by _upsert_products
         enriched: dict[str, Any] = {
