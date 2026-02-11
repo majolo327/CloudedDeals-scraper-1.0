@@ -136,7 +136,7 @@ BRANDS = sorted(set([
     # J-K
     'JAMS', 'Jasper', 'Jeeter', 'Jungle Boys', 'Just Edibles',
     'KANHA', 'Kannabis', 'Keef', 'Khalifa Kush', 'Khalifa Yellow',
-    'Kingpen', 'Kiva', 'Kiva Lost Farm', 'Kynd',
+    'Kingpen', 'Kiva', 'Kiva Lost Farm', 'Kushberry Farms', 'Kynd',
     # L
     'Later Days', 'LAVI', 'LEVEL', 'Lift Tickets', 'LIT',
     "Local's Only", 'Lost Farm', 'LP Exotics',
@@ -274,6 +274,10 @@ _STRAIN_BRAND_BLOCKERS = [
 
     # "SELECT" — "Seche Select" is a product line from SeCHe, not the SELECT brand
     (re.compile(r'\bseche\s+select\b', re.IGNORECASE), 'SELECT'),
+
+    # "SELECT" — "select $20 eighths" is promotional copy, not the brand
+    (re.compile(r'\bselect\s+\$\d+', re.IGNORECASE), 'SELECT'),
+    (re.compile(r'\bselect\s+(?:eighths?|strains?|items?|products?)\b', re.IGNORECASE), 'SELECT'),
 ]
 
 # ============================================================================

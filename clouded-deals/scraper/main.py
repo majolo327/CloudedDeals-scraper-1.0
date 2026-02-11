@@ -254,6 +254,30 @@ _RE_MARKETING_JUNK = re.compile(
     re.IGNORECASE,
 )
 
+# Concentrate format descriptors — redundant when category is already "concentrate"
+_RE_CONCENTRATE_FORMAT = re.compile(
+    r"\b(?:Diamond\s+)?(?:Badder|Batter|Budder|Shatter|Wax|Sauce|Sugar|"
+    r"Crumble|Rosin|Diamonds?|Live\s+Resin|Cured\s+Resin)\b",
+    re.IGNORECASE,
+)
+
+# Concentrate keywords for raw_name–based category correction
+_CONCENTRATE_NAME_KEYWORDS = re.compile(
+    r"\b(?:badder|batter|budder|shatter|wax|sauce|sugar|crumble|"
+    r"rosin|diamonds?|live\s+resin|cured\s+resin)\b",
+    re.IGNORECASE,
+)
+_VAPE_NAME_KEYWORDS = re.compile(
+    r"\b(?:cart|cartridge|pod|disposable|vape|pen|all-in-one)\b",
+    re.IGNORECASE,
+)
+
+# Standalone weight values redundant with the weight field
+_RE_INLINE_WEIGHT = re.compile(
+    r"\b(?:0?\.5|1(?:\.0)?|2|3\.5|7|14|28)\s*g\b",
+    re.IGNORECASE,
+)
+
 # Patterns that indicate promotional / sale copy rather than a real product name
 _SALE_COPY_PATTERNS = [
     re.compile(r"^\d+%\s*off", re.IGNORECASE),
@@ -286,7 +310,8 @@ _RE_OFFER_SECTION = re.compile(
     r"(?:Special Offers?\s*\(?.*$)"            # "Special Offers (1) …" to end
     r"|(?:\d+/\$\d+\s+.*(?:Power Pack|Bundle).*$)"  # "2/$40 Power Pack || …"
     r"|(?:\bShop Offer\b.*$)"                  # "Shop Offer" link text
-    r"|(?:\bOffer\b.*\bShop\b.*$)",            # variant "Offer … Shop"
+    r"|(?:\bOffer\b.*\bShop\b.*$)"             # variant "Offer … Shop"
+    r"|(?:\bselect\s+\$\d+.*$)",               # "select $20 eighths 2/$30 …" promo
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -807,6 +832,17 @@ async def _scrape_site_inner(
         # Category: detect from clean text (no offer keyword pollution)
         category = logic.detect_category(clean_text)
 
+        # Concentrate correction: if clean_text caused "vape" because the
+        # surrounding page text contains "vape", but the PRODUCT NAME
+        # itself has concentrate format keywords (badder, wax, live resin…)
+        # and no vape keywords (cart, pod…), it's actually a concentrate.
+        if category == "vape" and raw_name:
+            if (
+                _CONCENTRATE_NAME_KEYWORDS.search(raw_name)
+                and not _VAPE_NAME_KEYWORDS.search(raw_name)
+            ):
+                category = "concentrate"
+
         # Parse full combined text for price, weight, THC
         text = f"{raw_name} {raw_text} {price_text}"
         product = logic.parse_product(text, dispensary["name"])
@@ -867,11 +903,20 @@ async def _scrape_site_inner(
             ).strip()
         if effective_cat == "vape":
             display_name = _RE_VAPE_WORDS.sub("", display_name).strip()
+        if effective_cat == "concentrate":
+            display_name = _RE_CONCENTRATE_FORMAT.sub("", display_name).strip()
+        if effective_cat == "flower":
+            display_name = re.sub(
+                r"\b(?:Flower|Bud)\b", "", display_name, flags=re.IGNORECASE,
+            ).strip()
 
-        # 6. Strip marketing junk: "High Octane Xtreme" etc.
+        # 6. Strip inline weight values redundant with the weight field
+        display_name = _RE_INLINE_WEIGHT.sub("", display_name).strip()
+
+        # 7. Strip marketing junk: "High Octane Xtreme" etc.
         display_name = _RE_MARKETING_JUNK.sub("", display_name).strip()
 
-        # 7. Strip parenthetical weight and strain-type indicators
+        # 8. Strip parenthetical weight and strain-type indicators
         # "(100mg)" duplicates the weight field; "(I)"/"(S)"/"(H)" are
         # strain-type shorthand already captured in the strain_type field.
         display_name = re.sub(
