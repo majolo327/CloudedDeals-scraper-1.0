@@ -1,6 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { trackEvent } from './analytics';
-import { applyDispensaryDiversityCap } from '@/utils/dealFilters';
 import { normalizeWeightForDisplay } from '@/utils/weightNormalizer';
 import { getRegion, DEFAULT_REGION } from './region';
 import { DISPENSARIES as DISPENSARIES_STATIC } from '@/data/dispensaries';
@@ -237,7 +236,7 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
         .gt('deal_score', 0)
         .gt('sale_price', 0)
         .order('deal_score', { ascending: false })
-        .limit(200),
+        .limit(500),
       supabase
         .from('deal_save_counts')
         .select('deal_id, save_count'),
@@ -268,10 +267,9 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
           })
       : [];
 
-    // Enforce dispensary diversity: max 15 deals per dispensary.
     // Backend curation already limits to 25 per dispo with brand dedup —
-    // this is a lighter client-side safety net, not the primary filter.
-    const deals = applyDispensaryDiversityCap(allDeals, 15);
+    // no additional client-side cap so users can explore all available deals.
+    const deals = allDeals;
 
     // Cache for offline use
     setCachedDeals(deals);
