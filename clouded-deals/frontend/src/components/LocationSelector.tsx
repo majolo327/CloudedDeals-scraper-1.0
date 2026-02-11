@@ -1,14 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { MapPin, CheckCircle } from 'lucide-react';
-import { isVegasArea, getLocationDisplayLabel } from '@/lib/zipCodes';
+import { MapPin, Navigation, CheckCircle, Loader2 } from 'lucide-react';
+import { isVegasArea, getLocationDisplayLabel, nearestZipFromCoords } from '@/lib/zipCodes';
 import { zipToState } from '@/utils/zipToState';
 import { RegionOverlay } from '@/components/RegionOverlay';
 import { logZipInterest } from '@/lib/zipInterest';
 
-type LocationState = 'idle' | 'editing' | 'confirmed' | 'region-overlay';
+const LOCATION_KEY = 'clouded_location_permission';
+const COORDS_KEY = 'clouded_user_coords';
+
+type LocationState = 'idle' | 'locating' | 'editing' | 'confirmed' | 'region-overlay';
 
 export function LocationSelector() {
   const [state, setState] = useState<LocationState>('idle');
@@ -16,14 +19,69 @@ export function LocationSelector() {
   const [resolvedState, setResolvedState] = useState('');
   const [resolvedZip, setResolvedZip] = useState('');
   const [displayLabel, setDisplayLabel] = useState('Las Vegas');
+  const [geoGranted, setGeoGranted] = useState(false);
 
-  // Load stored zip on mount to show correct city name
+  /** Derive a display label from lat/lng via nearest known zip. */
+  const labelFromCoords = useCallback((lat: number, lng: number): string => {
+    const zip = nearestZipFromCoords(lat, lng);
+    if (zip) {
+      localStorage.setItem('clouded_zip', zip);
+      return getLocationDisplayLabel(zip);
+    }
+    return 'Las Vegas';
+  }, []);
+
+  // On mount: resolve the best available label from stored state
   useEffect(() => {
+    const permission = localStorage.getItem(LOCATION_KEY);
+    const granted = permission === 'granted';
+    setGeoGranted(granted);
+
+    if (granted) {
+      try {
+        const raw = localStorage.getItem(COORDS_KEY);
+        if (raw) {
+          const { lat, lng } = JSON.parse(raw);
+          setDisplayLabel(labelFromCoords(lat, lng));
+          return;
+        }
+      } catch { /* fall through */ }
+    }
+
+    // Fallback: stored zip
     const storedZip = localStorage.getItem('clouded_zip');
     if (storedZip && isVegasArea(storedZip)) {
       setDisplayLabel(getLocationDisplayLabel(storedZip));
     }
-  }, []);
+  }, [labelFromCoords]);
+
+  /** Silently re-geolocate — called when a geolocated user taps the pin. */
+  const handleGeolocate = useCallback(() => {
+    if (!navigator.geolocation) {
+      setState('editing');
+      return;
+    }
+
+    setState('locating');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        localStorage.setItem(COORDS_KEY, JSON.stringify({ lat, lng }));
+        localStorage.setItem(LOCATION_KEY, 'granted');
+        setGeoGranted(true);
+        setDisplayLabel(labelFromCoords(lat, lng));
+        setState('confirmed');
+        setTimeout(() => setState('idle'), 2000);
+      },
+      () => {
+        // Permission revoked or error — fall back to zip input
+        localStorage.setItem(LOCATION_KEY, 'denied');
+        setGeoGranted(false);
+        setState('editing');
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300_000 },
+    );
+  }, [labelFromCoords]);
 
   const handleZipSubmit = () => {
     const zip = zipInput.trim();
@@ -31,8 +89,7 @@ export function LocationSelector() {
 
     if (isVegasArea(zip)) {
       localStorage.setItem('clouded_zip', zip);
-      const label = getLocationDisplayLabel(zip);
-      setDisplayLabel(label);
+      setDisplayLabel(getLocationDisplayLabel(zip));
       setState('confirmed');
       setTimeout(() => setState('idle'), 3000);
     } else {
@@ -40,7 +97,6 @@ export function LocationSelector() {
       if (stateCode) {
         logZipInterest(zip, stateCode);
 
-        // Skip overlay if already dismissed this session
         const wasDismissed = typeof window !== 'undefined' &&
           sessionStorage.getItem('clouded_region_dismissed') === 'true';
         if (wasDismissed) {
@@ -52,7 +108,6 @@ export function LocationSelector() {
         setResolvedZip(zip);
         setState('region-overlay');
       } else {
-        // Unknown zip — just confirm Vegas
         setState('confirmed');
         setTimeout(() => setState('idle'), 3000);
       }
@@ -69,6 +124,24 @@ export function LocationSelector() {
   const handleEmailSubmit = (email: string, stateCode: string, zip: string) => {
     logZipInterest(zip, stateCode, email);
   };
+
+  const handleIdleClick = () => {
+    if (geoGranted) {
+      handleGeolocate();
+    } else {
+      setState('editing');
+    }
+  };
+
+  // Locating state — brief spinner while re-geolocating
+  if (state === 'locating') {
+    return (
+      <div className="flex items-center gap-1 p-1.5 min-h-[40px] text-xs sm:text-sm text-purple-400">
+        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        <span>Locating</span>
+      </div>
+    );
+  }
 
   // Editing state — zip code input
   if (state === 'editing') {
@@ -97,7 +170,7 @@ export function LocationSelector() {
     );
   }
 
-  // Confirmed state — brief success flash showing actual city
+  // Confirmed state — brief success flash
   if (state === 'confirmed') {
     return (
       <div className="flex items-center gap-1 p-1.5 min-h-[40px] text-xs sm:text-sm text-green-400">
@@ -107,21 +180,23 @@ export function LocationSelector() {
     );
   }
 
+  // Idle state — geolocated users see Navigation icon, zip users see MapPin
   return (
     <>
-      {/* Default idle state — shows correct city name */}
       <button
-        onClick={() => setState('editing')}
+        onClick={handleIdleClick}
         className="flex items-center gap-1 p-1.5 min-h-[40px] text-xs sm:text-sm text-white hover:text-purple-400 transition-colors"
       >
-        <MapPin className="w-3.5 h-3.5" />
+        {geoGranted ? (
+          <Navigation className="w-3.5 h-3.5 text-emerald-400" />
+        ) : (
+          <MapPin className="w-3.5 h-3.5" />
+        )}
         <span className="underline underline-offset-2 decoration-purple-500/50 truncate max-w-[120px] sm:max-w-none">
           {displayLabel}
         </span>
       </button>
 
-      {/* Portal overlay to document.body so it escapes the header's
-         backdrop-filter stacking context (which traps position:fixed) */}
       {state === 'region-overlay' && createPortal(
         <RegionOverlay
           stateCode={resolvedState}
