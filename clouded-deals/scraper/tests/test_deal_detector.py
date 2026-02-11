@@ -458,7 +458,7 @@ class TestRemoveSimilarDeals:
         assert len(result) == 3
 
     def test_keeps_highest_scored(self, make_product):
-        """Should keep the highest-scored entries from each group."""
+        """Should keep the highest-scored entries from each group (top 2 per brand+cat+dispo)."""
         deals = [
             make_product(name=f"P{i}", brand="STIIIZY", category="vape",
                          dispensary_id="planet13", deal_score=90 - i * 5)
@@ -466,7 +466,7 @@ class TestRemoveSimilarDeals:
         ]
         result = remove_similar_deals(deals)
         scores = [d["deal_score"] for d in result]
-        assert scores == [90, 85, 80]
+        assert scores == [90, 85]
 
 
 # =====================================================================

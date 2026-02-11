@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { trackEvent } from './analytics';
 import { normalizeWeightForDisplay } from '@/utils/weightNormalizer';
+import { applyChainDiversityCap } from '@/utils/dealFilters';
 import { getRegion, DEFAULT_REGION } from './region';
 import { DISPENSARIES as DISPENSARIES_STATIC } from '@/data/dispensaries';
 import type { Deal, Category, Dispensary, Brand } from '@/types';
@@ -267,9 +268,10 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
           })
       : [];
 
-    // Backend curation already limits to 25 per dispo with brand dedup —
-    // no additional client-side cap so users can explore all available deals.
-    const deals = allDeals;
+    // Chain-level cap: multi-location chains (Rise=7, Thrive=5, etc.)
+    // can flood the feed. Cap at 15 per chain while guaranteeing at least
+    // 1 deal per individual dispensary. Backend already caps per-store at 10.
+    const deals = applyChainDiversityCap(allDeals, 15);
 
     // Cache for offline use
     setCachedDeals(deals);

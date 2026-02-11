@@ -1,4 +1,5 @@
 import type { Deal, Category } from '@/types';
+import { getChainId } from '@/utils/dealFilters';
 
 /**
  * Curated Shuffle — tier-based weighted shuffle with diversity constraints.
@@ -77,6 +78,7 @@ function classifyTiers(deals: Deal[]): TieredDeals {
 interface DiversityState {
   lastCategories: Category[];
   lastDispensaries: string[];
+  lastChains: string[];
   lastBrand: string | null;
 }
 
@@ -102,6 +104,15 @@ function passesDiversity(deal: Deal, state: DiversityState): boolean {
     return false;
   }
 
+  // Max 2 consecutive same chain (Rise-Tropicana → Rise-Rainbow = same chain)
+  const chain = getChainId(deal.dispensary?.id ?? '');
+  if (
+    state.lastChains.length >= 2 &&
+    state.lastChains.every((c) => c === chain)
+  ) {
+    return false;
+  }
+
   return true;
 }
 
@@ -110,6 +121,10 @@ function updateDiversityState(state: DiversityState, deal: Deal): void {
   state.lastDispensaries = [
     ...state.lastDispensaries.slice(-1),
     deal.dispensary?.id ?? '',
+  ];
+  state.lastChains = [
+    ...state.lastChains.slice(-1),
+    getChainId(deal.dispensary?.id ?? ''),
   ];
   state.lastBrand = deal.brand?.id ?? null;
 }
@@ -135,6 +150,7 @@ function interleaveWithDiversity(
   const diversity: DiversityState = {
     lastCategories: [],
     lastDispensaries: [],
+    lastChains: [],
     lastBrand: null,
   };
 
