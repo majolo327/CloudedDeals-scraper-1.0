@@ -219,7 +219,16 @@ _WEIGHT_ALIASES: dict[str, float] = {
     "half":    14.0,
 }
 
-_RE_FRACTION = re.compile(r"\b1/8\b")
+# Fractional-oz patterns: "1/8", "1/8oz", "1/4oz", "1/2oz" (optional space
+# before "oz").  MUST be checked BEFORE _RE_WEIGHT_METRIC because that regex
+# would incorrectly match the denominator alone (e.g. "8oz" from "1/8oz").
+_RE_FRAC_OZ = re.compile(r"\b(1/[248])\s*(?:oz)?\b", re.IGNORECASE)
+
+_FRAC_TO_GRAMS: dict[str, float] = {
+    "1/8": 3.5,
+    "1/4": 7.0,
+    "1/2": 14.0,
+}
 
 
 def extract_weight(text: str) -> dict[str, Any]:
@@ -229,14 +238,33 @@ def extract_weight(text: str) -> dict[str, Any]:
     {'weight_value': 3.5, 'weight_unit': 'g'}
     >>> extract_weight("Premium Eighth")
     {'weight_value': 3.5, 'weight_unit': 'g'}
+    >>> extract_weight("Rove 1/8oz")
+    {'weight_value': 3.5, 'weight_unit': 'g'}
     """
     result: dict[str, Any] = {"weight_value": None, "weight_unit": None}
+
+    # Fractional-oz patterns FIRST: "1/8", "1/8oz", "1/4oz", "1/2oz".
+    # MUST check before _RE_WEIGHT_METRIC which incorrectly matches the
+    # denominator as a standalone number (e.g. "8oz" from "1/8oz").
+    frac_m = _RE_FRAC_OZ.search(text)
+    if frac_m:
+        frac = frac_m.group(1)
+        grams = _FRAC_TO_GRAMS.get(frac)
+        if grams is not None:
+            result["weight_value"] = grams
+            result["weight_unit"] = "g"
+            return result
 
     # Explicit numeric weight (3.5g, 100mg, 1oz).
     m = _RE_WEIGHT_METRIC.search(text)
     if m:
         value = float(m.group("qty"))
         unit = m.group("unit").lower()
+
+        # Convert oz to grams (e.g. "1oz" → 28g)
+        if unit == "oz":
+            value = round(value * 28, 1)
+            unit = "g"
 
         # Sanity check: vapes/carts should not exceed 2 g. A value like
         # 5.0 g is almost certainly 0.5 g with a misplaced decimal.
@@ -252,17 +280,11 @@ def extract_weight(text: str) -> dict[str, Any]:
         result["weight_unit"] = unit
         return result
 
-    # Fractional "1/8".
-    if _RE_FRACTION.search(text):
-        result["weight_value"] = 3.5
-        result["weight_unit"] = "g"
-        return result
-
-    # Named aliases.
+    # Named aliases ("eighth", "quarter", "half").
     lower = text.lower()
     for alias, grams in _WEIGHT_ALIASES.items():
         if alias == "1/8":
-            continue  # already handled above
+            continue  # already handled by _RE_FRAC_OZ above
         if re.search(rf"\b{alias}\b", lower):
             result["weight_value"] = grams
             result["weight_unit"] = "g"

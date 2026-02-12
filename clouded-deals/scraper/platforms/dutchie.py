@@ -316,12 +316,34 @@ class DutchieScraper(BaseScraper):
                     continue
                 seen_names.add(dedup_key)
 
+                # --- Brand extraction (separate element on card) ---
+                # Dutchie product cards show the brand name as a distinct
+                # text element above the product title (e.g. "ROVE" above
+                # "Peaches & Cream - Infused Ice Packs").  Extract it for
+                # high-confidence brand identification.
+                scraped_brand = None
+                for brand_sel in (
+                    "[class*='brand']", "[class*='Brand']",
+                    "[data-testid*='brand']", "[data-testid*='Brand']",
+                ):
+                    try:
+                        brand_el = el.locator(brand_sel).first
+                        if await brand_el.count() > 0:
+                            scraped_brand = (await brand_el.inner_text()).strip()
+                            if scraped_brand and len(scraped_brand) >= 2:
+                                break
+                            scraped_brand = None
+                    except Exception:
+                        continue
+
                 product: dict[str, Any] = {
                     "name": name,
                     "raw_text": raw_text,
                     "offer_text": offer_text,  # bundle text, kept separate
                     "product_url": self.url,  # fallback: dispensary menu URL
                 }
+                if scraped_brand:
+                    product["scraped_brand"] = scraped_brand
 
                 # --- Product link ---
                 try:
