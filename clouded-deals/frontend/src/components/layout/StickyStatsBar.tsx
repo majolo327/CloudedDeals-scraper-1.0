@@ -30,9 +30,10 @@ export function StickyStatsBar({
       className="sticky top-14 sm:top-16 z-40 backdrop-blur-xl border-b"
       style={{ backgroundColor: 'rgba(10, 14, 26, 0.92)', borderColor: 'var(--border-subtle)' }}
     >
-      <div className="max-w-6xl mx-auto px-4 h-12 flex items-center justify-between gap-4 overflow-x-auto scrollbar-hide">
+      <div className="max-w-6xl mx-auto px-4 h-12 flex items-center gap-2">
+        {children && <div className="flex-shrink-0">{children}</div>}
         {onCategoryChange && (
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide min-w-0">
             {categories.map((category) => (
               <button
                 key={category.id}
@@ -48,7 +49,6 @@ export function StickyStatsBar({
             ))}
           </div>
         )}
-        {children && <div className="flex-shrink-0">{children}</div>}
       </div>
     </div>
   );

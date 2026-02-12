@@ -45,9 +45,9 @@ const SORT_OPTIONS: { id: SortOption; label: string }[] = [
 
 const DISTANCE_OPTIONS: { id: DistanceRange; label: string; desc: string }[] = [
   { id: 'all', label: 'Any Distance', desc: 'Show all deals' },
-  { id: 'near', label: 'Near You', desc: '< 5 miles' },
-  { id: 'nearby', label: 'Nearby', desc: '5–10 miles' },
-  { id: 'across_town', label: 'Across Town', desc: '10–15 miles' },
+  { id: 'near', label: 'Near You', desc: 'Within 5 miles' },
+  { id: 'nearby', label: 'Nearby', desc: 'Within 10 miles' },
+  { id: 'across_town', label: 'Across Town', desc: 'Within 15 miles' },
 ];
 
 /** Weight options that adapt to selected category. */
@@ -154,12 +154,12 @@ export function FilterSheet({
     onFiltersChange({ ...filters, dispensaryIds: [], quickFilter: 'none' });
   };
 
-  // Auto-expand location section if user already has active location filters
+  // Auto-expand location section when user has location or active location filters
   useEffect(() => {
-    if (filters.distanceRange !== 'all' || filters.dispensaryIds.length > 0) {
+    if (hasLocation || filters.distanceRange !== 'all' || filters.dispensaryIds.length > 0) {
       setLocationOpen(true);
     }
-  }, [filters.distanceRange, filters.dispensaryIds]);
+  }, [hasLocation, filters.distanceRange, filters.dispensaryIds]);
 
   // Lock body scroll when open
   useEffect(() => {
@@ -389,7 +389,12 @@ export function FilterSheet({
                             return (
                               <button
                                 key={opt.id}
-                                onClick={() => onFiltersChange({ ...filters, distanceRange: opt.id, quickFilter: 'none' })}
+                                onClick={() => onFiltersChange({
+                                  ...filters,
+                                  distanceRange: opt.id,
+                                  sortBy: opt.id !== 'all' ? 'distance' : filters.sortBy,
+                                  quickFilter: 'none',
+                                })}
                                 className={`px-3 py-2.5 rounded-xl text-left transition-all ${
                                   isSelected
                                     ? 'bg-blue-500/15 border border-blue-500/30'
