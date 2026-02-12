@@ -389,17 +389,23 @@ _RE_LEADING_STRAIN = re.compile(
 def _is_junk_deal(name: str, price: float | None) -> bool:
     """Return True if this scraped entry is promotional junk rather than a real product."""
     if not price or price <= 0:
+        logger.debug("[JUNK] no_price: '%s'", name[:50] if name else "(empty)")
         return True
     if not name or len(name.strip()) < 5:
+        logger.debug("[JUNK] short_name: '%s' ($%s)", name, price)
         return True
     # Strain type / classification masquerading as a product name
     if name.strip().lower() in _STRAIN_ONLY_NAMES:
+        logger.debug("[JUNK] strain_only: '%s'", name)
         return True
     if any(pat.search(name) for pat in _SALE_COPY_PATTERNS):
+        logger.debug("[JUNK] sale_copy: '%s'", name[:60])
         return True
     if name.count("%") >= 2:
+        logger.debug("[JUNK] multi_pct: '%s'", name[:60])
         return True
     if len(name) > 100 and re.search(r"\d+%\s*off", name, re.IGNORECASE):
+        logger.debug("[JUNK] long_promo: '%s'", name[:60])
         return True
     return False
 

@@ -35,6 +35,11 @@ from typing import Any
 
 import pytest
 
+# This is an integration test — requires playwright, pytest-asyncio, and network.
+# Skip the entire module if the dependencies aren't available.
+pytest.importorskip("pytest_asyncio", reason="pytest-asyncio required for recon tests")
+_pw = pytest.importorskip("playwright", reason="playwright required for recon tests")
+
 # Ensure scraper package is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 

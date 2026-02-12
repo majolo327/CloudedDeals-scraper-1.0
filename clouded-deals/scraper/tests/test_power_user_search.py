@@ -469,47 +469,18 @@ class TestStrainSearch:
 # ===========================================================================
 
 class TestDispensarySearch:
-    """Test 10: Rise — now actively scraped via Phase 2 Rise scraper."""
+    """Test 10: Rise dispensaries exist in config but are inactive (Cloudflare-blocked)."""
 
-    def test_rise_in_scraped_dispensaries(self):
-        """Rise dispensaries are now scraped (Phase 2).
-        Verify they appear in the active config."""
-        from config.dispensaries import get_active_dispensaries
-        active_slugs = {d["slug"] for d in get_active_dispensaries()}
-        rise_ids = {"rise-tropicana", "rise-rainbow", "rise-nellis",
-                    "rise-boulder", "rise-durango", "rise-craig",
-                    "rise-henderson",
-                    "cookies-strip-rise", "cookies-flamingo"}
-        assert rise_ids.issubset(active_slugs), (
-            f"Rise dispensaries missing from config: {rise_ids - active_slugs}"
-        )
-    """Test 10: Rise Nellis — now scraped via Jane platform."""
-
-    def test_rise_in_scraped_dispensaries(self):
-        """Rise dispensaries are now in the scraper config (Jane platform)."""
+    def test_rise_in_config(self):
+        """Rise dispensaries should be in DISPENSARIES (even if inactive)."""
         from config.dispensaries import DISPENSARIES
         scraped_ids = {d["slug"] for d in DISPENSARIES}
-        rise_ids = {"rise-sunset", "rise-tropicana", "rise-rainbow",
-                    "rise-nellis", "rise-boulder", "rise-durango", "rise-craig"}
-        assert rise_ids.issubset(scraped_ids), "All Rise dispensaries should be in scraper config"
-
-    def _unused_old_scraped_ids(self):
-        """Reference of known scraped dispensary IDs (kept for documentation)."""
-        scraped_ids = {
-            "td-gibson", "td-decatur", "planet13", "medizin",
-            "greenlight-downtown", "greenlight-paradise", "the-grove",
-            "mint-paradise", "mint-rainbow",
-            "curaleaf-western", "curaleaf-cheyenne", "curaleaf-strip",
-            "curaleaf-the-reef",
-            "oasis", "deep-roots-cheyenne", "deep-roots-craig",
-            "deep-roots-blue-diamond", "deep-roots-parkson",
-            "cultivate-spring", "cultivate-durango",
-            "thrive-sahara", "thrive-cheyenne", "thrive-strip", "thrive-main",
-            "beyond-hello-sahara", "beyond-hello-twain",
-        }
-        rise_ids = {"rise-sunset", "rise-tropicana", "rise-rainbow",
-                    "rise-nellis", "rise-boulder", "rise-durango", "rise-craig"}
-        assert rise_ids.isdisjoint(scraped_ids), "Rise dispensaries shouldn't be in scraped set"
+        rise_ids = {"rise-tropicana", "rise-rainbow", "rise-nellis",
+                    "rise-boulder", "rise-durango", "rise-craig",
+                    "rise-henderson"}
+        assert rise_ids.issubset(scraped_ids), (
+            f"Rise dispensaries missing from config: {rise_ids - scraped_ids}"
+        )
 
     def test_word_boundary_prevents_rise_matching_sunrise(self):
         """Word-boundary regex for 'rise' should not match 'sunrise'."""
@@ -831,7 +802,7 @@ class TestNewBrandsFromMenuAudit:
 
 
 class TestRiseDispensaryConfig:
-    """All 7 Rise dispensaries should be in the scraper config."""
+    """Rise dispensaries are in config but inactive (Cloudflare-blocked)."""
 
     def test_rise_count(self):
         from config.dispensaries import DISPENSARIES
@@ -839,15 +810,16 @@ class TestRiseDispensaryConfig:
         assert len(rise) == 7
 
     @pytest.mark.parametrize("slug", [
-        "rise-sunset", "rise-tropicana", "rise-rainbow",
+        "rise-tropicana", "rise-rainbow",
         "rise-nellis", "rise-boulder", "rise-durango", "rise-craig",
+        "rise-henderson",
     ])
     def test_rise_dispensary_exists(self, slug):
         from config.dispensaries import get_dispensary_by_slug
         disp = get_dispensary_by_slug(slug)
         assert disp is not None, f"{slug} missing from DISPENSARIES"
-        assert disp["platform"] == "jane"
-        assert disp["is_active"] is True
+        assert disp["platform"] == "rise"
+        assert disp["is_active"] is False  # Cloudflare-blocked since Feb 2026
 
 
 # =====================================================================
