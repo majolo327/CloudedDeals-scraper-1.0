@@ -38,7 +38,7 @@ from config.dispensaries import (
     BROWSER_ARGS, DISPENSARIES, SITE_TIMEOUT_SEC,
     get_platforms_for_group, get_dispensaries_by_group,
 )
-from clouded_logic import CloudedLogic
+from clouded_logic import CloudedLogic, BRANDS_LOWER
 from deal_detector import detect_deals, get_last_report_data
 from metrics_collector import collect_daily_metrics
 from product_classifier import classify_product
@@ -321,7 +321,16 @@ _RE_OFFER_SECTION = re.compile(
     r"|(?:\d+/\$\d+\s+.*(?:Power Pack|Bundle).*$)"  # "2/$40 Power Pack || …"
     r"|(?:\bShop Offer\b.*$)"                  # "Shop Offer" link text
     r"|(?:\bOffer\b.*\bShop\b.*$)"             # variant "Offer … Shop"
-    r"|(?:\bselect\s+\$\d+.*$)",               # "select $20 eighths 2/$30 …" promo
+    r"|(?:\bselect\s+\$\d+.*$)"               # "select $20 eighths 2/$30 …" promo
+    r"|(?:\bIncluded?\s+(?:in|with)\b.*$)"     # "Included in: 2/$40 Concentrates…"
+    r"|(?:\bPart\s+of\b.*$)"                   # "Part of: Mix & Match…"
+    r"|(?:\bMix\s*(?:&|and|n)\s*Match\b.*$)"   # "Mix & Match 2/$40…"
+    r"|(?:\d+\s+for\s+\$\d+.*$)"              # "2 for $40 Rove, AMA…"
+    r"|(?:\bBOGO\b.*$)"                        # "BOGO on select brands…"
+    r"|(?:\bBundle\b.*$)"                       # "Bundle deal: …"
+    r"|(?:\bDeal\s*:.*$)"                       # "Deal: 2/$60 …"
+    r"|(?:\bPromo\s*:.*$)"                      # "Promo: …"
+    r"|(?:\bAlso\s+(?:included?|available)\b.*$)",  # "Also included: Rove, Reserve…"
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -337,6 +346,37 @@ def _strip_offer_text(raw_text: str) -> str:
     if not raw_text:
         return ""
     return _RE_OFFER_SECTION.sub("", raw_text).strip()
+
+
+# ── URL-based brand extraction ─────────────────────────────────────────
+# Product URLs often contain the brand slug (e.g. "/brands/rove/...",
+# "/rove-featured-farms-1g", "brand=rove").  This is a high-confidence
+# signal that avoids false positives from product name parsing.
+
+def _extract_brand_from_url(url: str) -> str | None:
+    """Return canonical brand name if found in the product URL."""
+    if not url:
+        return None
+    # Normalize: lowercase, replace hyphens/underscores with spaces for matching
+    url_lower = url.lower()
+    url_normalized = url_lower.replace("-", " ").replace("_", " ")
+
+    # Check each known brand against the URL (longest brands first to avoid
+    # partial matches — e.g. "raw garden" before "raw")
+    for brand_lower, canonical in sorted(
+        BRANDS_LOWER.items(), key=lambda x: len(x[0]), reverse=True
+    ):
+        # Match brand as a path segment or query param value
+        if (
+            f"/{brand_lower}/" in url_lower
+            or f"/{brand_lower}?" in url_lower
+            or f"brand={brand_lower}" in url_lower
+            or f"/{brand_lower.replace(' ', '-')}/" in url_lower
+            or f"/{brand_lower.replace(' ', '-')}-" in url_lower
+            or f"-{brand_lower.replace(' ', '-')}-" in url_lower
+        ):
+            return canonical
+    return None
 
 
 # Leading strain-type prefix (e.g. "Indica OG Kush" → "OG Kush")
@@ -834,8 +874,11 @@ async def _scrape_site_inner(
         stripped_raw = _strip_offer_text(raw_text)
         clean_text = f"{raw_name} {stripped_raw}"
 
-        # Brand: try product name first, then stripped text
-        brand = logic.detect_brand(raw_name)
+        # Brand: URL is highest-confidence signal, then product name, then text
+        product_url = rp.get("product_url", "")
+        brand = _extract_brand_from_url(product_url)
+        if not brand:
+            brand = logic.detect_brand(raw_name)
         if not brand:
             brand = logic.detect_brand(clean_text)
 
@@ -852,6 +895,14 @@ async def _scrape_site_inner(
                 and not _VAPE_NAME_KEYWORDS.search(raw_name)
             ):
                 category = "concentrate"
+            # If the product name itself has NO vape keywords, the "vape"
+            # classification likely came from page-context text (navigation,
+            # other products on the page, etc.).  Re-detect category from
+            # just the product name for a more accurate result.
+            elif not _VAPE_NAME_KEYWORDS.search(raw_name):
+                name_category = logic.detect_category(raw_name)
+                if name_category not in ("other", "vape"):
+                    category = name_category
 
         # Parse full combined text for price, weight, THC
         text = f"{raw_name} {raw_text} {price_text}"

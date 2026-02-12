@@ -420,6 +420,53 @@ class TestDetectBrand:
         """Lava Cake is a strain, NOT the Cake brand."""
         assert logic.detect_brand("Lava Cake Indica 3.5g") is None
 
+    # ---- PACKS brand false positive protection ----
+
+    def test_ice_packs_not_packs_brand(self, logic):
+        """'Infused Ice Packs' is a product form, NOT the PACKS brand."""
+        assert logic.detect_brand("Peaches & Cream - Infused Ice Packs") != "PACKS"
+
+    def test_variety_packs_not_packs_brand(self, logic):
+        """'Variety Pack' is a product form, NOT the PACKS brand."""
+        assert logic.detect_brand("Variety Pack Gummies 100mg") != "PACKS"
+
+    def test_packs_brand_standalone(self, logic):
+        """'PACKS' at start of text IS the PACKS brand."""
+        assert logic.detect_brand("PACKS Premium Pre-Roll 1g") == "PACKS"
+
+
+# =====================================================================
+# Category detection — concentrate with fractional oz weight
+# =====================================================================
+
+
+class TestConcentrateWithOzWeight:
+    """Concentrates listed with fractional oz should still be detected."""
+
+    def test_concentrate_with_one_eighth_oz(self, logic):
+        """Live Resin listed as 1/8oz should detect as concentrate."""
+        assert logic.detect_category("AMA Live Resin 1/8oz") == "concentrate"
+
+    def test_concentrate_with_one_eighth_oz_no_space(self, logic):
+        assert logic.detect_category("Shatter 1/8oz") == "concentrate"
+
+
+# =====================================================================
+# Weight validation — oz-based inputs
+# =====================================================================
+
+
+class TestWeightValidationOz:
+    """Fractional oz weights should be properly converted and validated."""
+
+    def test_frac_oz_flower_weight(self, logic):
+        """'3.5g' (from 1/8oz conversion) is valid flower weight."""
+        assert logic.validate_weight("3.5g", "flower") == "3.5g"
+
+    def test_frac_oz_concentrate_weight(self, logic):
+        """'1g' concentrate weight from oz conversion."""
+        assert logic.validate_weight("1g", "concentrate") == "1g"
+
 
 # =====================================================================
 # Clean Product Text

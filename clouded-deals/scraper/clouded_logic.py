@@ -284,6 +284,11 @@ _STRAIN_BRAND_BLOCKERS = [
 
     # "Sauce Essentials" — "Live Sauce" / "Cured Sauce" are concentrate formats
     (re.compile(r'\b(?:live|cured|diamond)\s+sauce\b', re.IGNORECASE), 'Sauce Essentials'),
+
+    # "PACKS" is a brand, but "Ice Packs", "Infused … Packs", "Variety Pack",
+    # etc. are product-form descriptors.  Block PACKS detection when preceded
+    # by these common context words.
+    (re.compile(r'\b(?:ice|variety|infused\s+ice|infused)\s+packs?\b', re.IGNORECASE), 'PACKS'),
 ]
 
 # ============================================================================
@@ -661,7 +666,10 @@ class CloudedLogic:
         ]
         vape_keywords_re = re.compile(r'\b(cart|cartridge|pod|disposable|vape|pen|all-in-one)\b')
         has_concentrate = any(kw in t for kw in concentrate_keywords)
-        has_concentrate_weight = any(w in t for w in ['.5g', '1g', '1.0g', '2g', '0.5g'])
+        has_concentrate_weight = (
+            any(w in t for w in ['.5g', '1g', '1.0g', '2g', '0.5g'])
+            or bool(re.search(r'\b1/[248]\s*(?:oz)?\b', t))  # fractional oz
+        )
         has_vape_keyword = bool(vape_keywords_re.search(t))
         if has_concentrate and has_concentrate_weight and not has_vape_keyword:
             self.stats['concentrates_found'] += 1
@@ -984,11 +992,26 @@ class CloudedLogic:
             self.stats['infused_prerolls_tagged'] += 1
 
         # ── Step 3: Extract and validate weight WITH category ────
-        weight_match = re.search(r'([\d.]+)\s*(g|mg|oz)\b', clean_text, re.IGNORECASE)
+        # Check fractional-oz patterns FIRST (1/8oz, 1/4oz, 1/2oz) to
+        # prevent the numeric regex from incorrectly matching the
+        # denominator (e.g. "8oz" from "1/8oz").
+        _frac_oz_m = re.search(r'\b(1/[248])\s*(?:oz)?\b', clean_text, re.IGNORECASE)
+        _FRAC_GRAMS = {"1/8": 3.5, "1/4": 7.0, "1/2": 14.0}
         weight = None
-        if weight_match:
-            raw_weight = weight_match.group(0)
+        if _frac_oz_m and _frac_oz_m.group(1) in _FRAC_GRAMS:
+            grams = _FRAC_GRAMS[_frac_oz_m.group(1)]
+            raw_weight = f"{grams}g"
             weight = self.validate_weight(raw_weight, category)
+        else:
+            weight_match = re.search(r'([\d.]+)\s*(g|mg|oz)\b', clean_text, re.IGNORECASE)
+            if weight_match:
+                raw_weight = weight_match.group(0)
+                # Convert oz to grams for validation
+                oz_m = re.match(r'([\d.]+)\s*oz\b', raw_weight, re.IGNORECASE)
+                if oz_m:
+                    oz_val = float(oz_m.group(1))
+                    raw_weight = f"{round(oz_val * 28, 1)}g"
+                weight = self.validate_weight(raw_weight, category)
 
             # Special handling for edibles
             if category == 'edible':
