@@ -76,8 +76,14 @@ export function DealsPage({
     resetFilters,
     activeFilterCount,
     userCoords,
+    refreshLocation,
     filterAndSortDeals,
   } = useUniversalFilters();
+
+  const handleLocationSet = useCallback(() => {
+    refreshLocation();
+    setFilters({ ...filters, sortBy: 'distance' });
+  }, [refreshLocation, setFilters, filters]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -147,6 +153,7 @@ export function DealsPage({
           hasLocation={!!userCoords}
           onReset={resetFilters}
           activeFilterCount={activeFilterCount}
+          onLocationSet={handleLocationSet}
         />
       </StickyStatsBar>
 
