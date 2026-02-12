@@ -874,9 +874,14 @@ async def _scrape_site_inner(
         stripped_raw = _strip_offer_text(raw_text)
         clean_text = f"{raw_name} {stripped_raw}"
 
-        # Brand: URL is highest-confidence signal, then product name, then text
-        product_url = rp.get("product_url", "")
-        brand = _extract_brand_from_url(product_url)
+        # Brand priority: scraped element > URL > product name > clean text
+        # Some scrapers (Dutchie) extract brand from a dedicated card element
+        # (e.g. "ROVE" label above the product title) — highest confidence.
+        scraped_brand = rp.get("scraped_brand", "")
+        brand = logic.detect_brand(scraped_brand) if scraped_brand else None
+        if not brand:
+            product_url = rp.get("product_url", "")
+            brand = _extract_brand_from_url(product_url)
         if not brand:
             brand = logic.detect_brand(raw_name)
         if not brand:
