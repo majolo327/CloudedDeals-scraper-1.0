@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Heart, DollarSign, Trash2, Clock, Share2, Check, Sun, ChevronDown, ArrowUpDown } from 'lucide-react';
+import { Heart, DollarSign, Trash2, Clock, Share2, Check, Sun, ChevronDown, ArrowUpDown, History } from 'lucide-react';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { getDiscountPercent, getDisplayName, getDistanceMiles } from '@/utils';
 import { createShareLink } from '@/lib/share';
@@ -9,6 +9,7 @@ import { trackEvent } from '@/lib/analytics';
 import { ContactBanner } from '@/components/ContactBanner';
 import { getUserCoords } from '@/components/ftue/LocationPrompt';
 import type { Deal } from '@/types';
+import type { HistoryEntry } from '@/hooks/useDealHistory';
 
 type SavedSort = 'saved' | 'price_asc' | 'price_desc' | 'nearest';
 
@@ -42,14 +43,17 @@ interface SavedPageProps {
   deals: Deal[];
   onSelectDeal?: (deal: Deal) => void;
   addToast?: (message: string, type: 'success' | 'info') => void;
+  history?: HistoryEntry[];
+  onClearHistory?: () => void;
 }
 
-export function SavedPage({ deals, onSelectDeal, addToast }: SavedPageProps) {
+export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClearHistory }: SavedPageProps) {
   const { savedDeals, toggleSavedDeal, isDealUsed, markDealUsed } = useSavedDeals();
   const [shareState, setShareState] = useState<'idle' | 'sharing' | 'copied'>('idle');
   const [showContactBanner, setShowContactBanner] = useState(false);
   const [sortBy, setSortBy] = useState<SavedSort>('saved');
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const userCoords = useMemo(() => getUserCoords(), []);
   const hasLocation = !!userCoords;
@@ -172,6 +176,7 @@ export function SavedPage({ deals, onSelectDeal, addToast }: SavedPageProps) {
                 </p>
                 <p className="text-xs text-slate-500">
                   {usedDeals.length} used
+                  {history.length > 0 && <> &middot; {history.length} past</>}
                 </p>
               </div>
             </div>
@@ -293,11 +298,42 @@ export function SavedPage({ deals, onSelectDeal, addToast }: SavedPageProps) {
           </section>
         )}
 
+        {/* Deal History — past expired saves */}
+        {history.length > 0 && (
+          <section>
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="flex items-center gap-2 mb-3 group"
+            >
+              <History className="w-3.5 h-3.5 text-slate-600" />
+              <h2 className="text-sm font-semibold text-slate-600 group-hover:text-slate-400 transition-colors">
+                Past Saves ({history.length})
+              </h2>
+              <ChevronDown className={`w-3 h-3 text-slate-600 transition-transform ${showHistory ? 'rotate-180' : ''}`} />
+            </button>
+            {showHistory && (
+              <div className="space-y-2">
+                {history.map((entry, i) => (
+                  <HistoryDealCard key={`${entry.deal.id}-${i}`} entry={entry} />
+                ))}
+                {onClearHistory && (
+                  <button
+                    onClick={onClearHistory}
+                    className="w-full py-2 text-xs text-slate-600 hover:text-slate-400 transition-colors"
+                  >
+                    Clear history
+                  </button>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Return hook — tomorrow's deals */}
         {savedDealsList.length > 0 && <ReturnHook dealCount={deals.length} />}
 
         {/* Empty state */}
-        {savedDealsList.length === 0 && (
+        {savedDealsList.length === 0 && history.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-16 h-16 rounded-2xl bg-slate-800/50 flex items-center justify-center mb-4">
               <Heart className="w-8 h-8 text-slate-600" />
@@ -305,6 +341,19 @@ export function SavedPage({ deals, onSelectDeal, addToast }: SavedPageProps) {
             <h2 className="text-lg font-semibold text-slate-300 mb-2">Nothing saved yet</h2>
             <p className="text-sm text-slate-500 max-w-sm">
               Tap <span className="text-purple-400">&hearts;</span> on any deal to keep it here.
+            </p>
+          </div>
+        )}
+
+        {/* Empty active state but has history */}
+        {savedDealsList.length === 0 && history.length > 0 && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-slate-800/50 flex items-center justify-center mb-4">
+              <Heart className="w-8 h-8 text-slate-600" />
+            </div>
+            <h2 className="text-lg font-semibold text-slate-300 mb-2">No active saves</h2>
+            <p className="text-sm text-slate-500 max-w-sm mb-6">
+              Your previous saves expired. New deals drop every morning at 8 AM.
             </p>
           </div>
         )}
@@ -381,6 +430,39 @@ function SavedDealCard({
           >
             <Trash2 className="w-4 h-4" />
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HistoryDealCard({ entry }: { entry: HistoryEntry }) {
+  const { deal, expired_at, status } = entry;
+  const expiredDate = new Date(expired_at);
+  const dateLabel = expiredDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  return (
+    <div className="glass rounded-lg px-4 py-3 flex items-center justify-between gap-3 opacity-40">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-slate-300 truncate">{deal.product_name}</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-xs text-slate-500">{deal.dispensary_name}</span>
+          {deal.weight && (
+            <>
+              <span className="text-slate-700">&middot;</span>
+              <span className="text-xs text-slate-500">{deal.weight}</span>
+            </>
+          )}
+          <span className="text-slate-700">&middot;</span>
+          <span className="text-xs text-slate-600">{dateLabel}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="text-right">
+          <p className="text-sm font-medium text-slate-400">${deal.deal_price.toFixed(2)}</p>
+          <p className="text-[10px] text-slate-600">
+            {status === 'purchased' ? 'Purchased' : 'Expired'}
+          </p>
         </div>
       </div>
     </div>

@@ -22,6 +22,7 @@ import { DealCardSkeleton, TopPickSkeleton } from '@/components/Skeleton';
 import { ToastContainer } from '@/components/Toast';
 import type { ToastData } from '@/components/Toast';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
+import { useDealHistory } from '@/hooks/useDealHistory';
 import { useStreak } from '@/hooks/useStreak';
 import { useBrandAffinity } from '@/hooks/useBrandAffinity';
 import { useChallenges } from '@/hooks/useChallenges';
@@ -51,8 +52,9 @@ export default function Home() {
   });
   const [showCoachMarks, setShowCoachMarks] = useState(false);
 
-  const { savedDeals, usedDeals, toggleSavedDeal, markDealUsed, isDealUsed, savedCount } =
+  const { savedDeals, usedDeals, toggleSavedDeal, removeSavedDeals, markDealUsed, isDealUsed, savedCount } =
     useSavedDeals();
+  const dealHistory = useDealHistory();
   const { streak, isNewMilestone, clearMilestone } = useStreak();
   const { trackBrand, topBrands } = useBrandAffinity();
   const challenges = useChallenges();
@@ -198,6 +200,20 @@ export default function Home() {
     };
   }, []);
 
+  // Archive expired saved deals to history when fresh deals load
+  const archiveRunRef = useRef(false);
+  useEffect(() => {
+    if (archiveRunRef.current || loading || deals.length === 0) return;
+    archiveRunRef.current = true;
+
+    const currentIds = new Set(deals.map(d => d.id));
+    const archived = dealHistory.archiveExpired(savedDeals, currentIds);
+    if (archived.length > 0) {
+      // Silently remove archived IDs — no analytics for automated expiry
+      removeSavedDeals(archived);
+    }
+  }, [deals, loading]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Show all active deals — the server-side is_active=true filter already
   // ensures we only get the latest scrape run's products. A client-side
   // midnight filter would incorrectly hide deals due to UTC/PST offsets.
@@ -233,6 +249,7 @@ export default function Home() {
       if (!wasSaved) {
         const deal = deals.find((d) => d.id === dealId);
         if (deal) {
+          dealHistory.snapshotDeal(deal);
           trackBrand(deal.brand.name);
           challenges.updateProgress('save', deal, savedDealsList);
         }
@@ -259,6 +276,7 @@ export default function Home() {
           addToast(tip.message, tip.type);
         }
       } else {
+        dealHistory.removeSnapshot(dealId);
         const tip = smartTips.onUnsave();
         if (tip.message) addToast(tip.message, tip.type);
       }
@@ -500,6 +518,8 @@ export default function Home() {
             deals={deals}
             onSelectDeal={setSelectedDeal}
             addToast={addToast}
+            history={dealHistory.history}
+            onClearHistory={dealHistory.clearHistory}
           />
         )}
 
