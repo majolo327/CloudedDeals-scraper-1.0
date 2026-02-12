@@ -196,6 +196,9 @@ export function DealModal({
             )}
           </div>
 
+          {/* Watermark for screenshots */}
+          <p className="text-[8px] text-slate-700 text-right mb-4 select-none">found on cloudeddeals.com</p>
+
           {/* Action buttons */}
           <div className="flex flex-col gap-3">
             <div className="flex gap-2 sm:gap-3">

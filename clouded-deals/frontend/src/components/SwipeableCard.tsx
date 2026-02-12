@@ -225,6 +225,9 @@ export function SwipeableCard({
               Saved
             </div>
           )}
+
+          {/* Watermark for screenshots */}
+          <p className="text-[8px] text-slate-700 text-right mt-2 select-none">found on cloudeddeals.com</p>
         </div>
       </div>
     </animated.div>
