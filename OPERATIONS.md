@@ -324,6 +324,45 @@ Coach marks use `data-coach` attributes on elements for targeting. State stored 
 
 ## Changelog
 
+### Feb 12, 2026 — NOT_BRANDS Filter, Jane Loose Qualification, Enhanced Scrape Report
+
+**Improvements to brand detection, category inference, Jane deal handling, and operator visibility.**
+
+1. **NOT_BRANDS exclusion filter** (`parser.py`)
+   - Added 30-word blocklist (colours, product types, strain types, promo terms) that are silently rejected from brand matching
+   - Prevents false positives if generic words ever slip into KNOWN_BRANDS or fuzzy-match via variations
+
+2. **Category keyword expansion** (`parser.py`)
+   - Added `buds`, `popcorn` to flower; `pen` to vape
+   - Added `infer_category_from_weight()` fallback when no keyword matches: mg→edible, g≥3.5→flower, g<3.5→concentrate, no weight→vape
+
+3. **Jane loose deal qualification** (`deal_detector.py`, `jane.py`, `main.py`)
+   - Jane sites do NOT display original prices — only the current/deal price
+   - Standard hard filters (require 15% discount + original price) were rejecting ALL Jane products
+   - Fix: Jane products now use loose qualification — price cap + known brand only, skipping discount checks
+   - Jane deals get a flat 15-point scoring baseline (in lieu of discount depth) so they compete fairly
+   - `source_platform` field now propagated through the full scrape pipeline
+
+4. **Deep Roots hybrid_strategy flag** (`config/dispensaries.py`)
+   - All 4 Deep Roots locations marked with `hybrid_strategy: True` for DOM-specific handling
+
+5. **STRIP_DISPENSARIES constant** (`config/dispensaries.py`)
+   - 11 Strip-area dispensary slugs tracked with `is_strip_dispensary()` helper — ready for frontend tourist/local filtering
+
+6. **Age gate selector expansion** (`handlers/age_verification.py`)
+   - Added `"I'm over 21"` variant for both button and link elements
+
+7. **Enhanced scrape summary report** (`main.py`)
+   - New `_log_scrape_summary()` prints a comprehensive plain-language report at end of each run
+   - Per-dispensary breakdown: top deal per category, product count, deal count, zero-deal reasons
+   - Brand leaderboard: which brands produced the most deals
+   - Category distribution with slot fill rates
+   - Top 5 cut deals that almost made it (helps tune scoring)
+   - Sites with zero deals get explicit reasons (e.g., "0 products scraped", "all failed hard filters", "no brand detected")
+   - Report piped to `$GITHUB_STEP_SUMMARY` in GitHub Actions for at-a-glance review
+
+---
+
 ### Feb 10, 2026 — Concentrate Detection Overhaul + Major Platform Expansion
 
 **Problem:** Morning scrape surfaced only 1 concentrate deal in the main feed, despite many being available in search. Concentrates were being misclassified or filtered out before reaching users.

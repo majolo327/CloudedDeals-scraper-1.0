@@ -441,7 +441,7 @@ DISPENSARIES = {
         'expected': 60,
     },
     'deep_roots_cheyenne': {
-        'url': 'https://deeprootsharvest.com/cheyenne/menu?category=specials',
+        'url': 'https://www.deeprootsharvest.com/cheyenne',
         'platform': 'jane',
         'name': 'Deep Roots Cheyenne',
         'link': 'https://bit.ly/dr-chey',
@@ -450,7 +450,7 @@ DISPENSARIES = {
         'expected': 33,
     },
     'deep_roots_craig': {
-        'url': 'https://deeprootsharvest.com/craig/menu?category=specials',
+        'url': 'https://www.deeprootsharvest.com/craig',
         'platform': 'jane',
         'name': 'Deep Roots Craig',
         'link': 'https://bit.ly/dr-craig',
@@ -459,7 +459,7 @@ DISPENSARIES = {
         'expected': 38,
     },
     'deep_roots_blue_diamond': {
-        'url': 'https://deeprootsharvest.com/blue-diamond/menu?category=specials',
+        'url': 'https://www.deeprootsharvest.com/blue-diamond',
         'platform': 'jane',
         'name': 'Deep Roots Blue Diamond',
         'link': 'https://bit.ly/dr-bd',
@@ -468,7 +468,7 @@ DISPENSARIES = {
         'expected': 27,
     },
     'deep_roots_parkson': {
-        'url': 'https://deeprootsharvest.com/parkson/menu?category=specials',
+        'url': 'https://www.deeprootsharvest.com/parkson',
         'platform': 'jane',
         'name': 'Deep Roots Parkson',
         'link': 'https://bit.ly/dr-park',

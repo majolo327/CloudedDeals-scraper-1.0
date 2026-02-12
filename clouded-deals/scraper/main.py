@@ -27,6 +27,7 @@ import re
 import sys
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
@@ -1261,24 +1262,43 @@ async def run(slug_filter: str | None = None) -> None:
     # Process results
     all_top_deals: list[dict[str, Any]] = []
     all_cut_deals: list[dict[str, Any]] = []
+    site_reports: list[dict[str, Any]] = []  # per-site data for summary
 
-    for result in results:
+    for disp, result in zip(dispensaries, results):
         if isinstance(result, Exception):
             logger.error("Unhandled exception: %s", result)
             sites_failed.append({"slug": "unknown", "error": str(result)})
+            site_reports.append({
+                "slug": disp["slug"],
+                "name": disp["name"],
+                "platform": disp["platform"],
+                "error": str(result),
+                "products": 0,
+                "deals": 0,
+                "_report_data": {},
+            })
             continue
+        slug = result.get("slug", disp["slug"])
+        rd = result.get("_report_data", {})
         if result.get("error"):
             sites_failed.append(
-                {"slug": result["slug"], "error": result["error"]}
+                {"slug": slug, "error": result["error"]}
             )
         else:
-            sites_scraped.append(result["slug"])
+            sites_scraped.append(slug)
             total_products += result.get("products", 0)
             total_deals += result.get("deals", 0)
-            # Collect report data
-            rd = result.get("_report_data", {})
             all_top_deals.extend(rd.get("top_deals", []))
             all_cut_deals.extend(rd.get("cut_deals", []))
+        site_reports.append({
+            "slug": slug,
+            "name": disp["name"],
+            "platform": disp["platform"],
+            "error": result.get("error"),
+            "products": result.get("products", 0),
+            "deals": result.get("deals", 0),
+            "_report_data": rd,
+        })
 
     # Determine final status
     if not sites_failed:
@@ -1327,6 +1347,17 @@ async def run(slug_filter: str | None = None) -> None:
 
     # ─── Detailed Deal Report ─────────────────────────────────────
     _log_deal_report(all_top_deals, all_cut_deals)
+
+    # ─── Enhanced Scrape Summary (GitHub Actions readable) ─────
+    _log_scrape_summary(
+        site_reports,
+        all_top_deals,
+        all_cut_deals,
+        sites_failed=sites_failed,
+        total_products=total_products,
+        total_deals=total_deals,
+        elapsed_sec=elapsed,
+    )
 
 
 def _log_deal_report(
@@ -1394,6 +1425,263 @@ def _log_deal_report(
 
     logger.info("")
     logger.info("=" * 60)
+
+
+def _log_scrape_summary(
+    site_reports: list[dict[str, Any]],
+    all_top_deals: list[dict[str, Any]],
+    all_cut_deals: list[dict[str, Any]],
+    *,
+    sites_failed: list[dict[str, str]],
+    total_products: int,
+    total_deals: int,
+    elapsed_sec: float,
+) -> None:
+    """Write a comprehensive, plain-language scrape summary.
+
+    Designed so an operator can glance at GitHub Actions output and
+    immediately know:
+      - Which sites worked, which didn't, and why
+      - What deals were selected per store
+      - Which brands dominated, which categories are under/over-filled
+      - What good deals were cut (and why they were cut)
+    """
+    from collections import Counter, defaultdict
+
+    lines: list[str] = []
+
+    def _w(text: str = "") -> None:
+        lines.append(text)
+
+    _w("=" * 80)
+    _w("SCRAPE SUMMARY")
+    _w("=" * 80)
+    _w(f"  Sites scraped: {sum(1 for s in site_reports if not s.get('error'))}/{len(site_reports)}")
+    _w(f"  Total products: {total_products}")
+    _w(f"  Deals selected: {total_deals}")
+    _w(f"  Runtime: {elapsed_sec / 60:.1f} min")
+    _w()
+
+    # ── 1. FAILED SITES ──────────────────────────────────────────────
+    if sites_failed:
+        _w("-" * 80)
+        _w("FAILED SITES")
+        _w("-" * 80)
+        for f in sites_failed:
+            _w(f"  {f['slug']}: {f['error']}")
+        _w()
+
+    # ── 2. PER-DISPENSARY BREAKDOWN ───────────────────────────────────
+    _w("-" * 80)
+    _w("DEALS BY DISPENSARY")
+    _w("-" * 80)
+
+    # Build a lookup: dispensary_slug → list of selected deals
+    deals_by_disp: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for d in all_top_deals:
+        disp_id = d.get("dispensary_id") or "unknown"
+        deals_by_disp[disp_id].append(d)
+
+    # Also build cut-deals lookup for per-site "best deal that didn't make it"
+    cut_by_disp: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for d in all_cut_deals:
+        disp_id = d.get("dispensary_id") or "unknown"
+        cut_by_disp[disp_id].append(d)
+
+    cat_order = ["flower", "vape", "edible", "concentrate", "preroll"]
+
+    for sr in sorted(site_reports, key=lambda s: s["name"]):
+        slug = sr["slug"]
+        name = sr["name"]
+        platform = sr["platform"]
+        error = sr.get("error")
+        products = sr.get("products", 0)
+        rd = sr.get("_report_data", {})
+        selected_count = len(deals_by_disp.get(slug, []))
+        passed_hard = rd.get("passed_hard_filter", 0)
+        total_prods = rd.get("total_products", products)
+
+        # Header line
+        if error:
+            _w(f"  {name} ({platform}) — ERROR: {error}")
+            _w()
+            continue
+
+        if selected_count == 0 and products == 0:
+            _w(f"  {name} ({platform}) — 0 products scraped (site may be down or blocked)")
+            _w()
+            continue
+
+        if selected_count == 0:
+            # Explain WHY zero deals were selected
+            reason = _explain_zero_deals(rd, products)
+            _w(f"  {name} ({platform}) — {products} products, 0 deals ({reason})")
+            # Show best cut deal if one exists
+            site_cuts = sorted(
+                cut_by_disp.get(slug, []),
+                key=lambda x: x.get("deal_score", 0),
+                reverse=True,
+            )
+            if site_cuts:
+                best = site_cuts[0]
+                _w(f"    Best cut: ${best.get('sale_price', 0):.0f} "
+                   f"{best.get('brand', '?')} {best.get('name', '?')[:40]} "
+                   f"[{best.get('category', '?')}] score={best.get('deal_score', 0)}")
+            _w()
+            continue
+
+        _w(f"  {name} ({platform}) — {products} products, {selected_count} deals:")
+        # Group this dispensary's deals by category, show top deal per cat
+        site_deals = deals_by_disp[slug]
+        by_cat: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for d in site_deals:
+            by_cat[d.get("category", "other")].append(d)
+
+        for cat in cat_order:
+            cat_deals = by_cat.get(cat)
+            if not cat_deals:
+                continue
+            cat_deals.sort(key=lambda x: x.get("deal_score", 0), reverse=True)
+            top = cat_deals[0]
+            brand = top.get("brand") or "?"
+            price = top.get("sale_price") or 0
+            weight = top.get("weight_value") or ""
+            wunit = top.get("weight_unit") or ""
+            weight_str = f" {weight}{wunit}" if weight else ""
+            pct = top.get("discount_percent") or 0
+            source = top.get("source_platform", "")
+            pct_str = f" ({pct:.0f}% off)" if pct else (" (Deal)" if source == "jane" else "")
+            extra = f" +{len(cat_deals) - 1} more" if len(cat_deals) > 1 else ""
+            _w(f"    {cat:12s}: ${price:<6.2f} {brand} {weight_str}{pct_str}{extra}")
+
+        # Show best cut deal for this site
+        site_cuts = sorted(
+            cut_by_disp.get(slug, []),
+            key=lambda x: x.get("deal_score", 0),
+            reverse=True,
+        )
+        if site_cuts:
+            best = site_cuts[0]
+            _w(f"    (best cut): ${best.get('sale_price', 0):.0f} "
+               f"{best.get('brand', '?')} [{best.get('category', '?')}] "
+               f"score={best.get('deal_score', 0)}")
+
+        _w()
+
+    # ── 3. BRAND LEADERBOARD ──────────────────────────────────────────
+    _w("-" * 80)
+    _w("BRAND LEADERBOARD (top 15 by selected deals)")
+    _w("-" * 80)
+    brand_counter: Counter[str] = Counter()
+    brand_disps: dict[str, set[str]] = defaultdict(set)
+    for d in all_top_deals:
+        brand = d.get("brand") or "Unknown"
+        brand_counter[brand] += 1
+        brand_disps[brand].add(d.get("dispensary_id") or "?")
+
+    for brand, count in brand_counter.most_common(15):
+        disp_count = len(brand_disps[brand])
+        _w(f"  {brand:25s}  {count:3d} deals across {disp_count} stores")
+    _w()
+
+    # ── 4. CATEGORY DISTRIBUTION ──────────────────────────────────────
+    from deal_detector import CATEGORY_TARGETS, CATEGORY_MINIMUMS
+
+    _w("-" * 80)
+    _w("CATEGORY DISTRIBUTION (selected vs target)")
+    _w("-" * 80)
+    cat_counter: Counter[str] = Counter()
+    for d in all_top_deals:
+        cat_counter[d.get("category", "other")] += 1
+
+    for cat in cat_order:
+        actual = cat_counter.get(cat, 0)
+        target = CATEGORY_TARGETS.get(cat, 0)
+        minimum = CATEGORY_MINIMUMS.get(cat, 0)
+        bar = "#" * min(actual, 60)
+        flag = " !! UNDER MIN" if actual < minimum else ""
+        _w(f"  {cat:12s}: {actual:3d}/{target:3d} target  (min {minimum}){flag}  {bar}")
+    other = cat_counter.get("other", 0)
+    if other:
+        _w(f"  {'other':12s}: {other:3d}")
+    _w()
+
+    # ── 5. TOP CUT DEALS (almost made it) ─────────────────────────────
+    if all_cut_deals:
+        all_cut_sorted = sorted(all_cut_deals, key=lambda x: x.get("deal_score", 0), reverse=True)
+        _w("-" * 80)
+        _w(f"TOP CUT DEALS ({len(all_cut_deals)} total scored but not shown)")
+        _w("-" * 80)
+        for i, d in enumerate(all_cut_sorted[:10], 1):
+            name = d.get("name", "?")[:45]
+            brand = d.get("brand") or "?"
+            price = d.get("sale_price") or 0
+            score = d.get("deal_score", 0)
+            cat = d.get("category", "?")
+            disp = d.get("dispensary_id") or "?"
+            pct = d.get("discount_percent") or 0
+            pct_str = f" {pct:.0f}% off" if pct else ""
+            _w(f"  {i:2d}. [{score:2d} pts] ${price:.0f}{pct_str} {brand} — {name} [{cat}] @ {disp}")
+        _w()
+
+    # ── 6. PLATFORM SUMMARY ───────────────────────────────────────────
+    _w("-" * 80)
+    _w("PLATFORM SUMMARY")
+    _w("-" * 80)
+    platform_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"sites": 0, "ok": 0, "products": 0, "deals": 0})
+    for sr in site_reports:
+        p = sr["platform"]
+        platform_stats[p]["sites"] += 1
+        if not sr.get("error"):
+            platform_stats[p]["ok"] += 1
+            platform_stats[p]["products"] += sr.get("products", 0)
+            platform_stats[p]["deals"] += sr.get("deals", 0)
+    for p, stats in sorted(platform_stats.items()):
+        _w(f"  {p:10s}: {stats['ok']}/{stats['sites']} sites OK, "
+           f"{stats['products']} products, {stats['deals']} deals")
+    _w()
+    _w("=" * 80)
+
+    # Log to Python logger
+    for line in lines:
+        logger.info(line)
+
+    # Write to file for GitHub Actions step summary ($GITHUB_STEP_SUMMARY)
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        try:
+            with open(summary_path, "a") as f:
+                f.write("\n```\n")
+                f.write("\n".join(lines))
+                f.write("\n```\n")
+            logger.info("Scrape summary written to $GITHUB_STEP_SUMMARY")
+        except Exception as exc:
+            logger.warning("Failed to write step summary: %s", exc)
+
+    # Also write to a standalone file in case GITHUB_STEP_SUMMARY isn't set
+    try:
+        summary_file = Path("scrape_summary.txt")
+        summary_file.write_text("\n".join(lines), encoding="utf-8")
+        logger.info("Scrape summary written to %s", summary_file)
+    except Exception as exc:
+        logger.warning("Failed to write scrape_summary.txt: %s", exc)
+
+
+def _explain_zero_deals(report_data: dict[str, Any], products: int) -> str:
+    """Return a short plain-language reason why a site produced zero deals."""
+    if products == 0:
+        return "0 products scraped"
+
+    total = report_data.get("total_products", products)
+    passed = report_data.get("passed_hard_filter", 0)
+    scored = report_data.get("scored", 0)
+
+    if passed == 0:
+        return f"all {total} failed hard filters (price/discount/brand)"
+    if scored == 0:
+        return f"{passed} passed filters but all failed quality gate"
+    # Deals existed but were all deduped or cut during selection
+    return f"{scored} scored but all cut during selection/dedup"
 
 
 if __name__ == "__main__":
