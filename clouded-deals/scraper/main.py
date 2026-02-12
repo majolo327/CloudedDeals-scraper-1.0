@@ -102,7 +102,7 @@ def _create_run() -> str:
     if DRY_RUN:
         logger.info("[DRY RUN] Would create scrape_runs entry")
         return "dry-run"
-    payload: dict[str, Any] = {"status": "running"}
+    payload: dict[str, Any] = {"status": "running", "platform_group": PLATFORM_GROUP}
     row = db.table("scrape_runs").insert(payload).execute()
     run_id: str = row.data[0]["id"]
     logger.info("Scrape run started: %s (group=%s)", run_id, PLATFORM_GROUP)
@@ -1170,6 +1170,7 @@ def _already_scraped_today() -> bool:
         db.table("scrape_runs")
         .select("id")
         .eq("status", "completed")
+        .eq("platform_group", PLATFORM_GROUP)
         .gte("started_at", today_start)
     )
     query = query.limit(1)
