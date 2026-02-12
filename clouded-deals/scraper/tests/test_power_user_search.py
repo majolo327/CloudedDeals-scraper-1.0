@@ -472,14 +472,15 @@ class TestDispensarySearch:
     """Test 10: Rise — now actively scraped via Phase 2 Rise scraper."""
 
     def test_rise_in_scraped_dispensaries(self):
-        """Rise dispensaries are now scraped (Phase 2).
+        """Rise dispensaries are now scraped via Jane/iheartjane (Phase 2).
         Verify they appear in the active config."""
         from config.dispensaries import get_active_dispensaries
         active_slugs = {d["slug"] for d in get_active_dispensaries()}
+        # cookies-flamingo is merged into cookies-strip-rise (same store 888)
         rise_ids = {"rise-tropicana", "rise-rainbow", "rise-nellis",
                     "rise-boulder", "rise-durango", "rise-craig",
                     "rise-henderson",
-                    "cookies-strip-rise", "cookies-flamingo"}
+                    "cookies-strip-rise"}
         assert rise_ids.issubset(active_slugs), (
             f"Rise dispensaries missing from config: {rise_ids - active_slugs}"
         )
@@ -489,7 +490,7 @@ class TestDispensarySearch:
         """Rise dispensaries are now in the scraper config (Jane platform)."""
         from config.dispensaries import DISPENSARIES
         scraped_ids = {d["slug"] for d in DISPENSARIES}
-        rise_ids = {"rise-sunset", "rise-tropicana", "rise-rainbow",
+        rise_ids = {"rise-henderson", "rise-tropicana", "rise-rainbow",
                     "rise-nellis", "rise-boulder", "rise-durango", "rise-craig"}
         assert rise_ids.issubset(scraped_ids), "All Rise dispensaries should be in scraper config"
 
@@ -507,7 +508,7 @@ class TestDispensarySearch:
             "thrive-sahara", "thrive-cheyenne", "thrive-strip", "thrive-main",
             "beyond-hello-sahara", "beyond-hello-twain",
         }
-        rise_ids = {"rise-sunset", "rise-tropicana", "rise-rainbow",
+        rise_ids = {"rise-henderson", "rise-tropicana", "rise-rainbow",
                     "rise-nellis", "rise-boulder", "rise-durango", "rise-craig"}
         assert rise_ids.isdisjoint(scraped_ids), "Rise dispensaries shouldn't be in scraped set"
 
@@ -839,7 +840,7 @@ class TestRiseDispensaryConfig:
         assert len(rise) == 7
 
     @pytest.mark.parametrize("slug", [
-        "rise-sunset", "rise-tropicana", "rise-rainbow",
+        "rise-henderson", "rise-tropicana", "rise-rainbow",
         "rise-nellis", "rise-boulder", "rise-durango", "rise-craig",
     ])
     def test_rise_dispensary_exists(self, slug):
