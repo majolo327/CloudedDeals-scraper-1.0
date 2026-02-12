@@ -177,8 +177,17 @@ export function useUniversalFilters() {
     }
   }, [filters.quickFilter]);
 
-  // Filter and sort deals
-  const filterAndSortDeals = useCallback((deals: Deal[]): Deal[] => {
+  // Filter and sort deals — pre-computes distances once per call to avoid
+  // redundant getDistance() calls during both filtering and sorting.
+  const filterAndSortDeals = useCallback((deals: Deal[]): { filtered: Deal[]; distanceMap: Map<string, number | null> } => {
+    // Pre-compute distances once for all deals
+    const distanceMap = new Map<string, number | null>();
+    for (const d of deals) {
+      if (!distanceMap.has(d.id)) {
+        distanceMap.set(d.id, getDistance(d.dispensary.latitude, d.dispensary.longitude));
+      }
+    }
+
     let result = [...deals];
 
     // Category filter
@@ -219,7 +228,7 @@ export function useUniversalFilters() {
         : DISTANCE_THRESHOLDS.across_town;
 
       result = result.filter(d => {
-        const dist = getDistance(d.dispensary.latitude, d.dispensary.longitude);
+        const dist = distanceMap.get(d.id) ?? null;
         if (dist === null) return true; // Keep deals without coordinates
         return dist < maxMiles;
       });
@@ -228,8 +237,8 @@ export function useUniversalFilters() {
     // Sort
     if (filters.sortBy === 'distance' && userCoords) {
       result.sort((a, b) => {
-        const distA = getDistance(a.dispensary.latitude, a.dispensary.longitude) ?? 999;
-        const distB = getDistance(b.dispensary.latitude, b.dispensary.longitude) ?? 999;
+        const distA = distanceMap.get(a.id) ?? 999;
+        const distB = distanceMap.get(b.id) ?? 999;
         return distA - distB;
       });
     } else if (filters.sortBy === 'price_asc') {
@@ -245,7 +254,7 @@ export function useUniversalFilters() {
     }
     // 'deal_score' keeps the original order (already sorted by score from API)
 
-    return result;
+    return { filtered: result, distanceMap };
   }, [filters, userCoords, getDistance]);
 
   return {

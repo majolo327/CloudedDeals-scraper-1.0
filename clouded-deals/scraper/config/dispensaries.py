@@ -445,17 +445,20 @@ DISPENSARIES = [
     # ------------------------------------------------------------------
     # RISE SITES — proprietary Next.js SPA via cdn-bong.risecannabis.com
     #
-    # URL pattern changed ~early 2026:
-    #   OLD: /dispensaries/nevada/{slug}/recreational-menu
-    #   NEW: /dispensaries/nevada/{slug}/{store-id}/pickup-menu/
-    # Rise also rebranded several location slugs (e.g. rainbow → south-rainbow).
+    # DISABLED Feb 2026: Rise deployed Cloudflare bot protection (Turnstile)
+    # which blocks headless browser scraping.  All locations deactivated
+    # until an alternative data source (API, feed, or Cloudflare bypass)
+    # is found.  Re-enable by setting is_active back to True.
+    #
+    # URL pattern:
+    #   /dispensaries/nevada/{slug}/{store-id}/pickup-menu/
     # ------------------------------------------------------------------
     {
         "name": "Rise Tropicana West",
         "slug": "rise-tropicana",
         "platform": "rise",
         "url": "https://risecannabis.com/dispensaries/nevada/west-tropicana/886/pickup-menu/",
-        "is_active": True,
+        "is_active": False,  # Cloudflare blocked
         "region": "southern-nv",
     },
     {
@@ -463,7 +466,7 @@ DISPENSARIES = [
         "slug": "rise-rainbow",
         "platform": "rise",
         "url": "https://risecannabis.com/dispensaries/nevada/south-rainbow/1718/pickup-menu/",
-        "is_active": True,
+        "is_active": False,  # Cloudflare blocked
         "region": "southern-nv",
     },
     {
@@ -471,7 +474,7 @@ DISPENSARIES = [
         "slug": "rise-nellis",
         "platform": "rise",
         "url": "https://risecannabis.com/dispensaries/nevada/nellis/5267/pickup-menu/",
-        "is_active": True,
+        "is_active": False,  # Cloudflare blocked
         "region": "southern-nv",
     },
     {
@@ -479,7 +482,7 @@ DISPENSARIES = [
         "slug": "rise-durango",
         "platform": "rise",
         "url": "https://risecannabis.com/dispensaries/nevada/south-durango/1885/pickup-menu/",
-        "is_active": True,
+        "is_active": False,  # Cloudflare blocked
         "region": "southern-nv",
     },
     {
@@ -487,7 +490,7 @@ DISPENSARIES = [
         "slug": "rise-craig",
         "platform": "rise",
         "url": "https://risecannabis.com/dispensaries/nevada/craig-rd/5429/pickup-menu/",
-        "is_active": True,
+        "is_active": False,  # Cloudflare blocked
         "region": "southern-nv",
     },
     {
@@ -496,7 +499,7 @@ DISPENSARIES = [
         "slug": "rise-boulder",
         "platform": "rise",
         "url": "https://risecannabis.com/dispensaries/nevada/henderson-boulder/6211/pickup-menu/",
-        "is_active": True,
+        "is_active": False,  # Cloudflare blocked
         "region": "southern-nv",
     },
     {
@@ -505,7 +508,7 @@ DISPENSARIES = [
         "slug": "cookies-strip-rise",
         "platform": "rise",
         "url": "https://risecannabis.com/dispensaries/nevada/cookies-on-the-strip/888/recreational-menu/",
-        "is_active": True,
+        "is_active": False,  # Cloudflare blocked
         "region": "southern-nv",
     },
     {
@@ -522,7 +525,7 @@ DISPENSARIES = [
         "slug": "rise-henderson",
         "platform": "rise",
         "url": "https://risecannabis.com/dispensaries/nevada/henderson/887/pickup-menu/",
-        "is_active": True,
+        "is_active": False,  # Cloudflare blocked
         "region": "southern-nv",
     },
 

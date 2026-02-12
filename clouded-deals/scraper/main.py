@@ -715,7 +715,6 @@ def _log_deal_history(
                 "last_seen_at": datetime.now(timezone.utc).isoformat(),
                 "last_seen_date": datetime.now(timezone.utc).date().isoformat(),
                 "is_active": True,
-                "times_seen": 1,  # Will be incremented by SQL on conflict
             }
         )
 
@@ -723,16 +722,12 @@ def _log_deal_history(
         return
 
     try:
-        # Upsert: on conflict (product_id, dispensary_id), update last_seen
-        # and increment times_seen.  Supabase/PostgREST upsert overwrites,
-        # so we handle the increment via a follow-up RPC or accept the
-        # simpler overwrite for now (times_seen = 1 is reset each time).
-        # TODO: Use a Postgres function for atomic increment when RPC is set up.
+        # Use RPC for atomic upsert — increments times_seen on conflict
+        # instead of resetting to 1 (see 027_upsert_deal_observation.sql).
+        import json
         for i in range(0, len(history_rows), _UPSERT_CHUNK_SIZE):
             chunk = history_rows[i : i + _UPSERT_CHUNK_SIZE]
-            db.table("deal_history").upsert(
-                chunk, on_conflict="product_id,dispensary_id"
-            ).execute()
+            db.rpc("upsert_deal_observations", {"observations": json.dumps(chunk)}).execute()
         logger.info(
             "[%s] Logged %d deal observations to deal_history",
             dispensary_id, len(history_rows),
@@ -842,14 +837,16 @@ async def _scrape_site_inner(
         # Category: detect from clean text (no offer keyword pollution)
         category = logic.detect_category(clean_text)
 
-        # Concentrate correction: if clean_text caused "vape" because the
-        # surrounding page text contains "vape", but the PRODUCT NAME
-        # itself has concentrate format keywords (badder, wax, live resin…)
-        # and no vape keywords (cart, pod…), it's actually a concentrate.
-        if category == "vape" and raw_name:
+        # Concentrate correction: if category landed on "vape" but the
+        # product text has concentrate format keywords (badder, wax, live
+        # resin…) and no vape keywords (cart, pod…), it's a concentrate.
+        # Check both raw_name and clean_text so surrounding scraped text
+        # with concentrate keywords also triggers reclassification.
+        if category == "vape":
+            check_text = clean_text or raw_name or ""
             if (
-                _CONCENTRATE_NAME_KEYWORDS.search(raw_name)
-                and not _VAPE_NAME_KEYWORDS.search(raw_name)
+                _CONCENTRATE_NAME_KEYWORDS.search(check_text)
+                and not _VAPE_NAME_KEYWORDS.search(check_text)
             ):
                 category = "concentrate"
 
