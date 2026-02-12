@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { LayoutGrid, Layers, MapPin } from 'lucide-react';
+import { LayoutGrid, Layers, MapPin, Clock, ChevronDown } from 'lucide-react';
 import type { Deal } from '@/types';
 import { DealCard } from './cards';
 import { SwipeOverlay } from './SwipeOverlay';
@@ -24,6 +24,7 @@ type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'prer
 
 interface DealsPageProps {
   deals: Deal[];
+  expiredDeals?: Deal[];
   savedDeals: Set<string>;
   usedDeals: Map<string, number>;
   toggleSavedDeal: (id: string) => void;
@@ -37,6 +38,7 @@ interface DealsPageProps {
 
 export function DealsPage({
   deals,
+  expiredDeals = [],
   savedDeals,
   usedDeals,
   toggleSavedDeal,
@@ -51,6 +53,7 @@ export function DealsPage({
   const [isLoading, setIsLoading] = useState(true);
   const [countdown, setCountdown] = useState(() => getTimeUntilMidnight());
   const [swipeOpen, setSwipeOpen] = useState(false);
+  const [pastDealsExpanded, setPastDealsExpanded] = useState(false);
 
   const {
     filters,
@@ -348,6 +351,51 @@ export function DealsPage({
             </div>
           )}
         </div>
+
+        {/* Past Deals section — shown below active deals */}
+        {expiredDeals.length > 0 && !isExpired && (
+          <div className="mt-8 border-t border-slate-800/60 pt-6">
+            <button
+              onClick={() => setPastDealsExpanded(!pastDealsExpanded)}
+              className="w-full flex items-center justify-between mb-4 group"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-slate-800/60 flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-slate-500" />
+                </div>
+                <div className="text-left">
+                  <h3 className="text-sm font-medium text-slate-400">
+                    Past Deals
+                    <span className="text-slate-600 font-normal ml-1.5">({expiredDeals.length})</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-600">Yesterday&apos;s deals — prices may have changed</p>
+                </div>
+              </div>
+              <ChevronDown
+                className={`w-4 h-4 text-slate-600 transition-transform duration-200 ${
+                  pastDealsExpanded ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            {pastDealsExpanded && (
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                {expiredDeals.map((deal) => (
+                  <div key={deal.id}>
+                    <DealCard
+                      deal={deal}
+                      isSaved={savedDeals.has(deal.id)}
+                      isUsed={usedDeals.has(deal.id)}
+                      isExpired={true}
+                      onSave={() => toggleSavedDeal(deal.id)}
+                      onClick={() => setSelectedDeal(deal)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Fullscreen swipe overlay — portal-based, covers everything */}
