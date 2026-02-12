@@ -131,8 +131,22 @@ export function DealModal({
           {/* Category + Weight pills */}
           <div className="flex items-center gap-2 mb-4">
             <span className="px-3 py-1 rounded-full text-xs font-medium bg-white/5 text-slate-300 capitalize">
-              {deal.category}
+              {deal.product_subtype === 'infused_preroll' ? 'Infused Pre-Roll'
+                : deal.product_subtype === 'preroll_pack' ? 'Pre-Roll Pack'
+                : deal.product_subtype === 'disposable' ? 'Disposable Vape'
+                : deal.product_subtype === 'cartridge' ? 'Vape Cartridge'
+                : deal.product_subtype === 'pod' ? 'Vape Pod'
+                : deal.category}
             </span>
+            {deal.strain_type && (
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                deal.strain_type === 'Indica' ? 'bg-purple-500/10 text-purple-400' :
+                deal.strain_type === 'Sativa' ? 'bg-amber-500/10 text-amber-400' :
+                'bg-emerald-500/10 text-emerald-400'
+              }`}>
+                {deal.strain_type}
+              </span>
+            )}
             {deal.weight && (
               <span className="px-3 py-1 rounded-full text-xs font-medium bg-white/5 text-slate-300">
                 {deal.weight}

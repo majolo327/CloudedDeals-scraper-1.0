@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Star, Heart, Search, Bookmark, Compass, AlertCircle } from 'lucide-react';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { fetchDeals, fetchExpiredDeals, fetchDispensaries } from '@/lib/api';
-import type { BrowseDispensary } from '@/lib/api';
+import type { BrowseDispensary, FetchDealsResult, FetchDispensariesResult } from '@/lib/api';
 import type { Deal } from '@/types';
 import { AgeGate, Footer } from '@/components/layout';
 import { DealsPage } from '@/components/DealsPage';
@@ -54,7 +54,7 @@ export default function Home() {
   const { savedDeals, usedDeals, toggleSavedDeal, markDealUsed, isDealUsed, savedCount } =
     useSavedDeals();
   const { streak, isNewMilestone, clearMilestone } = useStreak();
-  const { trackBrand } = useBrandAffinity();
+  const { trackBrand, topBrands } = useBrandAffinity();
   const challenges = useChallenges();
   const smartTips = useSmartTips();
 
@@ -158,26 +158,35 @@ export default function Home() {
     }
   }, [selectedDeal, activePage]);
 
-  // Fetch deals and dispensaries. If no active deals, fetch expired deals as fallback.
+  // Fetch deals, expired deals, and dispensaries in parallel.
+  // Expired deals always load so they can be shown in a "Past Deals" section.
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const [dealsResult, dispResult] = await Promise.all([
+      const fetches: [Promise<FetchDealsResult>, Promise<FetchDispensariesResult>] = [
         fetchDeals(),
         fetchDispensaries(),
-      ]);
+      ];
+      const [dealsResult, dispResult] = await Promise.all(fetches);
       if (cancelled) return;
       setDeals(dealsResult.deals);
       setError(dealsResult.error);
       setBrowseDispensaries(dispResult.dispensaries);
 
-      // No active deals and no error → fetch expired deals for browsing
-      if (dealsResult.deals.length === 0 && !dealsResult.error && isSupabaseConfigured) {
+      // Always fetch expired deals — shown as "Past Deals" section below active deals,
+      // or as the main feed when no active deals exist (early morning fallback).
+      if (isSupabaseConfigured) {
         const expiredResult = await fetchExpiredDeals();
         if (cancelled) return;
         if (expiredResult.deals.length > 0) {
-          setExpiredDeals(expiredResult.deals);
-          setIsShowingExpired(true);
+          // Deduplicate: exclude deals that are already in the active set
+          const activeIds = new Set(dealsResult.deals.map(d => d.id));
+          const uniqueExpired = expiredResult.deals.filter(d => !activeIds.has(d.id));
+          setExpiredDeals(uniqueExpired);
+          // Only flag as "showing expired" when there are NO active deals
+          if (dealsResult.deals.length === 0) {
+            setIsShowingExpired(true);
+          }
         }
       }
 
@@ -432,6 +441,7 @@ export default function Home() {
           ) : (
             <DealsPage
               deals={todaysDeals}
+              expiredDeals={isShowingExpired ? [] : expiredDeals}
               savedDeals={savedDeals}
               usedDeals={usedDeals}
               toggleSavedDeal={handleToggleSave}
@@ -444,6 +454,12 @@ export default function Home() {
                 if (tip?.message) addToast(tip.message, tip.type);
               }}
               onShareSaves={handleShareSaves}
+              challengeData={{
+                onboardingComplete: challenges.onboardingComplete,
+                onboardingProgress: challenges.onboardingProgress,
+                nextChallenge: challenges.nextChallenge,
+              }}
+              topBrands={topBrands}
             />
           )
         )}

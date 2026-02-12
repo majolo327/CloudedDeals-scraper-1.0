@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { LayoutGrid, Layers, MapPin } from 'lucide-react';
+import { LayoutGrid, Layers, MapPin, Clock, ChevronDown } from 'lucide-react';
 import type { Deal } from '@/types';
+import type { ChallengeDefinition } from '@/config/challenges';
 import { DealCard } from './cards';
 import { SwipeOverlay } from './SwipeOverlay';
 import { InlineFeedbackPrompt } from './FeedbackWidget';
 import { ExpiredDealsBanner } from './ExpiredDealsBanner';
+import { ChallengeBar } from './ChallengeBar';
 import { FilterSheet } from './FilterSheet';
 import { StickyStatsBar } from './layout';
 import { DealCardSkeleton } from './Skeleton';
@@ -29,6 +31,7 @@ type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'prer
 
 interface DealsPageProps {
   deals: Deal[];
+  expiredDeals?: Deal[];
   savedDeals: Set<string>;
   usedDeals: Map<string, number>;
   toggleSavedDeal: (id: string) => void;
@@ -38,10 +41,17 @@ interface DealsPageProps {
   isExpired?: boolean;
   onDismissDeal?: () => void;
   onShareSaves?: () => void;
+  challengeData?: {
+    onboardingComplete: boolean;
+    onboardingProgress: { current: number; total: number; isCompleted: boolean };
+    nextChallenge: { challenge: ChallengeDefinition; progress: { progress: number; isCompleted: boolean } } | null;
+  };
+  topBrands?: [string, number][];
 }
 
 export function DealsPage({
   deals,
+  expiredDeals = [],
   savedDeals,
   usedDeals,
   toggleSavedDeal,
@@ -51,11 +61,14 @@ export function DealsPage({
   isExpired = false,
   onDismissDeal,
   onShareSaves,
+  challengeData,
+  topBrands = [],
 }: DealsPageProps) {
   const [activeCategory, setActiveCategory] = useState<DealCategory>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [countdown, setCountdown] = useState(() => getTimeUntilMidnight());
   const [swipeOpen, setSwipeOpen] = useState(false);
+  const [pastDealsExpanded, setPastDealsExpanded] = useState(false);
 
   const {
     filters,
@@ -224,6 +237,27 @@ export function DealsPage({
             </div>
           </div>
 
+          {/* Challenge progress bar */}
+          {challengeData && (
+            <ChallengeBar
+              onboardingComplete={challengeData.onboardingComplete}
+              onboardingProgress={challengeData.onboardingProgress}
+              nextChallenge={challengeData.nextChallenge}
+            />
+          )}
+
+          {/* Your top brands — shown once user has saved 3+ deals from at least 1 brand */}
+          {topBrands.length > 0 && topBrands[0][1] >= 3 && (
+            <div className="flex items-center gap-2 mb-4 text-[11px]">
+              <span className="text-slate-600">Your brands:</span>
+              {topBrands.map(([name, count]) => (
+                <span key={name} className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400/80 font-medium">
+                  {name} ({count})
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* Deck progress bar — after first dismiss */}
           {deck.totalDeals > 0 && deck.dismissedCount > 0 && (
             <div className="mb-4">
@@ -354,6 +388,51 @@ export function DealsPage({
             </div>
           )}
         </div>
+
+        {/* Past Deals section — shown below active deals */}
+        {expiredDeals.length > 0 && !isExpired && (
+          <div className="mt-8 border-t border-slate-800/60 pt-6">
+            <button
+              onClick={() => setPastDealsExpanded(!pastDealsExpanded)}
+              className="w-full flex items-center justify-between mb-4 group"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-slate-800/60 flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-slate-500" />
+                </div>
+                <div className="text-left">
+                  <h3 className="text-sm font-medium text-slate-400">
+                    Past Deals
+                    <span className="text-slate-600 font-normal ml-1.5">({expiredDeals.length})</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-600">Yesterday&apos;s deals — prices may have changed</p>
+                </div>
+              </div>
+              <ChevronDown
+                className={`w-4 h-4 text-slate-600 transition-transform duration-200 ${
+                  pastDealsExpanded ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            {pastDealsExpanded && (
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                {expiredDeals.map((deal) => (
+                  <div key={deal.id}>
+                    <DealCard
+                      deal={deal}
+                      isSaved={savedDeals.has(deal.id)}
+                      isUsed={usedDeals.has(deal.id)}
+                      isExpired={true}
+                      onSave={() => toggleSavedDeal(deal.id)}
+                      onClick={() => setSelectedDeal(deal)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Fullscreen swipe overlay — portal-based, covers everything */}
