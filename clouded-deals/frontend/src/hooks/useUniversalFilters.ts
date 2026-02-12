@@ -76,8 +76,18 @@ export function useUniversalFilters() {
 
   const [userCoords, setUserCoords] = useState<ZipCoords | null>(null);
 
-  // Load user coordinates from stored zip (distance is informational, not default sort)
+  // Load user coordinates — prefer geolocation coords (more accurate), fall back to zip
   useEffect(() => {
+    try {
+      const coordsRaw = typeof window !== 'undefined' ? localStorage.getItem('clouded_user_coords') : null;
+      if (coordsRaw) {
+        const { lat, lng } = JSON.parse(coordsRaw);
+        if (typeof lat === 'number' && typeof lng === 'number') {
+          setUserCoords({ lat, lng });
+          return;
+        }
+      }
+    } catch { /* ignore */ }
     const zip = getStoredZip();
     if (zip) {
       const coords = getZipCoordinates(zip);
@@ -85,9 +95,18 @@ export function useUniversalFilters() {
     }
   }, []);
 
-  // Listen for zip changes (user enters a new zip)
+  // Listen for location changes (zip or geolocation coords)
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'clouded_user_coords' && e.newValue) {
+        try {
+          const { lat, lng } = JSON.parse(e.newValue);
+          if (typeof lat === 'number' && typeof lng === 'number') {
+            setUserCoords({ lat, lng });
+            return;
+          }
+        } catch { /* ignore */ }
+      }
       if (e.key === 'clouded_zip' && e.newValue) {
         const coords = getZipCoordinates(e.newValue);
         setUserCoords(coords);
@@ -193,19 +212,16 @@ export function useUniversalFilters() {
       result = result.filter(d => weightsMatch(d.weight, filters.weightFilter));
     }
 
-    // Distance range
+    // Distance range — cumulative (within X miles, not exclusive bands)
     if (filters.distanceRange !== 'all' && userCoords) {
       const maxMiles = filters.distanceRange === 'near' ? DISTANCE_THRESHOLDS.near
         : filters.distanceRange === 'nearby' ? DISTANCE_THRESHOLDS.nearby
         : DISTANCE_THRESHOLDS.across_town;
-      const minMiles = filters.distanceRange === 'near' ? 0
-        : filters.distanceRange === 'nearby' ? DISTANCE_THRESHOLDS.near
-        : DISTANCE_THRESHOLDS.nearby;
 
       result = result.filter(d => {
         const dist = getDistance(d.dispensary.latitude, d.dispensary.longitude);
         if (dist === null) return true; // Keep deals without coordinates
-        return dist >= minMiles && dist < maxMiles;
+        return dist < maxMiles;
       });
     }
 
