@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { LayoutGrid, Layers, MapPin, Clock, ChevronDown } from 'lucide-react';
+import { LayoutGrid, Layers, Clock, ChevronDown } from 'lucide-react';
 import type { Deal } from '@/types';
 import type { ChallengeDefinition } from '@/config/challenges';
 import { DealCard } from './cards';
@@ -14,18 +14,7 @@ import { StickyStatsBar } from './layout';
 import { DealCardSkeleton } from './Skeleton';
 import { formatUpdateTime, getTimeUntilMidnight } from '@/utils';
 import { useDeck } from '@/hooks/useDeck';
-import { useUniversalFilters, formatDistance, type DistanceRange } from '@/hooks/useUniversalFilters';
-
-const QUICK_DISTANCE: { id: DistanceRange; label: string }[] = [
-  { id: 'near', label: 'Close' },
-  { id: 'nearby', label: 'Nearby' },
-  { id: 'across_town', label: 'Across Town' },
-];
-
-// Sticky offset for the distance chip bar — must stay in sync with:
-//   navbar: top-14 (3.5rem mobile) / top-16 (4rem sm)
-//   StickyStatsBar: h-12 (3rem)
-const DISTANCE_BAR_TOP = 'top-[6.5rem] sm:top-[7rem]';
+import { useUniversalFilters, formatDistance } from '@/hooks/useUniversalFilters';
 
 type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'preroll';
 
@@ -128,16 +117,6 @@ export function DealsPage({
     onDismissDeal?.();
   }, [deck, onDismissDeal]);
 
-  const handleDistanceChip = useCallback((id: DistanceRange) => {
-    const isActive = filters.distanceRange === id;
-    setFilters({
-      ...filters,
-      distanceRange: isActive ? 'all' : id,
-      sortBy: isActive ? 'deal_score' : 'distance',
-      quickFilter: 'none',
-    });
-  }, [filters, setFilters]);
-
   return (
     <>
       <StickyStatsBar
@@ -156,47 +135,6 @@ export function DealsPage({
           onLocationSet={handleLocationSet}
         />
       </StickyStatsBar>
-
-      {/* Distance quick-filter chips — shown when user has location */}
-      {userCoords && (
-        <div
-          className={`sticky ${DISTANCE_BAR_TOP} z-30 border-b`}
-          style={{ backgroundColor: 'rgba(10, 14, 26, 0.92)', borderColor: 'var(--border-subtle)' }}
-        >
-          <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-2 overflow-x-auto scrollbar-hide">
-            <MapPin className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-            {QUICK_DISTANCE.map(opt => (
-              <button
-                key={opt.id}
-                onClick={() => handleDistanceChip(opt.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                  filters.distanceRange === opt.id
-                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                    : 'bg-slate-800/60 text-slate-400 border border-slate-700/50 hover:border-slate-600'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-            <button
-              onClick={() => {
-                const isActive = filters.sortBy === 'distance';
-                setFilters({
-                  ...filters,
-                  sortBy: isActive ? 'deal_score' : 'distance',
-                });
-              }}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                filters.sortBy === 'distance'
-                  ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                  : 'bg-slate-800/60 text-slate-400 border border-slate-700/50 hover:border-slate-600'
-              }`}
-            >
-              Closest First
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className="max-w-6xl mx-auto px-4 py-4">
         <div className="animate-in fade-in">
