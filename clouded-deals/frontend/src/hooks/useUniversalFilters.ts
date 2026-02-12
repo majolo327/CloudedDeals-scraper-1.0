@@ -154,6 +154,25 @@ export function useUniversalFilters() {
   }, [userCoords]);
 
   // Apply quick filter presets
+  // Re-read coordinates from localStorage (called after FilterSheet sets location)
+  const refreshLocation = useCallback(() => {
+    try {
+      const coordsRaw = typeof window !== 'undefined' ? localStorage.getItem('clouded_user_coords') : null;
+      if (coordsRaw) {
+        const { lat, lng } = JSON.parse(coordsRaw);
+        if (typeof lat === 'number' && typeof lng === 'number') {
+          setUserCoords({ lat, lng });
+          return;
+        }
+      }
+    } catch { /* ignore */ }
+    const zip = getStoredZip();
+    if (zip) {
+      const coords = getZipCoordinates(zip);
+      setUserCoords(coords);
+    }
+  }, []);
+
   const applyQuickFilter = useCallback((qf: QuickFilter) => {
     if (qf === filters.quickFilter) {
       // Toggle off
@@ -267,6 +286,7 @@ export function useUniversalFilters() {
     getDistanceLabel,
     formatDistance,
     applyQuickFilter,
+    refreshLocation,
     filterAndSortDeals,
   };
 }

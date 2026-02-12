@@ -144,7 +144,7 @@ BRANDS = sorted(set([
     'Matrix', 'Medizin', 'Mojo', 'Moxie', 'Mystic Timbers',
     # N-O
     "Nature's Chemistry", 'Neon Cactus', 'Nitro Dabs',
-    'No Brand Name', 'Nordic Goddess',
+    'Nordic Goddess',
     'OCB Rolling Papers & Cones', 'Old Pal', 'OMG THC',
     # P
     'Pacific Stone', 'PACKS', 'Packwoods', 'PANNA Extracts', 'PAX',
@@ -160,7 +160,7 @@ BRANDS = sorted(set([
     'Srene', 'StackHouse NV', 'State Flower', 'STIIIZY', 'Storz & Bickel',
     'Sundae Co.', 'Super Good', 'Superior',
     # T
-    'Tahoe Hydro', 'THC Design', 'The Bank', 'The Dispensary',
+    'Tahoe Hydro', 'THC Design', 'The Bank',
     'The Grower Circle', 'The Lab', 'Toker Poker', 'Trendi', 'Tryke',
     'Tsunami Labs', 'Tumbleweedz', 'Twisted Hemp', 'Tyson 2.0',
     # U-V

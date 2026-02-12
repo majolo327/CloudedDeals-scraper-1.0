@@ -1,13 +1,24 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Heart, DollarSign, Trash2, Clock, Share2, Check, Sun } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Heart, DollarSign, Trash2, Clock, Share2, Check, Sun, ChevronDown, ArrowUpDown, History } from 'lucide-react';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
-import { getDiscountPercent, getDisplayName } from '@/utils';
+import { getDiscountPercent, getDisplayName, getDistanceMiles } from '@/utils';
 import { createShareLink } from '@/lib/share';
 import { trackEvent } from '@/lib/analytics';
 import { ContactBanner } from '@/components/ContactBanner';
+import { getUserCoords } from '@/components/ftue/LocationPrompt';
 import type { Deal } from '@/types';
+import type { HistoryEntry } from '@/hooks/useDealHistory';
+
+type SavedSort = 'saved' | 'price_asc' | 'price_desc' | 'nearest';
+
+const SORT_OPTIONS: { id: SavedSort; label: string; needsLocation?: boolean }[] = [
+  { id: 'saved', label: 'Saved Order' },
+  { id: 'price_asc', label: 'Price: Low to High' },
+  { id: 'price_desc', label: 'Price: High to Low' },
+  { id: 'nearest', label: 'Nearest First', needsLocation: true },
+];
 
 /** Returns { hours, minutes } until midnight Pacific. */
 function useCountdownToMidnight() {
@@ -32,16 +43,49 @@ interface SavedPageProps {
   deals: Deal[];
   onSelectDeal?: (deal: Deal) => void;
   addToast?: (message: string, type: 'success' | 'info') => void;
+  history?: HistoryEntry[];
+  onClearHistory?: () => void;
 }
 
-export function SavedPage({ deals, onSelectDeal, addToast }: SavedPageProps) {
+export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClearHistory }: SavedPageProps) {
   const { savedDeals, toggleSavedDeal, isDealUsed, markDealUsed } = useSavedDeals();
   const [shareState, setShareState] = useState<'idle' | 'sharing' | 'copied'>('idle');
   const [showContactBanner, setShowContactBanner] = useState(false);
+  const [sortBy, setSortBy] = useState<SavedSort>('saved');
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const userCoords = useMemo(() => getUserCoords(), []);
+  const hasLocation = !!userCoords;
 
   const savedDealsList = deals.filter((d) => savedDeals.has(d.id));
   const usedDeals = savedDealsList.filter((d) => isDealUsed(d.id));
   const activeDeals = savedDealsList.filter((d) => !isDealUsed(d.id));
+
+  // Sort active deals
+  const sortedActiveDeals = useMemo(() => {
+    const sorted = [...activeDeals];
+    switch (sortBy) {
+      case 'price_asc':
+        sorted.sort((a, b) => a.deal_price - b.deal_price);
+        break;
+      case 'price_desc':
+        sorted.sort((a, b) => b.deal_price - a.deal_price);
+        break;
+      case 'nearest':
+        if (userCoords) {
+          sorted.sort((a, b) => {
+            const distA = getDistanceMiles(userCoords.lat, userCoords.lng, a.dispensary.latitude, a.dispensary.longitude) ?? 999;
+            const distB = getDistanceMiles(userCoords.lat, userCoords.lng, b.dispensary.latitude, b.dispensary.longitude) ?? 999;
+            return distA - distB;
+          });
+        }
+        break;
+      default:
+        break; // 'saved' keeps original order
+    }
+    return sorted;
+  }, [activeDeals, sortBy, userCoords]);
 
   const potentialSavings = activeDeals.reduce((sum, deal) => {
     if (!deal.original_price || deal.original_price <= deal.deal_price) return sum;
@@ -114,6 +158,8 @@ export function SavedPage({ deals, onSelectDeal, addToast }: SavedPageProps) {
     setTimeout(() => setShareState('idle'), 2500);
   }, [activeDeals]);
 
+  const currentSortLabel = SORT_OPTIONS.find(o => o.id === sortBy)?.label || 'Saved Order';
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
@@ -130,6 +176,7 @@ export function SavedPage({ deals, onSelectDeal, addToast }: SavedPageProps) {
                 </p>
                 <p className="text-xs text-slate-500">
                   {usedDeals.length} used
+                  {history.length > 0 && <> &middot; {history.length} past</>}
                 </p>
               </div>
             </div>
@@ -184,15 +231,49 @@ export function SavedPage({ deals, onSelectDeal, addToast }: SavedPageProps) {
         {/* Active saved deals */}
         {activeDeals.length > 0 && (
           <section>
-            <h2 className="text-sm font-semibold text-slate-300 mb-3">Active Deals</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-slate-300">Active Deals</h2>
+              {/* Sort dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowSortMenu(!showSortMenu)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/50 text-xs text-slate-400 hover:text-slate-300 transition-colors"
+                >
+                  <ArrowUpDown className="w-3 h-3" />
+                  {currentSortLabel}
+                  <ChevronDown className={`w-3 h-3 transition-transform ${showSortMenu ? 'rotate-180' : ''}`} />
+                </button>
+                {showSortMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowSortMenu(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-lg bg-slate-800 border border-slate-700/50 shadow-xl overflow-hidden">
+                      {SORT_OPTIONS.filter(o => !o.needsLocation || hasLocation).map(option => (
+                        <button
+                          key={option.id}
+                          onClick={() => { setSortBy(option.id); setShowSortMenu(false); }}
+                          className={`w-full px-3 py-2.5 text-left text-xs transition-colors ${
+                            sortBy === option.id
+                              ? 'text-purple-400 bg-purple-500/10'
+                              : 'text-slate-300 hover:bg-slate-700/50'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
             <div className="space-y-2">
-              {activeDeals.map((deal) => (
+              {sortedActiveDeals.map((deal) => (
                 <SavedDealCard
                   key={deal.id}
                   deal={deal}
                   onRemove={() => toggleSavedDeal(deal.id)}
                   onMarkUsed={() => markDealUsed(deal.id)}
                   onClick={onSelectDeal ? () => onSelectDeal(deal) : undefined}
+                  distanceMiles={userCoords ? getDistanceMiles(userCoords.lat, userCoords.lng, deal.dispensary.latitude, deal.dispensary.longitude) : null}
                 />
               ))}
             </div>
@@ -217,11 +298,42 @@ export function SavedPage({ deals, onSelectDeal, addToast }: SavedPageProps) {
           </section>
         )}
 
+        {/* Deal History — past expired saves */}
+        {history.length > 0 && (
+          <section>
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="flex items-center gap-2 mb-3 group"
+            >
+              <History className="w-3.5 h-3.5 text-slate-600" />
+              <h2 className="text-sm font-semibold text-slate-600 group-hover:text-slate-400 transition-colors">
+                Past Saves ({history.length})
+              </h2>
+              <ChevronDown className={`w-3 h-3 text-slate-600 transition-transform ${showHistory ? 'rotate-180' : ''}`} />
+            </button>
+            {showHistory && (
+              <div className="space-y-2">
+                {history.map((entry, i) => (
+                  <HistoryDealCard key={`${entry.deal.id}-${i}`} entry={entry} />
+                ))}
+                {onClearHistory && (
+                  <button
+                    onClick={onClearHistory}
+                    className="w-full py-2 text-xs text-slate-600 hover:text-slate-400 transition-colors"
+                  >
+                    Clear history
+                  </button>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Return hook — tomorrow's deals */}
         {savedDealsList.length > 0 && <ReturnHook dealCount={deals.length} />}
 
         {/* Empty state */}
-        {savedDealsList.length === 0 && (
+        {savedDealsList.length === 0 && history.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-16 h-16 rounded-2xl bg-slate-800/50 flex items-center justify-center mb-4">
               <Heart className="w-8 h-8 text-slate-600" />
@@ -229,6 +341,19 @@ export function SavedPage({ deals, onSelectDeal, addToast }: SavedPageProps) {
             <h2 className="text-lg font-semibold text-slate-300 mb-2">Nothing saved yet</h2>
             <p className="text-sm text-slate-500 max-w-sm">
               Tap <span className="text-purple-400">&hearts;</span> on any deal to keep it here.
+            </p>
+          </div>
+        )}
+
+        {/* Empty active state but has history */}
+        {savedDealsList.length === 0 && history.length > 0 && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-slate-800/50 flex items-center justify-center mb-4">
+              <Heart className="w-8 h-8 text-slate-600" />
+            </div>
+            <h2 className="text-lg font-semibold text-slate-300 mb-2">No active saves</h2>
+            <p className="text-sm text-slate-500 max-w-sm mb-6">
+              Your previous saves expired. New deals drop every morning at 8 AM.
             </p>
           </div>
         )}
@@ -243,12 +368,14 @@ function SavedDealCard({
   onRemove,
   onMarkUsed,
   onClick,
+  distanceMiles,
 }: {
   deal: Deal;
   isUsed?: boolean;
   onRemove: () => void;
   onMarkUsed?: () => void;
   onClick?: () => void;
+  distanceMiles?: number | null;
 }) {
   const discount = getDiscountPercent(deal.original_price, deal.deal_price);
 
@@ -263,8 +390,16 @@ function SavedDealCard({
           <span className="text-xs text-slate-500">{deal.dispensary.name}</span>
           {deal.weight && (
             <>
-              <span className="text-slate-700">·</span>
+              <span className="text-slate-700">&middot;</span>
               <span className="text-xs text-slate-500">{deal.weight}</span>
+            </>
+          )}
+          {distanceMiles != null && (
+            <>
+              <span className="text-slate-700">&middot;</span>
+              <span className="text-xs text-slate-600">
+                {distanceMiles < 0.5 ? '<0.5 mi' : `${distanceMiles.toFixed(1)} mi`}
+              </span>
             </>
           )}
         </div>
@@ -295,6 +430,39 @@ function SavedDealCard({
           >
             <Trash2 className="w-4 h-4" />
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HistoryDealCard({ entry }: { entry: HistoryEntry }) {
+  const { deal, expired_at, status } = entry;
+  const expiredDate = new Date(expired_at);
+  const dateLabel = expiredDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  return (
+    <div className="glass rounded-lg px-4 py-3 flex items-center justify-between gap-3 opacity-40">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-slate-300 truncate">{deal.product_name}</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-xs text-slate-500">{deal.dispensary_name}</span>
+          {deal.weight && (
+            <>
+              <span className="text-slate-700">&middot;</span>
+              <span className="text-xs text-slate-500">{deal.weight}</span>
+            </>
+          )}
+          <span className="text-slate-700">&middot;</span>
+          <span className="text-xs text-slate-600">{dateLabel}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="text-right">
+          <p className="text-sm font-medium text-slate-400">${deal.deal_price.toFixed(2)}</p>
+          <p className="text-[10px] text-slate-600">
+            {status === 'purchased' ? 'Purchased' : 'Expired'}
+          </p>
         </div>
       </div>
     </div>

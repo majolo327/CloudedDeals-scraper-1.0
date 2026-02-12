@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Heart, MapPin, X } from 'lucide-react';
 import type { Deal } from '@/types';
-import { getDistanceMiles, getDisplayName } from '@/utils';
+import { getDistanceMiles, getDisplayName, getPricePerUnit } from '@/utils';
 import { getUserCoords } from './ftue';
 import { ShareModal } from './modals/ShareModal';
 
@@ -114,8 +114,12 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
       </p>
 
       {/* Price — sale price only, big and clean */}
-      <div className="mb-3">
+      <div className="mb-3 flex items-baseline gap-1.5">
         <span className="text-lg sm:text-xl font-mono font-bold text-white">${deal.deal_price}</span>
+        {deal.category === 'flower' && (() => {
+          const ppg = getPricePerUnit(deal);
+          return ppg ? <span className="text-[10px] text-slate-500 font-medium">{ppg}</span> : null;
+        })()}
       </div>
 
       {/* Footer: Dispensary + Distance + Dismiss */}

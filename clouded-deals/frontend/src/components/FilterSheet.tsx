@@ -2,11 +2,12 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { SlidersHorizontal, X, RotateCcw, Check, MapPin, ChevronDown } from 'lucide-react';
+import { SlidersHorizontal, X, RotateCcw, Check, MapPin, ChevronDown, Navigation, Loader2 } from 'lucide-react';
 import type { Category } from '@/types';
 import { DISPENSARIES } from '@/data/dispensaries';
 import { VALID_WEIGHTS_BY_CATEGORY } from '@/utils/weightNormalizer';
 import { trackEvent } from '@/lib/analytics';
+import { isVegasArea, getZipCoordinates } from '@/lib/zipCodes';
 import type {
   UniversalFilterState,
   SortOption,
@@ -80,6 +81,8 @@ export function getPriceRangeBounds(rangeId: string): { min: number; max: number
   return range ? { min: range.min, max: range.max } : { min: 0, max: Infinity };
 }
 
+type LocationPromptState = 'hidden' | 'choose' | 'requesting' | 'zip';
+
 interface FilterSheetProps {
   filters: UniversalFilterState;
   onFiltersChange: (filters: UniversalFilterState) => void;
@@ -87,6 +90,7 @@ interface FilterSheetProps {
   hasLocation?: boolean;
   onReset?: () => void;
   activeFilterCount?: number;
+  onLocationSet?: () => void;
 }
 
 export function FilterSheet({
@@ -96,10 +100,15 @@ export function FilterSheet({
   hasLocation = false,
   onReset,
   activeFilterCount: externalActiveCount,
+  onLocationSet,
 }: FilterSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
+  const [locationPrompt, setLocationPrompt] = useState<LocationPromptState>('hidden');
+  const [zipInput, setZipInput] = useState('');
+  const [zipError, setZipError] = useState('');
+  const zipInputRef = useRef<HTMLInputElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
 
@@ -153,6 +162,68 @@ export function FilterSheet({
   const clearAllDispensaries = () => {
     onFiltersChange({ ...filters, dispensaryIds: [], quickFilter: 'none' });
   };
+
+  // Sort option click — if "distance" is selected without location, prompt for it
+  const handleSortSelect = useCallback((optId: SortOption) => {
+    if (optId === 'distance' && !hasLocation) {
+      setLocationPrompt('choose');
+      return;
+    }
+    onFiltersChange({ ...filters, sortBy: optId });
+    setSortOpen(false);
+  }, [filters, hasLocation, onFiltersChange]);
+
+  // Geolocation request for inline prompt
+  const handleUseLocation = useCallback(async () => {
+    setLocationPrompt('requesting');
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: false,
+          timeout: 10000,
+          maximumAge: 300000,
+        });
+      });
+      const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
+      localStorage.setItem('clouded_user_coords', JSON.stringify(coords));
+      setLocationPrompt('hidden');
+      onFiltersChange({ ...filters, sortBy: 'distance' });
+      setSortOpen(false);
+      onLocationSet?.();
+      trackEvent('filter_change', undefined, { action: 'location_set', method: 'geolocation' });
+    } catch {
+      // Geolocation denied or failed — fall back to zip input
+      setLocationPrompt('zip');
+      setTimeout(() => zipInputRef.current?.focus(), 100);
+    }
+  }, [filters, onFiltersChange, onLocationSet]);
+
+  // Zip code submission for inline prompt
+  const handleZipSubmit = useCallback(() => {
+    const zip = zipInput.trim();
+    if (!/^\d{5}$/.test(zip)) {
+      setZipError('Enter a 5-digit zip code');
+      return;
+    }
+    if (!isVegasArea(zip)) {
+      setZipError('Enter a Las Vegas area zip code');
+      return;
+    }
+    const coords = getZipCoordinates(zip);
+    if (!coords) {
+      setZipError('Zip code not found');
+      return;
+    }
+    localStorage.setItem('clouded_zip', zip);
+    localStorage.setItem('clouded_user_coords', JSON.stringify(coords));
+    setLocationPrompt('hidden');
+    setZipInput('');
+    setZipError('');
+    onFiltersChange({ ...filters, sortBy: 'distance' });
+    setSortOpen(false);
+    onLocationSet?.();
+    trackEvent('filter_change', undefined, { action: 'location_set', method: 'zip', zip });
+  }, [zipInput, filters, onFiltersChange, onLocationSet]);
 
   // Auto-expand location section when user has location or active location filters
   useEffect(() => {
@@ -321,13 +392,10 @@ export function FilterSheet({
                 </button>
                 {sortOpen && (
                   <div className="mt-2 space-y-0.5 rounded-xl bg-slate-800/50 p-1.5">
-                    {SORT_OPTIONS.filter(opt => opt.id !== 'distance' || hasLocation).map((opt) => (
+                    {SORT_OPTIONS.map((opt) => (
                       <button
                         key={opt.id}
-                        onClick={() => {
-                          onFiltersChange({ ...filters, sortBy: opt.id });
-                          setSortOpen(false);
-                        }}
+                        onClick={() => handleSortSelect(opt.id)}
                         className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${
                           filters.sortBy === opt.id
                             ? 'bg-purple-500/15 text-purple-400'
@@ -335,10 +403,77 @@ export function FilterSheet({
                         }`}
                       >
                         {opt.label}
+                        {opt.id === 'distance' && !hasLocation && (
+                          <span className="ml-1.5 text-[10px] text-slate-600">(set location)</span>
+                        )}
                       </button>
                     ))}
                   </div>
                 )}
+
+                {/* Inline location prompt — shown when user taps "Nearest First" without location */}
+                {locationPrompt !== 'hidden' && (
+                    <div className="mt-3 rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
+                      {locationPrompt === 'choose' && (
+                        <div className="space-y-2.5">
+                          <p className="text-xs text-slate-400 mb-3">Set your location to sort by distance</p>
+                          <button
+                            onClick={handleUseLocation}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-purple-500/15 text-purple-400 text-sm font-medium hover:bg-purple-500/25 transition-colors"
+                          >
+                            <Navigation className="w-4 h-4" />
+                            Use my location
+                          </button>
+                          <button
+                            onClick={() => {
+                              setLocationPrompt('zip');
+                              setTimeout(() => zipInputRef.current?.focus(), 100);
+                            }}
+                            className="w-full text-center text-xs text-slate-500 hover:text-slate-400 transition-colors py-1"
+                          >
+                            Or enter a zip code
+                          </button>
+                        </div>
+                      )}
+                      {locationPrompt === 'requesting' && (
+                        <div className="flex items-center justify-center gap-2 py-3 text-sm text-slate-400">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Requesting location...
+                        </div>
+                      )}
+                      {locationPrompt === 'zip' && (
+                        <div className="space-y-2">
+                          <p className="text-xs text-slate-400">Enter your Las Vegas area zip code</p>
+                          <div className="flex gap-2">
+                            <input
+                              ref={zipInputRef}
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={5}
+                              value={zipInput}
+                              onChange={(e) => { setZipInput(e.target.value.replace(/\D/g, '')); setZipError(''); }}
+                              onKeyDown={(e) => { if (e.key === 'Enter') handleZipSubmit(); }}
+                              placeholder="89101"
+                              className="flex-1 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500/50"
+                            />
+                            <button
+                              onClick={handleZipSubmit}
+                              className="px-4 py-2 rounded-lg bg-purple-500/20 text-purple-400 text-sm font-medium hover:bg-purple-500/30 transition-colors"
+                            >
+                              Go
+                            </button>
+                          </div>
+                          {zipError && <p className="text-xs text-red-400">{zipError}</p>}
+                          <button
+                            onClick={() => { setLocationPrompt('choose'); setZipInput(''); setZipError(''); }}
+                            className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors"
+                          >
+                            Back
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
               </section>
 
               {/* Category */}
