@@ -222,10 +222,10 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     Checks global price bounds, minimum discount, original price
     presence, category-specific price caps, and non-cannabis keywords.
 
-    **Jane platform exception**: Jane sites do not display original
-    prices — only the current/deal price is available.  For Jane
-    products we use *loose* qualification: price cap + brand match
-    only, skipping discount and original-price checks.
+    **Loose qualification platforms** (Jane, Carrot, AIQ): these sites
+    do not display original/crossed-out prices — only the current
+    price is available.  We use *loose* qualification: price cap +
+    brand match only, skipping discount and original-price checks.
 
     Infused pre-rolls are now ALLOWED (they're popular products).
     Only preroll multi-packs remain excluded from curation.
@@ -256,17 +256,18 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
         return False
 
     # ------------------------------------------------------------------
-    # JANE LOOSE QUALIFICATION
-    # Jane does NOT display original prices — only the deal/current
-    # price.  We cannot calculate discount_percent, so we skip the
-    # discount and original-price checks.  Qualification is:
+    # LOOSE QUALIFICATION (Jane, Carrot, AIQ)
+    # These platforms do NOT display original prices — only the
+    # deal/current price.  We cannot calculate discount_percent, so
+    # we skip the discount and original-price checks.  Qualification:
     #   1. Price within category cap
     #   2. Known brand detected
     # ------------------------------------------------------------------
-    if source_platform == "jane":
+    _LOOSE_PLATFORMS = {"jane", "carrot", "aiq"}
+    if source_platform in _LOOSE_PLATFORMS:
         brand = product.get("brand")
         if not brand:
-            return False  # brand match required for Jane loose mode
+            return False  # brand match required for loose mode
         return _passes_price_cap(sale_price, category, weight_value)
 
     # --- Standard filters (non-Jane platforms) ---
@@ -311,27 +312,26 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
     brand = product.get("brand")
     category = product.get("category", "other")
     weight_value = product.get("weight_value")
+    disp = product.get("dispensary_id", "?")
 
-    # Reject deals with no detected brand — "UNKNOWN" brand cards are
-    # confusing to users and indicate a parsing problem.  We have enough
-    # volume that we can require a brand on every displayed deal.
     if not brand:
+        logger.debug("Quality gate REJECT [no_brand]: %s @ %s", name[:40], disp)
         return False
 
-    # Reject strain-type-only product names
     if name.strip().lower() in _STRAIN_ONLY_NAMES:
+        logger.debug("Quality gate REJECT [strain_only_name]: %s @ %s", name, disp)
         return False
 
-    # Reject very short names (likely garbage)
     if len(name.strip()) < 5:
+        logger.debug("Quality gate REJECT [short_name]: '%s' @ %s", name, disp)
         return False
 
-    # Reject products where name == brand (redundant display)
     if brand and name.strip().lower() == brand.lower():
+        logger.debug("Quality gate REJECT [name_equals_brand]: %s @ %s", name, disp)
         return False
 
-    # Reject products with no weight in categories that need it
     if category in _WEIGHT_REQUIRED_CATEGORIES and not weight_value:
+        logger.debug("Quality gate REJECT [no_weight_%s]: %s @ %s", category, name[:40], disp)
         return False
 
     return True
@@ -435,10 +435,12 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
 
     source_platform = product.get("source_platform", "")
 
-    # Jane products have no original price / discount data.  Give them a
-    # flat baseline that roughly equals a "decent" discount (20-25% range)
-    # so they can compete with other platforms on brand/value/category alone.
-    if source_platform == "jane":
+    # Loose-qualification platforms (Jane, Carrot, AIQ) have no original
+    # price / discount data.  Give them a flat baseline that roughly
+    # equals a "decent" discount (20-25% range) so they can compete
+    # with other platforms on brand/value/category alone.
+    _LOOSE_PLATFORMS = {"jane", "carrot", "aiq"}
+    if source_platform in _LOOSE_PLATFORMS:
         score += 15  # baseline in lieu of discount depth + dollars saved
     else:
         # 1. DISCOUNT DEPTH (up to 35 points)

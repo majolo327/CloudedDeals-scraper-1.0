@@ -117,48 +117,74 @@ _JS_EXTRACT_PRODUCTS = """
     const products = [];
     const seen = new Set();
 
-    // Strategy 1: Find all product links and walk up to the price container.
-    // Carrot renders product links as <a href="/product/..."> with the name
-    // inside, and prices in a sibling or nearby ancestor element.
-    const links = document.querySelectorAll('a[href*="/product/"]');
+    // Helper: walk up the DOM, crossing shadow-root boundaries.
+    // Carrot (Stencil.js) renders inside Web Components with open
+    // Shadow DOM.  Standard querySelectorAll can't see inside, but
+    // Playwright locators CAN — so if we get here via evaluate() on
+    // a Playwright-resolved element, we still need to cross the
+    // shadow boundary when walking ancestors.
+    function parentOrHost(node) {
+        const p = node.parentElement;
+        if (p) return p;
+        // At shadow-root boundary — jump to host element
+        const root = node.getRootNode();
+        return (root && root.host) ? root.host : null;
+    }
+
+    // Helper: recursively collect elements matching selector across
+    // all open shadow roots in the document.
+    function deepQuerySelectorAll(selector) {
+        const results = [...document.querySelectorAll(selector)];
+        function walkShadows(root) {
+            for (const el of root.querySelectorAll('*')) {
+                if (el.shadowRoot) {
+                    results.push(...el.shadowRoot.querySelectorAll(selector));
+                    walkShadows(el.shadowRoot);
+                }
+            }
+        }
+        walkShadows(document);
+        return results;
+    }
+
+    function extractName(link) {
+        const heading = link.querySelector('h1, h2, h3, h4, h5, h6, strong, b, [class*="name"], [class*="title"]');
+        if (heading) {
+            const t = heading.innerText.trim();
+            if (t.length >= 3) return t;
+        }
+        const linkLines = (link.innerText || '').split('\\n').filter(l => l.trim());
+        for (const line of linkLines) {
+            const trimmed = line.trim();
+            if (trimmed.length >= 3 && !trimmed.includes('$') && !/^(indica|sativa|hybrid|cbd|thc)$/i.test(trimmed)) {
+                return trimmed;
+            }
+        }
+        return 'Unknown';
+    }
+
+    // Strategy 1: Find all product links (including inside Shadow DOM)
+    // and walk up to the price container.
+    const links = deepQuerySelectorAll('a[href*="/product/"]');
 
     for (const link of links) {
         const href = link.href;
         if (!href || seen.has(href)) continue;
 
-        // Extract name from the link itself (cleanest source)
-        let name = '';
-        const heading = link.querySelector('h1, h2, h3, h4, h5, h6, strong, b, [class*="name"], [class*="title"]');
-        if (heading) {
-            name = heading.innerText.trim();
-        }
-        if (!name) {
-            const linkLines = (link.innerText || '').split('\\n').filter(l => l.trim());
-            for (const line of linkLines) {
-                const trimmed = line.trim();
-                if (trimmed.length >= 3 && !trimmed.includes('$') && !/^(indica|sativa|hybrid|cbd|thc)$/i.test(trimmed)) {
-                    name = trimmed;
-                    break;
-                }
-            }
-        }
-        if (!name) name = 'Unknown';
+        const name = extractName(link);
 
         // Walk up from the link to find the nearest ancestor with a price.
-        // Also check siblings at each level (Carrot often puts price in a
-        // sibling div, not inside the link's ancestor chain).
+        // Uses parentOrHost() to cross shadow-root boundaries.
         let container = link;
         let priceText = '';
         let rawText = '';
-        for (let i = 0; i < 8; i++) {
-            const parent = container.parentElement;
+        for (let i = 0; i < 10; i++) {
+            const parent = parentOrHost(container);
             if (!parent) break;
             container = parent;
             const cText = container.innerText || '';
 
-            // Check if this container has a price
             if (cText.includes('$')) {
-                // Is it a reasonable product card size? (not the whole grid)
                 if (cText.length < 2000) {
                     rawText = cText;
                     const pm = cText.match(/\\$[\\d]+\\.?\\d{0,2}/);
@@ -166,8 +192,7 @@ _JS_EXTRACT_PRODUCTS = """
                     break;
                 }
                 // Container too big — check direct children for a price element
-                const children = container.children;
-                for (const child of children) {
+                for (const child of container.children) {
                     const childText = child.innerText || '';
                     if (childText.includes('$') && childText.length < 500 && childText.length > 3) {
                         const pm = childText.match(/\\$[\\d]+\\.?\\d{0,2}/);
@@ -183,17 +208,19 @@ _JS_EXTRACT_PRODUCTS = """
         }
 
         // Fallback: check siblings of the link for price info
-        if (!priceText && link.parentElement) {
-            const siblings = link.parentElement.children;
-            for (const sib of siblings) {
-                if (sib === link) continue;
-                const sibText = sib.innerText || '';
-                if (sibText.includes('$') && sibText.length < 500) {
-                    const pm = sibText.match(/\\$[\\d]+\\.?\\d{0,2}/);
-                    if (pm) {
-                        priceText = pm[0];
-                        rawText = name + '\\n' + sibText;
-                        break;
+        if (!priceText) {
+            const linkParent = link.parentElement;
+            if (linkParent) {
+                for (const sib of linkParent.children) {
+                    if (sib === link) continue;
+                    const sibText = sib.innerText || '';
+                    if (sibText.includes('$') && sibText.length < 500) {
+                        const pm = sibText.match(/\\$[\\d]+\\.?\\d{0,2}/);
+                        if (pm) {
+                            priceText = pm[0];
+                            rawText = name + '\\n' + sibText;
+                            break;
+                        }
                     }
                 }
             }
@@ -211,16 +238,15 @@ _JS_EXTRACT_PRODUCTS = """
     }
 
     // Strategy 2: If no product links found, try standalone SPA cards
+    // (also searches inside Shadow DOM)
     if (products.length === 0) {
-        const root = document.querySelector('#carrot-store-root') || document.body;
-        const cards = root.querySelectorAll(
+        const cards = deepQuerySelectorAll(
             '[class*="product-card"], [class*="ProductCard"], '
             + '[data-testid*="product"], div[class*="product"]'
         );
         for (const card of cards) {
             const text = card.innerText || '';
             if (!text.includes('$') || text.length < 10) continue;
-            // Skip grid containers that are too large (contain many products)
             if (text.length > 3000) continue;
 
             const lines = text.split('\\n').map(l => l.trim()).filter(l => l);
