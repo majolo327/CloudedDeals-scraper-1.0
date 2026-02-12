@@ -959,7 +959,24 @@ async def _scrape_site_inner(
                     '', display_name, flags=re.IGNORECASE,
                 ).strip()
             if len(display_name) < 3:
-                display_name = raw_name
+                # Brand stripping emptied the name — the raw_name was likely
+                # just the brand.  Try to find the next meaningful line from
+                # raw_text (common for Jane where brand = first line).
+                fallback = raw_name
+                raw_text_lines = [
+                    ln.strip() for ln in rp.get("raw_text", "").split("\n")
+                    if ln.strip()
+                ]
+                for ln in raw_text_lines:
+                    if (
+                        ln.lower() != brand.lower()
+                        and ln.lower() not in {"indica", "sativa", "hybrid", "cbd", "thc"}
+                        and not ln.startswith("$")
+                        and len(ln) >= 4
+                    ):
+                        fallback = ln
+                        break
+                display_name = fallback
 
         display_name = display_name or raw_name or "Unknown"
 
@@ -1538,7 +1555,9 @@ def _log_scrape_summary(
             _w()
             continue
 
-        _w(f"  {name} ({platform}) — {products} products, {selected_count} deals:")
+        guaranteed = rd.get("guaranteed", 0)
+        gtag = " (guaranteed exposure)" if guaranteed else ""
+        _w(f"  {name} ({platform}) — {products} products, {selected_count} deals:{gtag}")
         # Group this dispensary's deals by category, show top deal per cat
         site_deals = deals_by_disp[slug]
         by_cat: dict[str, list[dict[str, Any]]] = defaultdict(list)

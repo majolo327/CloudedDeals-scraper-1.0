@@ -125,6 +125,12 @@ CATEGORY_BOOST: dict[str, int] = {
 
 TARGET_DEAL_COUNT = 200
 
+# Guaranteed-exposure: dispensaries that scraped at least this many products
+# but got 0 deals through the normal pipeline will have their best product
+# force-picked so every store with real inventory gets some representation.
+MIN_PRODUCTS_FOR_GUARANTEE = 10
+GUARANTEED_DEAL_SCORE_CAP = 25  # modest score so guarantees don't outrank real deals
+
 CATEGORY_TARGETS: dict[str, int] = {
     "flower": 60,
     "vape": 50,
@@ -880,6 +886,75 @@ def select_top_deals(
 
 
 # =====================================================================
+# Guaranteed-exposure fallback
+# =====================================================================
+
+
+def _pick_guaranteed_deals(
+    products: list[dict[str, Any]],
+    max_picks: int = 1,
+) -> list[dict[str, Any]]:
+    """Pick the best available product(s) when the normal pipeline yields 0.
+
+    Uses relaxed criteria: valid price + reasonable name length.  Brand is
+    preferred but NOT required — this is the safety net for dispensaries
+    whose products don't match the brand detection database.
+
+    Returns up to *max_picks* products with a capped ``deal_score``.
+    """
+    candidates: list[tuple[int, dict[str, Any]]] = []
+
+    for p in products:
+        sale_price = p.get("sale_price") or p.get("current_price") or 0
+        if not sale_price or sale_price < HARD_FILTERS["min_price"]:
+            continue
+        if sale_price > HARD_FILTERS["max_price_absolute"]:
+            continue
+
+        name = p.get("name") or ""
+        if len(name.strip()) < 5:
+            continue
+
+        # Exclude non-cannabis items
+        name_lower = name.lower()
+        raw_lower = (p.get("raw_text") or "").lower()
+        if any(kw in name_lower or kw in raw_lower for kw in _NON_CANNABIS_KEYWORDS):
+            continue
+
+        # Simplified scoring: brand + price attractiveness + category
+        score = 0
+        brand = p.get("brand") or ""
+        score += _score_brand(brand)
+
+        if 8 <= sale_price <= 15:
+            score += 12
+        elif 15 < sale_price <= 25:
+            score += 10
+        elif 5 <= sale_price < 8:
+            score += 8
+        elif 25 < sale_price <= 40:
+            score += 6
+
+        category = p.get("category", "other")
+        score += CATEGORY_BOOST.get(category, 3)
+
+        # Ensure a minimum floor so the deal is visible
+        score = max(score, 15)
+
+        candidates.append((score, p))
+
+    # Sort by score descending, take best
+    candidates.sort(key=lambda x: x[0], reverse=True)
+
+    result: list[dict[str, Any]] = []
+    for raw_score, p in candidates[:max_picks]:
+        capped = min(raw_score, GUARANTEED_DEAL_SCORE_CAP)
+        result.append({**p, "deal_score": capped, "_guaranteed": True})
+
+    return result
+
+
+# =====================================================================
 # Main pipeline entry point
 # =====================================================================
 
@@ -969,6 +1044,21 @@ def detect_deals(
     top_deals = select_top_deals(scored)
     logger.info("Selected %d top deals for display", len(top_deals))
 
+    # Step 6: Guaranteed minimum exposure
+    # If the dispensary scraped a meaningful number of products but
+    # the normal pipeline found 0 deals, force-pick the best available
+    # product so every store with real inventory gets representation.
+    guaranteed_count = 0
+    if len(products) >= MIN_PRODUCTS_FOR_GUARANTEE and not top_deals:
+        guaranteed = _pick_guaranteed_deals(products)
+        if guaranteed:
+            top_deals.extend(guaranteed)
+            guaranteed_count = len(guaranteed)
+            logger.info(
+                "Guaranteed exposure: forced %d deal(s) from %d products",
+                guaranteed_count, len(products),
+            )
+
     # Store reporting data for the scrape summary
     selected_keys = {
         (d.get("name", ""), d.get("sale_price")) for d in top_deals
@@ -982,6 +1072,7 @@ def detect_deals(
         "passed_hard_filter": len(qualifying),
         "scored": len(scored),
         "selected": len(top_deals),
+        "guaranteed": guaranteed_count,
         "top_deals": top_deals,
         "cut_deals": cut_deals,
     }

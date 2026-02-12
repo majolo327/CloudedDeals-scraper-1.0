@@ -17,6 +17,7 @@ Flow:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
@@ -31,6 +32,11 @@ _JANE_CFG = PLATFORM_DEFAULTS["jane"]
 
 # Strain types that are NOT real product names — skip to next line.
 _STRAIN_ONLY = {"indica", "sativa", "hybrid", "cbd", "thc"}
+
+# Lines that are metadata, not product names or brands.
+_WEIGHT_LINE = re.compile(r"^\d+(\.\d+)?\s*(g|mg|oz|ml)\b", re.IGNORECASE)
+_PRICE_LINE = re.compile(r"^\$")
+_QTY_LINE = re.compile(r"^(qty|quantity|each)\b", re.IGNORECASE)
 
 # Multiple selector strategies — Jane sites are inconsistent.
 # The first entry is a known Jane-specific class pattern from the PRD.
@@ -163,15 +169,33 @@ class JaneScraper(BaseScraper):
                     text_block = await el.inner_text()
                     lines = [ln.strip() for ln in text_block.split("\n") if ln.strip()]
 
-                    # Pick the first line that is NOT just a strain type
-                    name = "Unknown"
+                    # Collect usable lines: skip strain types, prices, weights
+                    usable: list[str] = []
                     for ln in lines:
-                        if ln.lower() not in _STRAIN_ONLY:
-                            name = ln
+                        lower = ln.lower()
+                        if lower in _STRAIN_ONLY:
+                            continue
+                        if _PRICE_LINE.match(ln) or _WEIGHT_LINE.match(ln) or _QTY_LINE.match(lower):
+                            continue
+                        usable.append(ln)
+                        if len(usable) >= 2:
                             break
+
+                    # Common Jane card layout: brand on first line, product
+                    # on second.  Set first as scraped_brand hint — main.py
+                    # validates it against the brand DB.
+                    scraped_brand = ""
+                    if len(usable) >= 2 and len(usable[1]) >= 4:
+                        scraped_brand = usable[0]
+                        name = usable[1]
+                    elif usable:
+                        name = usable[0]
+                    else:
+                        name = "Unknown"
 
                     product: dict[str, Any] = {
                         "name": name,
+                        "scraped_brand": scraped_brand,
                         "raw_text": text_block.strip(),
                         "product_url": self.url,  # fallback: dispensary menu URL
                         "source_platform": "jane",
