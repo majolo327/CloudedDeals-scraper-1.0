@@ -103,6 +103,22 @@ jobs:
             python main.py
           fi
 
+      - name: Show scrape summary
+        if: always()
+        working-directory: clouded-deals/scraper
+        run: |
+          if [ -f scrape_summary.txt ]; then
+            echo "### Scrape Summary" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat scrape_summary.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo ""
+            echo "=== Scrape Summary ==="
+            cat scrape_summary.txt
+          else
+            echo "No scrape_summary.txt found (scraper may have crashed before report)"
+          fi
+
       - name: Upload debug screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -111,6 +127,16 @@ jobs:
           path: |
             clouded-deals/scraper/debug_screenshots/
           retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload scrape summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrape-summary-${{ github.event.inputs.platform_group || 'stable' }}-${{ github.run_id }}
+          path: |
+            clouded-deals/scraper/scrape_summary.txt
+          retention-days: 30
           if-no-files-found: ignore
 
       - name: Upload logs on failure

@@ -496,6 +496,24 @@ BRAND_VARIATIONS: dict[str, list[str]] = {
     "Khalifa Kush": ["KK", "Wiz Khalifa"],
 }
 
+# Generic words that should NEVER be treated as a brand match even if they
+# slip into KNOWN_BRANDS or match via fuzzy logic.  These are common
+# product-type, strain-type, colour, and promo words that would cause
+# false-positive brand detection on nearly every product listing.
+NOT_BRANDS: set[str] = {
+    # -- Promo / sale copy --
+    "sale", "special", "deal",
+    # -- Product types --
+    "gummies", "flower", "vape", "infused", "preroll", "edible",
+    "concentrate", "extract", "disposable", "tincture", "topical",
+    # -- Strain types --
+    "hybrid", "indica", "sativa", "cbd", "thc",
+    # -- Colours (marketing tiers, not brands) --
+    "black", "white", "blue", "green", "red", "gold", "silver",
+    # -- Generic food / flavour words --
+    "animal", "candy", "fruit", "berry", "cream", "sugar", "honey",
+}
+
 # Pre-compile a single pattern for speed (case-insensitive) with word boundaries
 # to prevent false positives like "Raw" matching inside "Strawberry".
 _RE_BRAND = re.compile(
@@ -522,7 +540,9 @@ def detect_brand(text: str) -> str | None:
     """Return the first known brand found in *text*, or ``None``.
 
     Checks exact brand names first, then falls back to known
-    brand-name variations (fuzzy matching).
+    brand-name variations (fuzzy matching).  Matches against
+    ``NOT_BRANDS`` are silently discarded to prevent generic words
+    (colours, product types, promo terms) from being treated as brands.
 
     >>> detect_brand("STIIIZY Premium Pod 1g")
     'STIIIZY'
@@ -532,16 +552,22 @@ def detect_brand(text: str) -> str | None:
     m = _RE_BRAND.search(text)
     if m:
         matched = m.group(0)
-        for brand in KNOWN_BRANDS:
-            if brand.lower() == matched.lower():
-                return brand
-        return matched
+        # Reject matches that are generic / non-brand words
+        if matched.lower() in NOT_BRANDS:
+            pass  # fall through to variation check
+        else:
+            for brand in KNOWN_BRANDS:
+                if brand.lower() == matched.lower():
+                    return brand
+            return matched
 
     # Strategy 2: check brand variations.
     if _RE_VARIATION is not None:
         m = _RE_VARIATION.search(text)
         if m:
-            return _VARIATION_TO_CANONICAL[m.group(0).lower()]
+            canonical = _VARIATION_TO_CANONICAL[m.group(0).lower()]
+            if canonical.lower() not in NOT_BRANDS:
+                return canonical
 
     return None
 
@@ -554,8 +580,8 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
     "skip":        ["rso", "tincture", "topical", "capsule", "cbd only",
                     "merch", "balm", "salve", "ointment", "lotion",
                     "transdermal", "patch", "roll-on", "suppository"],
-    "flower":      ["flower", "bud", "eighth", "quarter", "half oz",
-                    "nug", "smalls", "shake"],
+    "flower":      ["flower", "bud", "buds", "eighth", "quarter", "half oz",
+                    "nug", "smalls", "shake", "popcorn"],
     "preroll":     ["pre-roll", "pre roll", "preroll", "joint", "blunt",
                     "infused roll", "pr's", "prs"],
     "concentrate": ["wax", "shatter", "live resin", "live rosin", "rosin",
@@ -563,7 +589,7 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
                     "diamond", "sugar", "concentrate", "dab", "hash",
                     "kief"],
     "vape":        ["cart", "cartridge", "pod", "disposable", "vape",
-                    "510"],
+                    "510", "pen"],
     "edible":      ["gummy", "gummies", "chocolate", "beverage", "drink",
                     "edible", "chew", "lozenge", "mint", "cookie",
                     "brownie", "candy"],
@@ -591,6 +617,30 @@ def detect_category(text: str) -> str | None:
     for category, pattern in _CATEGORY_PATTERNS.items():
         if pattern.search(text):
             return category
+    return None
+
+
+def infer_category_from_weight(
+    weight_value: float | None,
+    weight_unit: str | None,
+) -> str | None:
+    """Fallback category inference when no keyword match is found.
+
+    Uses the weight value and unit as a heuristic:
+      - mg → edible (100mg gummies, etc.)
+      - g ≥ 3.5 → flower (eighths and up)
+      - g < 3.5 → concentrate (0.5g–1g dabs/wax)
+      - no weight → vape (carts often omit weight in text)
+
+    Returns ``None`` when there is insufficient data to guess.
+    """
+    if weight_unit == "mg":
+        return "edible"
+    if weight_unit == "g" and weight_value is not None:
+        return "flower" if weight_value >= 3.5 else "concentrate"
+    # No weight info at all — most likely a vape cart / pod
+    if weight_value is None and weight_unit is None:
+        return "vape"
     return None
 
 
@@ -654,6 +704,14 @@ def parse_product(raw: dict[str, Any]) -> dict[str, Any]:
     parsed.update(extract_weight(text))
     parsed.update(extract_cannabinoids(text))
     parsed["brand"] = detect_brand(text)
-    parsed["category"] = detect_category(text)
+
+    # Category: keyword match first, weight-based fallback if no match.
+    category = detect_category(text)
+    if category is None:
+        category = infer_category_from_weight(
+            parsed.get("weight_value"),
+            parsed.get("weight_unit"),
+        )
+    parsed["category"] = category
 
     return parsed

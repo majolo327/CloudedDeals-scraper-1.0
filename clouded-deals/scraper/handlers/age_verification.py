@@ -34,6 +34,7 @@ PRIMARY_SELECTOR_TIMEOUT_MS = 5_000
 SECONDARY_AGE_GATE_SELECTORS = [
     "#agc_form a",
     "button:has-text('over 21')",
+    "button:has-text(\"I'm over 21\")",
     "button:has-text('21+')",
     "button:has-text('Enter')",
     "button:has-text('Confirm')",
@@ -41,6 +42,7 @@ SECONDARY_AGE_GATE_SELECTORS = [
     "a:has-text('I Confirm')",
     "a:has-text('at least 21')",
     "a:has-text('over 21')",
+    "a:has-text(\"I'm over 21\")",
     "a:has-text('21+')",
     "a:has-text('Enter')",
     "a:has-text('Yes')",

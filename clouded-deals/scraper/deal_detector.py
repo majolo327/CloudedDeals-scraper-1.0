@@ -182,11 +182,50 @@ _NON_CANNABIS_KEYWORDS = {
 }
 
 
+def _passes_price_cap(
+    sale_price: float,
+    category: str,
+    weight_value: float | None,
+) -> bool:
+    """Check whether *sale_price* is within the category price cap.
+
+    Extracted so it can be reused by both the full and loose filter paths.
+    """
+    caps = CATEGORY_PRICE_CAPS.get(category)
+    if caps is None:
+        return sale_price <= 50
+
+    if isinstance(caps, dict):
+        sorted_keys = sorted(caps.keys(), key=lambda k: float(k))
+        if weight_value:
+            weight_str = str(weight_value)
+            if float(weight_value) == int(float(weight_value)):
+                weight_str = str(int(float(weight_value)))
+            cap = caps.get(weight_str)
+            if cap is not None:
+                return sale_price <= cap
+            wv = float(weight_value)
+            best_cap = caps[sorted_keys[0]]
+            for k in sorted_keys:
+                if float(k) <= wv:
+                    best_cap = caps[k]
+            return sale_price <= best_cap
+        else:
+            return sale_price <= caps[sorted_keys[0]]
+    else:
+        return sale_price <= caps
+
+
 def passes_hard_filters(product: dict[str, Any]) -> bool:
     """Return ``False`` if the product should be completely excluded.
 
     Checks global price bounds, minimum discount, original price
     presence, category-specific price caps, and non-cannabis keywords.
+
+    **Jane platform exception**: Jane sites do not display original
+    prices — only the current/deal price is available.  For Jane
+    products we use *loose* qualification: price cap + brand match
+    only, skipping discount and original-price checks.
 
     Infused pre-rolls are now ALLOWED (they're popular products).
     Only preroll multi-packs remain excluded from curation.
@@ -208,12 +247,29 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     discount = product.get("discount_percent") or 0
     category = product.get("category", "other")
     weight_value = product.get("weight_value")
+    source_platform = product.get("source_platform", "")
 
-    # --- Global filters ---
+    # --- Global price floor / ceiling (applies to ALL platforms) ---
     if not sale_price or sale_price < HARD_FILTERS["min_price"]:
         return False
     if sale_price > HARD_FILTERS["max_price_absolute"]:
         return False
+
+    # ------------------------------------------------------------------
+    # JANE LOOSE QUALIFICATION
+    # Jane does NOT display original prices — only the deal/current
+    # price.  We cannot calculate discount_percent, so we skip the
+    # discount and original-price checks.  Qualification is:
+    #   1. Price within category cap
+    #   2. Known brand detected
+    # ------------------------------------------------------------------
+    if source_platform == "jane":
+        brand = product.get("brand")
+        if not brand:
+            return False  # brand match required for Jane loose mode
+        return _passes_price_cap(sale_price, category, weight_value)
+
+    # --- Standard filters (non-Jane platforms) ---
     if not discount or discount < HARD_FILTERS["min_discount_percent"]:
         return False
     if discount > HARD_FILTERS["max_discount_percent"]:
@@ -229,45 +285,7 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
         return False
 
     # --- Category-specific price caps ---
-    caps = CATEGORY_PRICE_CAPS.get(category)
-    if caps is None:
-        # Unknown category — apply general max of $50
-        return sale_price <= 50
-
-    if isinstance(caps, dict):
-        # Weight-based caps (flower, concentrate)
-        sorted_keys = sorted(caps.keys(), key=lambda k: float(k))
-
-        if weight_value:
-            weight_str = str(weight_value)
-            # Normalize: 3.5 → "3.5", 7.0 → "7", 28.0 → "28"
-            if float(weight_value) == int(float(weight_value)):
-                weight_str = str(int(float(weight_value)))
-            cap = caps.get(weight_str)
-            if cap is not None:
-                if sale_price > cap:
-                    return False
-            else:
-                # No exact key match — find the best cap for this weight.
-                # Use the largest defined cap that is ≤ weight, or the
-                # smallest cap if weight is below all keys.
-                wv = float(weight_value)
-                best_cap = caps[sorted_keys[0]]  # default: smallest key
-                for k in sorted_keys:
-                    if float(k) <= wv:
-                        best_cap = caps[k]
-                if sale_price > best_cap:
-                    return False
-        else:
-            # No weight detected — use smallest-weight cap as default
-            if sale_price > caps[sorted_keys[0]]:
-                return False
-    else:
-        # Flat cap for category
-        if sale_price > caps:
-            return False
-
-    return True
+    return _passes_price_cap(sale_price, category, weight_value)
 
 
 # =====================================================================
@@ -415,24 +433,32 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
     weight_value = product.get("weight_value")
     brand = product.get("brand") or ""
 
-    # 1. DISCOUNT DEPTH (up to 35 points)
-    if discount >= 50:
-        score += 35
-    elif discount >= 40:
-        score += 28
-    elif discount >= 30:
-        score += 22
-    elif discount >= 25:
-        score += 17
-    elif discount >= 20:
-        score += 12
-    elif discount >= 15:
-        score += 7
+    source_platform = product.get("source_platform", "")
 
-    # 2. DOLLARS SAVED (up to 10 points)
-    if original_price > 0 and original_price > sale_price:
-        saved = original_price - sale_price
-        score += min(10, int(saved / 2.5))
+    # Jane products have no original price / discount data.  Give them a
+    # flat baseline that roughly equals a "decent" discount (20-25% range)
+    # so they can compete with other platforms on brand/value/category alone.
+    if source_platform == "jane":
+        score += 15  # baseline in lieu of discount depth + dollars saved
+    else:
+        # 1. DISCOUNT DEPTH (up to 35 points)
+        if discount >= 50:
+            score += 35
+        elif discount >= 40:
+            score += 28
+        elif discount >= 30:
+            score += 22
+        elif discount >= 25:
+            score += 17
+        elif discount >= 20:
+            score += 12
+        elif discount >= 15:
+            score += 7
+
+        # 2. DOLLARS SAVED (up to 10 points)
+        if original_price > 0 and original_price > sale_price:
+            saved = original_price - sale_price
+            score += min(10, int(saved / 2.5))
 
     # 3. BRAND RECOGNITION (up to 20 points)
     score += _score_brand(brand)

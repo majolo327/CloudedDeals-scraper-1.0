@@ -299,6 +299,7 @@ DISPENSARIES = [
         "url": "https://www.deeprootsharvest.com/cheyenne",
         "is_active": True,
         "region": "southern-nv",
+        "hybrid_strategy": True,  # Deep Roots uses a different DOM structure
     },
     {
         "name": "Deep Roots Harvest Craig",
@@ -307,6 +308,7 @@ DISPENSARIES = [
         "url": "https://www.deeprootsharvest.com/craig",
         "is_active": True,
         "region": "southern-nv",
+        "hybrid_strategy": True,
     },
     {
         "name": "Deep Roots Harvest Blue Diamond",
@@ -315,6 +317,7 @@ DISPENSARIES = [
         "url": "https://www.deeprootsharvest.com/blue-diamond",
         "is_active": True,
         "region": "southern-nv",
+        "hybrid_strategy": True,
     },
     {
         "name": "Deep Roots Harvest Parkson",
@@ -323,6 +326,7 @@ DISPENSARIES = [
         "url": "https://www.deeprootsharvest.com/parkson",
         "is_active": True,
         "region": "southern-nv",
+        "hybrid_strategy": True,
     },
     {
         "name": "Cultivate Spring Mountain",
@@ -737,6 +741,31 @@ DISPENSARY_CHAINS: dict[str, str] = {
     "nevada-made-henderson": "nevada-made",
     "nevada-made-warm-springs": "nevada-made",
 }
+
+
+# ---------------------------------------------------------------------------
+# Strip dispensaries — locations on or immediately adjacent to the Las Vegas
+# Strip.  Used for tagging / filtering in the frontend (tourists vs locals).
+# ---------------------------------------------------------------------------
+
+STRIP_DISPENSARIES: list[str] = [
+    "planet13",
+    "medizin",
+    "curaleaf-strip",
+    "curaleaf-the-reef",
+    "td-decatur",
+    "greenlight-downtown",
+    "greenlight-paradise",
+    "the-grove",
+    "mint-paradise",
+    "oasis",
+    "thrive-strip",
+]
+
+
+def is_strip_dispensary(slug: str) -> bool:
+    """Return ``True`` if the dispensary is on or near the Las Vegas Strip."""
+    return slug in STRIP_DISPENSARIES
 
 
 def get_chain_id(dispensary_slug: str) -> str:
