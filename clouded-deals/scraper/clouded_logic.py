@@ -998,6 +998,7 @@ class CloudedLogic:
         _frac_oz_m = re.search(r'\b(1/[248])\s*(?:oz)?\b', clean_text, re.IGNORECASE)
         _FRAC_GRAMS = {"1/8": 3.5, "1/4": 7.0, "1/2": 14.0}
         weight = None
+        raw_weight = None
         if _frac_oz_m and _frac_oz_m.group(1) in _FRAC_GRAMS:
             grams = _FRAC_GRAMS[_frac_oz_m.group(1)]
             raw_weight = f"{grams}g"
@@ -1014,7 +1015,7 @@ class CloudedLogic:
                 weight = self.validate_weight(raw_weight, category)
 
             # Special handling for edibles
-            if category == 'edible':
+            if category == 'edible' and raw_weight:
                 normalized = self.normalize_weight(raw_weight)
                 if normalized is None:
                     self.stats['rejected_tiny_edibles'] += 1
