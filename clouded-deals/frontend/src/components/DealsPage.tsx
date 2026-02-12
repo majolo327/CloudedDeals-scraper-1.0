@@ -3,10 +3,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { LayoutGrid, Layers, MapPin, Clock, ChevronDown } from 'lucide-react';
 import type { Deal } from '@/types';
+import type { ChallengeDefinition } from '@/config/challenges';
 import { DealCard } from './cards';
 import { SwipeOverlay } from './SwipeOverlay';
 import { InlineFeedbackPrompt } from './FeedbackWidget';
 import { ExpiredDealsBanner } from './ExpiredDealsBanner';
+import { ChallengeBar } from './ChallengeBar';
 import { FilterSheet } from './FilterSheet';
 import { StickyStatsBar } from './layout';
 import { DealCardSkeleton } from './Skeleton';
@@ -34,6 +36,12 @@ interface DealsPageProps {
   isExpired?: boolean;
   onDismissDeal?: () => void;
   onShareSaves?: () => void;
+  challengeData?: {
+    onboardingComplete: boolean;
+    onboardingProgress: { current: number; total: number; isCompleted: boolean };
+    nextChallenge: { challenge: ChallengeDefinition; progress: { progress: number; isCompleted: boolean } } | null;
+  };
+  topBrands?: [string, number][];
 }
 
 export function DealsPage({
@@ -48,6 +56,8 @@ export function DealsPage({
   isExpired = false,
   onDismissDeal,
   onShareSaves,
+  challengeData,
+  topBrands = [],
 }: DealsPageProps) {
   const [activeCategory, setActiveCategory] = useState<DealCategory>('all');
   const [isLoading, setIsLoading] = useState(true);
@@ -220,6 +230,27 @@ export function DealsPage({
               </span>
             </div>
           </div>
+
+          {/* Challenge progress bar */}
+          {challengeData && (
+            <ChallengeBar
+              onboardingComplete={challengeData.onboardingComplete}
+              onboardingProgress={challengeData.onboardingProgress}
+              nextChallenge={challengeData.nextChallenge}
+            />
+          )}
+
+          {/* Your top brands — shown once user has saved 3+ deals from at least 1 brand */}
+          {topBrands.length > 0 && topBrands[0][1] >= 3 && (
+            <div className="flex items-center gap-2 mb-4 text-[11px]">
+              <span className="text-slate-600">Your brands:</span>
+              {topBrands.map(([name, count]) => (
+                <span key={name} className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400/80 font-medium">
+                  {name} ({count})
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Deck progress bar — after first dismiss */}
           {deck.totalDeals > 0 && deck.dismissedCount > 0 && (

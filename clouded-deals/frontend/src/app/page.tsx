@@ -54,7 +54,7 @@ export default function Home() {
   const { savedDeals, usedDeals, toggleSavedDeal, markDealUsed, isDealUsed, savedCount } =
     useSavedDeals();
   const { streak, isNewMilestone, clearMilestone } = useStreak();
-  const { trackBrand } = useBrandAffinity();
+  const { trackBrand, topBrands } = useBrandAffinity();
   const challenges = useChallenges();
   const smartTips = useSmartTips();
 
@@ -454,6 +454,12 @@ export default function Home() {
                 if (tip?.message) addToast(tip.message, tip.type);
               }}
               onShareSaves={handleShareSaves}
+              challengeData={{
+                onboardingComplete: challenges.onboardingComplete,
+                onboardingProgress: challenges.onboardingProgress,
+                nextChallenge: challenges.nextChallenge,
+              }}
+              topBrands={topBrands}
             />
           )
         )}

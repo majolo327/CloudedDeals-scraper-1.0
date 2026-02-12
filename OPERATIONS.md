@@ -395,6 +395,25 @@ More coverage in Vegas = better product = better retention. This is the cheapest
 
 **Phase A exit criteria:** 15+ active testers, 30%+ D7 retention, users sharing the app organically.
 
+#### A5. Post-Beta Feature Releases (April — after hundreds of testers + data)
+These features are fully built in the backend and ready to surface. Hold for post-PMF marketing push — release as "new features" once we have traction and are actively growing.
+
+**Price History / Price Trends (Backend 100% / Frontend 0%)**
+- Migration 025 creates `price_history` with daily price snapshots per product per dispensary
+- Scraper already writes to it every run — data is accumulating silently
+- Frontend has zero queries to this table today
+- **When to release:** Once we have 30-60 days of price data and active users who would benefit from trend context
+- **What to build:** "Price dropped" badges on deal cards, historical price chart in DealModal, "lowest we've seen" indicators, price trend arrows
+- `lib/socialProof.ts` already has badge functions like `getSocialProofBadges()` scaffolded but never called — wire them up when ready
+
+**Social Proof / Save Counts (Backend 100% / Frontend ~10%)**
+- API already fetches `deal_save_counts` and maps them to `deal.save_count` on every page load
+- `lib/socialProof.ts` has a complete system built: `getSaveCountText()`, `formatSaveCount()`, badges like "25 shoppers grabbed this", "trending" indicators
+- None of it is rendered — the data is fetched, the functions exist, but no component calls them
+- DealCard and DealModal both ignore `save_count`
+- **When to release:** Once we have enough daily active users that save counts are meaningful (50+ DAU). Showing "2 people saved this" is worse than showing nothing — wait until numbers create real FOMO
+- **What to build:** Social proof badges on DealCard (hot deal / trending), save count in DealModal, possibly "X people saved this today" as a feed-level signal
+
 ---
 
 ### Phase B: Prove the Value Prop with Data (Weeks 4-10)
