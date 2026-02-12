@@ -527,7 +527,7 @@ export async function searchExtendedDeals(
       .gt('discount_percent', 0)
       .gt('sale_price', 0)
       .or(`name.ilike.${pattern},brand.ilike.${pattern},category.ilike.${pattern},product_subtype.ilike.${pattern},strain_type.ilike.${pattern}`)
-      .order('discount_percent', { ascending: false })
+      .order('deal_score', { ascending: false })
       .limit(200);
 
     if (error) throw error;
