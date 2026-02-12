@@ -182,7 +182,7 @@ export function SwipeableCard({
           </p>
 
           {/* Product name */}
-          <h2 className="text-xl font-bold text-white mb-2 line-clamp-2 leading-tight">
+          <h2 className="text-xl font-bold text-white mb-2 line-clamp-3 leading-tight">
             {deal.product_name}
           </h2>
 

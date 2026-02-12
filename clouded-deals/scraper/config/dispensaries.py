@@ -136,6 +136,7 @@ DISPENSARIES = [
         "url": "https://planet13.com/stores/planet-13-dispensary/specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "iframe",   # P13 uses Dutchie iframe — hint avoids 60s js_embed detection
     },
     {
         "name": "Medizin",
@@ -144,6 +145,7 @@ DISPENSARIES = [
         "url": "https://planet13.com/stores/medizin-dispensary/specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "iframe",   # same as Planet 13
     },
     {
         "name": "Greenlight Downtown",
@@ -152,6 +154,7 @@ DISPENSARIES = [
         "url": "https://greenlightdispensary.com/downtown-las-vegas-menu/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",  # dtche param confirms JS embed
     },
     {
         "name": "Greenlight Paradise",
@@ -160,6 +163,7 @@ DISPENSARIES = [
         "url": "https://greenlightdispensary.com/paradise-menu/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",  # dtche param confirms JS embed
     },
     {
         "name": "The Grove",
@@ -168,6 +172,7 @@ DISPENSARIES = [
         "url": "https://www.thegrovenv.com/lasvegas/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",  # dtche param confirms JS embed
     },
     {
         "name": "Mint Paradise",
@@ -176,6 +181,7 @@ DISPENSARIES = [
         "url": "https://mintdeals.com/paradise-lv/menu/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",  # dtche param confirms JS embed
     },
     {
         "name": "Mint Rainbow",
@@ -184,6 +190,7 @@ DISPENSARIES = [
         "url": "https://mintdeals.com/rainbow-lv/menu/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",  # dtche param confirms JS embed
     },
     # --- Phase 1 additions (recon-confirmed Dutchie JS embeds) ---
     {
@@ -193,6 +200,7 @@ DISPENSARIES = [
         "url": "https://jadecannabisco.com/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",  # dtche param confirms JS embed
     },
     {
         "name": "Jade Cannabis Sky Pointe",
@@ -201,6 +209,7 @@ DISPENSARIES = [
         "url": "https://skypointe.jadecannabisco.com/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",  # dtche param confirms JS embed
     },
     {
         "name": "The Grove Pahrump",
@@ -226,6 +235,7 @@ DISPENSARIES = [
         "url": "https://vegastreehouse.com/store/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",  # dtche param confirms JS embed
     },
 
     # ------------------------------------------------------------------
@@ -418,6 +428,7 @@ DISPENSARIES = [
         "url": "https://lasvegas.treeoflifenv.com/store",
         "is_active": True,
         "region": "southern-nv",
+        "hybrid_strategy": True,  # DOM may differ — needs live investigation
     },
     {
         "name": "Tree of Life Centennial",
@@ -426,6 +437,7 @@ DISPENSARIES = [
         "url": "https://northlasvegas.treeoflifenv.com/store",
         "is_active": True,
         "region": "southern-nv",
+        "hybrid_strategy": True,  # DOM may differ — needs live investigation
     },
     {
         "name": "The Sanctuary N LV Blvd",
@@ -538,12 +550,12 @@ DISPENSARIES = [
     # ------------------------------------------------------------------
     {
         # Double age gate: first "Yes", then "I'M AT LEAST 21 YEARS OLD".
-        # Dutchie-powered — specials page targets deals directly.
+        # Uses iframe to goshango.com (confirmed from scrape logs 2026-02-12).
         "name": "SLV Dispensary",
         "slug": "slv",
         "platform": "dutchie",
         "url": "https://slvcannabis.com/specials/",
-        "embed_type": "direct",
+        "embed_type": "iframe",    # was "direct" — wrong; goshango.com iframe detected in logs
         "is_active": True,
         "region": "southern-nv",
     },
@@ -641,6 +653,7 @@ DISPENSARIES = [
         "url": "https://nevadamademarijuana.com/stores/nevada-made-marijuana-laughlin/specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "iframe",    # same embed pattern as other Nevada Made locations
     },
     {
         # Switched from AIQ to Dutchie — specials page with embedded menu
@@ -784,8 +797,8 @@ def get_chain_id(dispensary_slug: str) -> str:
 # ---------------------------------------------------------------------------
 
 PLATFORM_GROUPS: dict[str, list[str]] = {
-    "stable": ["dutchie", "curaleaf", "jane"],
-    "new": ["rise", "carrot", "aiq"],
+    "stable": ["dutchie", "curaleaf", "jane", "carrot", "aiq"],
+    "new": ["rise"],
 }
 
 # Reverse lookup: platform → group name

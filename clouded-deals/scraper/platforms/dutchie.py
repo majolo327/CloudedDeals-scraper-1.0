@@ -15,6 +15,7 @@ Flow:
      JS embed probing (60 s) for sites that inject into the page DOM.
   6. Extract products from whichever target was found.
   7. Paginate via ``aria-label="go to page N"`` buttons.
+  8. If specials returned 0 products, fall back to the base menu URL.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ import asyncio
 import logging
 import re
 from typing import Any, Union
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 
@@ -48,7 +50,11 @@ _PRODUCT_SELECTORS = [
 _JUNK_PATTERNS = re.compile(
     r"(Add to (cart|bag)|Remove|View details|Out of stock|"
     r"Sale!|New!|Limited|Sold out|In stock|"
-    r"\bQty\b.*$|\bQuantity\b.*$)",
+    r"\bQty\b.*$|\bQuantity\b.*$|"
+    r"\b(?:THC|CBD|CBN|CBG|CBC)\s*:\s*[\d.]+\s*(?:mg|%)|"  # cannabinoid content
+    r"\bLocal Love!?|"                                        # NV promo badges
+    r"\bNew Arrival!?|"
+    r"\bStaff Pick!?)",
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -93,6 +99,32 @@ _WAIT_FOR_DUTCHIE_JS = """
     return false;
 }
 """
+
+
+def _strip_specials_from_url(url: str) -> str | None:
+    """Remove specials indicator from a Dutchie URL to get the base menu.
+
+    Handles two patterns:
+    - Query param: ``?dtche%5Bpath%5D=specials`` (TD sites)
+    - URL path: ``/specials`` (Planet 13, etc.)
+
+    Returns ``None`` if no specials indicator is present.
+    """
+    parsed = urlparse(url)
+
+    # Case 1: dtche[path]=specials in query string (TD sites)
+    params = parse_qs(parsed.query)
+    if params.get("dtche[path]") == ["specials"]:
+        params.pop("dtche[path]")
+        new_query = urlencode(params, doseq=True)
+        return urlunparse(parsed._replace(query=new_query))
+
+    # Case 2: /specials in URL path
+    if parsed.path.endswith("/specials") or "/specials/" in parsed.path:
+        new_path = parsed.path.replace("/specials", "") or "/"
+        return urlunparse(parsed._replace(path=new_path))
+
+    return None
 
 
 class DutchieScraper(BaseScraper):
@@ -213,6 +245,66 @@ class DutchieScraper(BaseScraper):
                     self.slug, page_num, exc, len(all_products),
                 )
                 break
+
+        # --- Fallback: if specials returned 0 products, try base menu ------
+        if not all_products:
+            base_url = _strip_specials_from_url(self.url)
+            if base_url and base_url != self.url:
+                logger.warning(
+                    "[%s] Specials page returned 0 products — retrying base menu: %s",
+                    self.slug, base_url,
+                )
+                await self.save_debug_info("zero_products_specials", target)
+
+                await self.goto(base_url)
+                await asyncio.sleep(3)
+                await self.page.evaluate(_AGE_GATE_COOKIE_JS)
+                clicked = await self.handle_age_gate(post_wait_sec=3)
+                if clicked:
+                    logger.info("[%s] Age gate clicked on base menu", self.slug)
+                await force_remove_age_gate(self.page)
+
+                try:
+                    await self.page.wait_for_function(
+                        _WAIT_FOR_DUTCHIE_JS, timeout=60_000,
+                    )
+                    logger.info("[%s] Smart-wait: Dutchie content detected on base menu", self.slug)
+                except PlaywrightTimeout:
+                    logger.warning("[%s] Smart-wait: no content on base menu after 60s", self.slug)
+
+                target, embed_type = await find_dutchie_content(
+                    self.page,
+                    iframe_timeout_ms=45_000,
+                    js_embed_timeout_sec=60,
+                    embed_type_hint=embed_hint,
+                )
+
+                if target is not None:
+                    logger.info("[%s] Base menu content found via %s", self.slug, embed_type)
+                    if embed_type == "iframe":
+                        await dismiss_age_gate(target)
+
+                    page_num = 1
+                    while True:
+                        products = await self._extract_products(target)
+                        all_products.extend(products)
+                        logger.info(
+                            "[%s] Base menu page %d → %d products (total %d)",
+                            self.slug, page_num, len(products), len(all_products),
+                        )
+                        page_num += 1
+                        await force_remove_age_gate(self.page)
+                        try:
+                            if not await navigate_dutchie_page(target, page_num):
+                                break
+                        except Exception as exc:
+                            logger.warning(
+                                "[%s] Base menu pagination to page %d failed (%s) — keeping %d products",
+                                self.slug, page_num, exc, len(all_products),
+                            )
+                            break
+                else:
+                    logger.warning("[%s] No Dutchie content on base menu either", self.slug)
 
         if not all_products:
             await self.save_debug_info("zero_products", target)

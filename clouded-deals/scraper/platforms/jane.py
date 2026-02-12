@@ -17,6 +17,7 @@ Flow:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
@@ -31,6 +32,55 @@ _JANE_CFG = PLATFORM_DEFAULTS["jane"]
 
 # Strain types that are NOT real product names — skip to next line.
 _STRAIN_ONLY = {"indica", "sativa", "hybrid", "cbd", "thc"}
+
+# Category-only labels — not real product names (shared with curaleaf).
+_CATEGORY_ONLY = {
+    "flower", "vape", "edible", "concentrate", "preroll", "pre-roll",
+    "cartridge", "tincture", "topical", "beverage", "accessories",
+    "gear", "merch", "all products", "specials", "deals",
+}
+
+# Promotional / discount lines that appear before the product name.
+_PROMO_LINE = re.compile(
+    r"^\d+%\s*off\b"              # "40% OFF"
+    r"|^B[12]G[12]\b"             # "B1G1", "B2G1"
+    r"|^BOGO\b"                   # "BOGO"
+    r"|^Buy\s+\d+"               # "Buy 1 Get 1 Free"
+    r"|^Save\s+\$"               # "Save $5"
+    r"|^(?:NEW|SALE|LIMITED)!?$"  # single-word promo labels
+    r"|^Special\b"               # "Special Offer"
+    r"|^Mix\s*&?\s*Match\b"      # "Mix & Match"
+    r"|^(?:Staff\s+)?Pick!?$"    # "Staff Pick", "Pick"
+    r"|^On\s+Sale!?$"            # "On Sale"
+    r"|^Free\s+\w+\b"           # "Free Delivery"
+    r"|^from\s+\$"              # "from $7.35"
+    , re.IGNORECASE,
+)
+
+# "by <Brand>" pattern — e.g. "by Essence", "by (the) Essence"
+_BY_BRAND = re.compile(
+    r"^by\s+(?:\(?the\)?\s+)?(.+?)$",
+    re.IGNORECASE,
+)
+
+# JS snippet to extract brand from a dedicated child element inside
+# a product card.  Runs as a single evaluate() call for efficiency.
+_JS_EXTRACT_BRAND = """el => {
+    const selectors = [
+        '[class*="brand" i]', '[class*="Brand"]',
+        '[data-testid*="brand"]',
+        '[class*="manufacturer" i]', '[class*="Manufacturer"]',
+        '[class*="producer" i]',
+    ];
+    for (const sel of selectors) {
+        const found = el.querySelector(sel);
+        if (found) {
+            const t = found.textContent.trim();
+            if (t && t.length >= 2 && t.length < 60) return t;
+        }
+    }
+    return null;
+}"""
 
 # Multiple selector strategies — Jane sites are inconsistent.
 # The first entry is a known Jane-specific class pattern from the PRD.
@@ -50,6 +100,12 @@ _PRODUCT_SELECTORS = [
     '[class*="MenuItem"]',
     "article[class*='product']",
     ".product-tile",
+    # Broader fallbacks for non-standard Jane embeds (TOL, etc.)
+    'li[class*="product"]',
+    '[class*="product-row"]',
+    '[class*="menu-product-card"]',
+    '[class*="store-product"]',
+    '[class*="catalog-item"]',
 ]
 
 # Jane iframe selectors (supplements the generic ones in handlers/iframe.py).
@@ -163,12 +219,68 @@ class JaneScraper(BaseScraper):
                     text_block = await el.inner_text()
                     lines = [ln.strip() for ln in text_block.split("\n") if ln.strip()]
 
-                    # Pick the first line that is NOT just a strain type
-                    name = "Unknown"
+                    # --- Brand extraction from dedicated DOM element ----------
+                    scraped_brand = ""
+                    try:
+                        dom_brand = await el.evaluate(_JS_EXTRACT_BRAND)
+                        if dom_brand:
+                            low_brand = dom_brand.lower().strip()
+                            if low_brand not in _STRAIN_ONLY and low_brand not in _CATEGORY_ONLY:
+                                scraped_brand = dom_brand.strip()
+                    except Exception:
+                        pass
+
+                    # --- Name extraction (skip promo/category/brand lines) ----
+                    # Collect up to two valid text lines.  Jane cards often
+                    # render brand on line 1 and product name on line 2.
+                    valid_lines: list[str] = []
                     for ln in lines:
-                        if ln.lower() not in _STRAIN_ONLY:
-                            name = ln
+                        low = ln.lower().strip()
+                        if low in _STRAIN_ONLY or low in _CATEGORY_ONLY:
+                            continue
+                        if re.match(r"^\$\d+\.?\d*\s*off\b", ln, re.IGNORECASE):
+                            continue
+                        if _PROMO_LINE.match(ln):
+                            continue
+                        by_m = _BY_BRAND.match(ln)
+                        if by_m:
+                            if not scraped_brand:
+                                scraped_brand = by_m.group(1).strip()
+                            continue
+                        if re.match(
+                            r"^(?:Indica|Sativa|Hybrid)"
+                            r"(?:\s*[|/]\s*|\s+)"
+                            r"(?:Flower|Vape|Edible|Concentrate|Preroll|Pre-Roll)",
+                            ln, re.IGNORECASE,
+                        ):
+                            continue
+                        if re.match(r"^\$[\d.]+$", ln):
+                            continue
+                        if re.match(r"^(?:THC|CBD|CBN)\s*:", ln, re.IGNORECASE):
+                            continue
+                        if scraped_brand and low == scraped_brand.lower():
+                            continue
+                        valid_lines.append(ln)
+                        if len(valid_lines) >= 2:
                             break
+
+                    # Decide name vs brand from the valid text lines.
+                    # If no DOM brand was found and we have 2+ valid lines,
+                    # the first short line (≤3 words, no digits) is likely
+                    # the brand label, and the second is the product name.
+                    name = "Unknown"
+                    if valid_lines:
+                        first = valid_lines[0]
+                        if (
+                            not scraped_brand
+                            and len(valid_lines) >= 2
+                            and len(first.split()) <= 3
+                            and not re.search(r"\d", first)
+                        ):
+                            scraped_brand = first
+                            name = valid_lines[1]
+                        else:
+                            name = first
 
                     product: dict[str, Any] = {
                         "name": name,
@@ -176,6 +288,8 @@ class JaneScraper(BaseScraper):
                         "product_url": self.url,  # fallback: dispensary menu URL
                         "source_platform": "jane",
                     }
+                    if scraped_brand:
+                        product["scraped_brand"] = scraped_brand
 
                     # Try to extract a product link from an <a> ancestor or child
                     try:

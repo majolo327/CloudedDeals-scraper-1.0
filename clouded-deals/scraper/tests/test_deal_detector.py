@@ -486,20 +486,24 @@ class TestSelectTopDeals:
 
     def test_brand_diversity_enforced(self, scored_deals_pool):
         result = select_top_deals(scored_deals_pool)
-        # Only check diversity for products WITH a detected brand.
+        # The scored_deals_pool fixture has limited dispensaries (8) which
+        # triggers backfill with relaxed caps.  Check against backfill cap.
+        from deal_detector import _BACKFILL_BRAND_TOTAL
         brand_counts = Counter(
             d["brand"] for d in result if d.get("brand")
         )
         for brand, count in brand_counts.items():
-            assert count <= MAX_SAME_BRAND_TOTAL, \
-                f"Brand '{brand}' has {count} deals (max {MAX_SAME_BRAND_TOTAL})"
+            assert count <= _BACKFILL_BRAND_TOTAL, \
+                f"Brand '{brand}' has {count} deals (max {_BACKFILL_BRAND_TOTAL})"
 
     def test_dispensary_cap_enforced(self, scored_deals_pool):
         result = select_top_deals(scored_deals_pool)
+        # The scored_deals_pool fixture triggers backfill — check relaxed cap.
+        from deal_detector import _BACKFILL_DISPENSARY_TOTAL
         disp_counts = Counter(d.get("dispensary_id", "") for d in result)
         for disp, count in disp_counts.items():
-            assert count <= MAX_SAME_DISPENSARY_TOTAL, \
-                f"Dispensary '{disp}' has {count} deals (max {MAX_SAME_DISPENSARY_TOTAL})"
+            assert count <= _BACKFILL_DISPENSARY_TOTAL, \
+                f"Dispensary '{disp}' has {count} deals (max {_BACKFILL_DISPENSARY_TOTAL})"
 
     def test_small_pool_returns_all(self, make_product):
         small = [
@@ -511,22 +515,54 @@ class TestSelectTopDeals:
         assert len(result) == 10
 
     def test_all_same_brand_capped(self, make_product):
+        # When all deals are one brand, round 1 under-fills → backfill
+        # kicks in with relaxed cap.
+        from deal_detector import _BACKFILL_BRAND_TOTAL
         deals = [
             make_product(name=f"P{i}", brand="Cookies", dispensary_id=f"D{i}",
                          category="flower", deal_score=80 - i)
             for i in range(50)
         ]
         result = select_top_deals(deals)
-        assert len(result) <= MAX_SAME_BRAND_TOTAL
+        assert len(result) <= _BACKFILL_BRAND_TOTAL
 
     def test_all_same_dispensary_capped(self, make_product):
+        # When all deals are one dispensary, round 1 under-fills → backfill
+        # kicks in with relaxed cap.
+        from deal_detector import _BACKFILL_DISPENSARY_TOTAL
         deals = [
             make_product(name=f"P{i}", brand=f"B{i}", dispensary_id="planet13",
                          category="flower", deal_score=80 - i)
             for i in range(50)
         ]
         result = select_top_deals(deals)
-        assert len(result) <= MAX_SAME_DISPENSARY_TOTAL
+        assert len(result) <= _BACKFILL_DISPENSARY_TOTAL
+
+    def test_tight_caps_when_pool_is_ample(self, make_product):
+        """When the pool is diverse enough, round 1 fills > 85% and tight caps apply."""
+        deals = []
+        brands = [f"Brand{i}" for i in range(40)]
+        dispensaries = [f"Dispo{i}" for i in range(25)]
+        categories = ["flower", "vape", "edible", "concentrate", "preroll"]
+        score = 90
+        for cat in categories:
+            for i, brand in enumerate(brands):
+                for j in range(3):
+                    disp = dispensaries[(i + j) % len(dispensaries)]
+                    deals.append(make_product(
+                        name=f"{brand} {cat} {j}",
+                        brand=brand,
+                        category=cat,
+                        dispensary_id=disp,
+                        deal_score=max(20, score - i - j),
+                    ))
+        result = select_top_deals(deals)
+        # With 40 brands × 5 cats × 3 = 600 deals, 25 dispensaries,
+        # round 1 should fill fine and tight caps should hold.
+        brand_counts = Counter(d["brand"] for d in result if d.get("brand"))
+        for brand, count in brand_counts.items():
+            assert count <= MAX_SAME_BRAND_TOTAL, \
+                f"Brand '{brand}' has {count} deals (max {MAX_SAME_BRAND_TOTAL})"
 
 
 # =====================================================================
