@@ -1206,14 +1206,15 @@ async def run(slug_filter: str | None = None) -> None:
 
     dispensaries = _get_active_dispensaries(slug_filter)
 
+    if not dispensaries:
+        logger.error("No dispensaries to scrape — skipping deactivation and exiting")
+        return
+
     # Deactivate previous day's deals — scoped to this group's dispensaries
     # so a "stable" run doesn't wipe yesterday's "new" products.
     group_slugs = [d["slug"] for d in dispensaries] if PLATFORM_GROUP != "all" else None
     _deactivate_old_deals(group_slugs)
     _expire_stale_deal_history(group_slugs)
-    if not dispensaries:
-        logger.error("No dispensaries to scrape")
-        return
 
     concurrency = SCRAPE_CONCURRENCY
     logger.info(
