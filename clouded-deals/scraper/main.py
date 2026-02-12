@@ -228,6 +228,10 @@ _RE_TRAILING_STRAIN = re.compile(r"\s*(Indica|Sativa|Hybrid)\s*$", re.IGNORECASE
 # Brand abbreviations that appear in product names instead of the full brand
 _BRAND_ABBREVIATIONS: dict[str, list[str]] = {
     "Circle S Farms": ["CSF"],
+    "Sauce Essentials": ["Sauce"],
+    "Vlasic Labs": ["Vlasic"],
+    "Tyson 2.0": ["Tyson"],
+    "Tsunami Labs": ["Tsunami"],
 }
 
 # Weight prefix patterns: "3.5g |", "1g |", ".5g |"
@@ -256,8 +260,8 @@ _RE_MARKETING_JUNK = re.compile(
 
 # Concentrate format descriptors — redundant when category is already "concentrate"
 _RE_CONCENTRATE_FORMAT = re.compile(
-    r"\b(?:Diamond\s+)?(?:Badder|Batter|Budder|Shatter|Wax|Sauce|Sugar|"
-    r"Crumble|Rosin|Diamonds?|Live\s+Resin|Cured\s+Resin)\b",
+    r"\b(?:(?:Diamond|Live|Cured)\s+)?(?:Badder|Batter|Budder|Shatter|Wax|"
+    r"Sauce|Sugar|Crumble|Rosin|Resin|Diamonds?)\b",
     re.IGNORECASE,
 )
 
@@ -274,7 +278,13 @@ _VAPE_NAME_KEYWORDS = re.compile(
 
 # Standalone weight values redundant with the weight field
 _RE_INLINE_WEIGHT = re.compile(
-    r"\b(?:0?\.5|1(?:\.0)?|2|3\.5|7|14|28)\s*g\b",
+    r"\b\d*\.?\d+\s*g\b",
+    re.IGNORECASE,
+)
+
+# Bracket-enclosed weight: "[.95g]", "[1g]", "[3.5g]"
+_RE_BRACKET_WEIGHT = re.compile(
+    r"\s*\[\.?\d+\.?\d*\s*g\]\s*",
     re.IGNORECASE,
 )
 
@@ -911,6 +921,7 @@ async def _scrape_site_inner(
             ).strip()
 
         # 6. Strip inline weight values redundant with the weight field
+        display_name = _RE_BRACKET_WEIGHT.sub("", display_name).strip()
         display_name = _RE_INLINE_WEIGHT.sub("", display_name).strip()
 
         # 7. Strip marketing junk: "High Octane Xtreme" etc.
