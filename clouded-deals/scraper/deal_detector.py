@@ -292,8 +292,12 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
 # Quality gate — reject incomplete / garbage deals
 # =====================================================================
 
-# Names that are just strain types or classifications, not real products
-_STRAIN_ONLY_NAMES = {"indica", "sativa", "hybrid", "cbd", "thc", "unknown"}
+# Names that are just strain types, classifications, or category labels — not real products
+_STRAIN_ONLY_NAMES = {
+    "indica", "sativa", "hybrid", "cbd", "thc", "unknown",
+    "flower", "vape", "edible", "concentrate", "preroll", "pre-roll",
+    "cartridge", "cart", "badder", "shatter", "wax", "gummy", "gummies",
+}
 
 # Categories that should always have a detected weight
 _WEIGHT_REQUIRED_CATEGORIES = {"flower", "concentrate", "vape"}
@@ -328,6 +332,11 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
 
     # Reject products where name == brand (redundant display)
     if brand and name.strip().lower() == brand.lower():
+        return False
+
+    # Reject products where name is a repeated word (e.g. "Badder Badder")
+    name_words = name.strip().lower().split()
+    if len(name_words) == 2 and name_words[0] == name_words[1]:
         return False
 
     # Reject products with no weight in categories that need it
@@ -526,6 +535,30 @@ def _weight_tier(deal: dict[str, Any]) -> str:
     return f"{cat}_default"
 
 
+def _normalize_dedup_name(name: str, brand: str) -> str:
+    """Normalize product name for dedup matching.
+
+    Strips brand name, strain types, weight prefixes, punctuation, and
+    whitespace so garbled variants match their clean counterparts.
+    E.g. "CSF Cartridge Kobe Circle S Farms Indica-Hybrid" → "kobe"
+    """
+    import re
+    n = (name or "").lower().strip()
+    # Strip brand name from product name
+    if brand:
+        n = re.sub(r'\b' + re.escape(brand.lower()) + r'\b', '', n)
+    # Strip strain types
+    n = re.sub(r'\b(?:indica|sativa|hybrid|indica-hybrid|sativa-hybrid)\b', '', n)
+    # Strip weight prefixes: "3.5g |", "1g |"
+    n = re.sub(r'^\.?\d+\.?\d*\s*g\s*\|\s*', '', n)
+    # Strip common product type words
+    n = re.sub(r'\b(?:cartridge|cart|disposable|badder|pre-?roll|gummy|gummies)\b', '', n)
+    # Strip all punctuation, collapse whitespace
+    n = re.sub(r'[^a-z0-9\s]', '', n)
+    n = re.sub(r'\s+', ' ', n).strip()
+    return n
+
+
 def remove_global_name_duplicates(
     deals: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -533,13 +566,16 @@ def remove_global_name_duplicates(
 
     If "Baja Blast Disposable" from Hustler's Ambition is sold at three
     different dispensaries, only keep the one with the best deal score.
+
+    Uses normalized name matching so garbled variants (with extra brand
+    name, strain type, weight prefix) match their clean counterparts.
     """
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for deal in deals:
-        name = (deal.get("name") or "").lower().strip()
         brand = (deal.get("brand") or "").lower()
         cat = deal.get("category", "other")
-        key = f"{name}|{brand}|{cat}"
+        norm_name = _normalize_dedup_name(deal.get("name", ""), brand)
+        key = f"{norm_name}|{brand}|{cat}"
         groups[key].append(deal)
 
     result: list[dict[str, Any]] = []
@@ -587,8 +623,8 @@ def _chain_prefix(dispensary_id: str) -> str:
         return ""
     parts = dispensary_id.split("-")
     # Use first segment as chain prefix; multi-word chains use first two
-    # segments (e.g., "zen-leaf-lv" → "zen-leaf").
-    _MULTI_WORD_CHAINS = {"zen", "the"}
+    # segments (e.g., "zen-leaf-lv" → "zen-leaf", "nevada-made-henderson" → "nevada-made").
+    _MULTI_WORD_CHAINS = {"zen", "the", "nevada", "deep", "beyond", "tree"}
     if len(parts) >= 2 and parts[0] in _MULTI_WORD_CHAINS:
         return f"{parts[0]}-{parts[1]}"
     return parts[0]

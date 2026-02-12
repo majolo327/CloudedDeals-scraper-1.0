@@ -48,7 +48,11 @@ _PRODUCT_SELECTORS = [
 _JUNK_PATTERNS = re.compile(
     r"(Add to (cart|bag)|Remove|View details|Out of stock|"
     r"Sale!|New!|Limited|Sold out|In stock|"
-    r"\bQty\b.*$|\bQuantity\b.*$)",
+    r"\bQty\b.*$|\bQuantity\b.*$|"
+    r"\b(?:THC|CBD|CBN|CBG|CBC)\s*:\s*[\d.]+\s*(?:mg|%)|"  # cannabinoid content
+    r"\bLocal Love!?|"                                        # NV promo badges
+    r"\bNew Arrival!?|"
+    r"\bStaff Pick!?)",
     re.IGNORECASE | re.MULTILINE,
 )
 

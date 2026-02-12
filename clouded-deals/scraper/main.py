@@ -188,6 +188,29 @@ def _deactivate_old_deals(group_slugs: list[str] | None = None) -> None:
         scope = f"group={PLATFORM_GROUP}" if group_slugs else "all"
         logger.info("Deactivated %d old products (%s)", count, scope)
 
+    # Also deactivate stale products from INACTIVE dispensaries.
+    # When a site is deactivated in config (is_active=False), its old
+    # products remain is_active=True in the DB because the site is no
+    # longer included in group_slugs.  This cleanup catches those orphans.
+    inactive_slugs = [
+        d["slug"] for d in DISPENSARIES
+        if not d.get("is_active", True)
+    ]
+    if inactive_slugs:
+        inactive_result = (
+            db.table("products")
+            .update({"is_active": False, "deal_score": 0})
+            .eq("is_active", True)
+            .in_("dispensary_id", inactive_slugs)
+            .execute()
+        )
+        inactive_count = len(inactive_result.data) if inactive_result.data else 0
+        if inactive_count > 0:
+            logger.info(
+                "Deactivated %d orphan products from %d inactive dispensaries",
+                inactive_count, len(inactive_slugs),
+            )
+
 
 _UPSERT_CHUNK_SIZE = 500  # max rows per Supabase upsert call
 
@@ -308,8 +331,12 @@ _SALE_COPY_PATTERNS = [
 ]
 
 
-# Names that are strain types / classifications, NOT real product names.
-_STRAIN_ONLY_NAMES = {"indica", "sativa", "hybrid", "cbd", "thc", "unknown"}
+# Names that are strain types, classifications, or category labels — NOT real product names.
+_STRAIN_ONLY_NAMES = {
+    "indica", "sativa", "hybrid", "cbd", "thc", "unknown",
+    "flower", "vape", "edible", "concentrate", "preroll", "pre-roll",
+    "cartridge", "cart", "badder", "shatter", "wax", "gummy", "gummies",
+}
 
 # ── Offer/bundle text isolation for brand detection ──────────────────
 # When Dutchie product cards include "Special Offers" sections, those
@@ -443,6 +470,28 @@ def _clean_product_name(name: str) -> str:
 
     # Strip "Prepack", "Whole Flower", "Flower Prepack"
     cleaned = _RE_PREPACK.sub("", cleaned)
+
+    # Strip inline cannabinoid content that leaks from Dutchie product cards
+    # e.g. "THC: 101.52 mg", "CBD: 25.0 mg", "CBN: 5 mg"
+    cleaned = re.sub(r"\b(?:THC|CBD|CBN|CBG|CBC)\s*:\s*[\d.]+\s*(?:mg|%)", "", cleaned, flags=re.IGNORECASE)
+
+    # Fix "mgmg" doubling artifact — "100mgmg" → "100mg"
+    cleaned = re.sub(r"(\d+\s*mg)\s*mg\b", r"\1", cleaned, flags=re.IGNORECASE)
+
+    # Strip standalone "mg" that remains after cannabinoid cleanup
+    # e.g. "Sativamg" → "Sativa", "Hybridmg" → "Hybrid"
+    cleaned = re.sub(r"(Indica|Sativa|Hybrid)\s*mg\b", r"\1", cleaned, flags=re.IGNORECASE)
+
+    # Strip promotional taglines that leak from Dutchie product badges/ribbons
+    cleaned = re.sub(r"\bLocal Love!?", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bNew Arrival!?", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bLimited Time!?", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bStaff Pick!?", "", cleaned, flags=re.IGNORECASE)
+    # Day-of-week promo labels: "Remedy Wednesday", "Mojo Monday"
+    cleaned = re.sub(r"\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b", "", cleaned, flags=re.IGNORECASE)
+
+    # Strip parenthetical strain codes: "(SH)", "(I)", "(S)", "(H)", "(IH)", "(SH)"
+    cleaned = re.sub(r"\s*\(\s*(?:SH?|IH?|H)\s*\)", "", cleaned, flags=re.IGNORECASE)
 
     # Strip inline price/deal text fragments that slip into product names
     # e.g. "$99 $45 1/2 OZ" or "1/2 OZ" at end of name

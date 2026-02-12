@@ -138,7 +138,7 @@ BRANDS = sorted(set([
     'KANHA', 'Kannabis', 'Keef', 'Khalifa Kush', 'Khalifa Yellow',
     'Kingpen', 'Kiva', 'Kiva Lost Farm', 'Kushberry Farms', 'Kynd',
     # L
-    'Later Days', 'LAVI', 'LEVEL', 'Lift Tickets', 'LIT',
+    'Later Days', 'LAVI', 'Leaf & Vine', 'Leaf and Vine', 'LEVEL', 'Lift Tickets', 'LIT',
     "Local's Only", 'Lost Farm', 'LP Exotics',
     # M
     'Matrix', 'Medizin', 'Mojo', 'Moxie', 'Mystic Timbers',
@@ -198,6 +198,7 @@ BRAND_ALIASES: dict[str, str] = {
     'CLEAR Brands': 'The Clear',
     'Evergreen Organix': 'EGO',
     "Local's Only": "Local's Only",   # canonical form with apostrophe
+    'Leaf and Vine': 'Leaf & Vine',   # normalize ampersand form
 }
 
 # ============================================================================
@@ -261,8 +262,8 @@ _STRAIN_BRAND_BLOCKERS = [
     (re.compile(r'\b(?:girl\s*scout|thin\s*mint|platinum|animal|lemon|cherry|'
                 r'forum\s*cut|sugar|blueberry|sunset|fire|sour\s*fire|og|'
                 r'mandarin|guava|grape|peanut\s*butter|london\s*pound|kush|'
-                r'berry|tropical|strawberry|orange|purple|white|gelato|'
-                r'biscotti|garlic)\s+cookies\b', re.IGNORECASE), 'Cookies'),
+                r'berry|tropical|tropicana|strawberry|orange|purple|white|gelato|'
+                r'biscotti|garlic|alien)\s+cookies\b', re.IGNORECASE), 'Cookies'),
 
     # "Runtz" is a brand, but these are strains:
     (re.compile(r'\b(?:white|pink|gelatti|gelato|tropical|gruntz|rainbow|'
