@@ -45,8 +45,10 @@ from metrics_collector import collect_daily_metrics
 from product_classifier import classify_product
 from platforms import AIQScraper, CarrotScraper, CuraleafScraper, DutchieScraper, JaneScraper, RiseScraper
 
-# Concurrency limit for parallel scraping (4 browser contexts at once)
-SCRAPE_CONCURRENCY = int(os.getenv("SCRAPE_CONCURRENCY", "4"))
+# Concurrency limit for parallel scraping.  Each concurrent slot uses one
+# browser context (~80 MB).  6 contexts ≈ 500 MB RAM, well within typical
+# CI runner limits.  Override with SCRAPE_CONCURRENCY env var.
+SCRAPE_CONCURRENCY = int(os.getenv("SCRAPE_CONCURRENCY", "6"))
 
 load_dotenv()
 
@@ -615,10 +617,11 @@ def _upsert_products(
 
     # --- Upsert in chunks -----------------------------------------------
     # Supabase / PostgREST can choke on very large payloads; chunking
-    # keeps each request well under the payload limit.
-    all_results: list[dict[str, Any]] = []
-    for i in range(0, len(rows), _UPSERT_CHUNK_SIZE):
-        chunk = rows[i : i + _UPSERT_CHUNK_SIZE]
+    # keeps each request well under the payload limit.  Chunks are
+    # uploaded concurrently via asyncio.to_thread for speed.
+
+    def _sync_upsert_chunk(chunk: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Synchronous upsert of one chunk (runs in thread pool)."""
         try:
             result = (
                 db.table("products")
@@ -649,12 +652,18 @@ def _upsert_products(
                     raise
             else:
                 raise
-        all_results.extend(result.data)
-        if len(rows) > _UPSERT_CHUNK_SIZE:
-            logger.info(
-                "[%s] Upserted chunk %d–%d of %d",
-                dispensary_id, i + 1, i + len(chunk), len(rows),
-            )
+        return result.data
+
+    chunks = [rows[i : i + _UPSERT_CHUNK_SIZE] for i in range(0, len(rows), _UPSERT_CHUNK_SIZE)]
+    if len(chunks) > 1:
+        logger.info("[%s] Upserting %d products in %d parallel chunks", dispensary_id, len(rows), len(chunks))
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    all_results: list[dict[str, Any]] = []
+    with ThreadPoolExecutor(max_workers=min(4, len(chunks))) as pool:
+        futures = {pool.submit(_sync_upsert_chunk, c): i for i, c in enumerate(chunks)}
+        for future in as_completed(futures):
+            all_results.extend(future.result())
 
     # --- Log price history (append-only time-series) -------------------
     # Every product observation gets recorded so price changes are never lost.
@@ -858,7 +867,8 @@ def _expire_stale_deal_history(group_slugs: list[str] | None = None) -> None:
 # ---------------------------------------------------------------------------
 
 
-_SITE_TIMEOUT_SEC = SITE_TIMEOUT_SEC  # 600 s (from config)
+_SITE_TIMEOUT_SEC = SITE_TIMEOUT_SEC  # 600 s (from config) — attempt 1
+_RETRY_TIMEOUT_SEC = 300  # 300 s for retries — if 600s wasn't enough, 300s rarely helps
 _MAX_RETRIES = 2
 _RETRY_DELAY_SEC = 5
 
@@ -1107,22 +1117,27 @@ async def scrape_site(
     slug = dispensary["slug"]
 
     for attempt in range(1, _MAX_RETRIES + 1):
+        # Shorter timeout on retries — if 600s wasn't enough, 300s rarely
+        # helps but still catches transient slowness.  Saves ~5 min per
+        # failing site in the parallel pipeline.
+        timeout = _SITE_TIMEOUT_SEC if attempt == 1 else _RETRY_TIMEOUT_SEC
         logger.info(
-            "[%s] Starting scrape (%s) — attempt %d/%d",
-            slug, dispensary["platform"], attempt, _MAX_RETRIES,
+            "[%s] Starting scrape (%s) — attempt %d/%d (timeout=%ds)",
+            slug, dispensary["platform"], attempt, _MAX_RETRIES, timeout,
         )
         try:
             result = await asyncio.wait_for(
                 _scrape_site_inner(dispensary, browser=browser),
-                timeout=_SITE_TIMEOUT_SEC,
+                timeout=timeout,
             )
             # Success — return immediately
             return result
         except asyncio.TimeoutError:
-            logger.error("[%s] Timed out after %ds (attempt %d)", slug, _SITE_TIMEOUT_SEC, attempt)
-            if attempt < _MAX_RETRIES:
-                logger.info("[%s] Retrying in %ds...", slug, _RETRY_DELAY_SEC)
-                await asyncio.sleep(_RETRY_DELAY_SEC)
+            logger.error("[%s] Timed out after %ds (attempt %d)", slug, timeout, attempt)
+            # Don't retry timeouts — if 600s wasn't enough, the issue is
+            # structural (Cloudflare, empty page, wrong selectors), not
+            # transient.  Saves 300s per failing site in the pipeline.
+            break
         except Exception as exc:
             logger.error("[%s] Failed (attempt %d): %s", slug, attempt, exc, exc_info=True)
             if attempt < _MAX_RETRIES:
