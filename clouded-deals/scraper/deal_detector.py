@@ -152,6 +152,7 @@ MAX_CONSECUTIVE_SAME_CATEGORY = 3
 MAX_CONSECUTIVE_SAME_BRAND = 1        # no same-brand cards adjacent in the feed
 MAX_SAME_BRAND_PER_DISPENSARY = 2  # similarity dedup
 MAX_SAME_BRAND_PER_CATEGORY = 3    # cap per brand within a single category across all dispensaries
+MAX_UNKNOWN_BRAND_TOTAL = 8        # cap for unbranded products (more lenient since "unknown" covers many genuinely different brands)
 
 # =====================================================================
 # Phase 4: Badge thresholds
@@ -487,6 +488,8 @@ def _weight_tier(deal: dict[str, Any]) -> str:
             return "flower_half"
         return "flower_oz"
     if cat == "vape":
+        # 0.6g threshold: industry-standard "half gram" carts are 0.5g but
+        # some brands label at 0.55-0.6g; anything above is a full gram.
         if wv <= 0.6:
             return "vape_half"
         return "vape_full"
@@ -647,6 +650,10 @@ def select_top_deals(
             pool_size = len(buckets[cat])
             current = category_slots.get(cat, 0)
             cat_target = CATEGORY_TARGETS.get(cat, 10)
+            # 1.5x ceiling: allow categories with surplus supply to take up to
+            # 50% more than their target, preventing empty slots while keeping
+            # balance.  Without this, a single high-volume category (e.g. flower)
+            # could fill all redistributed slots.
             max_for_cat = int(cat_target * 1.5)
             can_add = min(pool_size - current, max_for_cat - current)
             if can_add > 0:
@@ -657,22 +664,17 @@ def select_top_deals(
                 break
 
     # Pick deals from each category pool with brand diversity.
-    # NOTE: Products without a detected brand each get a unique key
-    # so they are NOT all collapsed into one "Unknown" bucket that
-    # gets capped at MAX_SAME_BRAND_TOTAL.  Only per-dispensary
-    # and per-category limits constrain brandless products.
+    # Unbranded products share a single "_unknown" key and are capped
+    # at MAX_UNKNOWN_BRAND_TOTAL (more lenient than branded caps since
+    # "unknown" covers many genuinely different brands).  Per-dispensary
+    # and per-category limits still apply independently.
     brand_counts: dict[str, int] = defaultdict(int)
     brand_cat_counts: dict[str, int] = defaultdict(int)  # "brand|category" → count
     dispensary_counts: dict[str, int] = defaultdict(int)
-    _unknown_counter = 0
 
     def _brand_key(deal: dict[str, Any]) -> str:
-        nonlocal _unknown_counter
         b = deal.get("brand")
-        if b:
-            return b
-        _unknown_counter += 1
-        return f"_unknown_{_unknown_counter}"
+        return b if b else "_unknown"
 
     for cat, slots in category_slots.items():
         pool = buckets.get(cat, [])
@@ -683,7 +685,8 @@ def select_top_deals(
             brand = _brand_key(deal)
             disp_id = deal.get("dispensary_id") or ""
             bc_key = f"{brand}|{cat}"
-            if brand_counts[brand] >= MAX_SAME_BRAND_TOTAL:
+            brand_cap = MAX_UNKNOWN_BRAND_TOTAL if brand == "_unknown" else MAX_SAME_BRAND_TOTAL
+            if brand_counts[brand] >= brand_cap:
                 return False
             if brand_cat_counts[bc_key] >= MAX_SAME_BRAND_PER_CATEGORY:
                 return False

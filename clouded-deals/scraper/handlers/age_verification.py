@@ -66,6 +66,7 @@ _JS_REMOVE_OVERLAY = """
         if (
             style.position === 'fixed' ||
             style.position === 'absolute' ||
+            style.position === 'sticky' ||
             el.id === 'agc_form' ||
             el.classList.contains('agc_screen')
         ) {
@@ -79,6 +80,36 @@ _JS_REMOVE_OVERLAY = """
     return removed;
 }
 """
+
+
+async def _page_has_age_gate_signals(target: Page | Frame) -> bool:
+    """Quick JS check for age-gate keywords in the page text or DOM.
+
+    Returns ``True`` if the page likely has an age gate (worth trying
+    selectors), ``False`` if the page has no age-gate signals at all.
+    """
+    try:
+        return await target.evaluate("""
+            () => {
+                // Check for known age-gate element IDs/classes first (fast)
+                if (document.getElementById('agc_form')) return true;
+                if (document.getElementById('agc_container')) return true;
+                if (document.querySelector('.agc_screen')) return true;
+                if (document.querySelector('[class*="age-gate"]')) return true;
+                if (document.querySelector('[class*="age-verification"]')) return true;
+                // Check page text for age-gate keywords
+                const text = (document.body?.innerText || '').toLowerCase();
+                const keywords = [
+                    '21 or older', 'are you 21', 'verify your age',
+                    'age verification', 'i confirm', 'at least 21',
+                    'over 21', '21+', 'must be 21',
+                ];
+                return keywords.some(k => text.includes(k));
+            }
+        """)
+    except Exception:
+        # If the check fails, assume there might be a gate — don't skip
+        return True
 
 
 async def _is_empty_or_error_page(target: Page | Frame) -> bool:
@@ -129,6 +160,20 @@ async def dismiss_age_gate(
     # This saves ~57s on pages that will never have an age gate.
     if isinstance(target, Page) and await _is_empty_or_error_page(target):
         logger.debug("Skipping age gate — error or empty page detected")
+        return False
+
+    # Fast pre-check: scan the page text for age-gate keywords before
+    # looping through 19 selectors with individual timeouts.  Pages
+    # without any age gate skip the entire selector loop instantly.
+    if not await _page_has_age_gate_signals(target):
+        logger.debug("No age gate signals in page text — skipping selector loop")
+        # Still run JS fallback in case there's a hidden overlay
+        removed = await force_remove_age_gate(target)
+        if removed > 0:
+            logger.info("Age gate removed via JS fallback (%d element(s)) despite no text signals", removed)
+            if post_dismiss_wait_sec > 0:
+                await asyncio.sleep(post_dismiss_wait_sec)
+            return True
         return False
 
     # Try primary selectors first (text-based "I am 21 or older" then

@@ -20,6 +20,11 @@ const QUICK_DISTANCE: { id: DistanceRange; label: string }[] = [
   { id: 'across_town', label: 'Across Town' },
 ];
 
+// Sticky offset for the distance chip bar — must stay in sync with:
+//   navbar: top-14 (3.5rem mobile) / top-16 (4rem sm)
+//   StickyStatsBar: h-12 (3rem)
+const DISTANCE_BAR_TOP = 'top-[6.5rem] sm:top-[7rem]';
+
 type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'preroll';
 
 interface DealsPageProps {
@@ -58,7 +63,6 @@ export function DealsPage({
     resetFilters,
     activeFilterCount,
     userCoords,
-    getDistance,
     filterAndSortDeals,
   } = useUniversalFilters();
 
@@ -79,13 +83,15 @@ export function DealsPage({
     filters.priceRange !== 'all' || filters.minDiscount > 0 || filters.distanceRange !== 'all' ||
     filters.weightFilter !== 'all';
 
-  // Apply category tab first, then universal filters
-  const filteredDeals = useMemo(() => {
-    let result = deals.filter(
+  // Apply category tab first, then universal filters.
+  // distanceMap is pre-computed once inside filterAndSortDeals so we
+  // don't recalculate getDistance() per-deal on every render.
+  const { filteredDeals, distanceMap } = useMemo(() => {
+    const catResult = deals.filter(
       (d) => activeCategory === 'all' || d.category.toLowerCase() === activeCategory
     );
-    result = filterAndSortDeals(result);
-    return result;
+    const { filtered, distanceMap } = filterAndSortDeals(catResult);
+    return { filteredDeals: filtered, distanceMap };
   }, [deals, activeCategory, filterAndSortDeals]);
 
   // Deck is always active — users interact with 12 cards at a time, never infinite scroll.
@@ -134,7 +140,7 @@ export function DealsPage({
       {/* Distance quick-filter chips — shown when user has location */}
       {userCoords && (
         <div
-          className="sticky top-[calc(3.5rem+3rem)] sm:top-[calc(4rem+3rem)] z-30 border-b"
+          className={`sticky ${DISTANCE_BAR_TOP} z-30 border-b`}
           style={{ backgroundColor: 'rgba(10, 14, 26, 0.92)', borderColor: 'var(--border-subtle)' }}
         >
           <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-2 overflow-x-auto scrollbar-hide">
@@ -304,7 +310,7 @@ export function DealsPage({
               {deck.visible.map((deal, index) => {
                 const isDismissing = deck.dismissingId === deal.id;
                 const isAppearing = deck.appearingId === deal.id;
-                const distance = getDistance(deal.dispensary.latitude, deal.dispensary.longitude);
+                const distance = distanceMap.get(deal.id) ?? null;
 
                 const isJackpotReveal =
                   isAppearing &&

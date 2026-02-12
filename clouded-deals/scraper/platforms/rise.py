@@ -98,9 +98,10 @@ _JS_IS_ERROR_PAGE = """
     // Cloudflare challenge page
     const title = document.title || '';
     if (title.includes('Just a moment')) return 'cloudflare_challenge';
-    // Check for common error indicators
-    if (text.includes('404') && text.includes('not found')) return '404';
-    if (text.includes('500') && text.includes('error')) return '500';
+    // Check for common error indicators (case-insensitive)
+    const lower = text.toLowerCase();
+    if (lower.includes('404') && lower.includes('not found')) return '404';
+    if (lower.includes('500') && lower.includes('error')) return '500';
     return '';
 }
 """
@@ -143,7 +144,18 @@ _JS_STEALTH = """
     // Fake plugins/languages to look like a real browser
     Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
     Object.defineProperty(navigator, 'plugins', {
-        get: () => [1, 2, 3, 4, 5],
+        get: () => {
+            // Mimic realistic Chrome PluginArray with named entries
+            const fakes = [
+                { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+                { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
+                { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
+            ];
+            const arr = Object.create(PluginArray.prototype);
+            fakes.forEach((p, i) => { arr[i] = p; });
+            Object.defineProperty(arr, 'length', { get: () => fakes.length });
+            return arr;
+        },
     });
     // Remove automation-related properties
     delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
@@ -248,6 +260,10 @@ class RiseScraper(BaseScraper):
     async def _attempt_scrape(self) -> list[dict[str, Any]]:
         """Single attempt to extract products from the current page state."""
         logger.info("[%s] Page URL: %s", self.slug, self.page.url)
+
+        # --- Cloudflare challenge detection (bail immediately) ---
+        if await self.detect_cloudflare_challenge():
+            return []
 
         # --- Early error page detection ---
         error_type = await self._detect_error_page()
