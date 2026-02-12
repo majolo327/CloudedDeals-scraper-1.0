@@ -524,8 +524,8 @@ export async function searchExtendedDeals(
       )
       .eq('is_active', true)
       .eq('dispensaries.region', activeRegion)
-      .gt('discount_percent', 0)
       .gt('sale_price', 0)
+      .or('discount_percent.gt.0,discount_percent.is.null')
       .or(`name.ilike.${pattern},brand.ilike.${pattern},category.ilike.${pattern},product_subtype.ilike.${pattern},strain_type.ilike.${pattern}`)
       .order('deal_score', { ascending: false })
       .limit(200);

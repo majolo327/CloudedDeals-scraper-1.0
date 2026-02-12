@@ -94,7 +94,7 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
       </div>
 
       {/* Product name */}
-      <h3 className="text-sm sm:text-[15px] font-medium text-slate-100 mb-1 line-clamp-2">
+      <h3 className="text-sm sm:text-[15px] font-medium text-slate-100 mb-1 line-clamp-3">
         {getDisplayName(deal.product_name, deal.brand?.name || '')}
       </h3>
 

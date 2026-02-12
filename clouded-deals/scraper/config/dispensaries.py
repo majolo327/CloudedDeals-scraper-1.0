@@ -428,6 +428,7 @@ DISPENSARIES = [
         "url": "https://lasvegas.treeoflifenv.com/store",
         "is_active": True,
         "region": "southern-nv",
+        "hybrid_strategy": True,  # DOM may differ — needs live investigation
     },
     {
         "name": "Tree of Life Centennial",
@@ -436,6 +437,7 @@ DISPENSARIES = [
         "url": "https://northlasvegas.treeoflifenv.com/store",
         "is_active": True,
         "region": "southern-nv",
+        "hybrid_strategy": True,  # DOM may differ — needs live investigation
     },
     {
         "name": "The Sanctuary N LV Blvd",
@@ -795,8 +797,8 @@ def get_chain_id(dispensary_slug: str) -> str:
 # ---------------------------------------------------------------------------
 
 PLATFORM_GROUPS: dict[str, list[str]] = {
-    "stable": ["dutchie", "curaleaf", "jane"],
-    "new": ["rise", "carrot", "aiq"],
+    "stable": ["dutchie", "curaleaf", "jane", "carrot", "aiq"],
+    "new": ["rise"],
 }
 
 # Reverse lookup: platform → group name

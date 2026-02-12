@@ -231,7 +231,7 @@ function SharedDealCard({ deal, shareId }: { deal: Deal; shareId: string }) {
       </span>
 
       {/* Product name */}
-      <h3 className="text-[13px] sm:text-sm font-medium text-slate-100 mt-1 mb-1 line-clamp-2">
+      <h3 className="text-[13px] sm:text-sm font-medium text-slate-100 mt-1 mb-1 line-clamp-3">
         {getDisplayName(deal.product_name, deal.brand?.name || '')}
       </h3>
 

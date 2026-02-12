@@ -253,7 +253,7 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
 
     sale_price = product.get("sale_price") or product.get("current_price") or 0
     original_price = product.get("original_price") or 0
-    discount = product.get("discount_percent") or 0
+    discount = product.get("discount_percent")
     category = product.get("category", "other")
     weight_value = product.get("weight_value")
     source_platform = product.get("source_platform", "")
@@ -279,7 +279,7 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
         return _passes_price_cap(sale_price, category, weight_value)
 
     # --- Standard filters (non-Jane platforms) ---
-    if not discount or discount < HARD_FILTERS["min_discount_percent"]:
+    if discount is None or discount < HARD_FILTERS["min_discount_percent"]:
         return False
     if discount > HARD_FILTERS["max_discount_percent"]:
         return False  # fake discount / data error
@@ -454,10 +454,13 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
     source_platform = product.get("source_platform", "")
 
     # Jane products have no original price / discount data.  Give them a
-    # flat baseline that roughly equals a "decent" discount (20-25% range)
-    # so they can compete with other platforms on brand/value/category alone.
+    # flat baseline so they can compete with other platforms on
+    # brand/value/category alone.  Non-Jane platforms get up to 45 pts
+    # (35 discount depth + 10 dollars saved); 22 roughly equals a 30%
+    # discount, giving Jane products fair representation without
+    # inflating mediocre listings.
     if source_platform == "jane":
-        score += 15  # baseline in lieu of discount depth + dollars saved
+        score += 22  # baseline in lieu of discount depth + dollars saved
     else:
         # 1. DISCOUNT DEPTH (up to 35 points)
         if discount >= 50:

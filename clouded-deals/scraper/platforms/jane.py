@@ -100,6 +100,12 @@ _PRODUCT_SELECTORS = [
     '[class*="MenuItem"]',
     "article[class*='product']",
     ".product-tile",
+    # Broader fallbacks for non-standard Jane embeds (TOL, etc.)
+    'li[class*="product"]',
+    '[class*="product-row"]',
+    '[class*="menu-product-card"]',
+    '[class*="store-product"]',
+    '[class*="catalog-item"]',
 ]
 
 # Jane iframe selectors (supplements the generic ones in handlers/iframe.py).

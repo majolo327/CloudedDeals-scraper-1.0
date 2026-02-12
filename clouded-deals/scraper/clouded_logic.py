@@ -683,15 +683,24 @@ class CloudedLogic:
         if re.search(r'\d+\.?\d*\s*g\s*/\s*\d+\s*pk\b', t):
             return 'preroll'
 
-        # 4. CONCENTRATE (requires BOTH keyword AND weight)
+        # 4. CONCENTRATE (requires keyword; weight strongly preferred but
+        #    concentrate-only keywords like "badder" are unambiguous even
+        #    without weight — the deal detector still validates weight later)
         # IMPORTANT: If the product also has vape keywords (cart, pod, etc.),
         # it's a vape — not a concentrate.  "Live Resin Cart 0.5g" = vape.
         concentrate_keywords = [
             'badder', 'batter', 'budder', 'shatter', 'wax', 'sauce',
             'diamonds', 'sugar', 'crumble', 'hash', 'rosin', 'dab',
             'terp sauce', 'thca', 'crystals', 'isolate', 'live resin',
-            'cured resin', 'lr', 'cr',
+            'cured resin', 'lr', 'cr', 'extract', 'nug run',
         ]
+        # These keywords are unambiguously concentrates even without weight.
+        # NOTE: "live resin" / "cured resin" are NOT here because they also
+        # appear in vape names ("Live Resin Cart").
+        _UNAMBIGUOUS_CONCENTRATE = {
+            'badder', 'batter', 'budder', 'shatter', 'crumble', 'rosin',
+            'diamonds', 'nug run',
+        }
         vape_keywords_re = re.compile(r'\b(cart|cartridge|pod|disposable|vape|pen|all-in-one)\b')
         has_concentrate = any(kw in t for kw in concentrate_keywords)
         has_concentrate_weight = (
@@ -699,9 +708,10 @@ class CloudedLogic:
             or bool(re.search(r'\b1/[248]\s*(?:oz)?\b', t))  # fractional oz
         )
         has_vape_keyword = bool(vape_keywords_re.search(t))
-        if has_concentrate and has_concentrate_weight and not has_vape_keyword:
-            self.stats['concentrates_found'] += 1
-            return 'concentrate'
+        if has_concentrate and not has_vape_keyword:
+            if has_concentrate_weight or any(kw in t for kw in _UNAMBIGUOUS_CONCENTRATE):
+                self.stats['concentrates_found'] += 1
+                return 'concentrate'
 
         # 5. FLOWER by weight pattern (3.5g, 7g, 14g, 28g)
         # MOVED BEFORE VAPE: These weights are unambiguously flower.
@@ -725,11 +735,19 @@ class CloudedLogic:
         if any(w in t for w in flower_keywords):
             return 'flower'
 
-        # 8. EDIBLE fallback
+        # 8. EDIBLE fallback (keyword)
         if any(w in t for w in edible_keywords):
             return 'edible'
 
-        # 9. Other
+        # 9. WEIGHT-BASED INFERENCE — last chance before "other"
+        # Products with mg content (e.g. "100mg") are almost always edibles
+        if re.search(r'\b\d+\s*mg\b', t):
+            return 'edible'
+        # Sub-gram weights without vape keywords → likely concentrate
+        if re.search(r'\b0\.[5-9]\s*g\b', t) and not has_vape_keyword:
+            return 'concentrate'
+
+        # 10. Other
         return 'other'
 
     # ────────────────────────────────────────────────────────────────

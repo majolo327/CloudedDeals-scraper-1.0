@@ -127,7 +127,7 @@ export function CompactDealCard({
       </div>
 
       {/* Product name */}
-      <h3 className="text-[12px] sm:text-[13px] font-semibold text-slate-100 line-clamp-2 leading-snug mb-0.5">
+      <h3 className="text-[12px] sm:text-[13px] font-semibold text-slate-100 line-clamp-3 leading-snug mb-0.5">
         {getDisplayName(deal.product_name, deal.brand.name)}
       </h3>
 
