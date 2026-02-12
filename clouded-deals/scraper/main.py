@@ -854,6 +854,11 @@ async def _scrape_site_inner(
     parsed: list[dict[str, Any]] = []
 
     for rp in raw_products:
+        # Ensure source_platform is always set (Jane scraper sets it;
+        # other scrapers rely on the dispensary config).
+        if "source_platform" not in rp:
+            rp["source_platform"] = platform
+
         # Clean raw inputs before CloudedLogic parsing
         raw_name = _clean_product_name(rp.get("name", ""))
         raw_text = rp.get("raw_text", "")

@@ -36,6 +36,8 @@ _STRAIN_ONLY = {"indica", "sativa", "hybrid", "cbd", "thc"}
 # The first entry is a known Jane-specific class pattern from the PRD.
 _PRODUCT_SELECTORS = [
     '._flex_80y9c_1[style*="--box-height: 100%"]',
+    '[data-testid="product-card"]',
+    '._box_qnw0i_1',
     'div[class*="product-card"]',
     'div[class*="menu-item"]',
     'div[class*="product-list-item"]',
@@ -172,6 +174,7 @@ class JaneScraper(BaseScraper):
                         "name": name,
                         "raw_text": text_block.strip(),
                         "product_url": self.url,  # fallback: dispensary menu URL
+                        "source_platform": "jane",
                     }
 
                     # Try to extract a product link from an <a> ancestor or child
