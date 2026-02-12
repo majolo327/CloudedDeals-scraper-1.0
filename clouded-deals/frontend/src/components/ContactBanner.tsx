@@ -167,7 +167,7 @@ export function ContactBanner({ onDismiss, savedDealsCount, addToast }: ContactB
               <p className="text-xs text-red-400">{errorMsg}</p>
             )}
 
-            <p className="text-[10px] text-slate-600 leading-relaxed">
+            <p className="text-[11px] text-slate-500 leading-relaxed">
               No spam. We&apos;ll only reach out for VIP features and launches.
             </p>
           </form>

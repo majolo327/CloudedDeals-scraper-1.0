@@ -218,7 +218,7 @@ export function SmsWaitlist({ addToast }: SmsWaitlistProps) {
                       )}
                     </button>
 
-                    <p className="text-[11px] text-slate-600 text-center leading-relaxed">
+                    <p className="text-xs text-slate-500 text-center leading-relaxed">
                       1-2 texts/day when we launch. Reply STOP anytime. No spam ever.
                     </p>
 

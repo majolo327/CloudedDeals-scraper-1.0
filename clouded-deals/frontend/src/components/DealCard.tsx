@@ -62,16 +62,16 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
       {/* Top row: brand + save */}
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-[11px] sm:text-xs text-purple-400 uppercase tracking-wide font-bold truncate">
+          <span className="text-xs sm:text-[13px] text-purple-400 uppercase tracking-wide font-bold truncate">
             {deal.brand?.name || 'Unknown'}
           </span>
           {isUsed && (
-            <span className="text-[10px] font-medium text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded-md">
+            <span className="text-[11px] font-medium text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded-md">
               Used
             </span>
           )}
           {isExpired && (
-            <span className="text-[10px] font-medium text-slate-400 bg-slate-500/10 px-1.5 py-0.5 rounded-md">
+            <span className="text-[11px] font-medium text-slate-400 bg-slate-500/10 px-1.5 py-0.5 rounded-md">
               Yesterday
             </span>
           )}
@@ -94,12 +94,12 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
       </div>
 
       {/* Product name */}
-      <h3 className="text-[13px] sm:text-sm font-medium text-slate-100 mb-1 line-clamp-2">
+      <h3 className="text-sm sm:text-[15px] font-medium text-slate-100 mb-1 line-clamp-2">
         {getDisplayName(deal.product_name, deal.brand?.name || '')}
       </h3>
 
       {/* Category + Strain Type + Weight */}
-      <p className="text-[10px] text-slate-500 mb-3">
+      <p className="text-[11px] text-slate-400 font-medium mb-3">
         {categoryLabel}
         {deal.strain_type && (
           <span className={`ml-1 font-medium ${
@@ -120,11 +120,11 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
 
       {/* Footer: Dispensary + Distance + Dismiss */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-[10px] text-slate-500 min-w-0">
+        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 min-w-0">
           <MapPin className="w-2.5 h-2.5 opacity-60 shrink-0" />
           <span className="truncate">{deal.dispensary?.name || 'Unknown'}</span>
           {(distanceLabel || distance != null) && (
-            <span className="text-slate-600 shrink-0">{distanceLabel || `${distance!.toFixed(1)} mi`}</span>
+            <span className="text-slate-500 shrink-0">{distanceLabel || `${distance!.toFixed(1)} mi`}</span>
           )}
         </div>
         {onDismiss && (
@@ -133,7 +133,7 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
               e.stopPropagation();
               onDismiss();
             }}
-            className="p-1.5 rounded-lg text-slate-700 hover:text-slate-400 hover:bg-white/5 transition-colors shrink-0"
+            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-400 hover:bg-white/5 transition-colors shrink-0"
             aria-label="Dismiss deal"
           >
             <X className="w-3.5 h-3.5" />
@@ -142,7 +142,7 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
       </div>
 
       {/* Watermark for screenshots */}
-      <p className="text-[8px] text-slate-700 text-right mt-2 select-none">found on cloudeddeals.com</p>
+      <p className="text-[9px] text-slate-600 text-right mt-2 select-none">found on cloudeddeals.com</p>
 
       {showShare && (
         <ShareModal deal={deal} onClose={() => setShowShare(false)} />

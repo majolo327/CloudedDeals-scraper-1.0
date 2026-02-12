@@ -384,7 +384,7 @@ export default function Home() {
             >
               <Heart className={`w-5 h-5 ${savedCount > 0 ? 'fill-current' : ''}`} />
               {savedCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full bg-purple-500 text-[9px] font-bold text-white">
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full bg-purple-500 text-[10px] font-bold text-white">
                   {savedCount > 9 ? '9+' : savedCount}
                 </span>
               )}
@@ -570,7 +570,7 @@ export default function Home() {
               aria-label={tab.label}
               onClick={() => setActivePage(tab.id)}
               {...(tab.id === 'search' ? { 'data-coach': 'nav-search' } : {})}
-              className={`flex flex-col items-center gap-0.5 px-3 py-2 min-w-[56px] min-h-[48px] text-[10px] font-medium transition-colors ${
+              className={`flex flex-col items-center gap-0.5 px-3 py-2 min-w-[56px] min-h-[48px] text-[11px] font-medium transition-colors ${
                 activePage === tab.id
                   ? 'text-purple-400'
                   : 'text-slate-500 active:text-slate-300'

@@ -203,7 +203,7 @@ export function SwipeOverlay({
 
             {/* Hint text — only shown for first few cards */}
             {seenCount < 3 && (
-              <p className="text-[10px] text-slate-600 text-center pb-[env(safe-area-inset-bottom)]">
+              <p className="text-[11px] text-slate-500 text-center pb-[env(safe-area-inset-bottom)]">
                 Swipe right to save &bull; Left to pass &bull; Tap for details
               </p>
             )}
