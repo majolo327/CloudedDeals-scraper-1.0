@@ -193,7 +193,7 @@ export function FilterSheet({
         <SlidersHorizontal className="w-4 h-4" />
         <span className="hidden sm:inline">Filters</span>
         {activeFilterCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-purple-500 text-white text-[10px] font-bold flex items-center justify-center">
+          <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-purple-500 text-white text-[11px] font-bold flex items-center justify-center">
             {activeFilterCount}
           </span>
         )}
@@ -251,7 +251,7 @@ export function FilterSheet({
                     <button
                       key={cat}
                       onClick={() => toggleCategory(cat)}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-purple-500/15 text-purple-400 text-[11px] font-medium"
+                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-purple-500/15 text-purple-400 text-xs font-medium"
                     >
                       {cat}
                       <X className="w-2.5 h-2.5" />
@@ -260,7 +260,7 @@ export function FilterSheet({
                   {filters.priceRange !== 'all' && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, priceRange: 'all', quickFilter: 'none' })}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-[11px] font-medium"
+                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-medium"
                     >
                       {PRICE_RANGES.find(r => r.id === filters.priceRange)?.label}
                       <X className="w-2.5 h-2.5" />
@@ -269,7 +269,7 @@ export function FilterSheet({
                   {filters.minDiscount > 0 && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, minDiscount: 0, quickFilter: 'none' })}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/15 text-amber-400 text-[11px] font-medium"
+                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/15 text-amber-400 text-xs font-medium"
                     >
                       {filters.minDiscount}%+ off
                       <X className="w-2.5 h-2.5" />
@@ -278,7 +278,7 @@ export function FilterSheet({
                   {filters.distanceRange !== 'all' && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, distanceRange: 'all', quickFilter: 'none' })}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/15 text-blue-400 text-[11px] font-medium"
+                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/15 text-blue-400 text-xs font-medium"
                     >
                       {DISTANCE_OPTIONS.find(d => d.id === filters.distanceRange)?.label}
                       <X className="w-2.5 h-2.5" />
@@ -287,7 +287,7 @@ export function FilterSheet({
                   {filters.weightFilter !== 'all' && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, weightFilter: 'all' })}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-cyan-500/15 text-cyan-400 text-[11px] font-medium"
+                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-cyan-500/15 text-cyan-400 text-xs font-medium"
                     >
                       {filters.weightFilter}
                       <X className="w-2.5 h-2.5" />
@@ -296,7 +296,7 @@ export function FilterSheet({
                   {filters.dispensaryIds.length > 0 && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, dispensaryIds: [], quickFilter: 'none' })}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/15 text-blue-400 text-[11px] font-medium"
+                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/15 text-blue-400 text-xs font-medium"
                     >
                       {filters.dispensaryIds.length} store{filters.dispensaryIds.length !== 1 ? 's' : ''}
                       <X className="w-2.5 h-2.5" />
@@ -382,7 +382,7 @@ export function FilterSheet({
                     {/* Distance */}
                     {hasLocation && (
                       <div>
-                        <p className="text-[11px] text-slate-500 mb-2">Distance</p>
+                        <p className="text-xs text-slate-500 mb-2">Distance</p>
                         <div className="grid grid-cols-2 gap-2">
                           {DISTANCE_OPTIONS.map((opt) => {
                             const isSelected = filters.distanceRange === opt.id;
@@ -404,7 +404,7 @@ export function FilterSheet({
                                 <p className={`text-xs font-medium ${isSelected ? 'text-blue-400' : 'text-slate-300'}`}>
                                   {opt.label}
                                 </p>
-                                <p className="text-[10px] text-slate-500">{opt.desc}</p>
+                                <p className="text-[11px] text-slate-500">{opt.desc}</p>
                               </button>
                             );
                           })}
@@ -415,18 +415,18 @@ export function FilterSheet({
                     {/* Dispensary */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-[11px] text-slate-500">Dispensary</p>
+                        <p className="text-xs text-slate-500">Dispensary</p>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={selectAllDispensaries}
-                            className="text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
+                            className="text-[11px] text-purple-400 hover:text-purple-300 transition-colors"
                           >
                             Select All
                           </button>
                           <span className="text-slate-700">|</span>
                           <button
                             onClick={clearAllDispensaries}
-                            className="text-[10px] text-slate-400 hover:text-slate-300 transition-colors"
+                            className="text-[11px] text-slate-400 hover:text-slate-300 transition-colors"
                           >
                             Clear
                           </button>
@@ -524,7 +524,7 @@ export function FilterSheet({
                   onChange={(e) => onFiltersChange({ ...filters, minDiscount: Number(e.target.value), quickFilter: 'none' })}
                   className="w-full accent-purple-500"
                 />
-                <div className="flex justify-between text-[10px] text-slate-600 mt-1">
+                <div className="flex justify-between text-[11px] text-slate-500 mt-1">
                   <span>Any</span>
                   <span>70%+</span>
                 </div>

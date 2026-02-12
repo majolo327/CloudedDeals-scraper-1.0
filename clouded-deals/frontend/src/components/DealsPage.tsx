@@ -206,7 +206,7 @@ export function DealsPage({
                 <span className="text-xs text-slate-500 font-normal truncate">{formatUpdateTime(deals)}</span>
               )}
               {isExpired && (
-                <span className="text-xs text-amber-500/70 font-normal truncate">prices may have changed</span>
+                <span className="text-xs text-amber-400/80 font-normal truncate">prices may have changed</span>
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -231,7 +231,7 @@ export function DealsPage({
                   <Layers className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <span className="text-[11px] text-slate-600">
+              <span className="text-xs text-slate-500">
                 {countdown}
               </span>
             </div>
@@ -248,8 +248,8 @@ export function DealsPage({
 
           {/* Your top brands — shown once user has saved 3+ deals from at least 1 brand */}
           {topBrands.length > 0 && topBrands[0][1] >= 3 && (
-            <div className="flex items-center gap-2 mb-4 text-[11px]">
-              <span className="text-slate-600">Your brands:</span>
+            <div className="flex items-center gap-2 mb-4 text-xs">
+              <span className="text-slate-500">Your brands:</span>
               {topBrands.map(([name, count]) => (
                 <span key={name} className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400/80 font-medium">
                   {name} ({count})
@@ -262,10 +262,10 @@ export function DealsPage({
           {deck.totalDeals > 0 && deck.dismissedCount > 0 && (
             <div className="mb-4">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] text-slate-500">
+                <span className="text-xs text-slate-400">
                   {deck.seenCount} of {deck.totalDeals} deals seen
                 </span>
-                <span className="text-[11px] text-slate-600">
+                <span className="text-xs text-slate-500">
                   {deck.totalDeals - deck.seenCount} remaining
                 </span>
               </div>
@@ -309,7 +309,7 @@ export function DealsPage({
               <p className="text-sm text-slate-500 mb-1">
                 New deals drop every morning at 8 AM.
               </p>
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-slate-500">
                 Refreshes in {countdown}
               </p>
             </div>
@@ -318,7 +318,7 @@ export function DealsPage({
               <p className="text-slate-400 text-sm mb-2">
                 Nothing matches right now
               </p>
-              <p className="text-slate-600 text-xs mb-4">
+              <p className="text-slate-500 text-xs mb-4">
                 Deals refresh every morning &mdash; or try loosening your filters.
               </p>
               <button
@@ -403,13 +403,13 @@ export function DealsPage({
                 <div className="text-left">
                   <h3 className="text-sm font-medium text-slate-400">
                     Past Deals
-                    <span className="text-slate-600 font-normal ml-1.5">({expiredDeals.length})</span>
+                    <span className="text-slate-500 font-normal ml-1.5">({expiredDeals.length})</span>
                   </h3>
-                  <p className="text-[11px] text-slate-600">Yesterday&apos;s deals — prices may have changed</p>
+                  <p className="text-xs text-slate-500">Yesterday&apos;s deals — prices may have changed</p>
                 </div>
               </div>
               <ChevronDown
-                className={`w-4 h-4 text-slate-600 transition-transform duration-200 ${
+                className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${
                   pastDealsExpanded ? 'rotate-180' : ''
                 }`}
               />

@@ -83,7 +83,7 @@ export function BrowsePage({ deals = [], onSelectBrand, onSelectDispensary }: Br
               }`}
             >
               Dispensaries
-              <span className="ml-1.5 text-[10px] text-slate-500 font-normal">{DISPENSARIES.length}</span>
+              <span className="ml-1.5 text-[11px] text-slate-400 font-normal">{DISPENSARIES.length}</span>
               {activeTab === 'dispensaries' && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500 rounded-full" />
               )}
@@ -251,12 +251,12 @@ function BrandRow({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium text-slate-200 truncate">{brand.name}</p>
-              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${tierColor[brand.tier] || 'text-slate-500'} bg-slate-800/50`}>
+              <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full ${tierColor[brand.tier] || 'text-slate-500'} bg-slate-800/50`}>
                 {tierLabel[brand.tier] || brand.tier}
               </span>
             </div>
             {dealCount > 0 && (
-              <p className="text-[10px] text-purple-400">
+              <p className="text-[11px] text-purple-400">
                 {dealCount} deal{dealCount !== 1 ? 's' : ''}
               </p>
             )}
@@ -277,7 +277,7 @@ function BrandRow({
               {brand.categories.map((cat) => (
                 <span
                   key={cat}
-                  className="rounded-full bg-slate-800/50 px-2 py-0.5 text-[10px] text-slate-400 capitalize"
+                  className="rounded-full bg-slate-800/50 px-2 py-0.5 text-[11px] text-slate-400 capitalize"
                 >
                   {cat}
                 </span>
@@ -532,19 +532,19 @@ function DispensaryRow({
               )}
             </div>
             <div className="flex items-center gap-1.5">
-              <MapPin className="w-2.5 h-2.5 text-slate-600 shrink-0" />
-              <p className="text-[10px] text-slate-500 truncate">{dispensary.address}</p>
+              <MapPin className="w-2.5 h-2.5 text-slate-500 shrink-0" />
+              <p className="text-[11px] text-slate-400 truncate">{dispensary.address}</p>
               {distance != null && (
-                <span className="text-[10px] text-blue-400 shrink-0">{distance.toFixed(1)} mi</span>
+                <span className="text-[11px] text-blue-400 shrink-0">{distance.toFixed(1)} mi</span>
               )}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full capitalize ${zoneStyle.bg} ${zoneStyle.text}`}>
+          <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full capitalize ${zoneStyle.bg} ${zoneStyle.text}`}>
             {zone}
           </span>
-          <span className={`text-xs font-medium ${dealCount > 0 ? 'text-purple-400' : 'text-slate-600'}`}>
+          <span className={`text-xs font-medium ${dealCount > 0 ? 'text-purple-400' : 'text-slate-500'}`}>
             {dealCount} deal{dealCount !== 1 ? 's' : ''}
           </span>
           {isExpanded ? (
@@ -562,7 +562,7 @@ function DispensaryRow({
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
+              className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-300 transition-colors"
             >
               <ExternalLink className="w-3 h-3" />
               View menu

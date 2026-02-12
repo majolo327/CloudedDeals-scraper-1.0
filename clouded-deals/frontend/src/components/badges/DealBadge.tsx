@@ -18,14 +18,14 @@ export function DealBadge({ type, compact = false }: DealBadgeProps) {
 
   if (compact) {
     return (
-      <span className={`flex items-center gap-0.5 text-[7px] font-semibold uppercase tracking-wide ${config.textColor}`}>
+      <span className={`flex items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wide ${config.textColor}`}>
         <span>{config.text}</span>
       </span>
     );
   }
 
   return (
-    <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium ${config.bgColor} ${config.textColor}`}>
+    <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium ${config.bgColor} ${config.textColor}`}>
       {config.text}
     </span>
   );
