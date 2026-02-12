@@ -346,7 +346,12 @@ class TestScoreQuality:
                 f"Score {deal['deal_score']} out of range for {deal.get('name')}"
 
     def test_top_deals_have_higher_avg_than_rest(self, realistic_scrape):
-        """Top 200 average score > remaining deals average."""
+        """Top 200 average score should be close to remaining deals average.
+
+        With diversity constraints (brand caps, category balance, cross-chain
+        dedup), the top selection intentionally trades a small amount of average
+        score for better variety.  Allow up to 2 points of tolerance.
+        """
         detect_deals(realistic_scrape)
         report = get_last_report_data()
         top = report["top_deals"]
@@ -354,8 +359,8 @@ class TestScoreQuality:
         if top and cut:
             top_avg = sum(d["deal_score"] for d in top) / len(top)
             cut_avg = sum(d["deal_score"] for d in cut) / len(cut)
-            assert top_avg >= cut_avg, \
-                f"Top avg {top_avg:.1f} should be >= cut avg {cut_avg:.1f}"
+            assert top_avg >= cut_avg - 2, \
+                f"Top avg {top_avg:.1f} should be within 2 points of cut avg {cut_avg:.1f}"
 
 
 # =====================================================================

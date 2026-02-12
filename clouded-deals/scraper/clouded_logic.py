@@ -129,14 +129,14 @@ BRANDS = sorted(set([
     'Green Life Productions', 'Greenway LV', 'Groove',
     # H
     'HaHa Edibles', 'Hamilton Devices', 'Haze', 'Heavy Hitters', 'High Hemp',
-    'Highlights', 'Hijinks', 'Hippies Peaces', 'Hits Blunt',
+    'High Roller', 'Highlights', 'Hijinks', 'Hippies Peaces', 'Hits Blunt',
     'Houseplant', 'Huni Badger', 'Hustlers Ambition', "Hustler's Ambition",
     # I
     'Incredibles', 'INDO',
     # J-K
     'JAMS', 'Jasper', 'Jeeter', 'Jungle Boys', 'Just Edibles',
     'KANHA', 'Kannabis', 'Keef', 'Khalifa Kush', 'Khalifa Yellow',
-    'Kingpen', 'Kiva', 'Kiva Lost Farm', 'Kynd',
+    'Kingpen', 'Kiva', 'Kiva Lost Farm', 'Kushberry Farms', 'Kynd',
     # L
     'Later Days', 'LAVI', 'LEVEL', 'Lift Tickets', 'LIT',
     "Local's Only", 'Lost Farm', 'LP Exotics',
@@ -228,6 +228,8 @@ _BRAND_VARIATION_MAP: dict[str, str] = {
     'tsunami': 'Tsunami Labs',
     'pheno exotic': 'Pheno Exotics',
     'indo cannabis': 'INDO',
+    'sauce': 'Sauce Essentials',
+    'vlasic': 'Vlasic Labs',
 }
 
 _VARIATION_PATTERNS: list[tuple[re.Pattern, str]] = [
@@ -247,7 +249,7 @@ _VARIATION_PATTERNS: list[tuple[re.Pattern, str]] = [
 
 _STRAIN_BRAND_BLOCKERS = [
     # "Haze" is a brand, but these are strains:
-    (re.compile(r'\b(?:ghost\s*train|super\s*(?:lemon|silver)|purple|amnesia|neville|blue|catpiss|dungeon|hawaiian|original|golden|x|double|single)\s+haze\b', re.IGNORECASE), 'Haze'),
+    (re.compile(r'\b(?:ghost\s*train|super\s*(?:lemon|silver)|purple|amnesia|neville|blue|catpiss|dungeon|hawaiian|original|golden|x|double|single|citrus|lemon|lime|mango|strawberry|peach|tropical)\s+haze\b', re.IGNORECASE), 'Haze'),
     # Also block if "haze" follows known connectors in compound strain names
     (re.compile(r'\bhaze\s+(?:og|kush|berry|dawg|diesel|cake|cookies|dream|punch|wreck|star|pie|queen|king|widow|mac|zkittlez)\b', re.IGNORECASE), 'Haze'),
 
@@ -260,17 +262,28 @@ _STRAIN_BRAND_BLOCKERS = [
                 r'forum\s*cut|sugar|blueberry|sunset|fire|sour\s*fire|og|'
                 r'mandarin|guava|grape|peanut\s*butter|london\s*pound|kush|'
                 r'berry|tropical|strawberry|orange|purple|white|gelato|'
-                r'biscotti)\s+cookies\b', re.IGNORECASE), 'Cookies'),
+                r'biscotti|garlic)\s+cookies\b', re.IGNORECASE), 'Cookies'),
 
     # "Runtz" is a brand, but these are strains:
     (re.compile(r'\b(?:white|pink|gelatti|gelato|tropical|gruntz|rainbow|'
-                r'grape|obama|gummy|blue|apple|peach|mango|banana)\s+runtz\b', re.IGNORECASE), 'Runtz'),
+                r'grape|obama|gummy|blue|apple|peach|mango|banana|melon|'
+                r'cherry|strawberry|lemon|orange|potato|candy)\s+runtz\b', re.IGNORECASE), 'Runtz'),
 
     # "Church" is a brand, but "The Church" is a strain
     (re.compile(r'\bthe\s+church\b', re.IGNORECASE), 'Church'),
 
     # "Element" — "5th Element" is a strain
     (re.compile(r'\b5th\s+element\b', re.IGNORECASE), 'Element'),
+
+    # "SELECT" — "Seche Select" is a product line from SeCHe, not the SELECT brand
+    (re.compile(r'\bseche\s+select\b', re.IGNORECASE), 'SELECT'),
+
+    # "SELECT" — "select $20 eighths" is promotional copy, not the brand
+    (re.compile(r'\bselect\s+\$\d+', re.IGNORECASE), 'SELECT'),
+    (re.compile(r'\bselect\s+(?:eighths?|strains?|items?|products?)\b', re.IGNORECASE), 'SELECT'),
+
+    # "Sauce Essentials" — "Live Sauce" / "Cured Sauce" are concentrate formats
+    (re.compile(r'\b(?:live|cured|diamond)\s+sauce\b', re.IGNORECASE), 'Sauce Essentials'),
 ]
 
 # ============================================================================

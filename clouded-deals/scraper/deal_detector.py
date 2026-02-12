@@ -134,10 +134,24 @@ CATEGORY_TARGETS: dict[str, int] = {
     "other": 10,
 }
 
-MAX_SAME_BRAND_TOTAL = 16
+# Minimum category floors — each category must fill at least this many
+# slots before surplus is redistributed.  Prevents the feed from being
+# dominated by a single category (e.g. all prerolls, no flower).
+CATEGORY_MINIMUMS: dict[str, int] = {
+    "flower": 15,
+    "vape": 12,
+    "edible": 8,
+    "concentrate": 8,
+    "preroll": 5,
+    "other": 0,
+}
+
+MAX_SAME_BRAND_TOTAL = 5          # was 8 — tighter cap so one brand can't dominate the feed
 MAX_SAME_DISPENSARY_TOTAL = 10
 MAX_CONSECUTIVE_SAME_CATEGORY = 3
+MAX_CONSECUTIVE_SAME_BRAND = 1        # no same-brand cards adjacent in the feed
 MAX_SAME_BRAND_PER_DISPENSARY = 2  # similarity dedup
+MAX_SAME_BRAND_PER_CATEGORY = 3    # cap per brand within a single category across all dispensaries
 
 # =====================================================================
 # Phase 4: Badge thresholds
@@ -449,6 +463,64 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
 # =====================================================================
 
 
+def _weight_tier(deal: dict[str, Any]) -> str:
+    """Classify a deal into a weight tier for diversity bucketing.
+
+    Products in the same category but different weight tiers (e.g. 3.5g
+    flower vs 7g flower) should be spread across the feed rather than
+    clustered together.
+    """
+    cat = deal.get("category", "other")
+    wv = deal.get("weight_value")
+    if wv is None:
+        return f"{cat}_default"
+    try:
+        wv = float(wv)
+    except (ValueError, TypeError):
+        return f"{cat}_default"
+    if cat == "flower":
+        if wv <= 4:
+            return "flower_eighth"
+        if wv <= 8:
+            return "flower_quarter"
+        if wv <= 15:
+            return "flower_half"
+        return "flower_oz"
+    if cat == "vape":
+        if wv <= 0.6:
+            return "vape_half"
+        return "vape_full"
+    if cat == "concentrate":
+        if wv <= 0.6:
+            return "conc_half"
+        return "conc_full"
+    return f"{cat}_default"
+
+
+def remove_global_name_duplicates(
+    deals: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Deduplicate identical brand+name products across ALL dispensaries.
+
+    If "Baja Blast Disposable" from Hustler's Ambition is sold at three
+    different dispensaries, only keep the one with the best deal score.
+    """
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for deal in deals:
+        name = (deal.get("name") or "").lower().strip()
+        brand = (deal.get("brand") or "").lower()
+        cat = deal.get("category", "other")
+        key = f"{name}|{brand}|{cat}"
+        groups[key].append(deal)
+
+    result: list[dict[str, Any]] = []
+    for group in groups.values():
+        group.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+        result.append(group[0])
+
+    return result
+
+
 def remove_similar_deals(deals: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Keep at most MAX_SAME_BRAND_PER_DISPENSARY deals per
     brand+category from the same dispensary.
@@ -468,6 +540,54 @@ def remove_similar_deals(deals: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for group in groups.values():
         group.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
         result.extend(group[:MAX_SAME_BRAND_PER_DISPENSARY])
+
+    return result
+
+
+def _chain_prefix(dispensary_id: str) -> str:
+    """Extract the chain prefix from a dispensary slug.
+
+    Examples:
+        "curaleaf-western" → "curaleaf"
+        "curaleaf-strip"   → "curaleaf"
+        "zen-leaf-lv"      → "zen-leaf"
+        "td-gibson"        → "td"
+        "planet-13"        → "planet-13"  (single location, no split)
+    """
+    if not dispensary_id:
+        return ""
+    parts = dispensary_id.split("-")
+    # Use first segment as chain prefix; multi-word chains use first two
+    # segments (e.g., "zen-leaf-lv" → "zen-leaf").
+    _MULTI_WORD_CHAINS = {"zen", "the"}
+    if len(parts) >= 2 and parts[0] in _MULTI_WORD_CHAINS:
+        return f"{parts[0]}-{parts[1]}"
+    return parts[0]
+
+
+def remove_cross_chain_duplicates(
+    deals: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Deduplicate the same product across different locations of a chain.
+
+    If "Cannavative Infused Tahoe OG" appears at both Curaleaf Western
+    and Curaleaf Strip, keep only the highest-scored instance.  Products
+    are considered the same when they share: chain prefix + normalized
+    name + brand + category.
+    """
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for deal in deals:
+        chain = _chain_prefix(deal.get("dispensary_id") or "")
+        name = (deal.get("name") or "").lower().strip()
+        brand = (deal.get("brand") or "").lower()
+        cat = deal.get("category", "other")
+        key = f"{chain}|{name}|{brand}|{cat}"
+        groups[key].append(deal)
+
+    result: list[dict[str, Any]] = []
+    for group in groups.values():
+        group.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+        result.append(group[0])  # keep only the best-scored instance
 
     return result
 
@@ -518,12 +638,17 @@ def select_top_deals(
         category_slots[cat] = slots
         remaining_slots -= slots
 
-    # Redistribute surplus slots to categories that have more deals
+    # Redistribute surplus slots to categories that have more deals.
+    # Cap redistribution: no category can exceed 1.5x its target to
+    # prevent a single category from dominating the feed when others
+    # have low volume.
     if remaining_slots > 0:
         for cat in sorted(buckets.keys(), key=lambda c: len(buckets[c]), reverse=True):
             pool_size = len(buckets[cat])
             current = category_slots.get(cat, 0)
-            can_add = pool_size - current
+            cat_target = CATEGORY_TARGETS.get(cat, 10)
+            max_for_cat = int(cat_target * 1.5)
+            can_add = min(pool_size - current, max_for_cat - current)
             if can_add > 0:
                 add = min(can_add, remaining_slots)
                 category_slots[cat] = current + add
@@ -537,6 +662,7 @@ def select_top_deals(
     # gets capped at MAX_SAME_BRAND_TOTAL.  Only per-dispensary
     # and per-category limits constrain brandless products.
     brand_counts: dict[str, int] = defaultdict(int)
+    brand_cat_counts: dict[str, int] = defaultdict(int)  # "brand|category" → count
     dispensary_counts: dict[str, int] = defaultdict(int)
     _unknown_counter = 0
 
@@ -551,41 +677,65 @@ def select_top_deals(
     for cat, slots in category_slots.items():
         pool = buckets.get(cat, [])
         picks: list[dict[str, Any]] = []
+        picked_set: set[int] = set()  # indices into pool
 
-        # First pass: one deal per brand (best score wins)
+        def _try_pick(deal: dict[str, Any], idx: int) -> bool:
+            brand = _brand_key(deal)
+            disp_id = deal.get("dispensary_id") or ""
+            bc_key = f"{brand}|{cat}"
+            if brand_counts[brand] >= MAX_SAME_BRAND_TOTAL:
+                return False
+            if brand_cat_counts[bc_key] >= MAX_SAME_BRAND_PER_CATEGORY:
+                return False
+            if dispensary_counts[disp_id] >= MAX_SAME_DISPENSARY_TOTAL:
+                return False
+            brand_counts[brand] += 1
+            brand_cat_counts[bc_key] += 1
+            dispensary_counts[disp_id] += 1
+            picks.append(deal)
+            picked_set.add(idx)
+            return True
+
+        # First pass: one deal per brand AND per weight tier.
+        # Ensures the top picks span different sizes (3.5g, 7g, 14g
+        # flower; 0.5g, 1g vape) for maximum variety in the first
+        # screen of cards.
         seen_brands: set[str] = set()
-        for deal in pool:
+        seen_tiers: set[str] = set()
+        for i, deal in enumerate(pool):
             if len(picks) >= slots:
                 break
             brand = _brand_key(deal)
-            disp_id = deal.get("dispensary_id") or ""
+            tier = _weight_tier(deal)
             if brand in seen_brands:
                 continue
-            if brand_counts[brand] >= MAX_SAME_BRAND_TOTAL:
+            if tier in seen_tiers:
                 continue
-            if dispensary_counts[disp_id] >= MAX_SAME_DISPENSARY_TOTAL:
-                continue
-            seen_brands.add(brand)
-            brand_counts[brand] += 1
-            dispensary_counts[disp_id] += 1
-            picks.append(deal)
+            if _try_pick(deal, i):
+                seen_brands.add(brand)
+                seen_tiers.add(tier)
 
-        # Second pass: allow repeat brands if pool still has capacity
+        # Second pass: one per brand (allow repeat weight tiers)
         if len(picks) < slots:
-            for deal in pool:
+            for i, deal in enumerate(pool):
                 if len(picks) >= slots:
                     break
-                if deal in picks:
+                if i in picked_set:
                     continue
                 brand = _brand_key(deal)
-                disp_id = deal.get("dispensary_id") or ""
-                if brand_counts[brand] >= MAX_SAME_BRAND_TOTAL:
+                if brand in seen_brands:
                     continue
-                if dispensary_counts[disp_id] >= MAX_SAME_DISPENSARY_TOTAL:
+                if _try_pick(deal, i):
+                    seen_brands.add(brand)
+
+        # Third pass: fill remaining slots (allow repeat brands)
+        if len(picks) < slots:
+            for i, deal in enumerate(pool):
+                if len(picks) >= slots:
+                    break
+                if i in picked_set:
                     continue
-                brand_counts[brand] += 1
-                dispensary_counts[disp_id] += 1
-                picks.append(deal)
+                _try_pick(deal, i)
 
         category_picks[cat] = picks
 
@@ -605,6 +755,7 @@ def select_top_deals(
     }
     cat_cycle = cycle(cat_order)
     last_cats: list[str] = []
+    last_brands: list[str] = []
 
     while len(result) < target:
         # Try each category in round-robin
@@ -622,9 +773,40 @@ def select_top_deals(
                 continue
 
             if cat_iters.get(cat):
-                deal = cat_iters[cat].pop(0)
+                deal = cat_iters[cat][0]
+                deal_brand = deal.get("brand") or ""
+
+                # Check consecutive-same-brand constraint: don't place
+                # the same brand adjacent in the feed
+                if (
+                    deal_brand
+                    and len(last_brands) >= MAX_CONSECUTIVE_SAME_BRAND
+                    and all(b == deal_brand for b in last_brands[-MAX_CONSECUTIVE_SAME_BRAND:])
+                ):
+                    # Try to find a non-conflicting deal deeper in this
+                    # category's queue (swap it to front if found)
+                    swapped = False
+                    for j in range(1, len(cat_iters[cat])):
+                        alt = cat_iters[cat][j]
+                        alt_brand = alt.get("brand") or ""
+                        if alt_brand != deal_brand:
+                            cat_iters[cat][0], cat_iters[cat][j] = (
+                                cat_iters[cat][j],
+                                cat_iters[cat][0],
+                            )
+                            deal = cat_iters[cat][0]
+                            deal_brand = alt_brand
+                            swapped = True
+                            break
+                    if not swapped:
+                        # All remaining deals in this category are the
+                        # same brand — skip to another category
+                        continue
+
+                cat_iters[cat].pop(0)
                 result.append(deal)
                 last_cats.append(cat)
+                last_brands.append(deal_brand)
                 placed = True
                 break
 
@@ -727,6 +909,28 @@ def detect_deals(
             "Similarity dedup: %d/%d deals removed (same brand+cat+dispo)",
             dedup_removed, dedup_before,
         )
+    # Step 4b: Cross-chain dedup — same product at different locations of
+    # a chain (e.g., Curaleaf Western vs Strip) keeps only the best one.
+    chain_before = len(scored)
+    scored = remove_cross_chain_duplicates(scored)
+    chain_removed = chain_before - len(scored)
+    if chain_removed > 0:
+        logger.info(
+            "Cross-chain dedup: %d/%d deals removed (same product across chain locations)",
+            chain_removed, chain_before,
+        )
+
+    # Step 4c: Global name dedup — same brand+name product sold at
+    # different dispensary chains keeps only the best-scored instance.
+    global_before = len(scored)
+    scored = remove_global_name_duplicates(scored)
+    global_removed = global_before - len(scored)
+    if global_removed > 0:
+        logger.info(
+            "Global name dedup: %d/%d deals removed (same product across dispensaries)",
+            global_removed, global_before,
+        )
+
     # Re-sort after dedup
     scored.sort(key=lambda d: d["deal_score"], reverse=True)
 

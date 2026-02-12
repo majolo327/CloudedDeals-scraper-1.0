@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import Any
 
 from playwright.async_api import TimeoutError as PlaywrightTimeout
@@ -286,11 +287,15 @@ class CuraleafScraper(BaseScraper):
                     lines = [ln.strip() for ln in text_block.split("\n") if ln.strip()]
 
                     # Pick the first line that is NOT just a strain type
+                    # and is not promotional text ("$10.00 off", "$5 off")
                     name = "Unknown"
                     for ln in lines:
-                        if ln.lower() not in _STRAIN_ONLY:
-                            name = ln
-                            break
+                        if ln.lower() in _STRAIN_ONLY:
+                            continue
+                        if re.match(r"^\$\d+\.?\d*\s*off\b", ln, re.IGNORECASE):
+                            continue
+                        name = ln
+                        break
 
                     product: dict[str, Any] = {
                         "name": name,

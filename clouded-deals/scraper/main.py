@@ -225,9 +225,73 @@ _RE_PREPACK = re.compile(
 )
 _RE_TRAILING_STRAIN = re.compile(r"\s*(Indica|Sativa|Hybrid)\s*$", re.IGNORECASE)
 
+# Brand abbreviations that appear in product names instead of the full brand
+_BRAND_ABBREVIATIONS: dict[str, list[str]] = {
+    "Circle S Farms": ["CSF"],
+    "Sauce Essentials": ["Sauce"],
+    "Vlasic Labs": ["Vlasic"],
+    "Tyson 2.0": ["Tyson"],
+    "Tsunami Labs": ["Tsunami"],
+}
+
+# Weight prefix patterns: "3.5g |", "1g |", ".5g |"
+_RE_WEIGHT_PREFIX = re.compile(r"^\.?\d+\.?\d*\s*g\s*\|\s*", re.IGNORECASE)
+
+# Bundle quantity text: "3 Eighths", "5 Pack", "2 Quarters"
+_RE_BUNDLE_QTY = re.compile(
+    r"\b\d+\s+(?:Eighths?|Quarters?|Halves|Half)\b\s*",
+    re.IGNORECASE,
+)
+
+# Strain type anywhere in name (not just trailing)
+_RE_STRAIN_TYPE = re.compile(r"\b(?:Indica|Sativa|Hybrid)\b", re.IGNORECASE)
+
+# Redundant vape category words in display name
+_RE_VAPE_WORDS = re.compile(
+    r"\b(?:Cartridges?|Carts?|Distillate|Disposable|Pod|Vape)\b",
+    re.IGNORECASE,
+)
+
+# Marketing junk names that don't add useful info to a product name
+_RE_MARKETING_JUNK = re.compile(
+    r"\bHigh\s+Octane\b|\bX(?:treme|XX)\b",
+    re.IGNORECASE,
+)
+
+# Concentrate format descriptors — redundant when category is already "concentrate"
+_RE_CONCENTRATE_FORMAT = re.compile(
+    r"\b(?:(?:Diamond|Live|Cured)\s+)?(?:Badder|Batter|Budder|Shatter|Wax|"
+    r"Sauce|Sugar|Crumble|Rosin|Resin|Diamonds?)\b",
+    re.IGNORECASE,
+)
+
+# Concentrate keywords for raw_name–based category correction
+_CONCENTRATE_NAME_KEYWORDS = re.compile(
+    r"\b(?:badder|batter|budder|shatter|wax|sauce|sugar|crumble|"
+    r"rosin|diamonds?|live\s+resin|cured\s+resin)\b",
+    re.IGNORECASE,
+)
+_VAPE_NAME_KEYWORDS = re.compile(
+    r"\b(?:cart|cartridge|pod|disposable|vape|pen|all-in-one)\b",
+    re.IGNORECASE,
+)
+
+# Standalone weight values redundant with the weight field
+_RE_INLINE_WEIGHT = re.compile(
+    r"\b\d*\.?\d+\s*g\b",
+    re.IGNORECASE,
+)
+
+# Bracket-enclosed weight: "[.95g]", "[1g]", "[3.5g]"
+_RE_BRACKET_WEIGHT = re.compile(
+    r"\s*\[\.?\d+\.?\d*\s*g\]\s*",
+    re.IGNORECASE,
+)
+
 # Patterns that indicate promotional / sale copy rather than a real product name
 _SALE_COPY_PATTERNS = [
     re.compile(r"^\d+%\s*off", re.IGNORECASE),
+    re.compile(r"^\$\d+\.?\d*\s*off", re.IGNORECASE),   # "$10.00 off", "$5 off"
     re.compile(r"^buy\s+\d+\s+get", re.IGNORECASE),
     re.compile(r"^bogo", re.IGNORECASE),
     re.compile(r"^sale\b", re.IGNORECASE),
@@ -256,7 +320,8 @@ _RE_OFFER_SECTION = re.compile(
     r"(?:Special Offers?\s*\(?.*$)"            # "Special Offers (1) …" to end
     r"|(?:\d+/\$\d+\s+.*(?:Power Pack|Bundle).*$)"  # "2/$40 Power Pack || …"
     r"|(?:\bShop Offer\b.*$)"                  # "Shop Offer" link text
-    r"|(?:\bOffer\b.*\bShop\b.*$)",            # variant "Offer … Shop"
+    r"|(?:\bOffer\b.*\bShop\b.*$)"             # variant "Offer … Shop"
+    r"|(?:\bselect\s+\$\d+.*$)",               # "select $20 eighths 2/$30 …" promo
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -777,6 +842,17 @@ async def _scrape_site_inner(
         # Category: detect from clean text (no offer keyword pollution)
         category = logic.detect_category(clean_text)
 
+        # Concentrate correction: if clean_text caused "vape" because the
+        # surrounding page text contains "vape", but the PRODUCT NAME
+        # itself has concentrate format keywords (badder, wax, live resin…)
+        # and no vape keywords (cart, pod…), it's actually a concentrate.
+        if category == "vape" and raw_name:
+            if (
+                _CONCENTRATE_NAME_KEYWORDS.search(raw_name)
+                and not _VAPE_NAME_KEYWORDS.search(raw_name)
+            ):
+                category = "concentrate"
+
         # Parse full combined text for price, weight, THC
         text = f"{raw_name} {raw_text} {price_text}"
         product = logic.parse_product(text, dispensary["name"])
@@ -795,17 +871,74 @@ async def _scrape_site_inner(
         # CloudedLogic's product_name is derived from the full combined text
         # blob (name + raw_text + price), which is often messy and causes
         # brand name duplication.  Instead, use raw_name as the base and
-        # strip the brand prefix from it.
+        # strip clutter (brand, weight prefix, strain type, bundle text,
+        # redundant category words, marketing junk) to leave just the
+        # strain/product name.
         brand = product.get("brand")
         display_name = raw_name
+
+        # 1. Strip weight prefix: "3.5g | Blue Maui" → "Blue Maui"
+        if display_name:
+            display_name = _RE_WEIGHT_PREFIX.sub("", display_name).strip()
+
+        # 2. Strip brand name from ANYWHERE in the name (not just prefix)
         if brand and display_name:
             display_name = re.sub(
-                rf'^{re.escape(brand)}\s*[-:|]?\s*',
+                rf'\b{re.escape(brand)}\b\s*[-:|]?\s*',
                 '', display_name, flags=re.IGNORECASE,
             ).strip()
+            # Also strip known abbreviations for this brand
+            for abbr in _BRAND_ABBREVIATIONS.get(brand, []):
+                display_name = re.sub(
+                    rf'\b{re.escape(abbr)}\b\s*[-:|]?\s*',
+                    '', display_name, flags=re.IGNORECASE,
+                ).strip()
             if len(display_name) < 3:
                 display_name = raw_name
+
         display_name = display_name or raw_name or "Unknown"
+
+        # 3. Strip strain type from anywhere: "Blue Maui Sativa" → "Blue Maui"
+        display_name = _RE_STRAIN_TYPE.sub("", display_name).strip()
+
+        # 4. Strip bundle quantity text: "3 Eighths" → ""
+        display_name = _RE_BUNDLE_QTY.sub("", display_name).strip()
+
+        # 5. Strip redundant category words from display name
+        effective_cat = category if (category and category != 'other') else product.get("category")
+        if effective_cat == "preroll":
+            display_name = re.sub(
+                r"\s*\b(?:Pre[-\s]?Rolls?|Prerolls?)\b", "",
+                display_name, flags=re.IGNORECASE,
+            ).strip()
+        if effective_cat == "vape":
+            display_name = _RE_VAPE_WORDS.sub("", display_name).strip()
+        if effective_cat == "concentrate":
+            display_name = _RE_CONCENTRATE_FORMAT.sub("", display_name).strip()
+        if effective_cat == "flower":
+            display_name = re.sub(
+                r"\b(?:Flower|Bud)\b", "", display_name, flags=re.IGNORECASE,
+            ).strip()
+
+        # 6. Strip inline weight values redundant with the weight field
+        display_name = _RE_BRACKET_WEIGHT.sub("", display_name).strip()
+        display_name = _RE_INLINE_WEIGHT.sub("", display_name).strip()
+
+        # 7. Strip marketing junk: "High Octane Xtreme" etc.
+        display_name = _RE_MARKETING_JUNK.sub("", display_name).strip()
+
+        # 8. Strip parenthetical weight and strain-type indicators
+        # "(100mg)" duplicates the weight field; "(I)"/"(S)"/"(H)" are
+        # strain-type shorthand already captured in the strain_type field.
+        display_name = re.sub(
+            r"\s*\(\s*\d+\s*mg\s*\)", "", display_name, flags=re.IGNORECASE,
+        )
+        display_name = re.sub(
+            r"\s*\(\s*[ISH]\s*\)", "", display_name, flags=re.IGNORECASE,
+        )
+
+        display_name = re.sub(r"\s{2,}", " ", display_name).strip()
+        display_name = display_name.strip(" -–—") or raw_name or "Unknown"
 
         # Map CloudedLogic output to the DB schema expected by _upsert_products
         enriched: dict[str, Any] = {
