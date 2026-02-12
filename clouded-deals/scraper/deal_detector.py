@@ -154,6 +154,15 @@ MAX_SAME_BRAND_PER_DISPENSARY = 2  # similarity dedup
 MAX_SAME_BRAND_PER_CATEGORY = 3    # cap per brand within a single category across all dispensaries
 MAX_UNKNOWN_BRAND_TOTAL = 8        # cap for unbranded products (more lenient since "unknown" covers many genuinely different brands)
 
+# Backfill caps — used in round 2 when round 1 under-fills the target.
+# More generous than the primary caps so the feed can fill, but still
+# prevent a single brand/dispensary from taking over.
+_BACKFILL_BRAND_TOTAL = 10
+_BACKFILL_BRAND_PER_CATEGORY = 6
+_BACKFILL_DISPENSARY_TOTAL = 15
+_BACKFILL_UNKNOWN_BRAND_TOTAL = 15
+_BACKFILL_THRESHOLD = 0.85  # trigger backfill when round 1 fills < 85% of target
+
 # =====================================================================
 # Phase 4: Badge thresholds
 # =====================================================================
@@ -662,77 +671,36 @@ def remove_cross_chain_duplicates(
 # =====================================================================
 
 
-def select_top_deals(
-    scored_deals: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Select the best ~200 deals with category, brand, and dispensary diversity.
+def _pick_from_pools(
+    buckets: dict[str, list[dict[str, Any]]],
+    category_slots: dict[str, int],
+    brand_cap: int,
+    brand_cat_cap: int,
+    dispensary_cap: int,
+    unknown_cap: int,
+    already_picked: set[tuple] | None = None,
+    brand_counts: dict[str, int] | None = None,
+    brand_cat_counts: dict[str, int] | None = None,
+    dispensary_counts: dict[str, int] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Pick deals from category pools with brand/dispensary diversity.
 
-    ``scored_deals`` must already have ``deal_score`` set (from
-    ``calculate_deal_score``).  Returns a list of up to
-    ``TARGET_DEAL_COUNT`` deals ordered for display.
+    Extracted so the same 3-pass logic can be reused in both the primary
+    diversity round and the backfill round with different cap values.
+
+    ``already_picked`` is a set of (name, sale_price) keys for deals
+    already selected in a previous round — they will be skipped.
     """
-    if not scored_deals:
-        return []
+    if brand_counts is None:
+        brand_counts = defaultdict(int)
+    if brand_cat_counts is None:
+        brand_cat_counts = defaultdict(int)
+    if dispensary_counts is None:
+        dispensary_counts = defaultdict(int)
+    if already_picked is None:
+        already_picked = set()
 
-    # ------------------------------------------------------------------
-    # Step 1: Bucket by category, sorted by deal_score DESC within each
-    # ------------------------------------------------------------------
-    buckets: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for deal in scored_deals:
-        cat = deal.get("category", "other")
-        if cat not in CATEGORY_TARGETS:
-            cat = "other"
-        buckets[cat].append(deal)
-
-    for cat in buckets:
-        buckets[cat].sort(key=lambda d: d.get("deal_score", 0), reverse=True)
-
-    # ------------------------------------------------------------------
-    # Step 2: Pick per category with brand diversity
-    # ------------------------------------------------------------------
     category_picks: dict[str, list[dict[str, Any]]] = {}
-    total_available = sum(len(v) for v in buckets.values())
-    target = min(TARGET_DEAL_COUNT, total_available)
-
-    # Calculate how many slots each category gets
-    category_slots: dict[str, int] = {}
-    remaining_slots = target
-    for cat, cat_target in CATEGORY_TARGETS.items():
-        pool_size = len(buckets.get(cat, []))
-        slots = min(cat_target, pool_size)
-        category_slots[cat] = slots
-        remaining_slots -= slots
-
-    # Redistribute surplus slots to categories that have more deals.
-    # Cap redistribution: no category can exceed 1.5x its target to
-    # prevent a single category from dominating the feed when others
-    # have low volume.
-    if remaining_slots > 0:
-        for cat in sorted(buckets.keys(), key=lambda c: len(buckets[c]), reverse=True):
-            pool_size = len(buckets[cat])
-            current = category_slots.get(cat, 0)
-            cat_target = CATEGORY_TARGETS.get(cat, 10)
-            # 1.5x ceiling: allow categories with surplus supply to take up to
-            # 50% more than their target, preventing empty slots while keeping
-            # balance.  Without this, a single high-volume category (e.g. flower)
-            # could fill all redistributed slots.
-            max_for_cat = int(cat_target * 1.5)
-            can_add = min(pool_size - current, max_for_cat - current)
-            if can_add > 0:
-                add = min(can_add, remaining_slots)
-                category_slots[cat] = current + add
-                remaining_slots -= add
-            if remaining_slots <= 0:
-                break
-
-    # Pick deals from each category pool with brand diversity.
-    # Unbranded products share a single "_unknown" key and are capped
-    # at MAX_UNKNOWN_BRAND_TOTAL (more lenient than branded caps since
-    # "unknown" covers many genuinely different brands).  Per-dispensary
-    # and per-category limits still apply independently.
-    brand_counts: dict[str, int] = defaultdict(int)
-    brand_cat_counts: dict[str, int] = defaultdict(int)  # "brand|category" → count
-    dispensary_counts: dict[str, int] = defaultdict(int)
 
     def _brand_key(deal: dict[str, Any]) -> str:
         b = deal.get("brand")
@@ -744,27 +712,28 @@ def select_top_deals(
         picked_set: set[int] = set()  # indices into pool
 
         def _try_pick(deal: dict[str, Any], idx: int) -> bool:
+            deal_key = (deal.get("name", ""), deal.get("sale_price"))
+            if deal_key in already_picked:
+                return False
             brand = _brand_key(deal)
             disp_id = deal.get("dispensary_id") or ""
             bc_key = f"{brand}|{cat}"
-            brand_cap = MAX_UNKNOWN_BRAND_TOTAL if brand == "_unknown" else MAX_SAME_BRAND_TOTAL
-            if brand_counts[brand] >= brand_cap:
+            effective_cap = unknown_cap if brand == "_unknown" else brand_cap
+            if brand_counts[brand] >= effective_cap:
                 return False
-            if brand_cat_counts[bc_key] >= MAX_SAME_BRAND_PER_CATEGORY:
+            if brand_cat_counts[bc_key] >= brand_cat_cap:
                 return False
-            if dispensary_counts[disp_id] >= MAX_SAME_DISPENSARY_TOTAL:
+            if dispensary_counts[disp_id] >= dispensary_cap:
                 return False
             brand_counts[brand] += 1
             brand_cat_counts[bc_key] += 1
             dispensary_counts[disp_id] += 1
             picks.append(deal)
             picked_set.add(idx)
+            already_picked.add(deal_key)
             return True
 
         # First pass: one deal per brand AND per weight tier.
-        # Ensures the top picks span different sizes (3.5g, 7g, 14g
-        # flower; 0.5g, 1g vape) for maximum variety in the first
-        # screen of cards.
         seen_brands: set[str] = set()
         seen_tiers: set[str] = set()
         for i, deal in enumerate(pool):
@@ -804,17 +773,136 @@ def select_top_deals(
 
         category_picks[cat] = picks
 
+    return category_picks
+
+
+def select_top_deals(
+    scored_deals: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Select the best ~200 deals with category, brand, and dispensary diversity.
+
+    Uses a two-round approach:
+      Round 1 — tight diversity caps for a high-variety core selection.
+      Round 2 (backfill) — if round 1 filled < 85% of target, relax caps
+        and pick additional deals to fill empty slots.
+
+    ``scored_deals`` must already have ``deal_score`` set (from
+    ``calculate_deal_score``).  Returns a list of up to
+    ``TARGET_DEAL_COUNT`` deals ordered for display.
+    """
+    if not scored_deals:
+        return []
+
+    # ------------------------------------------------------------------
+    # Step 1: Bucket by category, sorted by deal_score DESC within each
+    # ------------------------------------------------------------------
+    buckets: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for deal in scored_deals:
+        cat = deal.get("category", "other")
+        if cat not in CATEGORY_TARGETS:
+            cat = "other"
+        buckets[cat].append(deal)
+
+    for cat in buckets:
+        buckets[cat].sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+
+    # ------------------------------------------------------------------
+    # Step 2: Calculate category slot allocation
+    # ------------------------------------------------------------------
+    total_available = sum(len(v) for v in buckets.values())
+    target = min(TARGET_DEAL_COUNT, total_available)
+
+    category_slots: dict[str, int] = {}
+    remaining_slots = target
+    for cat, cat_target in CATEGORY_TARGETS.items():
+        pool_size = len(buckets.get(cat, []))
+        slots = min(cat_target, pool_size)
+        category_slots[cat] = slots
+        remaining_slots -= slots
+
+    # Redistribute surplus slots to categories that have more deals.
+    if remaining_slots > 0:
+        for cat in sorted(buckets.keys(), key=lambda c: len(buckets[c]), reverse=True):
+            pool_size = len(buckets[cat])
+            current = category_slots.get(cat, 0)
+            cat_target = CATEGORY_TARGETS.get(cat, 10)
+            max_for_cat = int(cat_target * 1.5)
+            can_add = min(pool_size - current, max_for_cat - current)
+            if can_add > 0:
+                add = min(can_add, remaining_slots)
+                category_slots[cat] = current + add
+                remaining_slots -= add
+            if remaining_slots <= 0:
+                break
+
+    # ------------------------------------------------------------------
+    # Step 2a: Round 1 — tight diversity caps
+    # ------------------------------------------------------------------
+    brand_counts: dict[str, int] = defaultdict(int)
+    brand_cat_counts: dict[str, int] = defaultdict(int)
+    dispensary_counts: dict[str, int] = defaultdict(int)
+    already_picked: set[tuple] = set()
+
+    category_picks = _pick_from_pools(
+        buckets, category_slots,
+        brand_cap=MAX_SAME_BRAND_TOTAL,
+        brand_cat_cap=MAX_SAME_BRAND_PER_CATEGORY,
+        dispensary_cap=MAX_SAME_DISPENSARY_TOTAL,
+        unknown_cap=MAX_UNKNOWN_BRAND_TOTAL,
+        already_picked=already_picked,
+        brand_counts=brand_counts,
+        brand_cat_counts=brand_cat_counts,
+        dispensary_counts=dispensary_counts,
+    )
+
+    round1_total = sum(len(v) for v in category_picks.values())
+
+    # ------------------------------------------------------------------
+    # Step 2b: Round 2 (backfill) — relaxed caps if under-filled
+    # ------------------------------------------------------------------
+    if round1_total < target * _BACKFILL_THRESHOLD:
+        # Calculate remaining slots per category
+        backfill_slots: dict[str, int] = {}
+        for cat in category_slots:
+            filled = len(category_picks.get(cat, []))
+            remaining = category_slots[cat] - filled
+            # Also allow categories to exceed their original slot allocation
+            # up to 2x target if the pool has supply
+            pool_remaining = len(buckets.get(cat, [])) - filled
+            backfill_slots[cat] = min(remaining + 5, pool_remaining)
+
+        backfill_picks = _pick_from_pools(
+            buckets, backfill_slots,
+            brand_cap=_BACKFILL_BRAND_TOTAL,
+            brand_cat_cap=_BACKFILL_BRAND_PER_CATEGORY,
+            dispensary_cap=_BACKFILL_DISPENSARY_TOTAL,
+            unknown_cap=_BACKFILL_UNKNOWN_BRAND_TOTAL,
+            already_picked=already_picked,
+            brand_counts=brand_counts,
+            brand_cat_counts=brand_cat_counts,
+            dispensary_counts=dispensary_counts,
+        )
+
+        # Merge backfill into category_picks
+        for cat, picks in backfill_picks.items():
+            if picks:
+                category_picks.setdefault(cat, []).extend(picks)
+
+        round2_total = sum(len(v) for v in category_picks.values())
+        logger.info(
+            "Backfill: %d → %d deals (round 1 was %.0f%% of %d target)",
+            round1_total, round2_total, round1_total / target * 100, target,
+        )
+
     # ------------------------------------------------------------------
     # Step 3: Interleave categories for feed variety
     # ------------------------------------------------------------------
     result: list[dict[str, Any]] = []
-    # Sort categories by their target weight (most popular first)
     cat_order = sorted(
         category_picks.keys(),
         key=lambda c: CATEGORY_TARGETS.get(c, 0),
         reverse=True,
     )
-    # Create iterators for each category
     cat_iters: dict[str, list[dict[str, Any]]] = {
         cat: list(category_picks[cat]) for cat in cat_order
     }
@@ -823,14 +911,12 @@ def select_top_deals(
     last_brands: list[str] = []
 
     while len(result) < target:
-        # Try each category in round-robin
         tried = 0
         placed = False
         while tried < len(cat_order):
             cat = next(cat_cycle)
             tried += 1
 
-            # Check consecutive-same-category constraint
             if (
                 len(last_cats) >= MAX_CONSECUTIVE_SAME_CATEGORY
                 and all(c == cat for c in last_cats[-MAX_CONSECUTIVE_SAME_CATEGORY:])
@@ -841,15 +927,11 @@ def select_top_deals(
                 deal = cat_iters[cat][0]
                 deal_brand = deal.get("brand") or ""
 
-                # Check consecutive-same-brand constraint: don't place
-                # the same brand adjacent in the feed
                 if (
                     deal_brand
                     and len(last_brands) >= MAX_CONSECUTIVE_SAME_BRAND
                     and all(b == deal_brand for b in last_brands[-MAX_CONSECUTIVE_SAME_BRAND:])
                 ):
-                    # Try to find a non-conflicting deal deeper in this
-                    # category's queue (swap it to front if found)
                     swapped = False
                     for j in range(1, len(cat_iters[cat])):
                         alt = cat_iters[cat][j]
@@ -864,8 +946,6 @@ def select_top_deals(
                             swapped = True
                             break
                     if not swapped:
-                        # All remaining deals in this category are the
-                        # same brand — skip to another category
                         continue
 
                 cat_iters[cat].pop(0)
@@ -876,7 +956,6 @@ def select_top_deals(
                 break
 
         if not placed:
-            # All iterators empty or blocked — force-drain remaining
             for cat in cat_order:
                 while cat_iters.get(cat):
                     result.append(cat_iters[cat].pop(0))
@@ -887,8 +966,13 @@ def select_top_deals(
             break
 
     # ------------------------------------------------------------------
-    # Step 4: Dispensary cap enforcement
+    # Step 4: Dispensary cap enforcement (uses backfill cap if active)
     # ------------------------------------------------------------------
+    effective_disp_cap = (
+        _BACKFILL_DISPENSARY_TOTAL
+        if round1_total < target * _BACKFILL_THRESHOLD
+        else MAX_SAME_DISPENSARY_TOTAL
+    )
     final_disp_counts: dict[str, int] = defaultdict(int)
     for deal in result:
         disp_id = deal.get("dispensary_id") or ""
@@ -896,17 +980,16 @@ def select_top_deals(
 
     over_cap = [
         disp_id for disp_id, count in final_disp_counts.items()
-        if count > MAX_SAME_DISPENSARY_TOTAL
+        if count > effective_disp_cap
     ]
     if over_cap:
-        # Remove lowest-scored excess from over-represented dispensaries
         for disp_id in over_cap:
             disp_deals = [
                 (i, d) for i, d in enumerate(result)
                 if (d.get("dispensary_id") or "") == disp_id
             ]
             disp_deals.sort(key=lambda x: x[1].get("deal_score", 0))
-            excess = len(disp_deals) - MAX_SAME_DISPENSARY_TOTAL
+            excess = len(disp_deals) - effective_disp_cap
             remove_indices = {idx for idx, _ in disp_deals[:excess]}
             result = [d for i, d in enumerate(result) if i not in remove_indices]
 

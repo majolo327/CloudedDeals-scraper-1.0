@@ -141,7 +141,7 @@ BRANDS = sorted(set([
     'Later Days', 'LAVI', 'Leaf & Vine', 'Leaf and Vine', 'LEVEL', 'Lift Tickets', 'LIT',
     "Local's Only", 'Lost Farm', 'LP Exotics',
     # M
-    'Matrix', 'Medizin', 'Mojo', 'Moxie', 'Mystic Timbers',
+    'Matrix', 'Medizin', 'Mojo', 'Moxie', 'MUV', 'Mystic Timbers',
     # N-O
     "Nature's Chemistry", 'Neon Cactus', 'Nitro Dabs',
     'Nordic Goddess',
@@ -199,6 +199,8 @@ BRAND_ALIASES: dict[str, str] = {
     'Evergreen Organix': 'EGO',
     "Local's Only": "Local's Only",   # canonical form with apostrophe
     'Leaf and Vine': 'Leaf & Vine',   # normalize ampersand form
+    'MUV': 'MÜV',                     # normalize to umlaut form
+    'The Essence': 'Essence',         # "by The Essence" → canonical "Essence"
 }
 
 # ============================================================================
@@ -231,6 +233,7 @@ _BRAND_VARIATION_MAP: dict[str, str] = {
     'indo cannabis': 'INDO',
     'sauce': 'Sauce Essentials',
     'vlasic': 'Vlasic Labs',
+    'müv': 'MÜV',
 }
 
 _VARIATION_PATTERNS: list[tuple[re.Pattern, str]] = [

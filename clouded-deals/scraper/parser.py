@@ -389,6 +389,7 @@ KNOWN_BRANDS: list[str] = [
     "Grön",
     "Lost Farm",
     "MÜV",
+    "MUV",
     "Phat Panda",
     "Punch Edibles",
     "Robhots",
