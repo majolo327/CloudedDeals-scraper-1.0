@@ -572,7 +572,7 @@ class TestDeepDiagnostics:
         cfg = get_dispensary_by_slug("td-gibson")
         assert cfg is not None
 
-        async with await async_playwright().start() as pw:
+        async with async_playwright() as pw:
             browser = await pw.chromium.launch(
                 headless=True,
                 args=["--no-sandbox", "--disable-blink-features=AutomationControlled"],
@@ -660,7 +660,7 @@ class TestDeepDiagnostics:
         cfg = get_dispensary_by_slug("planet13")
         assert cfg is not None
 
-        async with await async_playwright().start() as pw:
+        async with async_playwright() as pw:
             browser = await pw.chromium.launch(
                 headless=True,
                 args=["--no-sandbox", "--disable-blink-features=AutomationControlled"],
@@ -731,7 +731,7 @@ class TestDeepDiagnostics:
         cfg = get_dispensary_by_slug("oasis")
         assert cfg is not None
 
-        async with await async_playwright().start() as pw:
+        async with async_playwright() as pw:
             browser = await pw.chromium.launch(
                 headless=True,
                 args=["--no-sandbox", "--disable-blink-features=AutomationControlled"],
@@ -831,7 +831,7 @@ class TestDeepDiagnostics:
             ("silver-sage", "https://store.sswlv.com/"),
         ]
 
-        async with await async_playwright().start() as pw:
+        async with async_playwright() as pw:
             browser = await pw.chromium.launch(
                 headless=True,
                 args=["--no-sandbox", "--disable-blink-features=AutomationControlled"],
