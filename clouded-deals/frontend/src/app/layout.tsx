@@ -30,6 +30,9 @@ const OG_DESCRIPTION =
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
+  verification: {
+    google: "tO7sgcSBDMWLDg0hiCrOTm7McFGAuGsSc6Lv0ChsNrM",
+  },
   title: {
     default: OG_TITLE,
     template: "%s | CloudedDeals",
