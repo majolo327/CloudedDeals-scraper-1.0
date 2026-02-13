@@ -823,10 +823,16 @@ def select_top_deals(
         category_slots[cat] = slots
         remaining_slots -= slots
 
-    # Redistribute surplus slots to categories that have more deals.
+    # Redistribute surplus slots to underfilled categories first, then
+    # overflow to categories with abundant supply.  "other" is hard-capped
+    # at its target to prevent it from absorbing slots that real categories
+    # (vape, edible, concentrate) could use.
     if remaining_slots > 0:
-        for cat in sorted(buckets.keys(), key=lambda c: len(buckets[c]), reverse=True):
-            pool_size = len(buckets[cat])
+        # Priority 1: underfilled real categories (below their target)
+        for cat in sorted(buckets.keys(), key=lambda c: CATEGORY_TARGETS.get(c, 0), reverse=True):
+            if cat == "other":
+                continue  # don't overflow into "other" — keep it tight
+            pool_size = len(buckets.get(cat, []))
             current = category_slots.get(cat, 0)
             cat_target = CATEGORY_TARGETS.get(cat, 10)
             max_for_cat = int(cat_target * 1.5)
@@ -837,6 +843,20 @@ def select_top_deals(
                 remaining_slots -= add
             if remaining_slots <= 0:
                 break
+        # Priority 2: overflow into any category (including "other") if still slots left
+        if remaining_slots > 0:
+            for cat in sorted(buckets.keys(), key=lambda c: len(buckets[c]), reverse=True):
+                pool_size = len(buckets.get(cat, []))
+                current = category_slots.get(cat, 0)
+                cat_target = CATEGORY_TARGETS.get(cat, 10)
+                max_for_cat = int(cat_target * 1.5) if cat != "other" else cat_target
+                can_add = min(pool_size - current, max_for_cat - current)
+                if can_add > 0:
+                    add = min(can_add, remaining_slots)
+                    category_slots[cat] = current + add
+                    remaining_slots -= add
+                if remaining_slots <= 0:
+                    break
 
     # ------------------------------------------------------------------
     # Step 2a: Round 1 — tight diversity caps

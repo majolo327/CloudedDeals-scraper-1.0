@@ -81,7 +81,7 @@ _WAIT_FOR_DUTCHIE_JS = """
     const iframes = document.querySelectorAll('iframe');
     for (const f of iframes) {
         const src = f.getAttribute('src') || '';
-        if (src.includes('dutchie') || src.includes('embedded-menu') || src.includes('menu')) {
+        if (src.includes('dutchie') || src.includes('embedded-menu') || src.includes('goshango') || src.includes('menu')) {
             return true;
         }
     }
@@ -322,6 +322,50 @@ class DutchieScraper(BaseScraper):
                             break
                 else:
                     logger.warning("[%s] No Dutchie content on base menu either", self.slug)
+
+        # --- Fallback URL from config (e.g. Jardin switched from AIQ to Dutchie) ---
+        if not all_products:
+            fallback_url = self.dispensary.get("fallback_url")
+            if fallback_url and fallback_url != self.url:
+                logger.warning(
+                    "[%s] Primary + base menu both empty — trying fallback_url: %s",
+                    self.slug, fallback_url,
+                )
+                await self.goto(fallback_url)
+                await asyncio.sleep(3)
+                await self.page.evaluate(_AGE_GATE_COOKIE_JS)
+                await self.handle_age_gate(post_wait_sec=3)
+                await force_remove_age_gate(self.page)
+
+                try:
+                    await self.page.wait_for_function(
+                        _WAIT_FOR_DUTCHIE_JS, timeout=60_000,
+                    )
+                except PlaywrightTimeout:
+                    pass
+
+                fb_target, fb_embed = await find_dutchie_content(
+                    self.page,
+                    iframe_timeout_ms=45_000,
+                    js_embed_timeout_sec=60,
+                )
+                if fb_target is not None:
+                    logger.info("[%s] Fallback URL content found via %s", self.slug, fb_embed)
+                    if fb_embed == "iframe":
+                        await dismiss_age_gate(fb_target)
+                    page_num = 1
+                    while True:
+                        products = await self._extract_products(fb_target)
+                        all_products.extend(products)
+                        logger.info("[%s] Fallback page %d → %d products (total %d)",
+                                    self.slug, page_num, len(products), len(all_products))
+                        page_num += 1
+                        await force_remove_age_gate(self.page)
+                        try:
+                            if not await navigate_dutchie_page(fb_target, page_num):
+                                break
+                        except Exception:
+                            break
 
         if not all_products:
             await self.save_debug_info("zero_products", target)

@@ -120,7 +120,26 @@ class JaneScraper(BaseScraper):
     """Scraper for Jane hybrid iframe / direct-page menus."""
 
     async def scrape(self) -> list[dict[str, Any]]:
-        await self.goto()
+        products = await self._scrape_url(self.url)
+
+        # --- Fallback URL: if primary URL yielded 0 products, try the
+        # fallback (e.g. dispensary's own site when primary is iheartjane,
+        # or vice versa).
+        if not products:
+            fallback_url = self.dispensary.get("fallback_url")
+            if fallback_url and fallback_url != self.url:
+                logger.warning(
+                    "[%s] Primary URL yielded 0 products — trying fallback: %s",
+                    self.slug, fallback_url,
+                )
+                products = await self._scrape_url(fallback_url)
+
+        logger.info("[%s] Scrape complete — %d products", self.slug, len(products))
+        return products
+
+    async def _scrape_url(self, url: str) -> list[dict[str, Any]]:
+        """Scrape a single URL using direct page → iframe → View More cascade."""
+        await self.goto(url)
         await self.handle_age_gate(
             post_wait_sec=_JANE_CFG["wait_after_age_gate_sec"],
         )
@@ -130,7 +149,7 @@ class JaneScraper(BaseScraper):
         products = await self._try_extract(target)
 
         if products:
-            logger.info("[%s] Found %d products on direct page", self.slug, len(products))
+            logger.info("[%s] Found %d products on direct page (%s)", self.slug, len(products), url[:80])
         else:
             # --- Strategy 2: fall back to iframe ------------------------
             logger.info("[%s] No products on direct page — trying iframe", self.slug)
@@ -177,7 +196,6 @@ class JaneScraper(BaseScraper):
                 self.slug, exc, len(products),
             )
 
-        logger.info("[%s] Scrape complete — %d products", self.slug, len(products))
         return products
 
     # ------------------------------------------------------------------
