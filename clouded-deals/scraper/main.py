@@ -288,6 +288,28 @@ _RE_BRACKET_WEIGHT = re.compile(
     re.IGNORECASE,
 )
 
+# Promotional bundle text embedded in product names:
+# "Gummies 2 For $35 All Dispensary", "Elixir 3 For $20 Sips, HaHa, "
+_RE_PROMO_BUNDLE = re.compile(
+    r"\s*\d+\s+For\s+\$\d+\.?\d*\b.*$",
+    re.IGNORECASE,
+)
+
+# Trailing pipe-delimited weight/metadata for edibles:
+# "Drink Loud | Cucumber Haze | 100mg" → keep up to the strain segment
+# "Blue Razz | 100mg" → strip "| 100mg"
+# "Dreamberry | 100mg 2:1 [THC:CBN]" → strip "| 100mg 2:1 [THC:CBN]"
+_RE_TRAILING_PIPE_WEIGHT = re.compile(
+    r"\s*\|\s*\d+\.?\d*\s*m?g\b.*$",
+    re.IGNORECASE,
+)
+
+# THC:CBD ratio brackets: "[THC:CBN]", "[1:1]", "[2:1]"
+_RE_RATIO_BRACKET = re.compile(
+    r"\s*\[?\d*:?\d*\s*(?:THC|CBD|CBN|CBG)\s*(?::\s*(?:THC|CBD|CBN|CBG))?\]?",
+    re.IGNORECASE,
+)
+
 # Patterns that indicate promotional / sale copy rather than a real product name
 _SALE_COPY_PATTERNS = [
     re.compile(r"^\d+%\s*off", re.IGNORECASE),
@@ -853,6 +875,7 @@ async def _scrape_site_inner(
             ):
                 category = "concentrate"
 
+
         # Parse full combined text for price, weight, THC
         text = f"{raw_name} {raw_text} {price_text}"
         product = logic.parse_product(text, dispensary["name"])
@@ -866,6 +889,30 @@ async def _scrape_site_inner(
             product["category"] = category
 
         weight_value, weight_unit = _split_weight(product.get("weight"))
+
+        # "Other" → flower fallback: products with flower-typical weights
+        # (3.5g, 7g, 14g, 28g) that didn't match any category keyword are
+        # almost certainly flower.  "Golden State Banana 3.5g" has no
+        # keyword but the weight is unambiguously flower.
+        if category == "other" and weight_value is not None:
+            try:
+                wv = float(weight_value)
+                if wv in (3.5, 7.0, 14.0, 28.0):
+                    category = "flower"
+                    product["category"] = "flower"
+            except (ValueError, TypeError):
+                pass
+
+        # Normalize mg → g for vape/concentrate (physical weight, not THC)
+        # "1000mg" vape cart → 1.0g, "850mg" pod → 0.85g
+        effective_cat = category if (category and category != 'other') else product.get("category")
+        if (
+            weight_unit == "mg"
+            and weight_value is not None
+            and effective_cat in ("vape", "concentrate")
+        ):
+            weight_value = round(weight_value / 1000, 3)
+            weight_unit = "g"
 
         # --- Build a clean display name from the scraper's raw_name ------
         # CloudedLogic's product_name is derived from the full combined text
@@ -920,14 +967,20 @@ async def _scrape_site_inner(
                 r"\b(?:Flower|Bud)\b", "", display_name, flags=re.IGNORECASE,
             ).strip()
 
-        # 6. Strip inline weight values redundant with the weight field
+        # 6. Strip promotional bundle text: "Gummies 2 For $35 All Dis…"
+        display_name = _RE_PROMO_BUNDLE.sub("", display_name).strip()
+
+        # 7. Strip trailing pipe + weight for edibles: "Drink Loud | Cucumber Haze | 100mg"
+        display_name = _RE_TRAILING_PIPE_WEIGHT.sub("", display_name).strip()
+
+        # 8. Strip inline weight values redundant with the weight field
         display_name = _RE_BRACKET_WEIGHT.sub("", display_name).strip()
         display_name = _RE_INLINE_WEIGHT.sub("", display_name).strip()
 
-        # 7. Strip marketing junk: "High Octane Xtreme" etc.
+        # 9. Strip marketing junk: "High Octane Xtreme" etc.
         display_name = _RE_MARKETING_JUNK.sub("", display_name).strip()
 
-        # 8. Strip parenthetical weight and strain-type indicators
+        # 10. Strip parenthetical weight and strain-type indicators
         # "(100mg)" duplicates the weight field; "(I)"/"(S)"/"(H)" are
         # strain-type shorthand already captured in the strain_type field.
         display_name = re.sub(
@@ -937,8 +990,16 @@ async def _scrape_site_inner(
             r"\s*\(\s*[ISH]\s*\)", "", display_name, flags=re.IGNORECASE,
         )
 
+        # 11. Strip standalone "mg" weight: "100mg", "200mg"
+        display_name = re.sub(
+            r"\b\d+\.?\d*\s*mg\b", "", display_name, flags=re.IGNORECASE,
+        ).strip()
+
+        # 12. Strip THC:CBD ratio text: "2:1", "[THC:CBN]"
+        display_name = _RE_RATIO_BRACKET.sub("", display_name).strip()
+
         display_name = re.sub(r"\s{2,}", " ", display_name).strip()
-        display_name = display_name.strip(" -–—") or raw_name or "Unknown"
+        display_name = display_name.strip(" -–—|") or raw_name or "Unknown"
 
         # Map CloudedLogic output to the DB schema expected by _upsert_products
         enriched: dict[str, Any] = {

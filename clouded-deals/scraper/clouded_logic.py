@@ -679,7 +679,9 @@ class CloudedLogic:
         # 6. VAPE
         # Use word-boundary regex to prevent false positives from
         # substrings (e.g. "pen" matching "Aspen", "open", "expend").
-        edible_keywords = ['gummies', 'gummy', 'chocolate', 'candy', 'brownie']
+        edible_keywords = ['gummies', 'gummy', 'chocolate', 'candy', 'brownie',
+                          'chews', 'chew', 'taffy', 'lozenge', 'lozenges',
+                          'drops', 'tarts', 'bites', 'pieces', 'mints']
         if re.search(r'\b(cart|cartridge|pod|disposable|vape|pen|all-in-one)\b', t):
             if not any(w in t for w in edible_keywords):
                 return 'vape'
@@ -689,9 +691,15 @@ class CloudedLogic:
         if any(w in t for w in flower_keywords):
             return 'flower'
 
-        # 8. EDIBLE fallback
+        # 8. EDIBLE — expanded keywords including common product formats
         if any(w in t for w in edible_keywords):
             return 'edible'
+        # Word-boundary match for short/ambiguous edible words
+        if re.search(r'\b(?:bars?|mints?|chew|tabs?|tablets?)\b', t):
+            # Avoid false positives: "bar" in strain names or "mint" in "Thin Mint"
+            # Only match if the text also has a mg weight (edible indicator)
+            if re.search(r'\b\d+\s*mg\b', t):
+                return 'edible'
 
         # 9. Other
         return 'other'
