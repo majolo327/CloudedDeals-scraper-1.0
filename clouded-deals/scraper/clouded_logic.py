@@ -178,7 +178,7 @@ BRANDS = sorted(set([
     "Uncle Arnie's", 'Uncle Arnies', 'Vada', 'Vapen', 'Verano', 'VERT Unlimited',
     'Vegas Valley Growers', 'Virtue', 'Vlasic Labs', 'Voon',
     # W-Z
-    'Wana', 'Wonderbrett', 'Wyld', 'WYLD CBD', 'Your Highness', 'Zen Leaf',
+    'Wana', 'Wonderbrett', 'Wyld', 'WYLD CBD', 'Your Highness',
     # &-prefixed
     '&Shine',
 ]), key=str.lower)

@@ -413,18 +413,6 @@ RECON_SITES: list[dict[str, str]] = [
         "expected_platform": "unknown",
     },
     {
-        "slug": "zen-leaf-flamingo",
-        "name": "Zen Leaf Flamingo",
-        "url": "https://zenleafdispensaries.com/locations/flamingo/menu/recreational",
-        "expected_platform": "unknown",
-    },
-    {
-        "slug": "zen-leaf-north-lv",
-        "name": "Zen Leaf North Las Vegas",
-        "url": "https://zenleafdispensaries.com/locations/north-las-vegas/menu/recreational",
-        "expected_platform": "unknown",
-    },
-    {
         "slug": "cookies-flamingo",
         "name": "Cookies Flamingo",
         "url": "https://cookiesdispensary.com/flamingo/shop/",

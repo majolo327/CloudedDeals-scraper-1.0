@@ -46,7 +46,7 @@ _CATEGORY_ONLY = {
 }
 
 # Promotional / discount lines that appear before the product name on some
-# sites (e.g., Zen Leaf).  Matched as first-line skip in name extraction.
+# sites.  Matched as first-line skip in name extraction.
 _PROMO_LINE = re.compile(
     r"^\d+%\s*off\b"              # "40% OFF"
     r"|^B[12]G[12]\b"             # "B1G1", "B2G1"
@@ -65,7 +65,7 @@ _PROMO_LINE = re.compile(
     , re.IGNORECASE,
 )
 
-# "by <Brand>" pattern — Zen Leaf uses "by Essence", "by (the) Essence"
+# "by <Brand>" pattern — e.g. "by Essence", "by (the) Essence"
 _BY_BRAND = re.compile(
     r"^by\s+(?:\(?the\)?\s+)?(.+?)$",
     re.IGNORECASE,
