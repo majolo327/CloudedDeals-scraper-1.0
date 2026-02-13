@@ -288,6 +288,38 @@ export default async function DispensaryPage({ params }: PageProps) {
           <SeoDealsTable deals={deals} showDispensary={false} />
         </section>
 
+        {/* Nearby dispensaries in same zone */}
+        {(() => {
+          const zoneDispensaries = DISPENSARIES.filter(
+            (d) => d.scraped && d.zone === dispensary.zone && d.slug !== params.slug
+          ).slice(0, 6);
+          if (zoneDispensaries.length === 0) return null;
+          const zoneTitle =
+            dispensary.zone === 'strip'
+              ? 'Other Strip Dispensaries'
+              : dispensary.zone === 'downtown'
+                ? 'Other Downtown Dispensaries'
+                : 'Nearby Las Vegas Dispensaries';
+          return (
+            <section className="mt-12 pt-8 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <h2 className="text-lg font-semibold mb-4">{zoneTitle}</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {zoneDispensaries.map((d) => (
+                  <Link
+                    key={d.id}
+                    href={`/dispensary/${d.slug}`}
+                    className="p-3 rounded-xl bg-white/[0.03] border hover:border-purple-500/30 transition-colors"
+                    style={{ borderColor: 'var(--border-subtle)' }}
+                  >
+                    <p className="text-sm font-medium text-slate-200 mb-1">{d.name}</p>
+                    <p className="text-xs text-slate-500">{d.address}</p>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          );
+        })()}
+
         {/* Internal links */}
         <section className="mt-12 pt-8 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
           <h2 className="text-lg font-semibold mb-4">More Las Vegas Dispensary Deals</h2>

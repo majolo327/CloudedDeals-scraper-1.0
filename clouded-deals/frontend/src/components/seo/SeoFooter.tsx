@@ -15,6 +15,10 @@ const POPULAR_DISPENSARIES = [
   { slug: 'the-grove', label: 'The Grove' },
   { slug: 'thrive-strip', label: 'Thrive Strip' },
   { slug: 'cultivate-spring', label: 'Cultivate' },
+  { slug: 'medizin', label: 'Medizin' },
+  { slug: 'td-gibson', label: 'The Dispensary Gibson' },
+  { slug: 'greenlight-downtown', label: 'Greenlight Downtown' },
+  { slug: 'deep-roots-cheyenne', label: 'Deep Roots Cheyenne' },
 ];
 
 export function SeoFooter() {
