@@ -9,7 +9,7 @@ export function SeoPageHeader() {
         borderColor: 'var(--border-subtle)',
       }}
     >
-      <div className="max-w-6xl mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
+      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link href="/" className="focus:outline-none">
           <span className="text-lg sm:text-xl font-bold tracking-tight">
             Clouded<span className="text-purple-400">Deals</span>

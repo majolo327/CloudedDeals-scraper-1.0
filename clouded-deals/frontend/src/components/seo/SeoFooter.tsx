@@ -32,7 +32,7 @@ export function SeoFooter() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-10">
           {/* Deals */}
           <div>
-            <h3 className="text-sm font-semibold text-slate-300 mb-3">Deals</h3>
+            <h2 className="text-sm font-semibold text-slate-300 mb-3">Deals</h2>
             <ul className="space-y-2">
               <li>
                 <Link
@@ -65,7 +65,7 @@ export function SeoFooter() {
 
           {/* Dispensaries */}
           <div>
-            <h3 className="text-sm font-semibold text-slate-300 mb-3">Dispensaries</h3>
+            <h2 className="text-sm font-semibold text-slate-300 mb-3">Dispensaries</h2>
             <ul className="space-y-2">
               {POPULAR_DISPENSARIES.map((d) => (
                 <li key={d.slug}>
@@ -90,7 +90,7 @@ export function SeoFooter() {
 
           {/* App */}
           <div>
-            <h3 className="text-sm font-semibold text-slate-300 mb-3">App</h3>
+            <h2 className="text-sm font-semibold text-slate-300 mb-3">App</h2>
             <ul className="space-y-2">
               <li>
                 <Link
@@ -129,7 +129,7 @@ export function SeoFooter() {
 
           {/* Legal */}
           <div>
-            <h3 className="text-sm font-semibold text-slate-300 mb-3">Legal</h3>
+            <h2 className="text-sm font-semibold text-slate-300 mb-3">Legal</h2>
             <ul className="space-y-2">
               <li>
                 <Link
