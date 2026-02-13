@@ -28,6 +28,7 @@ from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 
+from clouded_logic import CONSECUTIVE_EMPTY_MAX
 from config.dispensaries import PLATFORM_DEFAULTS
 from handlers import dismiss_age_gate, force_remove_age_gate, find_dutchie_content, navigate_dutchie_page
 from .base import BaseScraper
@@ -221,6 +222,7 @@ class DutchieScraper(BaseScraper):
         # --- Paginate and collect products --------------------------------
         all_products: list[dict[str, Any]] = []
         page_num = 1
+        consecutive_empty = 0
 
         while True:
             products = await self._extract_products(target)
@@ -229,6 +231,21 @@ class DutchieScraper(BaseScraper):
                 "[%s] Page %d → %d products (total %d)",
                 self.slug, page_num, len(products), len(all_products),
             )
+
+            # Track consecutive pages that returned 0 products.
+            # Do NOT break on the first empty page — the DOM may still
+            # be rendering.  Only bail after CONSECUTIVE_EMPTY_MAX (3)
+            # consecutive empties (resilience logic from v102).
+            if len(products) == 0:
+                consecutive_empty += 1
+                if consecutive_empty >= CONSECUTIVE_EMPTY_MAX:
+                    logger.warning(
+                        "[%s] %d consecutive empty pages — stopping pagination (total %d products)",
+                        self.slug, consecutive_empty, len(all_products),
+                    )
+                    break
+            else:
+                consecutive_empty = 0
 
             page_num += 1
 

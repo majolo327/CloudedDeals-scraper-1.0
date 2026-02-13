@@ -23,6 +23,7 @@ from typing import Any
 
 from playwright.async_api import TimeoutError as PlaywrightTimeout
 
+from clouded_logic import CONSECUTIVE_EMPTY_MAX
 from config.dispensaries import PLATFORM_DEFAULTS
 from handlers import dismiss_age_gate, navigate_curaleaf_page
 from handlers.pagination import _JS_DISMISS_OVERLAYS
@@ -72,9 +73,9 @@ _BY_BRAND = re.compile(
 )
 
 # Cap pagination to avoid 240 s site timeout.  Curaleaf sites have 500–700+
-# products across 12-14 pages.  10 pages × 51 products ≈ 510, which captures
-# the vast majority of specials and finishes in ~155 s.
-_MAX_PAGES = 10
+# products across 12-14 pages.  15 pages × 51 products ≈ 765, which captures
+# the full catalog for all known Curaleaf/Zen Leaf sites and finishes in ~230 s.
+_MAX_PAGES = 15
 
 # Curaleaf product card selectors (tried in order).
 _PRODUCT_SELECTORS = [
@@ -123,6 +124,7 @@ class CuraleafScraper(BaseScraper):
         # --- Paginate and collect products ------------------------------
         all_products: list[dict[str, Any]] = []
         page_num = 1
+        consecutive_empty = 0
 
         while page_num <= _MAX_PAGES:
             products = await self._extract_products()
@@ -131,6 +133,19 @@ class CuraleafScraper(BaseScraper):
                 "[%s] Page %d → %d products (total %d)",
                 self.slug, page_num, len(products), len(all_products),
             )
+
+            # Track consecutive empty pages — bail after 3 in a row
+            # instead of silently paginating through blank pages.
+            if len(products) == 0:
+                consecutive_empty += 1
+                if consecutive_empty >= CONSECUTIVE_EMPTY_MAX:
+                    logger.warning(
+                        "[%s] %d consecutive empty pages — stopping pagination (total %d products)",
+                        self.slug, consecutive_empty, len(all_products),
+                    )
+                    break
+            else:
+                consecutive_empty = 0
 
             page_num += 1
             # CRITICAL: navigate_curaleaf_page checks is_enabled() internally.
