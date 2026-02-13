@@ -276,6 +276,10 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
         brand = product.get("brand")
         if not brand:
             return False  # brand match required for Jane loose mode
+        # If Jane actually provides an original price and it's <= sale_price,
+        # there's no real discount.  Reject "0% off" deals (e.g. "$10 was $10").
+        if original_price and original_price > 0 and original_price <= sale_price:
+            return False
         return _passes_price_cap(sale_price, category, weight_value)
 
     # --- Standard filters (non-Jane platforms) ---
@@ -884,15 +888,19 @@ def select_top_deals(
     # Step 2b: Round 2 (backfill) — relaxed caps if under-filled
     # ------------------------------------------------------------------
     if round1_total < target * _BACKFILL_THRESHOLD:
-        # Calculate remaining slots per category
+        total_deficit = target - round1_total
+        # Calculate remaining slots per category — proportional to the deficit,
+        # not a fixed +5 buffer.  Categories with large unfilled gaps get more
+        # backfill slots, and categories with remaining pool supply can absorb
+        # overflow from categories that have exhausted their pools.
         backfill_slots: dict[str, int] = {}
         for cat in category_slots:
             filled = len(category_picks.get(cat, []))
             remaining = category_slots[cat] - filled
-            # Also allow categories to exceed their original slot allocation
-            # up to 2x target if the pool has supply
             pool_remaining = len(buckets.get(cat, [])) - filled
-            backfill_slots[cat] = min(remaining + 5, pool_remaining)
+            # Allow up to remaining + share of total deficit, capped by pool supply
+            overflow = max(5, total_deficit // max(len(category_slots), 1))
+            backfill_slots[cat] = min(remaining + overflow, pool_remaining)
 
         backfill_picks = _pick_from_pools(
             buckets, backfill_slots,
@@ -913,8 +921,8 @@ def select_top_deals(
 
         round2_total = sum(len(v) for v in category_picks.values())
         logger.info(
-            "Backfill: %d → %d deals (round 1 was %.0f%% of %d target)",
-            round1_total, round2_total, round1_total / target * 100, target,
+            "Backfill: %d → %d deals (round 1 was %.0f%% of %d target, deficit was %d)",
+            round1_total, round2_total, round1_total / target * 100, target, total_deficit,
         )
 
     # ------------------------------------------------------------------

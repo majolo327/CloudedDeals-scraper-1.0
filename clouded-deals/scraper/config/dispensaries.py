@@ -636,40 +636,40 @@ DISPENSARIES = [
         "embed_type": "direct",
     },
     {
-        # Switched from AIQ to Dutchie — specials page with embedded menu.
-        # No embed_type hint — auto-detect via full cascade, same as the
-        # working Charleston/Henderson/Warm Springs siblings.
+        # Switched from AIQ to Dutchie — iframe embed on dispensary website
+        # (same URL pattern as Planet 13: /stores/.../specials)
         "name": "Nevada Made Laughlin",
         "slug": "nevada-made-casino-dr",
         "platform": "dutchie",
         "url": "https://nevadamademarijuana.com/stores/nevada-made-marijuana-laughlin/specials",
+        "embed_type": "iframe",
         "is_active": True,
         "region": "southern-nv",
     },
     {
-        # Switched from AIQ to Dutchie — specials page with embedded menu
         "name": "Nevada Made Charleston",
         "slug": "nevada-made-charleston",
         "platform": "dutchie",
         "url": "https://nevadamademarijuana.com/stores/nevada-made-marijuana-charleston/specials",
+        "embed_type": "iframe",
         "is_active": True,
         "region": "southern-nv",
     },
     {
-        # Switched from AIQ to Dutchie — was 403 on old platform, now active
         "name": "Nevada Made Henderson",
         "slug": "nevada-made-henderson",
         "platform": "dutchie",
         "url": "https://nevadamademarijuana.com/stores/nevada-made-marijuana-henderson1/specials",
+        "embed_type": "iframe",
         "is_active": True,
         "region": "southern-nv",
     },
     {
-        # Switched from AIQ to Dutchie — was 403 on old platform, now active
         "name": "Nevada Made Warm Springs",
         "slug": "nevada-made-warm-springs",
         "platform": "dutchie",
         "url": "https://nevadamademarijuana.com/stores/nevada-made-marijuana-warm-springs/specials",
+        "embed_type": "iframe",
         "is_active": True,
         "region": "southern-nv",
     },

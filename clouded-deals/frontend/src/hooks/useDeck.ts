@@ -16,7 +16,11 @@ interface DismissedData {
 }
 
 function getTodayDate(): string {
-  return new Date().toISOString().slice(0, 10);
+  // Use LOCAL date, not UTC — toISOString() returns UTC which causes the
+  // dismissed set to persist across local-day boundaries.  A Las Vegas
+  // user (UTC-8) would see the counter carry over until 4pm PST otherwise.
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function loadDismissedIds(): Set<string> {

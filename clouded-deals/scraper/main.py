@@ -475,6 +475,11 @@ def _clean_product_name(name: str) -> str:
     """Strip junk text, deduplicate, and normalize whitespace in a product name."""
     if not name:
         return "Unknown"
+    # Product names should never span multiple lines.  Take only the first
+    # meaningful line — this prevents THC data, promo tags ("Local Love!"),
+    # and deal text ("2 For $3") on later lines from polluting the name.
+    if "\n" in name:
+        name = name.split("\n")[0].strip()
     cleaned = _RE_NAME_JUNK.sub("", name)
     # Strip bundle/promo text ("3 For $50 …", "2/$60 …") before further cleaning
     cleaned = _RE_BUNDLE_PROMO.sub("", cleaned)
@@ -509,6 +514,13 @@ def _clean_product_name(name: str) -> str:
 
     # Strip parenthetical strain codes: "(SH)", "(I)", "(S)", "(H)", "(IH)", "(SH)"
     cleaned = re.sub(r"\s*\(\s*(?:SH?|IH?|H)\s*\)", "", cleaned, flags=re.IGNORECASE)
+
+    # Normalize double/triple dashes to single: "Kushberry - - Hippie Mints" → "Kushberry - Hippie Mints"
+    cleaned = re.sub(r"\s*-\s*-(?:\s*-)*\s*", " - ", cleaned)
+    # Strip trailing dashes left by other cleanups: "Kushberry -" → "Kushberry"
+    cleaned = re.sub(r"\s*-\s*$", "", cleaned)
+    # Strip leading dashes: "- Hippie Mints" → "Hippie Mints"
+    cleaned = re.sub(r"^\s*-\s*", "", cleaned)
 
     # Strip inline price/deal text fragments that slip into product names
     # e.g. "$99 $45 1/2 OZ" or "1/2 OZ" at end of name
