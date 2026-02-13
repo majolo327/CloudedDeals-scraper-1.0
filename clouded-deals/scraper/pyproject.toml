@@ -19,3 +19,7 @@ scrape = "main:run"
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
+markers = [
+    "live: hits live dispensary sites (needs network + Playwright)",
+    "slow: takes 30-120s per test case",
+]
