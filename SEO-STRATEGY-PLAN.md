@@ -39,16 +39,22 @@
 | Unique SEO body copy on all 27 dispensary pages ("About" section) | Phase 3 | Feb 13 |
 | Internal linking: same-zone dispensary cross-links on dispensary pages | Phase 3 | Feb 13 |
 | Internal linking: expanded footer with 10 popular dispensaries | Phase 3 | Feb 13 |
+| next.config: AVIF/WebP image formats, compression, no prod source maps | Phase 6 | Feb 13 |
+| loading.tsx skeleton screens for category + dispensary routes | Phase 6 | Feb 13 |
+| CLS fix: min-height on deal cards (180px) and titles (2.5em) | Phase 6 | Feb 13 |
+| CLS fix: consistent header height (h-14, no responsive jump) | Phase 6 | Feb 13 |
+| Accessibility: footer heading hierarchy fixed (h3 → h2) | Phase 6 | Feb 13 |
+| Build verified clean — all SEO pages SSG/ISR, 96.2kB first load | Phase 6 | Feb 13 |
 
 ### IN PROGRESS / NEXT UP
 | Item | Phase | Priority | Owner |
 |------|-------|----------|-------|
 | Request indexing for remaining priority URLs (see list below) | Phase 4 | P0 | You (manual) |
-| Lighthouse audit + Core Web Vitals fixes | Phase 6 | P1 | Claude |
 
 ### RECENTLY COMPLETED (Feb 13)
 | Item | Phase | Details |
 |------|-------|---------|
+| Lighthouse / Core Web Vitals audit + fixes | Phase 6 | next.config optimizations (AVIF/WebP, compression), loading.tsx skeletons for category + dispensary routes, CLS fixes (min-height on cards/titles, fixed header height), accessibility fix (footer heading hierarchy h3→h2). Build verified clean. |
 | Unique SEO body copy on category pages | Phase 3 | Intro paragraph + "Tips for Buying" section with keyword-rich content unique to each of the 5 categories |
 | Unique SEO body copy on dispensary pages | Phase 3 | "About {Name}" section with unique 100-150 word descriptions for all 27 scraped dispensaries |
 | Internal linking pass | Phase 3 | Same-zone dispensary cross-links, expanded footer (10 dispensaries), category ↔ dispensary ↔ landing page links |
