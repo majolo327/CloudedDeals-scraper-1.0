@@ -192,7 +192,6 @@ export function SearchPage({
       'bh':            ['beyond-hello-sahara', 'beyond-hello-twain'],
       'b/h':           ['beyond-hello-sahara', 'beyond-hello-twain'],
       'gl':            ['greenlight-downtown', 'greenlight-paradise'],
-      'zl':            ['zen-leaf-fort-apache', 'zen-leaf-flamingo', 'zen-leaf-nlv'],
       'nuleaf':        ['beyond-hello-twain'],
       'nu leaf':       ['beyond-hello-twain'],
       'apothecarium':  ['beyond-hello-sahara'],

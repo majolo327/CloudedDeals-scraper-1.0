@@ -133,7 +133,4 @@ export const DISPENSARIES: Dispensary[] = [
   listed('tree-of-life-centennial','Tree of Life',                     '150 E Centennial Pkwy, Suite 114',             'local'),
   listed('wallflower-bd',         'Wallflower Cannabis House',         '6540 Blue Diamond Rd',                         'local'),
   listed('wallflower-volunteer',  'Wallflower Cannabis House',         '3485 Volunteer Blvd',                          'local'),
-  listed('zen-leaf-fort-apache',  'Zen Leaf',                          '5335 S Fort Apache Rd',                        'local'),
-  listed('zen-leaf-flamingo',     'Zen Leaf',                          '5940 W Flamingo Rd',                           'local'),
-  listed('zen-leaf-nlv',          'Zen Leaf North Las Vegas',          '4444 Craig Rd',                                'local'),
 ];

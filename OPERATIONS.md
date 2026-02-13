@@ -19,7 +19,7 @@ It runs as a GitHub Actions cron job. No servers to maintain.
 | Platform | Sites | Status | Examples |
 |----------|-------|--------|----------|
 | **Dutchie** | 16 | Stable (daily cron) | Planet 13, Medizin, TD, Greenlight, The Grove, Mint, Jade, Sahara, Treehouse, SLV |
-| **Curaleaf** | 6 | Stable (daily cron) | Curaleaf Western/Strip/NLV/Reef, Zen Leaf Flamingo/NLV |
+| **Curaleaf** | 4 | Stable (daily cron) | Curaleaf Western/Strip/NLV/Reef |
 | **Jane** | 19 | Stable (daily cron) | Oasis, Deep Roots, Cultivate, Thrive, Beyond/Hello, Exhale, Tree of Life, Sanctuary, The Source |
 | **Rise** | 9 | New (manual trigger) | Rise x6, Cookies Strip, Cookies Flamingo, Rise Henderson |
 | **Carrot** | 6 | New (manual trigger) | Wallflower, Inyo, Jenny's, Euphoria, Silver Sage, ShowGrow |
@@ -144,7 +144,7 @@ clouded-deals/scraper/
   config/dispensaries.py     # All 61 site configs + platform groups
   platforms/
     dutchie.py               # Dutchie scraper (iframe/JS embed)
-    curaleaf.py              # Curaleaf + Zen Leaf scraper
+    curaleaf.py              # Curaleaf scraper
     jane.py                  # Jane scraper (hybrid iframe/direct)
     rise.py                  # Rise/GTI scraper (Next.js SPA)
     carrot.py                # Carrot scraper (JS widget)
@@ -489,7 +489,7 @@ Only start once Vegas retention is solid (30%+ D7, growing user base, organic sh
 - [ ] Add ~35-40 Michigan-native brands to brand DB (Platinum Vape, MKX, Lume, Skymint, Element, Michigrown, Redbud Roots, etc.)
 - [ ] Wave 1: Detroit metro Dutchie sites (Lume, Skymint, JARS, Cloud Cannabis) — ~80 locations with existing `dutchie.py`
 - [ ] Wave 2: Herbana, Joyology, High Profile, Pleasantrees, Pinnacle — ~30 locations
-- [ ] Wave 3: Curaleaf MI + Zen Leaf MI — ~8 locations with existing `curaleaf.py`
+- [ ] Wave 3: Curaleaf MI — with existing `curaleaf.py`
 - [ ] Wave 4: Jane independents (Nirvana Center, etc.) — ~50+ locations
 - [ ] Target: ~170 MI dispensaries scraped with zero new scraper development
 
@@ -500,7 +500,7 @@ Why Michigan first: lowest US prices = deal-obsessed consumers, Dutchie dominant
 - [ ] Add ~30-40 IL brands (Revolution, Aeriz, Bedford Grow, Cresco sub-brands: High Supply, Mindy's, Good News)
 - [ ] Map MSO brand families: Cresco→High Supply/Mindy's/Good News, GTI→Rhythm/Dogwalkers/Beboe, Verano→Encore/Avexia, Ascend→Ozone/Simply Herb
 - [ ] Wave 1: Rise IL (10-12 locations) — existing `rise.py` works
-- [ ] Wave 2: Zen Leaf IL + Curaleaf IL — ~14 locations with existing scrapers
+- [ ] Wave 2: Curaleaf IL — with existing scrapers
 - [ ] Wave 3: Ascend, Nature's Care, EarthMed, Cannabist (Dutchie) — ~20 locations
 - [ ] Wave 4: Beyond/Hello, Verilife, Consume, Thrive IL (Jane) — ~15 locations
 - [ ] Wave 5: Remaining Dutchie + Jane independents — ~30+ locations

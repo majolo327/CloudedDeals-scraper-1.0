@@ -101,8 +101,6 @@ const DISPENSARY_CHAINS: Record<string, string> = {
   // Curaleaf (4 locations)
   'curaleaf-western': 'curaleaf', 'curaleaf-north-lv': 'curaleaf',
   'curaleaf-strip': 'curaleaf', 'curaleaf-the-reef': 'curaleaf',
-  // Zen Leaf (2 locations)
-  'zen-leaf-flamingo': 'zen-leaf', 'zen-leaf-north-lv': 'zen-leaf',
   // Deep Roots (4 locations)
   'deep-roots-cheyenne': 'deep-roots', 'deep-roots-craig': 'deep-roots',
   'deep-roots-blue-diamond': 'deep-roots', 'deep-roots-parkson': 'deep-roots',

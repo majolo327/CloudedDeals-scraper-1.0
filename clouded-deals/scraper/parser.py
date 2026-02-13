@@ -362,7 +362,6 @@ KNOWN_BRANDS: list[str] = [
     "Cultivate",
     "Essence",
     "Thrive",
-    "Zen Leaf",
     "NuLeaf",
     "Oasis",
     # -- Additional well-known brands --

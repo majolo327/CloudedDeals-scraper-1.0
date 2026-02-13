@@ -3,7 +3,7 @@ Dispensary configuration for Las Vegas locations across 6 platforms.
 
 Platforms:
   - dutchie: iframe-based menus (Dutchie/TD sites)  — 20 sites
-  - curaleaf: direct page loads (Curaleaf + Zen Leaf) — 6 sites
+  - curaleaf: direct page loads (Curaleaf)             — 4 sites
   - jane: hybrid iframe/direct with "View More" pagination — 19 sites
   - rise: proprietary Next.js SPA (Rise/GTI + Cookies) — 9 sites
   - carrot: JS widget via getcarrot.io               — 6 sites
@@ -239,7 +239,7 @@ DISPENSARIES = [
     },
 
     # ------------------------------------------------------------------
-    # CURALEAF SITES  (4) + ZEN LEAF (2)
+    # CURALEAF SITES  (4)
     # ------------------------------------------------------------------
     {
         "name": "Curaleaf Western",
@@ -273,24 +273,6 @@ DISPENSARIES = [
         "is_active": True,
         "region": "southern-nv",
     },
-    # --- Phase 1: Zen Leaf (Verano) — uses ProductCard like Curaleaf ---
-    {
-        "name": "Zen Leaf Flamingo",
-        "slug": "zen-leaf-flamingo",
-        "platform": "curaleaf",
-        "url": "https://zenleafdispensaries.com/locations/flamingo/menu/recreational",
-        "is_active": True,
-        "region": "southern-nv",
-    },
-    {
-        "name": "Zen Leaf North Las Vegas",
-        "slug": "zen-leaf-north-lv",
-        "platform": "curaleaf",
-        "url": "https://zenleafdispensaries.com/locations/north-las-vegas/menu/recreational",
-        "is_active": True,
-        "region": "southern-nv",
-    },
-
     # ------------------------------------------------------------------
     # JANE SITES  (19)
     # ------------------------------------------------------------------
@@ -714,9 +696,6 @@ DISPENSARY_CHAINS: dict[str, str] = {
     "curaleaf-north-lv": "curaleaf",
     "curaleaf-strip": "curaleaf",
     "curaleaf-the-reef": "curaleaf",
-    # Zen Leaf / Verano (2 locations)
-    "zen-leaf-flamingo": "zen-leaf",
-    "zen-leaf-north-lv": "zen-leaf",
     # Deep Roots Harvest (4 locations)
     "deep-roots-cheyenne": "deep-roots",
     "deep-roots-craig": "deep-roots",

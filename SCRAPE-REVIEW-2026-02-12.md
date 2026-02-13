@@ -34,16 +34,10 @@ at TD-Decatur).
 
 **Files:** `deal_detector.py:149-155`, `deal_detector.py:629-877`
 
-### P0.2: Zen Leaf — 1,700 products, 0 deals (quality gate failure)
-Zen Leaf Flamingo (890 products) and North LV (810 products) both scraped
-successfully but every product failed the quality gate. 570 products passed
-hard filters but had missing brand/name/weight. The curaleaf scraper's DOM
-selectors don't match Zen Leaf's product card structure.
-
-**Fix:** Debug curaleaf.py extraction for Zen Leaf pages — likely needs
-separate selectors for brand, weight, and product name.
-
-**Files:** `platforms/curaleaf.py` (product extraction), `deal_detector.py:302-337`
+### P0.2: ~~Zen Leaf~~ — REMOVED
+Zen Leaf removed from scraper entirely. Unique menu structure (1g/3.5g/5g/7g
+flowers all on one page) makes parsing unreliable, and low volume doesn't
+justify the effort. 1,700 products scraped with 0 deals = not worth it.
 
 ### P0.3: Product name pollution (THC/promo text leaking)
 Several product names contain THC content data and promotional text:
@@ -312,7 +306,7 @@ consecutive manual runs.
 
 ### Code changes needed:
 - P0.1: Dynamic diversity caps in deal_detector.py
-- P0.2: Zen Leaf DOM selectors in curaleaf.py
+- ~~P0.2: Zen Leaf — REMOVED from scraper~~
 - P0.3: Product name cleanup in parser.py
 - P3.1-P3.3: Category rebalancing in deal_detector.py
 - P5.1-P5.3: Jane brand detection in jane.py

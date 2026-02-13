@@ -627,7 +627,7 @@ def _chain_prefix(dispensary_id: str) -> str:
     Examples:
         "curaleaf-western" → "curaleaf"
         "curaleaf-strip"   → "curaleaf"
-        "zen-leaf-lv"      → "zen-leaf"
+        "deep-roots-craig" → "deep-roots"
         "td-gibson"        → "td"
         "planet-13"        → "planet-13"  (single location, no split)
     """
@@ -635,8 +635,8 @@ def _chain_prefix(dispensary_id: str) -> str:
         return ""
     parts = dispensary_id.split("-")
     # Use first segment as chain prefix; multi-word chains use first two
-    # segments (e.g., "zen-leaf-lv" → "zen-leaf", "nevada-made-henderson" → "nevada-made").
-    _MULTI_WORD_CHAINS = {"zen", "the", "nevada", "deep", "beyond", "tree"}
+    # segments (e.g., "deep-roots-craig" → "deep-roots", "nevada-made-henderson" → "nevada-made").
+    _MULTI_WORD_CHAINS = {"the", "nevada", "deep", "beyond", "tree"}
     if len(parts) >= 2 and parts[0] in _MULTI_WORD_CHAINS:
         return f"{parts[0]}-{parts[1]}"
     return parts[0]
