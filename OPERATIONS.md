@@ -21,7 +21,7 @@ It runs as a GitHub Actions cron job. No servers to maintain.
 | **Dutchie** | 16 | Stable (daily cron) | Planet 13, Medizin, TD, Greenlight, The Grove, Mint, Jade, Sahara, Treehouse, SLV |
 | **Curaleaf** | 4 | Stable (daily cron) | Curaleaf Western/Strip/NLV/Reef |
 | **Jane** | 19 | Stable (daily cron) | Oasis, Deep Roots, Cultivate, Thrive, Beyond/Hello, Exhale, Tree of Life, Sanctuary, The Source |
-| **Rise** | 9 | New (manual trigger) | Rise x6, Cookies Strip, Cookies Flamingo, Rise Henderson |
+| **Rise** | 9 | **Disabled** (Cloudflare Turnstile) | Rise x6, Cookies Strip, Cookies Flamingo, Rise Henderson |
 | **Carrot** | 6 | New (manual trigger) | Wallflower, Inyo, Jenny's, Euphoria, Silver Sage, ShowGrow |
 | **AIQ** | 5 | New (manual trigger) | Green NV, Pisos, Jardin, Nevada Made Casino Dr/Charleston |
 
@@ -237,6 +237,7 @@ This takes screenshots and detects what platform the site uses.
 
 ## Known Limitations & Edge Cases
 
+- **Rise (Green Thumb Industries) — disabled Feb 12, 2026.** GTI deployed Cloudflare Turnstile bot protection on their menu domain (`cdn-bong.risecannabis.com`), blocking headless browser access. All 9 Rise sites were disabled in `dispensaries.py:464-467`. Before Cloudflare, our `rise.py` scraper worked reliably — it handled the Next.js SPA hydration, extracted ~500-700 products per location, and was contributing ~4,500+ products per run. **Proven working strategies** before the block: Playwright `wait_until: "networkidle"` for SPA hydration, `networkidle` polling for dynamic content, JS-based product card extraction from hydrated React DOM. **Plan:** Revisit Rise after PMF + traction (2-3 months). Options at that point include residential proxy rotation, browser fingerprint evasion, or direct API integration if GTI opens one.
 - **SLV** has a double age gate and runs on Treez (not Dutchie) — classified as Dutchie direct as a best-effort. May need its own scraper if it breaks.
 - **Nevada Made Henderson/Warm Springs** return HTTP 403 (bot-blocked). Marked inactive.
 - **Top Notch** uses Weedmaps — completely different ecosystem, not implemented.
@@ -409,8 +410,9 @@ Everything below is sequenced deliberately. Each phase depends on the one before
 This is the only thing that matters right now. Multi-state expansion, B2B, and ML work all mean nothing if Vegas users don't come back daily.
 
 #### A1. Stabilize all 63 dispensaries on daily cron
-- [ ] Run "new" group (Rise/Carrot/AIQ) manually for 1-2 weeks, check data quality
-- [ ] Monitor Rise (9 sites), Carrot (6 sites), AIQ (5 sites) for failures
+- [ ] Run "new" group (Carrot/AIQ) manually for 1-2 weeks, check data quality
+- [x] Rise (9 sites) — **disabled Feb 12, 2026** due to Cloudflare Turnstile. Revisit after PMF + traction (2-3 months)
+- [ ] Monitor Carrot (6 sites), AIQ (5 sites) for failures
 - [ ] Promote to stable once reliable — move platform names into `PLATFORM_GROUPS["stable"]`
 - [ ] Investigate SLV — may need Treez-specific scraper if Dutchie fallback fails
 - [ ] Nevada Made Henderson/Warm Springs — retry periodically, may come back online

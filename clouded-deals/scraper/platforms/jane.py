@@ -152,12 +152,25 @@ class JaneScraper(BaseScraper):
         try:
             view_more_clicks = await handle_jane_view_more(target)
             if view_more_clicks > 0:
-                # Re-extract after new content loaded.
+                # Jane's "View More" appends products to the DOM, so
+                # re-extracting should return everything.  Keep the
+                # pre-click list as a safety net in case re-extraction
+                # returns fewer products (selector mismatch, timing, etc.).
+                pre_click_products = products
                 products = await self._try_extract(target)
-                logger.info(
-                    "[%s] After %d 'View More' clicks → %d products",
-                    self.slug, view_more_clicks, len(products),
-                )
+                if len(products) < len(pre_click_products):
+                    logger.warning(
+                        "[%s] Post-View-More extraction returned fewer products "
+                        "(%d vs %d pre-click) — keeping pre-click set",
+                        self.slug, len(products), len(pre_click_products),
+                    )
+                    products = pre_click_products
+                else:
+                    logger.info(
+                        "[%s] After %d 'View More' clicks → %d products (was %d)",
+                        self.slug, view_more_clicks, len(products),
+                        len(pre_click_products),
+                    )
         except Exception as exc:
             logger.warning(
                 "[%s] 'View More' loading failed (%s) — keeping %d products already collected",
