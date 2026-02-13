@@ -134,6 +134,7 @@ DISPENSARIES = [
         "slug": "planet13",
         "platform": "dutchie",
         "url": "https://planet13.com/stores/planet-13-dispensary/specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/planet-13-dispensary/specials",
         "is_active": True,
         "region": "southern-nv",
         "embed_type": "iframe",   # P13 uses Dutchie iframe — hint avoids 60s js_embed detection
@@ -179,6 +180,7 @@ DISPENSARIES = [
         "slug": "mint-paradise",
         "platform": "dutchie",
         "url": "https://mintdeals.com/paradise-lv/menu/?dtche%5Bpath%5D=specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/the-mint-paradise/specials",
         "is_active": True,
         "region": "southern-nv",
         "embed_type": "js_embed",  # dtche param confirms JS embed
@@ -280,7 +282,8 @@ DISPENSARIES = [
         "name": "Oasis Cannabis",
         "slug": "oasis",
         "platform": "jane",
-        "url": "https://oasiscannabis.com/shop/menu/specials",
+        "url": "https://www.iheartjane.com/stores/1649/oasis-cannabis-las-vegas/menu",
+        "fallback_url": "https://oasiscannabis.com/shop/menu/specials",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -372,7 +375,8 @@ DISPENSARIES = [
         "name": "Beyond/Hello Sahara",
         "slug": "beyond-hello-sahara",
         "platform": "jane",
-        "url": "https://beyond-hello.com/nevada-dispensaries/las-vegas-sahara/adult-use-menu/",
+        "url": "https://www.iheartjane.com/stores/4361/beyond-hello-sahara-ave/menu",
+        "fallback_url": "https://beyond-hello.com/nevada-dispensaries/las-vegas-sahara/adult-use-menu/",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -619,23 +623,28 @@ DISPENSARIES = [
         "region": "southern-nv",
     },
     {
-        # Recon: 189 products, score 3
+        # Recon (Feb 2026): switched from AIQ to Dutchie.
+        # Dutchie page: dutchie.com/dispensaries/jardin-premium-cannabis-dispensary
+        # jardinlasvegas.com/store now embeds Dutchie (no longer AIQ).
         "name": "Jardin",
         "slug": "jardin",
-        "platform": "aiq",
-        "url": "https://www.jardinlasvegas.com/store",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/embedded-menu/jardin-premium-cannabis-dispensary/specials",
+        "fallback_url": "https://www.jardinlasvegas.com/store",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "direct",
     },
     {
-        # Switched from AIQ to Dutchie — specials page with embedded menu
+        # Switched from AIQ to Dutchie — specials page with embedded menu.
+        # No embed_type hint — auto-detect via full cascade, same as the
+        # working Charleston/Henderson/Warm Springs siblings.
         "name": "Nevada Made Laughlin",
         "slug": "nevada-made-casino-dr",
         "platform": "dutchie",
         "url": "https://nevadamademarijuana.com/stores/nevada-made-marijuana-laughlin/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "iframe",    # same embed pattern as other Nevada Made locations
     },
     {
         # Switched from AIQ to Dutchie — specials page with embedded menu

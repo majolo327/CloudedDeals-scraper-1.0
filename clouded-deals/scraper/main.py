@@ -45,8 +45,25 @@ from metrics_collector import collect_daily_metrics
 from product_classifier import classify_product
 from platforms import AIQScraper, CarrotScraper, CuraleafScraper, DutchieScraper, JaneScraper, RiseScraper
 
-# Concurrency limit for parallel scraping (4 browser contexts at once)
-SCRAPE_CONCURRENCY = int(os.getenv("SCRAPE_CONCURRENCY", "4"))
+# Concurrency limit for parallel scraping.
+# SCRAPE_CONCURRENCY controls total browser contexts at once (default 6).
+# Dutchie sites are the heaviest (JS embeds, age gates, iframes, pagination)
+# so they get a tighter sub-limit to prevent resource contention that causes
+# transient timeouts on slower sites (Planet 13, TD Decatur, etc.).
+SCRAPE_CONCURRENCY = int(os.getenv("SCRAPE_CONCURRENCY", "6"))
+
+# Per-platform concurrency caps — prevents heavy platforms from starving
+# lighter ones.  Dutchie sites use the most memory/CPU (full JS execution,
+# iframe rendering, multi-page pagination), so capping them leaves headroom
+# for Jane/Curaleaf/AIQ sites to run without contention.
+_PLATFORM_CONCURRENCY = {
+    "dutchie": int(os.getenv("DUTCHIE_CONCURRENCY", "3")),
+    "jane": int(os.getenv("JANE_CONCURRENCY", "4")),
+    "curaleaf": int(os.getenv("CURALEAF_CONCURRENCY", "4")),
+    "aiq": int(os.getenv("AIQ_CONCURRENCY", "3")),
+    "carrot": int(os.getenv("CARROT_CONCURRENCY", "3")),
+    "rise": int(os.getenv("RISE_CONCURRENCY", "2")),
+}
 
 load_dotenv()
 
@@ -859,8 +876,9 @@ def _expire_stale_deal_history(group_slugs: list[str] | None = None) -> None:
 
 
 _SITE_TIMEOUT_SEC = SITE_TIMEOUT_SEC  # 600 s (from config)
-_MAX_RETRIES = 2
-_RETRY_DELAY_SEC = 5
+_RETRY_TIMEOUT_SEC = 300  # Reduced timeout on retries — if first attempt timed out at 600s, a shorter window avoids wasting another 600s
+_MAX_RETRIES = 3
+_RETRY_DELAYS = [5, 15, 30]  # Exponential-ish backoff between retries
 
 
 def _split_weight(weight_str: str | None) -> tuple[float | None, str | None]:
@@ -1103,31 +1121,41 @@ async def scrape_site(
     *,
     browser: Any = None,
 ) -> dict[str, Any]:
-    """Scrape a single dispensary with timeout and retry."""
+    """Scrape a single dispensary with timeout and retry.
+
+    Uses escalating backoff between retries and a reduced timeout on
+    retry attempts (if the first 600 s attempt timed out, spending
+    another 600 s on the same site is unlikely to help — 300 s is
+    enough for a warm retry where caches/DNS are primed).
+    """
     slug = dispensary["slug"]
 
     for attempt in range(1, _MAX_RETRIES + 1):
+        # First attempt gets full timeout; retries get reduced timeout
+        timeout = _SITE_TIMEOUT_SEC if attempt == 1 else _RETRY_TIMEOUT_SEC
         logger.info(
-            "[%s] Starting scrape (%s) — attempt %d/%d",
-            slug, dispensary["platform"], attempt, _MAX_RETRIES,
+            "[%s] Starting scrape (%s) — attempt %d/%d (timeout=%ds)",
+            slug, dispensary["platform"], attempt, _MAX_RETRIES, timeout,
         )
         try:
             result = await asyncio.wait_for(
                 _scrape_site_inner(dispensary, browser=browser),
-                timeout=_SITE_TIMEOUT_SEC,
+                timeout=timeout,
             )
             # Success — return immediately
             return result
         except asyncio.TimeoutError:
-            logger.error("[%s] Timed out after %ds (attempt %d)", slug, _SITE_TIMEOUT_SEC, attempt)
+            logger.error("[%s] Timed out after %ds (attempt %d)", slug, timeout, attempt)
             if attempt < _MAX_RETRIES:
-                logger.info("[%s] Retrying in %ds...", slug, _RETRY_DELAY_SEC)
-                await asyncio.sleep(_RETRY_DELAY_SEC)
+                delay = _RETRY_DELAYS[min(attempt - 1, len(_RETRY_DELAYS) - 1)]
+                logger.info("[%s] Retrying in %ds...", slug, delay)
+                await asyncio.sleep(delay)
         except Exception as exc:
             logger.error("[%s] Failed (attempt %d): %s", slug, attempt, exc, exc_info=True)
             if attempt < _MAX_RETRIES:
-                logger.info("[%s] Retrying in %ds...", slug, _RETRY_DELAY_SEC)
-                await asyncio.sleep(_RETRY_DELAY_SEC)
+                delay = _RETRY_DELAYS[min(attempt - 1, len(_RETRY_DELAYS) - 1)]
+                logger.info("[%s] Retrying in %ds...", slug, delay)
+                await asyncio.sleep(delay)
 
     # All attempts exhausted
     return {"slug": slug, "error": f"Failed after {_MAX_RETRIES} attempts"}
@@ -1238,11 +1266,18 @@ async def run(slug_filter: str | None = None) -> None:
 
     logger.info("=" * 60)
     logger.info("CloudedDeals Scraper Starting")
-    logger.info("  DRY_RUN:    %s", DRY_RUN)
-    logger.info("  LIMITED:    %s", LIMIT_DISPENSARIES)
-    logger.info("  FORCE_RUN:  %s", FORCE_RUN)
-    logger.info("  GROUP:      %s", PLATFORM_GROUP)
-    logger.info("  SINGLE:     %s", slug_filter or "(all)")
+    logger.info("  DRY_RUN:      %s", DRY_RUN)
+    logger.info("  LIMITED:      %s", LIMIT_DISPENSARIES)
+    logger.info("  FORCE_RUN:    %s", FORCE_RUN)
+    logger.info("  GROUP:        %s", PLATFORM_GROUP)
+    logger.info("  SINGLE:       %s", slug_filter or "(all)")
+    logger.info("  CONCURRENCY:  %d global, dutchie=%d jane=%d curaleaf=%d aiq=%d",
+                SCRAPE_CONCURRENCY,
+                _PLATFORM_CONCURRENCY.get("dutchie", SCRAPE_CONCURRENCY),
+                _PLATFORM_CONCURRENCY.get("jane", SCRAPE_CONCURRENCY),
+                _PLATFORM_CONCURRENCY.get("curaleaf", SCRAPE_CONCURRENCY),
+                _PLATFORM_CONCURRENCY.get("aiq", SCRAPE_CONCURRENCY))
+    logger.info("  RETRIES:      %d (backoff: %s)", _MAX_RETRIES, _RETRY_DELAYS)
     logger.info("=" * 60)
 
     _seed_dispensaries()
@@ -1260,8 +1295,10 @@ async def run(slug_filter: str | None = None) -> None:
 
     concurrency = SCRAPE_CONCURRENCY
     logger.info(
-        "Scraping %d dispensaries (concurrency=%d)",
+        "Scraping %d dispensaries (global_concurrency=%d, platform_caps=%s)",
         len(dispensaries), concurrency,
+        {k: v for k, v in _PLATFORM_CONCURRENCY.items()
+         if any(d["platform"] == k for d in dispensaries)},
     )
     run_id = _create_run()
 
@@ -1282,22 +1319,32 @@ async def run(slug_filter: str | None = None) -> None:
     )
     logger.info("Shared browser launched — dispatching %d sites", len(dispensaries))
 
-    semaphore = asyncio.Semaphore(concurrency)
+    # Dual-semaphore approach: a global cap prevents too many total browser
+    # contexts, and per-platform caps prevent heavy platforms (Dutchie) from
+    # monopolising all slots and starving lighter scrapers.
+    global_semaphore = asyncio.Semaphore(concurrency)
+    platform_semaphores: dict[str, asyncio.Semaphore] = {
+        plat: asyncio.Semaphore(cap)
+        for plat, cap in _PLATFORM_CONCURRENCY.items()
+    }
 
     async def _bounded_scrape(dispensary: dict[str, Any]) -> dict[str, Any]:
-        """Scrape a single site, bounded by the semaphore."""
-        async with semaphore:
-            site_start = time.time()
-            logger.info("[START] %s (%s)", dispensary["name"], dispensary["platform"])
-            result = await scrape_site(dispensary, browser=browser)
-            elapsed_s = time.time() - site_start
-            label = "DONE" if not result.get("error") else "FAIL"
-            logger.info(
-                "[%s]  %s — %.1fs — %d products",
-                label, dispensary["name"], elapsed_s,
-                result.get("products", 0),
-            )
-            return result
+        """Scrape a single site, bounded by global + platform semaphores."""
+        plat = dispensary["platform"]
+        plat_sem = platform_semaphores.get(plat, global_semaphore)
+        async with global_semaphore:
+            async with plat_sem:
+                site_start = time.time()
+                logger.info("[START] %s (%s)", dispensary["name"], plat)
+                result = await scrape_site(dispensary, browser=browser)
+                elapsed_s = time.time() - site_start
+                label = "DONE" if not result.get("error") else "FAIL"
+                logger.info(
+                    "[%s]  %s — %.1fs — %d products",
+                    label, dispensary["name"], elapsed_s,
+                    result.get("products", 0),
+                )
+                return result
 
     # Run all sites concurrently (bounded by semaphore)
     results = await asyncio.gather(

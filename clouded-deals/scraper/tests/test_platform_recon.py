@@ -269,8 +269,8 @@ RECON_SITES: list[dict[str, str]] = [
     {
         "slug": "jardin",
         "name": "Jardin",
-        "url": "https://www.jardinlasvegas.com/store",
-        "expected_platform": "aiq",
+        "url": "https://dutchie.com/embedded-menu/jardin-premium-cannabis-dispensary/specials",
+        "expected_platform": "dutchie",
     },
     {
         "slug": "nevada-made-henderson",
