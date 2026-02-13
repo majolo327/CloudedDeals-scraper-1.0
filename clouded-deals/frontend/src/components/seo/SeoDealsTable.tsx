@@ -52,7 +52,7 @@ export function SeoDealsTable({ deals, showDispensary = true }: SeoDealsTablePro
       {deals.map((deal) => (
         <article
           key={deal.id}
-          className="rounded-xl border p-4 transition-colors hover:border-purple-500/30"
+          className="rounded-xl border p-4 min-h-[180px] transition-colors hover:border-purple-500/30"
           style={{
             backgroundColor: 'var(--surface-card)',
             borderColor: 'var(--border-subtle)',
@@ -61,7 +61,7 @@ export function SeoDealsTable({ deals, showDispensary = true }: SeoDealsTablePro
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="min-w-0 flex-1">
               <p className="text-xs text-purple-400 font-medium mb-0.5">{deal.brand}</p>
-              <h3 className="text-sm font-medium text-slate-200 line-clamp-2 leading-snug">
+              <h3 className="text-sm font-medium text-slate-200 line-clamp-2 leading-snug min-h-[2.5em]">
                 {deal.name}
               </h3>
             </div>

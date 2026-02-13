@@ -34,37 +34,57 @@ interface PageProps {
 
 const CATEGORY_SEO: Record<
   string,
-  { title: string; description: string; keywords: string[] }
+  { title: string; description: string; keywords: string[]; intro: string; tips: string }
 > = {
   flower: {
     title: 'Las Vegas Flower Deals Today — Best Prices',
     description:
       'Compare flower deals from every Las Vegas dispensary. Find the cheapest eighths, quarters, and ounces updated daily at 8 AM PT.',
     keywords: ['las vegas flower deals', 'cheap weed las vegas', 'vegas eighths deals', 'dispensary flower prices'],
+    intro:
+      'Flower is the most popular product in Las Vegas dispensaries, and prices vary wildly from shop to shop. An eighth that costs $60 at one dispensary can be $30 down the street — but only if you know where to look. CloudedDeals checks every dispensary in the valley every morning and lists every flower deal in one place so you can compare before you drive.',
+    tips:
+      'Look for daily specials — most Las Vegas dispensaries rotate flower deals throughout the week. Eighths are the most common deal size, but half-ounce and full-ounce bundles often have the deepest discounts. If you see a deal score above 70 on CloudedDeals, that means the price is significantly below the market average for that product. Tourists near the Strip should compare nearby dispensaries like Planet 13, The Grove, and Oasis — all within a short ride and often running competing flower specials.',
   },
   vapes: {
     title: 'Las Vegas Vape Deals Today — Carts, Disposables & Pods',
     description:
       'Best vape deals in Las Vegas. Compare prices on cartridges, disposables & pods from every dispensary, updated daily.',
     keywords: ['vegas vape deals', 'las vegas cartridge deals', 'cheap vapes vegas', 'dispensary vape prices'],
+    intro:
+      'Vape products are the fastest-growing category in the Las Vegas cannabis market. Half-gram and full-gram cartridges, all-in-one disposables, and pod systems are available at every dispensary in town — but pricing is all over the map. CloudedDeals tracks vape deals across every dispensary daily so you can find the best price on your preferred brand and format.',
+    tips:
+      'Half-gram cartridges are the entry point, but gram carts and multi-packs usually deliver better value per milligram. Live resin and rosin carts cost more but offer fuller flavor profiles. Disposable vapes are convenient for tourists who don\'t want to buy a battery. Check deal scores to find carts priced well below the Las Vegas average — anything above 70 is a strong deal.',
   },
   edibles: {
     title: 'Las Vegas Edible Deals Today — Gummies, Chocolates & More',
     description:
       'Find the best edible deals in Las Vegas. Gummies, chocolates, drinks & more from every dispensary, updated daily at 8 AM PT.',
     keywords: ['vegas edible deals', 'las vegas gummy deals', 'cheap edibles vegas', 'dispensary edible prices'],
+    intro:
+      'Edibles are a popular choice for Las Vegas visitors who prefer a smoke-free experience. Gummies, chocolates, drinks, and baked goods are available at dispensaries across the valley — and prices fluctuate daily. CloudedDeals compares edible pricing from every dispensary every morning so you can find the best deal without checking each menu individually.',
+    tips:
+      'Nevada edibles are capped at 100mg THC per package (10 servings of 10mg). If you\'re new to edibles, start with 5mg or less — Vegas edibles tend to hit differently at elevation with the dry climate. Multi-packs and bundle deals often bring the per-milligram cost down significantly. Look for dispensaries running edible-specific daily specials — many shops designate certain days of the week as "edible days" with deeper discounts.',
   },
   concentrates: {
     title: 'Las Vegas Concentrate Deals Today — Wax, Shatter & Live Resin',
     description:
       'Top concentrate deals in Las Vegas. Live resin, badder, shatter & wax from every dispensary, updated daily.',
     keywords: ['vegas concentrate deals', 'las vegas dab deals', 'cheap concentrates vegas', 'live resin deals vegas'],
+    intro:
+      'Concentrates — including live resin, badder, shatter, wax, and rosin — are premium products with premium price tags. But deals exist if you know where to look. CloudedDeals tracks concentrate pricing at every Las Vegas dispensary daily, so you can compare live resin deals, find the cheapest grams of wax, and spot limited-time drops from top brands before they sell out.',
+    tips:
+      'Live resin and live rosin are solventless or full-spectrum extracts that preserve more terpenes — they cost more, but many consumers prefer the flavor and effects. Cured resin and shatter are typically more affordable. Bundle deals (buy 2, get 1) are common in the concentrate category and can save 30% or more. If you\'re visiting the Strip, dispensaries like Oasis, The Grove, and Cultivate frequently run concentrate specials.',
   },
   prerolls: {
     title: 'Las Vegas Pre-Roll Deals Today — Singles, Packs & Infused',
     description:
       'Best pre-roll deals in Las Vegas. Singles, multi-packs & infused pre-rolls from every dispensary, updated daily at 8 AM PT.',
     keywords: ['vegas preroll deals', 'las vegas joint deals', 'cheap prerolls vegas', 'infused preroll deals'],
+    intro:
+      'Pre-rolls are the most convenient way to enjoy cannabis in Las Vegas — no grinder, no papers, just light up. Singles, multi-packs, and infused pre-rolls are on the menu at every dispensary in the valley. CloudedDeals compares pre-roll pricing across all Las Vegas dispensaries every morning so you can grab the best deal on your way to the Strip, a show, or dinner.',
+    tips:
+      'Multi-packs (3, 5, or 7 joints) almost always offer a better per-joint price than singles. Infused pre-rolls — dipped or rolled in concentrate and kief — deliver stronger effects but cost more. Check the weight: most singles are 0.5g or 1g, and pricing should reflect that. Many dispensaries offer "pre-roll of the day" or "joint Tuesday" specials. If you\'re a tourist, pre-rolls are the easiest grab-and-go option — no accessories needed.',
   },
 };
 
@@ -124,6 +144,7 @@ export default async function CategoryDealsPage({ params }: PageProps) {
     );
   }
 
+  const seo = CATEGORY_SEO[params.category];
   const deals = await fetchDealsForCategory(dbCategory);
 
   // Unique dispensaries in this category
@@ -200,6 +221,11 @@ export default async function CategoryDealsPage({ params }: PageProps) {
             )}{' '}
             Updated daily at 8 AM PT.
           </p>
+          {seo && (
+            <p className="text-slate-500 text-sm leading-relaxed max-w-3xl">
+              {seo.intro}
+            </p>
+          )}
         </div>
 
         {/* Top brands in this category */}
@@ -265,6 +291,18 @@ export default async function CategoryDealsPage({ params }: PageProps) {
                 </Link>
               ))}
             </div>
+          </section>
+        )}
+
+        {/* Tips section — unique SEO copy per category */}
+        {seo && (
+          <section className="mt-12 pt-8 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+            <h2 className="text-lg font-semibold mb-3">
+              Tips for Buying {label} in Las Vegas
+            </h2>
+            <p className="text-slate-400 text-sm leading-relaxed max-w-3xl">
+              {seo.tips}
+            </p>
           </section>
         )}
 
