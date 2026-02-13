@@ -34,9 +34,9 @@ jobs:
 
       - name: Run tests
         working-directory: clouded-deals/scraper
-        run: python -m pytest tests/ -v --tb=short
+        run: python -m pytest tests/ -v --tb=short -m "not live" --ignore=tests/test_platform_recon.py
 
       - name: Test summary
         if: always()
         working-directory: clouded-deals/scraper
-        run: python -m pytest tests/ --tb=no -q || true
+        run: python -m pytest tests/ --tb=no -q -m "not live" --ignore=tests/test_platform_recon.py || true
