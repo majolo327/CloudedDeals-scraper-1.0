@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { WebSiteJsonLd, OrganizationJsonLd } from "@/components/seo";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -23,14 +24,37 @@ export const viewport: Viewport = {
 };
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://cloudeddeals.com";
-const OG_TITLE = "Clouded Deals — Every Deal. Every Dispensary. One Place.";
+const OG_TITLE = "Las Vegas Dispensary Deals Today | CloudedDeals";
 const OG_DESCRIPTION =
-  "We check every dispensary in Las Vegas every morning. Flower, vapes, edibles, concentrates — the best prices, updated daily. No account needed.";
+  "Every deal from every Las Vegas dispensary, updated daily at 8 AM. Compare prices on flower, vapes, edibles & concentrates. No account needed.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: OG_TITLE,
+  verification: {
+    google: "tO7sgcSBDMWLDg0hiCrOTm7McFGAuGsSc6Lv0ChsNrM",
+  },
+  title: {
+    default: OG_TITLE,
+    template: "%s | CloudedDeals",
+  },
   description: OG_DESCRIPTION,
+  keywords: [
+    "las vegas dispensary deals",
+    "vegas weed deals",
+    "dispensary near the strip",
+    "las vegas cannabis deals",
+    "vegas vape deals",
+    "cheap weed las vegas",
+    "las vegas edible deals",
+    "vegas dispensary",
+    "cannabis deals today",
+  ],
+  authors: [{ name: "CloudedDeals" }],
+  creator: "CloudedDeals",
+  publisher: "CloudedDeals",
+  alternates: {
+    canonical: SITE_URL,
+  },
   openGraph: {
     title: OG_TITLE,
     description: OG_DESCRIPTION,
@@ -49,9 +73,22 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
+    site: "@CloudedDeals",
+    creator: "@CloudedDeals",
     title: OG_TITLE,
     description: OG_DESCRIPTION,
     images: [`${SITE_URL}/og-image.png`],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
   appleWebApp: {
     capable: true,
@@ -73,6 +110,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <WebSiteJsonLd />
+        <OrganizationJsonLd />
         <ErrorBoundary>{children}</ErrorBoundary>
       </body>
     </html>
