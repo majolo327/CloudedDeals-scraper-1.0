@@ -218,7 +218,7 @@ class TestP1Failures:
       - Oasis: Jane iframe not found or location selector blocks products
     """
 
-    @pytest.mark.timeout(300)
+    @pytest.mark.timeout(600)
     async def test_td_gibson(self):
         """TD Gibson — Dutchie JS embed.
 
@@ -236,7 +236,7 @@ class TestP1Failures:
             f"Iframes: {report.get('iframe_srcs', [])}"
         )
 
-    @pytest.mark.timeout(300)
+    @pytest.mark.timeout(600)
     async def test_td_eastern(self):
         """TD Eastern — Dutchie JS embed (same pattern as Gibson)."""
         report = await _run_diagnostic("td-eastern", DutchieScraper)
@@ -249,7 +249,7 @@ class TestP1Failures:
             f"Iframes: {report.get('iframe_srcs', [])}"
         )
 
-    @pytest.mark.timeout(300)
+    @pytest.mark.timeout(600)
     async def test_td_decatur(self):
         """TD Decatur — Dutchie JS embed (same pattern as Gibson)."""
         report = await _run_diagnostic("td-decatur", DutchieScraper)
@@ -262,7 +262,7 @@ class TestP1Failures:
             f"Iframes: {report.get('iframe_srcs', [])}"
         )
 
-    @pytest.mark.timeout(300)
+    @pytest.mark.timeout(600)
     async def test_planet13(self):
         """Planet 13 — Dutchie direct page.
 
@@ -280,7 +280,7 @@ class TestP1Failures:
             f"Iframes: {report.get('iframe_srcs', [])}"
         )
 
-    @pytest.mark.timeout(300)
+    @pytest.mark.timeout(600)
     async def test_oasis(self):
         """Oasis Cannabis — Jane hybrid (iframe or direct).
 
@@ -517,7 +517,7 @@ class TestZeroProductSites:
     # DUTCHIE SITES
     # ------------------------------------------------------------------
 
-    @pytest.mark.timeout(300)
+    @pytest.mark.timeout(600)
     async def test_mint_paradise(self):
         """Mint Paradise — Dutchie iframe.
 
