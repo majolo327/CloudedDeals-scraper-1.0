@@ -35,15 +35,23 @@
 | Google Search Console — site verified | Phase 4 | Feb 13 |
 | Google Search Console — sitemap submitted | Phase 4 | Feb 13 |
 | Google Search Console — requested indexing for homepage, /las-vegas-dispensary-deals, /strip-dispensary-deals, /deals/flower | Phase 4 | Feb 13 |
+| Unique SEO body copy on all 5 category pages (intro + tips sections) | Phase 3 | Feb 13 |
+| Unique SEO body copy on all 27 dispensary pages ("About" section) | Phase 3 | Feb 13 |
+| Internal linking: same-zone dispensary cross-links on dispensary pages | Phase 3 | Feb 13 |
+| Internal linking: expanded footer with 10 popular dispensaries | Phase 3 | Feb 13 |
 
 ### IN PROGRESS / NEXT UP
 | Item | Phase | Priority | Owner |
 |------|-------|----------|-------|
 | Request indexing for remaining priority URLs (see list below) | Phase 4 | P0 | You (manual) |
-| Unique SEO body copy on category pages | Phase 3 | P0 | Claude |
-| Unique SEO body copy on dispensary pages | Phase 3 | P0 | Claude |
-| Internal linking pass (cross-link dispensary ↔ category ↔ landing pages) | Phase 3 | P1 | Claude |
 | Lighthouse audit + Core Web Vitals fixes | Phase 6 | P1 | Claude |
+
+### RECENTLY COMPLETED (Feb 13)
+| Item | Phase | Details |
+|------|-------|---------|
+| Unique SEO body copy on category pages | Phase 3 | Intro paragraph + "Tips for Buying" section with keyword-rich content unique to each of the 5 categories |
+| Unique SEO body copy on dispensary pages | Phase 3 | "About {Name}" section with unique 100-150 word descriptions for all 27 scraped dispensaries |
+| Internal linking pass | Phase 3 | Same-zone dispensary cross-links, expanded footer (10 dispensaries), category ↔ dispensary ↔ landing page links |
 
 ### NOT STARTED
 | Item | Phase | Priority | Notes |
