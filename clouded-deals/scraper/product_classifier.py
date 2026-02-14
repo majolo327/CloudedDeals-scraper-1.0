@@ -61,6 +61,7 @@ _VAPE_DISPOSABLE_INDICATORS = [
     re.compile(r"\bdisposable\b", re.IGNORECASE),
     re.compile(r"\ball[- ]?in[- ]?one\b", re.IGNORECASE),
     re.compile(r"\baio\b", re.IGNORECASE),
+    re.compile(r"\bready[- ]?to[- ]?use\b", re.IGNORECASE),
 ]
 
 _VAPE_CARTRIDGE_INDICATORS = [
@@ -190,6 +191,19 @@ def classify_product(
         vape_sub = _classify_vape_subtype(name_lower, brand_lower)
         if vape_sub:
             subtype = vape_sub
+
+    # --- Safety net: disposable vape indicators override wrong category ---
+    # Products with "all in one", "AIO", "disposable", "ready to use" in the
+    # name are vapes even if detect_category got it wrong (e.g. "flower"
+    # because the mg weight or keyword wasn't matched correctly).
+    if cat not in ("vape",) and subtype is None:
+        if any(p.search(name_lower) for p in _VAPE_DISPOSABLE_INDICATORS):
+            corrected_category = "vape"
+            subtype = "disposable"
+            logger.info(
+                "[CLASSIFY] %r recategorized: %s → vape (disposable indicator)",
+                name[:60], cat,
+            )
 
     return {
         "is_infused": is_infused,

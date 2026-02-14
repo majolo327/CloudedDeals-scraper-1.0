@@ -115,6 +115,11 @@ class TestDetectCategory:
         "STIIIZY Pod 0.5g",
         "Disposable Pen 0.3g",
         "Select Essentials Pod 0.5g",
+        "STIIIZY All In One Live Resin 0.5g",
+        "Strawberry AIO Pen 1g",
+        "Ready To Use Vape Pen 0.5g",
+        "Ready-To-Use Live Resin 0.5g",
+        "All-In-One Disposable 0.3g",
     ])
     def test_vape(self, logic, text):
         assert logic.detect_category(text) == "vape"
