@@ -8,6 +8,7 @@ import { AdminPinGate, isAdminVerified, clearAdminVerification } from "@/compone
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: "grid" },
+  { href: "/admin/expansion", label: "Expansion", icon: "globe" },
   { href: "/admin/analytics", label: "Analytics", icon: "chart" },
   { href: "/admin/contacts", label: "Contacts", icon: "users" },
   { href: "/admin/scraper", label: "Scraper", icon: "terminal" },
@@ -22,6 +23,8 @@ const ICONS: Record<string, string> = {
     "M5.5 7.5 9 11l-3.5 3.5M12 17h6",
   sliders:
     "M12 3v4m0 14v-4m-7-5H3m4 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm14 0h-2m-4 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0ZM8 17H3m4 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm14 0h-7",
+  globe:
+    "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.6 9h16.8M3.6 15h16.8M12 3a15.3 15.3 0 0 1 4 9 15.3 15.3 0 0 1-4 9 15.3 15.3 0 0 1-4-9 15.3 15.3 0 0 1 4-9Z",
 };
 
 export default function AdminLayout({

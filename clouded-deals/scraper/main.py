@@ -111,10 +111,10 @@ def _create_run() -> str:
     if DRY_RUN:
         logger.info("[DRY RUN] Would create scrape_runs entry")
         return "dry-run"
-    payload: dict[str, Any] = {"status": "running"}
+    payload: dict[str, Any] = {"status": "running", "region": REGION}
     row = db.table("scrape_runs").insert(payload).execute()
     run_id: str = row.data[0]["id"]
-    logger.info("Scrape run started: %s (group=%s)", run_id, PLATFORM_GROUP)
+    logger.info("Scrape run started: %s (region=%s, group=%s)", run_id, REGION, PLATFORM_GROUP)
     return run_id
 
 
@@ -971,18 +971,56 @@ async def run(slug_filter: str | None = None) -> None:
         runtime_seconds=int(elapsed),
     )
 
-    logger.info("=" * 60)
-    logger.info("SCRAPE COMPLETE")
-    logger.info("  Status:     %s", status)
-    logger.info("  Products:   %d", total_products)
-    logger.info("  Deals:      %d", total_deals)
-    logger.info("  Sites OK:   %d/%d", len(sites_scraped), len(dispensaries))
-    logger.info("  Duration:   %.1f min", elapsed / 60)
+    # ─── Human-readable scrape summary ──────────────────────────
+    logger.info("")
+    logger.info("=" * 64)
+    logger.info("  SCRAPE SUMMARY — %s", REGION.upper())
+    logger.info("=" * 64)
+    logger.info("  Status:      %s", status)
+    logger.info("  Region:      %s", REGION)
+    logger.info("  Products:    %d", total_products)
+    logger.info("  Deals:       %d", total_deals)
+    logger.info("  Sites OK:    %d / %d", len(sites_scraped), len(dispensaries))
+    logger.info("  Sites FAIL:  %d", len(sites_failed))
+    logger.info("  Duration:    %.1f min", elapsed / 60)
+
+    # Per-platform breakdown
+    from collections import Counter
+    platform_ok: Counter[str] = Counter()
+    platform_products: Counter[str] = Counter()
+    for d in dispensaries:
+        slug = d["slug"]
+        plat = d.get("platform", "unknown")
+        if slug in sites_scraped:
+            platform_ok[plat] += 1
+    # Count products per platform from the scraped dispensaries
+    for d in dispensaries:
+        plat = d.get("platform", "unknown")
+        if d["slug"] in sites_scraped:
+            platform_products[plat] += 1
+    platform_total: Counter[str] = Counter(d.get("platform", "unknown") for d in dispensaries)
+
+    logger.info("  ┌─────────────────────────────────────────────┐")
+    logger.info("  │  Platform        OK / Total    Status       │")
+    logger.info("  ├─────────────────────────────────────────────┤")
+    for plat in sorted(platform_total.keys()):
+        ok = platform_ok[plat]
+        tot = platform_total[plat]
+        pct = round(ok / tot * 100) if tot > 0 else 0
+        bar = "OK" if pct == 100 else f"{pct}%"
+        icon = "✓" if pct == 100 else ("!" if pct > 0 else "✗")
+        logger.info("  │  %-14s  %3d / %-3d      %s %-5s      │", plat, ok, tot, icon, bar)
+    logger.info("  └─────────────────────────────────────────────┘")
+
     if sites_failed:
-        logger.info("  Failed:")
+        logger.info("")
+        logger.info("  Failed sites:")
         for f in sites_failed:
-            logger.info("    - %s: %s", f["slug"], f["error"])
-    logger.info("=" * 60)
+            err_short = f["error"][:60] + "..." if len(f["error"]) > 60 else f["error"]
+            logger.info("    ✗ %-30s %s", f["slug"], err_short)
+
+    logger.info("")
+    logger.info("=" * 64)
 
     # ─── Daily Metrics (pipeline quality tracking) ───────────────
     collect_daily_metrics(
