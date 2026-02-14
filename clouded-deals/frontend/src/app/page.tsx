@@ -231,7 +231,7 @@ export default function Home() {
         dealHistory.removeSnapshot(dealId);
       }
     },
-    [savedDeals, toggleSavedDeal, deals, addToast, dealHistory]
+    [savedDeals, toggleSavedDeal, deals, dealHistory]
   );
 
   // Share saves handler — used by swipe overlay's "Share today's favorites" CTA

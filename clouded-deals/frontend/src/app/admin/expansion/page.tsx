@@ -272,8 +272,7 @@ function RegionCard({
   onClick: () => void;
   expanded: boolean;
 }) {
-  const { latestRun, successRate7, totalProductsLast7, configuredSites } =
-    summary;
+  const { latestRun, successRate7, configuredSites } = summary;
 
   const hasData = latestRun !== null;
   const statusColor = !hasData
