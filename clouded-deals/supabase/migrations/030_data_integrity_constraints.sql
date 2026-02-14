@@ -9,11 +9,11 @@
 -- 1. products table — category, scoring, pricing, percentages
 -- =====================================================================
 
--- Category must be one of the 5 valid values (or NULL for unclassified)
+-- Category must be one of the 6 valid values (or NULL for unclassified)
 ALTER TABLE products DROP CONSTRAINT IF EXISTS chk_products_category;
 ALTER TABLE products
   ADD CONSTRAINT chk_products_category
-  CHECK (category IS NULL OR category IN ('flower', 'preroll', 'vape', 'edible', 'concentrate'));
+  CHECK (category IS NULL OR category IN ('flower', 'preroll', 'vape', 'edible', 'concentrate', 'other'));
 
 -- deal_score must be 0–100
 ALTER TABLE products DROP CONSTRAINT IF EXISTS chk_products_deal_score;
