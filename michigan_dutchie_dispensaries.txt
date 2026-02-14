@@ -1,0 +1,510 @@
+================================================================================
+MICHIGAN DUTCHIE DISPENSARY SLUGS - COMPLETE LIST
+================================================================================
+Generated: 2026-02-14
+Format: Name | Slug (dutchie.com/dispensary/{slug}) | City | Region
+================================================================================
+
+================================================================================
+LUME CANNABIS CO. (21 locations found)
+================================================================================
+Lume Cannabis Co. (Adrian)           | lume-cannabis-co-adrian           | Adrian          | other
+Lume Cannabis Co. (Big Rapids)       | lume-cannabis-co-big-rapids       | Big Rapids      | other
+Lume Cannabis Co. (Cedar Springs)    | lume-cannabis-co-cedar-springs    | Cedar Springs   | grand-rapids
+Lume Cannabis Co. (Escanaba)         | lume-cannabis-co-escanaba         | Escanaba        | upper-peninsula
+Lume Cannabis Co. (Evart)            | lume-cannabis-co                  | Evart           | other
+Lume Cannabis Co. (Gaylord)          | lume-gaylord-rec                  | Gaylord         | traverse-city
+Lume Cannabis Co. (Grand Rapids)     | lume-grand-rapids                 | Grand Rapids    | grand-rapids
+Lume Cannabis Co. (Honor)            | lume-cannabis-co-honor            | Honor/Beulah    | traverse-city
+Lume Cannabis Co. (Houghton)         | lume-cannabis-co-houghton         | Houghton        | upper-peninsula
+Lume Cannabis Co. (Iron Mountain)    | lume-cannabis-co-iron-mountain    | Iron Mountain   | upper-peninsula
+Lume Cannabis Co. (Jackson)          | lume-cannabis-co-jackson          | Jackson         | other
+Lume Cannabis Co. (Kalamazoo)        | lume-cannabis-co-kalamazoo        | Kalamazoo       | kalamazoo
+Lume Cannabis Co. (Lowell)           | lume-cannabis-co-lowell           | Lowell          | grand-rapids
+Lume Cannabis Co. (Mackinaw City)    | lume-mackinaw-city                | Mackinaw City   | traverse-city
+Lume Cannabis Co. (Menominee)        | lumemenominee-rec                 | Menominee       | upper-peninsula
+Lume Cannabis Co. (Monroe)           | lume-monroe                       | Monroe          | detroit-metro
+Lume Cannabis Co. (Mt Pleasant Mission) | lume-mount-pleasant-mission    | Mt Pleasant     | other
+Lume Cannabis Co. (Mt Pleasant Broomfield) | lume-mount-pleasant-broomfield-rec | Mt Pleasant | other
+Lume Cannabis Co. (Negaunee)         | lume-cannabis-co-neguanee         | Negaunee        | upper-peninsula
+Lume Cannabis Co. (Owosso)           | lume-cannabis-co-owasso           | Owosso          | flint-saginaw
+Lume Cannabis Co. (Petoskey)         | lume-cannabis-co-petoskey         | Petoskey        | traverse-city
+Lume Cannabis Co. (Petersburg)       | lume-cannabis-co-petersburg       | Petersburg      | detroit-metro
+Lume Cannabis Co. (Sault Ste. Marie) | lume-cannabis-co-sault-ste-marie  | Sault Ste. Marie| upper-peninsula
+Lume Cannabis Co. (Traverse City)    | traverse-city-rec                 | Traverse City   | traverse-city
+Lume Cannabis Co. (Walled Lake)      | lume-cannabis-co-walled-lake      | Walled Lake     | detroit-metro
+
+================================================================================
+SKYMINT / 3FIFTEEN (14 locations found)
+================================================================================
+Skymint Ann Arbor                    | skymint-ann-arbor                 | Ann Arbor       | ann-arbor
+Skymint Ann Arbor Washtenaw          | ann-arbor-healing                 | Ann Arbor       | ann-arbor
+Skymint Camden                       | 3fifteen-camden                   | Camden          | other
+Skymint Coldwater                    | skymint-coldwater                 | Coldwater       | other
+Skymint East Lansing                 | skymint-east-lansing              | East Lansing    | lansing
+Skymint Gaylord                      | skymint-gaylord                   | Gaylord         | traverse-city
+Skymint Grand Rapids Division        | skymint-division                  | Grand Rapids    | grand-rapids
+Skymint Kalamazoo                    | skymint-kalamazoo                 | Kalamazoo       | kalamazoo
+Skymint Lansing Cedar                | skymint-lansing-cedar             | Lansing         | lansing
+Skymint Morenci (3Fifteen)           | 3fifteen                          | Morenci         | other
+Skymint Muskegon                     | skymint-muskegon                  | Muskegon        | grand-rapids
+Skymint Nunica                       | skymint-nunica                    | Nunica          | grand-rapids
+Skymint Portage                      | skymint-portage                   | Portage         | kalamazoo
+Skymint Saginaw                      | skymint-saginaw                   | Saginaw         | flint-saginaw
+Skymint White Cloud                  | skymint-white-cloud               | White Cloud     | grand-rapids
+3Fifteen Battle Creek Michigan Ave   | battle-creek-provisioning-michigan-ave | Battle Creek | kalamazoo
+
+================================================================================
+JARS CANNABIS (18 locations found)
+================================================================================
+JARS Cannabis - Ann Arbor            | jars-ann-arbor-packard            | Ann Arbor       | ann-arbor
+JARS Cannabis - Battle Creek         | jars-battle-creek                 | Battle Creek    | kalamazoo
+JARS Cannabis - Center Line          | jars-centerline1                  | Center Line     | detroit-metro
+JARS Cannabis - Chesterfield/New Baltimore | jars-chesterfield           | Chesterfield    | detroit-metro
+JARS Cannabis - East Detroit         | district-3-detroit                | Detroit         | detroit-metro
+JARS Cannabis - West Detroit         | jars-detroit-west                 | Detroit         | detroit-metro
+JARS Cannabis - Grand Rapids Alpine  | jars-grand-rapids                 | Grand Rapids    | grand-rapids
+JARS Cannabis - Jackson              | jars-jackson                      | Jackson         | other
+JARS Cannabis - Lansing              | jars-lansing                      | Lansing         | lansing
+JARS Cannabis - Monroe               | jars-monroe                       | Monroe          | detroit-metro
+JARS Cannabis - Mt Clemens           | jars-mount-clemens                | Mt Clemens      | detroit-metro
+JARS Cannabis - Mt Morris            | jars-mt-morris                    | Mt Morris/Flint | flint-saginaw
+JARS Cannabis - Mt Pleasant          | jars-mt-pleasant                  | Mt Pleasant     | other
+JARS Cannabis - Muskegon             | jars-muskegon1                    | Muskegon        | grand-rapids
+JARS Cannabis - New Buffalo Exit 1   | jars-new-buffalo-obrien           | New Buffalo     | southwest-mi
+JARS Cannabis - New Buffalo US-12    | jars-new-buffalo-rec              | New Buffalo     | southwest-mi
+JARS Cannabis - Oxford               | jars-oxford-rec                   | Oxford          | detroit-metro
+JARS Cannabis - Saginaw              | jars-saginaw-rec                  | Saginaw         | flint-saginaw
+JARS Cannabis - Saugatuck            | jars-saugatuck                    | Saugatuck       | southwest-mi
+
+================================================================================
+CLOUD CANNABIS (10 locations found)
+================================================================================
+Cloud Cannabis (Ann Arbor)           | cloud-cannabis-ann-arbor          | Ann Arbor       | ann-arbor
+Cloud Cannabis (Cedar Springs)       | cedar-springs                     | Cedar Springs   | grand-rapids
+Cloud Cannabis (Detroit)             | cloud-cannabis-detroit            | Detroit         | detroit-metro
+Cloud Cannabis (Gaylord)             | cloud-cannabis-co-gaylord-rec     | Gaylord         | traverse-city
+Cloud Cannabis (GR 28th St.)         | grand-rapids                      | Grand Rapids    | grand-rapids
+Cloud Cannabis (GR Fulton St.)       | cloud-cannabis-co-grand-rapids-fulton | Grand Rapids | grand-rapids
+Cloud Cannabis (Kalamazoo)           | cloud-cannabis-kalamazoo          | Kalamazoo       | kalamazoo
+Cloud Cannabis (Muskegon)            | cloud-cannabis-muskegon           | Muskegon        | grand-rapids
+Cloud Cannabis (New Baltimore)       | cloud-cannabis-new-baltimore      | New Baltimore   | detroit-metro
+Cloud Cannabis (Traverse City)       | cloud-cannabis-traverse-city      | Traverse City   | traverse-city
+Cloud Cannabis (Utica)               | cloud-cannabis-utica              | Utica           | detroit-metro
+
+================================================================================
+HOUSE OF DANK (10 locations found)
+================================================================================
+House of Dank - 8 Mile (Rec)         | house-of-dank-recreational-cannabis-8-mile | Detroit   | detroit-metro
+House of Dank - 8 Mile (Med)         | 8mile                             | Detroit         | detroit-metro
+House of Dank - Ann Arbor            | house-of-dank-ann-arbor-rec       | Ann Arbor       | ann-arbor
+House of Dank - Center Line          | centerlinerec                     | Center Line     | detroit-metro
+House of Dank - Grand Rapids         | house-of-dank-grand-rapids        | Grand Rapids    | grand-rapids
+House of Dank - Lansing              | house-of-dank-cannabis-company    | Lansing         | lansing
+House of Dank - Monroe               | house-of-dank-monroe-laplaisance  | Monroe          | detroit-metro
+House of Dank - New Buffalo          | house-of-dank-new-buffalo         | New Buffalo     | southwest-mi
+House of Dank - Saginaw              | house-of-dank-saginaw             | Saginaw         | flint-saginaw
+House of Dank - Traverse City        | house-of-dank-traverse-city-rec   | Traverse City   | traverse-city
+House of Dank - Ypsilanti            | house-of-dank-ypsilanti           | Ypsilanti       | ann-arbor
+
+================================================================================
+ASCEND DISPENSARY (7 locations found)
+================================================================================
+Ascend Dispensary - Ann Arbor        | ann-arbor-michigan                | Ann Arbor       | ann-arbor
+Ascend Dispensary - Battle Creek     | battle-creek-michigan             | Battle Creek    | kalamazoo
+Ascend Dispensary - Detroit          | detroit-michigan                  | Detroit         | detroit-metro
+Ascend Dispensary - East Lansing     | east-lansing-michigan             | East Lansing    | lansing
+Ascend Dispensary - GR 28th Street   | grand-rapids-28th-street-michigan | Grand Rapids    | grand-rapids
+Ascend Dispensary - GR Century Ave   | grand-rapids-century-avenue-michigan | Grand Rapids | grand-rapids
+Ascend Dispensary - GR Scribner Ave  | grand-rapids-scribner-avenue-michigan | Grand Rapids | grand-rapids
+Ascend Dispensary - Morenci          | morenci-michigan                  | Morenci         | other
+
+================================================================================
+JOYOLOGY / SMILEZ (10 locations found)
+================================================================================
+Joyology Orion (Auburn Hills)       | grams-club-rec                    | Auburn Hills    | detroit-metro
+Joyology Monroe                     | grams-club-monroe-rec             | Monroe          | detroit-metro
+Joyology Mt. Pleasant               | mt-pleasant-joyology              | Mt Pleasant     | other
+Joyology Burton                     | joyology-burton                   | Burton          | flint-saginaw
+Joyology of Quincy                  | joyology-of-quincy                | Quincy          | other
+Joyology of Wayne                   | joyology-by-holistic-health-wayne | Wayne           | detroit-metro
+Joyology of Allegan                 | joyology-allegan                  | Allegan         | southwest-mi
+Joyology of Memphis                 | joyology-of-memphis               | Memphis         | detroit-metro
+Smilez of Quincy                    | smilez-of-quincy                  | Quincy          | other
+Smilez Reading                      | smilez-reading                    | Reading         | other
+Smilez Burton                       | smilez-burton                     | Burton          | flint-saginaw
+Smilez Wayne                        | smilez-by-holistic-health-wayne   | Wayne           | detroit-metro
+Smilez Allegan                      | smilez-allegan                    | Allegan         | southwest-mi
+
+================================================================================
+HIGH PROFILE / C3 (8 locations found)
+================================================================================
+High Profile (Buchanan)              | high-profile-buchanan             | Buchanan        | southwest-mi
+High Profile (Constantine)          | high-tops                         | Constantine     | southwest-mi
+High Profile (Grant)                | high-profile-grant                | Grant           | grand-rapids
+High Profile (Kalamazoo)            | high-profile-kalamazoo            | Kalamazoo       | kalamazoo
+High Profile (Marquette)            | cannabis-lupus-cafe               | Marquette       | upper-peninsula
+High Profile (Muskegon)             | high-profile-muskegon             | Muskegon        | grand-rapids
+High Profile (Muskegon #2)          | mi-muskegon-hp                    | Muskegon        | grand-rapids
+High Profile (Webberville)          | high-profile-webberville          | Webberville     | lansing
+
+================================================================================
+PLEASANTREES (5 locations found)
+================================================================================
+Pleasantrees (East Lansing)          | pleasantrees                      | East Lansing    | lansing
+Pleasantrees (Hamtramck)            | pleasantrees-detroit              | Hamtramck       | detroit-metro
+Pleasantrees (Houghton Lake)        | pleasantrees-houghton-lake1       | Prudenville     | other
+Pleasantrees (Lincoln Park)         | pleasantrees-lincoln-park         | Lincoln Park    | detroit-metro
+Pleasantrees (Mt. Clemens)          | pleasantrees-mt-clemens           | Mt Clemens      | detroit-metro
+
+================================================================================
+LIV CANNABIS (5 locations found)
+================================================================================
+LIV Cannabis (Detroit)               | liv-detroit-rec                   | Detroit         | detroit-metro
+LIV Cannabis (Ferndale)             | liv-ferndale                      | Ferndale        | detroit-metro
+LIV Cannabis (Grand Rapids)         | joyology-grand-rapids             | Grand Rapids    | grand-rapids
+LIV Cannabis (Lake Orion)           | liv-lake-orion                    | Lake Orion      | detroit-metro
+LIV Cannabis (Lansing)              | liv-lansing                       | Lansing         | lansing
+
+================================================================================
+PINNACLE EMPORIUM (5 locations found)
+================================================================================
+Pinnacle Emporium (Addison)          | pinnacle-emporium-addison         | Addison         | other
+Pinnacle Emporium (Buchanan)        | pinnacle-emporium-buchanan        | Buchanan        | southwest-mi
+Pinnacle Emporium (Camden)          | pinnacle-canna-camden             | Camden          | other
+Pinnacle Emporium (Edmore)          | pinnacle-emporium-edmore          | Edmore          | other
+Pinnacle Emporium (Morenci)         | pinnacle-canna-morenci            | Morenci         | other
+
+================================================================================
+HERBANA (3 locations found)
+================================================================================
+Herbana (Ann Arbor)                  | herbana                           | Ann Arbor       | ann-arbor
+Herbana (Kalamazoo)                 | herbana-kalamazoo                 | Kalamazoo       | kalamazoo
+Herbana (Lansing)                   | herbana-lansing                   | Lansing         | lansing
+
+================================================================================
+NIRVANA CENTER (7 locations found)
+================================================================================
+Nirvana Center (Center Line)         | nirvana-center-center-line        | Center Line     | detroit-metro
+Nirvana Center (Coldwater)          | nirvana-center-coldwater1         | Coldwater       | other
+Nirvana Center (Houghton - Rec)     | nu-group-houghton-rec             | Houghton        | upper-peninsula
+Nirvana Center (Kalamazoo)          | nirvana-center-kalamazoo          | Kalamazoo       | kalamazoo
+Nirvana Center (Lowell)             | nirvana-center-lowell             | Lowell          | grand-rapids
+Nirvana Center (Marquette)          | nirvana-center-marquette          | Marquette       | upper-peninsula
+Nirvana Center (Menominee)          | nu-group-menominee-rec            | Menominee       | upper-peninsula
+Nirvana Center (Monroe)             | the-nirvana-center-monroe         | Monroe          | detroit-metro
+
+================================================================================
+THE FIRE STATION CANNABIS CO. (7 locations found - Upper Peninsula)
+================================================================================
+Fire Station (Hannahville/Harris)    | hannahville                       | Harris          | upper-peninsula
+Fire Station (Iron River)           | iron-river                        | Iron River      | upper-peninsula
+Fire Station (Ironwood)             | ironwood                          | Ironwood        | upper-peninsula
+Fire Station (Marquette)            | marquette                         | Marquette       | upper-peninsula
+Fire Station (Menominee)            | menominee                         | Menominee       | upper-peninsula
+Fire Station (Munising)             | fire-station                      | Munising        | upper-peninsula
+Fire Station (Negaunee)             | neg                               | Negaunee        | upper-peninsula
+
+================================================================================
+PUFF CANNABIS (8 locations found)
+================================================================================
+PUFF Bay City                        | puff-bay-city-rec                 | Bay City        | flint-saginaw
+PUFF Hamtramck                      | puff-canna-co-hamtramck-rec       | Hamtramck       | detroit-metro
+PUFF Kalamazoo                      | puff-kalamazoo-rec                | Kalamazoo       | kalamazoo
+PUFF Monroe                         | puff-monroe-rec                   | Monroe          | detroit-metro
+PUFF River Rouge                    | puff-river-rouge                  | River Rouge     | detroit-metro
+PUFF Sturgis                        | puff-canna-co-sturgis-rec         | Sturgis         | southwest-mi
+PUFF Traverse City                  | puff-traverse-city-med            | Traverse City   | traverse-city
+PUFF Utica                          | puff-cannabis-utica               | Utica           | detroit-metro
+
+================================================================================
+EXCLUSIVE (8 locations found)
+================================================================================
+Exclusive Ann Arbor                  | exclusive-ann-arbor               | Ann Arbor       | ann-arbor
+Exclusive Cold Water                | exclusive-cold-water              | Coldwater       | other
+Exclusive Gaylord                   | exclusive-gaylord-rec             | Gaylord         | traverse-city
+Exclusive Grand Rapids              | exclusive-grand-rapids            | Wyoming/GR      | grand-rapids
+Exclusive Kalamazoo                 | exclusive-kalamazoo               | Kalamazoo       | kalamazoo
+Exclusive Lowell                    | exclusive-lowell                  | Lowell          | grand-rapids
+Exclusive Monroe                    | heads-monroe                      | Monroe          | detroit-metro
+Exclusive Muskegon                  | exclusive-muskegon                | Muskegon        | grand-rapids
+
+================================================================================
+QUALITY ROOTS (5 locations found)
+================================================================================
+Quality Roots (Battle Creek)         | quality-roots                     | Battle Creek    | kalamazoo
+Quality Roots (Hamtramck/Detroit)   | quality-roots-hamtramck           | Hamtramck       | detroit-metro
+Quality Roots (Monroe)              | quality-roots-monroe              | Monroe          | detroit-metro
+Quality Roots (Waterford)           | quality-roots-waterford           | Waterford       | detroit-metro
+Quality Roots (Ypsilanti)           | quality-roots-ypsilanti           | Ypsilanti       | ann-arbor
+
+================================================================================
+SOZO (4 locations found)
+================================================================================
+Sozo (Flint)                         | sozo-flint                        | Flint           | flint-saginaw
+Sozo (Muskegon)                     | sozo-muskegon                     | Muskegon        | grand-rapids
+Sozo (Saginaw)                      | sozo-saginaw                      | Saginaw         | flint-saginaw
+Sozo (Warren)                       | sozo-warren                       | Warren          | detroit-metro
+
+================================================================================
+PURE OPTIONS (5 locations found)
+================================================================================
+Pure Options - Detroit | 106          | pure-options-or-store-106-au      | Detroit         | detroit-metro
+Pure Options - East Lansing | 100    | pure-options-frandor              | East Lansing    | lansing
+Pure Options - Lansing Midtown | 103 | Pure-Options-Lansing-Midtown      | Lansing         | lansing
+Pure Options - Lansing South | 101   | pure-options-lansing-south        | Lansing         | lansing
+Pure Options - Mt. Pleasant | 104    | mt-pleasant-po                    | Mt Pleasant     | other
+Pure Options - Muskegon Twp | 201   | pure-options-muskegon-township    | Muskegon        | grand-rapids
+
+================================================================================
+LEVELS (8 locations found)
+================================================================================
+Levels - Ironwood                    | levels-cannabis-ironwood          | Ironwood        | upper-peninsula
+Levels - Kalamazoo                  | levels-cannabis-kalamazoo-rec     | Kalamazoo       | kalamazoo
+Levels - Lansing                    | levels-of-lansing-rec             | Lansing         | lansing
+Levels - Mount Pleasant             | Levels-Mount-Pleasant             | Mt Pleasant     | other
+Levels - Muskegon (Rec)            | levels-cannabis-muskegon          | Muskegon        | grand-rapids
+Levels - Muskegon (AU)             | levels-muskegon-au                | Muskegon        | grand-rapids
+Levels - Niles                      | levels-niles                      | Niles           | southwest-mi
+Levels - Sturgis                    | levels-sturgis                    | Sturgis         | southwest-mi
+Levels - Waterford                  | levels-cannabis-waterford-rec     | Waterford       | detroit-metro
+
+================================================================================
+GREEN PHARM (5 locations found)
+================================================================================
+Green Pharm - Detroit                | green-pharm-detroit               | Detroit         | detroit-metro
+Green Pharm - Hazel Park (REC)      | green-pharm-hazel-park-rec        | Hazel Park      | detroit-metro
+Green Pharm - Iron River (REC)      | green-pharm-iron-river-rec        | Iron River      | upper-peninsula
+Green Pharm - Mancelona (REC)       | green-pharm-mancelona-rec         | Mancelona       | traverse-city
+Green Pharm - Menominee (REC)       | green-pharm-menominee-rec         | Menominee       | upper-peninsula
+
+================================================================================
+KING OF BUDZ (4 locations found)
+================================================================================
+King of Budz - Detroit               | detroit-mi                        | Detroit         | detroit-metro
+King of Budz - Detroit #2           | king-of-budz                      | Detroit         | detroit-metro
+King of Budz - Ferndale             | ferndale-mi                       | Ferndale        | detroit-metro
+King of Budz - Monroe               | monroe-mi                         | Monroe          | detroit-metro
+King of Budz - New Buffalo          | king-of-budz-new-buffalo          | New Buffalo     | southwest-mi
+
+================================================================================
+BLOOM CITY CLUB (3 locations found)
+================================================================================
+Bloom City Club (Ann Arbor)          | bloom-city-club-ann-arbor         | Ann Arbor       | ann-arbor
+Bloom City Club (Kalamazoo)         | bloom-city-club-kalamazoo         | Kalamazoo       | kalamazoo
+Bloom City Club (Sturgis)           | bloom-city-club-sturgis           | Sturgis         | southwest-mi
+Bloom City Club (Ypsilanti)         | bloom                             | Ypsilanti       | ann-arbor
+
+================================================================================
+COOKIES (3 dispensary locations found)
+================================================================================
+Cookies Ann Arbor                    | cookies-ann-arbor                 | Ann Arbor       | ann-arbor
+Cookies Detroit                     | cookies-detroit                   | Detroit         | detroit-metro
+Cookies Kalamazoo                   | cookies-kalamazoo                 | Kalamazoo       | kalamazoo
+Cookies Grand Rapids (Ann St.)      | noxx-ann-st                       | Grand Rapids    | grand-rapids
+
+================================================================================
+HERBOLOGY CANNABIS CO. (3 locations found)
+================================================================================
+Herbology Cannabis Co. - New Buffalo | herbology-cannabis-co-new-buffalo | New Buffalo     | southwest-mi
+Herbology Cannabis Co. - West Branch | herbology-cannabis-co-west-branch-rec | West Branch | other
+Herbology Cannabis Co. - Ypsilanti  | herbology-ypsilanti-rec           | Ypsilanti       | ann-arbor
+
+================================================================================
+PREMIER CANNABIS (3 locations found)
+================================================================================
+Premier Cannabis - Caro (REC)        | premier-cannabis-caro-rec         | Caro            | flint-saginaw
+Premier Cannabis - Saginaw (REC)    | premier-cannabis-saginaw-rec      | Saginaw         | flint-saginaw
+Premier Cannabis - Saginaw West (REC)| premier-cannabis-saginaw-west-rec | Saginaw        | flint-saginaw
+
+================================================================================
+BAZONZOES (3 locations found)
+================================================================================
+Bazonzoes Provisioning Center        | bazonzoes-provisioning-center     | Lansing         | lansing
+Bazonzoes - South Lansing           | bazonzoes-south-lansing           | Lansing         | lansing
+Bazonzoes - Walled Lake (Rec)       | bazonzoes-walled-lake-rec         | Walled Lake     | detroit-metro
+Bazonzoes - Walled Lake (Med)       | bazonzoes-provisioning-center-walled-lake | Walled Lake | detroit-metro
+
+================================================================================
+NOXX (2 locations found)
+================================================================================
+NOXX - 28th St.                      | noxx-28th-st                      | Grand Rapids    | grand-rapids
+NOXX - Plainfield Ave.              | noxx-plainfield-ave               | Grand Rapids    | grand-rapids
+
+================================================================================
+RELEAF CENTER (2 locations found)
+================================================================================
+ReLeaf Center - Dowagiac (REC)       | releaf-center-dowagiac-rec        | Dowagiac        | southwest-mi
+ReLeaf Center - Niles (REC)         | releaf-center-niles-rec           | Niles           | southwest-mi
+
+================================================================================
+RUSH CANNABIS (2 locations found)
+================================================================================
+Rush Cannabis - Hazel Park           | rush-cannabis                     | Hazel Park      | detroit-metro
+Rush Cannabis - Saline               | rush-saline                       | Saline          | ann-arbor
+
+================================================================================
+MUHA MEDS (2 dispensary locations found)
+================================================================================
+Muha Meds - Michigan Ave             | muha-meds-michigan-ave            | Detroit         | detroit-metro
+Muha Meds - Harper Ave              | muha-meds-harper-ave              | Detroit         | detroit-metro
+
+================================================================================
+20 PAST 4 (2 locations found)
+================================================================================
+20 Past 4 (Big Rapids)               | 20-past-4-big-rapids              | Big Rapids      | other
+20 Past 4 (Sturgis)                 | 20-past-4-sturgis                 | Sturgis         | southwest-mi
+
+================================================================================
+INDEPENDENTS & SINGLE-LOCATION DISPENSARIES
+================================================================================
+
+--- DETROIT METRO ---
+Ascend Dispensary - Detroit          | detroit-michigan                  | Detroit         | detroit-metro
+Bowz Cannabis                       | bowz-cannabis                     | Riverview       | detroit-metro
+Clarity (Hazel Park)                | breeze                            | Hazel Park      | detroit-metro
+Dispo Hazel Park                    | dispo-hazel-park                  | Hazel Park      | detroit-metro
+Green Genie Dearborn Heights        | dearborn-heights-rec              | Dearborn Hts    | detroit-metro
+High Club Cannabis Detroit          | detroit-herbal-center1            | Detroit         | detroit-metro
+Hyde Cannabis Co.                   | hyde-cannabis-co                  | Detroit         | detroit-metro
+Light Em Up - Detroit               | light-em-up-detroit-med           | Detroit         | detroit-metro
+Michigan Pure Green                 | michigan-pure-green               | Michigan        | detroit-metro
+Moses Roses - Waterford (Med)       | moses-roses-waterford-med         | Waterford       | detroit-metro
+Planet 59 - Waterford               | planet-59-waterford-mi            | Waterford       | detroit-metro
+Supergood Detroit                   | supergood-detroit                 | Detroit         | detroit-metro
+The Chronic - Warren                | the-chronic-warren                | Warren          | detroit-metro
+Uniq Cannabis (Monroe)              | cloud-9-cannabis-monroe-rec       | Monroe          | detroit-metro
+Weed Mart                           | weed-mart-new-buffalo             | Hamtramck       | detroit-metro
+ZAZA - Detroit                      | ZAZA-detroit                      | Detroit         | detroit-metro
+
+--- ANN ARBOR ---
+ArborSide                           | arborside                         | Ann Arbor       | ann-arbor
+First Class - Ann Arbor             | first-class-ann-arbor             | Ann Arbor       | ann-arbor
+Leaf and Bud - Ann Arbor (REC)      | leaf-and-bud-ann-arbor-rec        | Ann Arbor       | ann-arbor
+
+--- YPSILANTI ---
+Exotics Cannabis                    | the-wellflower-ypsilanti          | Ypsilanti       | ann-arbor
+Muha Meds - Ypsilanti              | oz-cannabis                       | Ypsilanti       | ann-arbor
+Planet Jane                         | planet-jane                       | Ypsilanti       | ann-arbor
+The Clinic Ypsilanti                | the-clinic-ypsilanti              | Ypsilanti       | ann-arbor
+Ypsi Rec                            | ypsirec                           | Ypsilanti       | ann-arbor
+
+--- GRAND RAPIDS ---
+Cookies Grand Rapids (Ann St.)      | noxx-ann-st                       | Grand Rapids    | grand-rapids
+
+--- KALAMAZOO ---
+Rair - Kalamazoo                    | rair-kalamazoo                    | Kalamazoo       | kalamazoo
+The Refinery (Kalamazoo)            | the-refinery                      | Kalamazoo       | kalamazoo
+True Leaf (Kalamazoo)               | trueleaf-525-kalamazoo            | Kalamazoo       | kalamazoo
+
+--- LANSING ---
+Depot Dispo - Leslie                | depot-dispo                       | Leslie          | lansing
+First Class - Lansing               | first-class-lansing               | Lansing         | lansing
+Fortuo (Lansing)                    | fortuo-lansing                    | Lansing         | lansing
+
+--- FLINT/SAGINAW ---
+Bacco Farms - Flint                 | bacco-farms-flint                 | Flint           | flint-saginaw
+DACUT - Flint                       | dacut1                            | Flint           | flint-saginaw
+Flower of Life (Flint)              | flint-flower-of-life              | Flint           | flint-saginaw
+Lindzys - Flint                     | Lindzys                           | Flint           | flint-saginaw
+Planet 420 (REC) - Flint            | planet-420rec                     | Flint           | flint-saginaw
+Smok - Flint                        | smok-flint-michigan               | Flint           | flint-saginaw
+
+--- TRAVERSE CITY ---
+Lighthouse Traverse City            | lighthouse-traverse-city          | Traverse City   | traverse-city
+Stash House (Traverse City)         | stash-house                       | Traverse City   | traverse-city
+
+--- BATTLE CREEK / PORTAGE ---
+Fire Creek Battle Creek             | dispo-fire-creek                  | Battle Creek    | kalamazoo
+Highway Dispo (Battle Creek)        | highway-dispo-battle-creek        | Battle Creek    | kalamazoo
+Potter's Cannabis Boutique          | potters-cannabis-boutique-rec     | Battle Creek    | kalamazoo
+RECWEED.COM (Portage)               | le-battle-creek-inc-dba-weedreccom| Portage         | kalamazoo
+Sam's Exotics (Battle Creek)        | sams-exotics                      | Battle Creek    | kalamazoo
+
+--- JACKSON ---
+420 Dank (Jackson)                   | first-class-jackson               | Jackson         | other
+Cherry (Jackson)                    | cherry                            | Jackson         | other
+Dispo Jackson                       | dispo-jackson                     | Jackson         | other
+Elite Cannabis - Jackson            | elite-wellness-jackson            | Jackson         | other
+Five Point Farms (Jackson)          | five-point-farms                  | Jackson         | other
+Mood (Jackson)                      | mood-jackson                      | Jackson         | other
+
+--- MUSKEGON ---
+Park Place (Muskegon)               | 31-cannabis-muskegon              | Muskegon        | grand-rapids
+The Trap Cannabis Co. (Muskegon)    | the-trap-cannabis-co              | Muskegon        | grand-rapids
+
+--- MONROE ---
+Crave Cannabis (Monroe)             | firefarm-monroe                   | Monroe          | detroit-metro
+Pure - Monroe                       | pure-dixie-monroe-rec             | Monroe          | detroit-metro
+
+--- NEW BUFFALO / SOUTHWEST MI ---
+Rolling Embers (New Buffalo)        | rolling-embers                    | New Buffalo     | southwest-mi
+Supergood New Buffalo               | supergood-new-buffalo             | New Buffalo     | southwest-mi
+The Bloomery (New Buffalo)          | the-bloomery-new-buffalo          | New Buffalo     | southwest-mi
+URB Cannabis (New Buffalo)          | urb-cannabis-new-buffalo          | New Buffalo     | southwest-mi
+Vibe New Buffalo                    | vibe-new-buffalo                  | New Buffalo     | southwest-mi
+Pure - New Buffalo                  | pure-new-buffalo                  | New Buffalo     | southwest-mi
+Green Stem Provisioning (Niles)     | green-stem-provisioning           | Niles           | southwest-mi
+Timber Cannabis Co. (Allegan)       | timber-cannabis-allegan           | Allegan         | southwest-mi
+New Standard (Saugatuck)            | new-standard-saugatuck            | Saugatuck       | southwest-mi
+NOBO South Haven                    | nobo-south-haven                  | South Haven     | southwest-mi
+
+--- MT PLEASANT / CENTRAL MI ---
+Doja - Mount Pleasant               | doja-mount-pleasant               | Mt Pleasant     | other
+High Society (Big Rapids)           | high-society-big-rapids1          | Big Rapids      | other
+High Society (Mount Pleasant)       | high-society-mount-pleasant       | Mt Pleasant     | other
+The Mint - Mount Pleasant           | mount-pleasant-retail             | Mt Pleasant     | other
+The Woods - Mount Pleasant          | the-woods-mount-pleasant          | Mt Pleasant     | other
+
+--- UPPER PENINSULA ---
+Dunegrass Co. (Marquette)           | dunegrass-co-marquette            | Marquette       | upper-peninsula
+Firelight (Marquette)               | firelight                         | Marquette       | upper-peninsula
+Higher Love (Marquette)             | higher-love-marquette             | Marquette       | upper-peninsula
+Outpost (Marquette)                 | outpost-marquette                 | Marquette       | upper-peninsula
+Rize (Iron Mountain)                | rize-up                           | Iron Mountain   | upper-peninsula
+
+--- LAPEER / NORTH OAKLAND ---
+Canna Outlet (Lapeer)               | canna-outlet                      | Lapeer          | flint-saginaw
+Consume Lapeer                      | consume-lapeer-rec                | Lapeer          | flint-saginaw
+Gramz - Lapeer                      | shango-lapeer                     | Lapeer          | flint-saginaw
+Jazz Club 2 (Lapeer)                | jazz-club-2-lapeer                | Lapeer          | flint-saginaw
+Pure Lapeer                         | pure-lapeer                       | Lapeer          | flint-saginaw
+Xplore Cannabis (Lapeer)            | xplore-cannabis                   | Lapeer          | flint-saginaw
+
+--- NORTHERN MI ---
+Houghton Lake Provisioning Center   | houghton-lake-provisioning-center-rec | Houghton Lake | other
+Riverside Provisioning (Grayling)   | riverside-provisioning            | Grayling        | other
+
+--- MORENCI / SOUTHERN BORDER ---
+Jade Collection (Morenci)           | jade-collection                   | Morenci         | other
+
+--- STURGIS ---
+True Leaf (Sturgis)                 | true-leaf-sturgis                 | Sturgis         | southwest-mi
+
+================================================================================
+SUMMARY BY REGION
+================================================================================
+detroit-metro:      ~65 entries
+ann-arbor:          ~20 entries
+grand-rapids:       ~25 entries
+kalamazoo:          ~20 entries
+lansing:            ~18 entries
+flint-saginaw:      ~22 entries
+traverse-city:      ~12 entries
+upper-peninsula:    ~22 entries
+southwest-mi:       ~22 entries
+other:              ~25 entries
+-----------------------------------------
+TOTAL:              ~250+ unique dispensary slugs
+================================================================================
+
+NOTES:
+- Some dispensaries have both Rec and Med slugs (counted separately where distinct)
+- Slug URLs are: https://dutchie.com/dispensary/{slug}
+- Some slugs use legacy names (e.g., joyology-grand-rapids for LIV Cannabis GR)
+- Joyology locations are transitioning to Smilez branding (both slugs may be active)
+- Skymint absorbed 3Fifteen (some locations still use 3fifteen slug prefix)
+- House of Dank 8 Mile has separate Rec/Med slugs
+- King of Budz Detroit may have 2 distinct slug entries
+- "Cookies" branded stores (noxx-ann-st) may also operate under NOXX branding
+================================================================================
