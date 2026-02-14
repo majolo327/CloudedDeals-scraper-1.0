@@ -664,16 +664,21 @@ DISPENSARIES = [
 # ---------------------------------------------------------------------------
 # Platform groups — segment scrapers by stability for CI scheduling.
 #
-# "stable"  — battle-tested scrapers that run on the daily cron.
+# "stable"  — scrapers that run on the daily 8 AM PT cron.
 # "new"     — recently built scrapers; triggered manually until proven.
+#
+# As of Feb 2026 all 6 platforms are promoted to stable (63 dispensaries).
+# Rise/Carrot/AIQ were promoted after initial manual testing period.
+# Note: Rise (risecannabis.com) may hit Cloudflare challenges — monitor
+# scrape_runs for 0-product failures and check debug artifacts if so.
 #
 # Each group deactivates *only its own* stale products so runs don't
 # wipe each other's data.
 # ---------------------------------------------------------------------------
 
 PLATFORM_GROUPS: dict[str, list[str]] = {
-    "stable": ["dutchie", "curaleaf", "jane"],
-    "new": ["rise", "carrot", "aiq"],
+    "stable": ["dutchie", "curaleaf", "jane", "rise", "carrot", "aiq"],
+    "new": [],
 }
 
 # Reverse lookup: platform → group name
