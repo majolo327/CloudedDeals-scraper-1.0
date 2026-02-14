@@ -25,7 +25,6 @@ import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { useDealHistory } from '@/hooks/useDealHistory';
 import { useStreak } from '@/hooks/useStreak';
 import { useBrandAffinity } from '@/hooks/useBrandAffinity';
-import { useChallenges } from '@/hooks/useChallenges';
 import { initializeAnonUser, trackEvent, trackPageView, trackDealModalOpen } from '@/lib/analytics';
 import { FTUEFlow, isFTUECompleted, CoachMarks, isCoachMarksSeen } from '@/components/ftue';
 import { useSmartTips } from '@/hooks/useSmartTips';
@@ -56,8 +55,7 @@ export default function Home() {
     useSavedDeals();
   const dealHistory = useDealHistory();
   const { streak, isNewMilestone, clearMilestone } = useStreak();
-  const { trackBrand, topBrands } = useBrandAffinity();
-  const challenges = useChallenges();
+  const { trackBrand } = useBrandAffinity();
   const smartTips = useSmartTips();
 
   // Age verification & anonymous tracking
@@ -251,7 +249,6 @@ export default function Home() {
         if (deal) {
           dealHistory.snapshotDeal(deal);
           trackBrand(deal.brand.name);
-          challenges.updateProgress('save', deal, savedDealsList);
         }
 
         // Build context for smart tip engine
@@ -281,7 +278,7 @@ export default function Home() {
         if (tip.message) addToast(tip.message, tip.type);
       }
     },
-    [savedDeals, toggleSavedDeal, deals, trackBrand, addToast, challenges, savedDealsList, savedCount, smartTips]
+    [savedDeals, toggleSavedDeal, deals, trackBrand, addToast, savedDealsList, savedCount, smartTips]
   );
 
   // Share saves handler — used by swipe overlay's "Share today's favorites" CTA
@@ -472,12 +469,6 @@ export default function Home() {
                 if (tip?.message) addToast(tip.message, tip.type);
               }}
               onShareSaves={handleShareSaves}
-              challengeData={{
-                onboardingComplete: challenges.onboardingComplete,
-                onboardingProgress: challenges.onboardingProgress,
-                nextChallenge: challenges.nextChallenge,
-              }}
-              topBrands={topBrands}
             />
           )
         )}
