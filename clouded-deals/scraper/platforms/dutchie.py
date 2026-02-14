@@ -135,12 +135,27 @@ class DutchieScraper(BaseScraper):
         # Read per-site embed_type hint (e.g. "js_embed" for TD sites)
         # so we skip detection phases that won't match.
         embed_hint = self.dispensary.get("embed_type") or _DUTCHIE_CFG.get("embed_type")
+        fallback_url = self.dispensary.get("fallback_url")
 
         # --- Navigate with wait_until='load' (scripts fully execute) ------
         await self.goto()
 
         # Post-navigate settle — let JS-heavy sites finish initializing
         await asyncio.sleep(3)
+
+        # --- Cloudflare detection (bail early to save ~300s) --------------
+        # If the primary site is Cloudflare-blocked, the full detection
+        # cascade will burn 300+ seconds timing out on selectors that
+        # will never match.  Skip directly to fallback URL if available.
+        if await self.detect_cloudflare_challenge():
+            if fallback_url and fallback_url != self.url:
+                logger.warning(
+                    "[%s] Cloudflare blocked on primary — skipping to fallback: %s",
+                    self.slug, fallback_url,
+                )
+                return await self._scrape_with_fallback(fallback_url, embed_hint)
+            logger.error("[%s] Cloudflare blocked and no fallback URL — aborting", self.slug)
+            return []
 
         # --- Set age gate cookies -----------------------------------------
         await self.page.evaluate(_AGE_GATE_COOKIE_JS)
@@ -184,7 +199,20 @@ class DutchieScraper(BaseScraper):
         )
 
         if target is None:
-            # Fallback: reload page and retry the full click flow once
+            # --- Fast-path: skip reload+retry when fallback URL exists ----
+            # The reload+retry cycle costs ~300s (navigation + smart-wait +
+            # full detection cascade).  When a fallback_url is configured,
+            # skip this expensive cycle and go directly to the fallback —
+            # this keeps the total scrape within the 600s timeout.
+            if fallback_url and fallback_url != self.url:
+                logger.warning(
+                    "[%s] No Dutchie content on primary — skipping to fallback: %s",
+                    self.slug, fallback_url,
+                )
+                await self.save_debug_info("no_dutchie_content_primary")
+                return await self._scrape_with_fallback(fallback_url, embed_hint)
+
+            # No fallback: reload page and retry the full click flow once
             logger.warning("[%s] No Dutchie content after click — trying reload + re-click", self.slug)
             await self.page.evaluate(_AGE_GATE_COOKIE_JS)
             await self.page.reload(wait_until="load", timeout=120_000)
@@ -370,6 +398,91 @@ class DutchieScraper(BaseScraper):
         if not all_products:
             await self.save_debug_info("zero_products", target)
         logger.info("[%s] Scrape complete — %d products (%s mode)", self.slug, len(all_products), embed_type)
+        return all_products
+
+    # ------------------------------------------------------------------
+    # Fallback URL scraping
+    # ------------------------------------------------------------------
+
+    async def _scrape_with_fallback(
+        self, fallback_url: str, embed_hint: str | None,
+    ) -> list[dict[str, Any]]:
+        """Navigate to *fallback_url* and run the full scrape flow there.
+
+        Used when the primary URL is blocked (Cloudflare) or content
+        detection fails.  Runs the same age gate → smart-wait → detect
+        → paginate cycle but on the fallback URL.
+        """
+        logger.info("[%s] Trying fallback URL: %s", self.slug, fallback_url)
+        await self.goto(fallback_url)
+        await asyncio.sleep(3)
+
+        # Cloudflare on fallback = give up
+        if await self.detect_cloudflare_challenge():
+            logger.error("[%s] Cloudflare blocked on fallback URL too — aborting", self.slug)
+            return []
+
+        await self.page.evaluate(_AGE_GATE_COOKIE_JS)
+        await self.handle_age_gate(post_wait_sec=3)
+        await force_remove_age_gate(self.page)
+
+        try:
+            await self.page.wait_for_function(
+                _WAIT_FOR_DUTCHIE_JS, timeout=60_000,
+            )
+            logger.info("[%s] Smart-wait (fallback): Dutchie content detected", self.slug)
+        except PlaywrightTimeout:
+            logger.warning("[%s] Smart-wait (fallback): no content after 60s", self.slug)
+
+        # Try detection — use full cascade (no hint) since fallback URL
+        # may use a different embed type than the primary.
+        fb_target, fb_embed = await find_dutchie_content(
+            self.page,
+            iframe_timeout_ms=45_000,
+            js_embed_timeout_sec=60,
+        )
+
+        if fb_target is None:
+            logger.error("[%s] No Dutchie content on fallback URL — aborting", self.slug)
+            await self.save_debug_info("no_dutchie_content_fallback")
+            return []
+
+        logger.info("[%s] Fallback URL content found via %s", self.slug, fb_embed)
+        if fb_embed == "iframe":
+            await dismiss_age_gate(fb_target)
+
+        all_products: list[dict[str, Any]] = []
+        page_num = 1
+        consecutive_empty = 0
+
+        while True:
+            products = await self._extract_products(fb_target)
+            all_products.extend(products)
+            logger.info(
+                "[%s] Fallback page %d → %d products (total %d)",
+                self.slug, page_num, len(products), len(all_products),
+            )
+            if len(products) == 0:
+                consecutive_empty += 1
+                if consecutive_empty >= CONSECUTIVE_EMPTY_MAX:
+                    break
+            else:
+                consecutive_empty = 0
+
+            page_num += 1
+            await force_remove_age_gate(self.page)
+            try:
+                if not await navigate_dutchie_page(fb_target, page_num):
+                    break
+            except Exception:
+                break
+
+        if not all_products:
+            await self.save_debug_info("zero_products_fallback", fb_target)
+        logger.info(
+            "[%s] Fallback scrape complete — %d products (%s mode)",
+            self.slug, len(all_products), fb_embed,
+        )
         return all_products
 
     # ------------------------------------------------------------------
