@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Heart, BadgeCheck, MapPin, ExternalLink, MessageCircle, CheckCircle, Navigation, Flag } from 'lucide-react';
+import { X, Heart, BadgeCheck, MapPin, ExternalLink, Share, CheckCircle, Navigation, Flag } from 'lucide-react';
 import { ShareModal } from './ShareModal';
 import { AccuracyModal } from './AccuracyModal';
 import { ReportDealModal } from './ReportDealModal';
@@ -211,8 +211,8 @@ export function DealModal({
                 className="py-3 sm:py-3.5 px-3 sm:px-4 min-h-[48px] min-w-[48px] rounded-xl font-semibold transition-all flex items-center justify-center gap-2 bg-white/5 text-white hover:bg-white/10"
                 aria-label="Share this deal"
               >
-                <MessageCircle className="w-5 h-5" />
-                <span className="hidden sm:inline">Share</span>
+                <Share className="w-5 h-5" />
+                <span className="text-sm">Share</span>
               </button>
               <button
                 onClick={() => setShowReportModal(true)}
