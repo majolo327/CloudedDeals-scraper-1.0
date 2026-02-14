@@ -134,6 +134,32 @@ class BaseScraper(abc.ABC):
             post_dismiss_wait_sec=post_wait_sec,
         )
 
+    async def detect_cloudflare_challenge(self) -> bool:
+        """Check if the current page is a Cloudflare challenge/Turnstile page.
+
+        Returns ``True`` if Cloudflare is blocking — callers should bail
+        early rather than waiting through product-detection timeouts.
+        """
+        try:
+            result = await self.page.evaluate("""
+                () => {
+                    const title = (document.title || '').toLowerCase();
+                    if (title.includes('just a moment')) return true;
+                    // Turnstile iframe
+                    const cf = document.querySelector('iframe[src*="challenges.cloudflare.com"]');
+                    if (cf) return true;
+                    // Cloudflare challenge form
+                    const form = document.querySelector('#challenge-form, #challenge-running');
+                    if (form) return true;
+                    return false;
+                }
+            """)
+            if result:
+                logger.warning("[%s] Cloudflare challenge detected — page is blocked", self.slug)
+            return bool(result)
+        except Exception:
+            return False
+
     # ------------------------------------------------------------------
     # Debug helpers
     # ------------------------------------------------------------------

@@ -18,10 +18,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import Any
 
 from playwright.async_api import TimeoutError as PlaywrightTimeout
 
+from clouded_logic import CONSECUTIVE_EMPTY_MAX
 from config.dispensaries import PLATFORM_DEFAULTS
 from handlers import dismiss_age_gate, navigate_curaleaf_page
 from handlers.pagination import _JS_DISMISS_OVERLAYS
@@ -37,10 +39,43 @@ _POST_AGE_GATE_WAIT = 15  # seconds
 # Strain types that are NOT real product names — skip to next line.
 _STRAIN_ONLY = {"indica", "sativa", "hybrid", "cbd", "thc"}
 
+# Category-only labels — also not real product names.
+_CATEGORY_ONLY = {
+    "flower", "vape", "edible", "concentrate", "preroll", "pre-roll",
+    "cartridge", "tincture", "topical", "beverage", "accessories",
+    "gear", "merch", "all products", "specials", "deals",
+}
+
+# Promotional / discount lines that appear before the product name on some
+# sites.  Matched as first-line skip in name extraction.
+_PROMO_LINE = re.compile(
+    r"^\d+%\s*off\b"              # "40% OFF"
+    r"|^B[12]G[12]\b"             # "B1G1", "B2G1"
+    r"|^BOGO\b"                   # "BOGO"
+    r"|^Buy\s+\d+"               # "Buy 1 Get 1 Free"
+    r"|^Save\s+\$"               # "Save $5"
+    r"|^(?:NEW|SALE|LIMITED)!?$"  # single-word promo labels
+    r"|^Special\b"               # "Special Offer"
+    r"|^Mix\s*&?\s*Match\b"      # "Mix & Match"
+    r"|^(?:Staff\s+)?Pick!?$"    # "Staff Pick", "Pick"
+    r"|^On\s+Sale!?$"            # "On Sale"
+    r"|^Deal\s+of\s+the\b"      # "Deal of the Day"
+    r"|^Free\s+\w+\b"           # "Free Delivery"
+    r"|^from\s+\$"              # "from $7.35"
+    r"|^(?:Rec|Med)(?:reational|ical)?$"  # "Rec", "Recreational"
+    , re.IGNORECASE,
+)
+
+# "by <Brand>" pattern — e.g. "by Essence", "by (the) Essence"
+_BY_BRAND = re.compile(
+    r"^by\s+(?:\(?the\)?\s+)?(.+?)$",
+    re.IGNORECASE,
+)
+
 # Cap pagination to avoid 240 s site timeout.  Curaleaf sites have 500–700+
-# products across 12-14 pages.  10 pages × 51 products ≈ 510, which captures
-# the vast majority of specials and finishes in ~155 s.
-_MAX_PAGES = 10
+# products across 12-14 pages.  15 pages × 51 products ≈ 765, which captures
+# the full catalog for all known Curaleaf/Zen Leaf sites and finishes in ~230 s.
+_MAX_PAGES = 15
 
 # Curaleaf product card selectors (tried in order).
 _PRODUCT_SELECTORS = [
@@ -89,6 +124,7 @@ class CuraleafScraper(BaseScraper):
         # --- Paginate and collect products ------------------------------
         all_products: list[dict[str, Any]] = []
         page_num = 1
+        consecutive_empty = 0
 
         while page_num <= _MAX_PAGES:
             products = await self._extract_products()
@@ -98,17 +134,41 @@ class CuraleafScraper(BaseScraper):
                 self.slug, page_num, len(products), len(all_products),
             )
 
+            # Track consecutive empty pages — bail after 3 in a row
+            # instead of silently paginating through blank pages.
+            if len(products) == 0:
+                consecutive_empty += 1
+                if consecutive_empty >= CONSECUTIVE_EMPTY_MAX:
+                    logger.warning(
+                        "[%s] %d consecutive empty pages — stopping pagination (total %d products)",
+                        self.slug, consecutive_empty, len(all_products),
+                    )
+                    break
+            else:
+                consecutive_empty = 0
+
             page_num += 1
             # CRITICAL: navigate_curaleaf_page checks is_enabled() internally.
-            try:
-                if not await navigate_curaleaf_page(self.page, page_num):
-                    break
-            except Exception as exc:
-                # Gracefully stop pagination — keep products we already have.
-                logger.warning(
-                    "[%s] Pagination to page %d failed (%s) — keeping %d products from earlier pages",
-                    self.slug, page_num, exc, len(all_products),
-                )
+            # Retry up to 2 times with exponential backoff on failure.
+            _nav_ok = False
+            for _attempt in range(3):
+                try:
+                    _nav_ok = await navigate_curaleaf_page(self.page, page_num)
+                    break  # success (or end of pages)
+                except Exception as exc:
+                    if _attempt < 2:
+                        backoff = 2 ** (_attempt + 1)  # 2s, 4s
+                        logger.warning(
+                            "[%s] Pagination to page %d attempt %d failed (%s) — retrying in %ds",
+                            self.slug, page_num, _attempt + 1, exc, backoff,
+                        )
+                        await asyncio.sleep(backoff)
+                    else:
+                        logger.warning(
+                            "[%s] Pagination to page %d failed after 3 attempts (%s) — keeping %d products",
+                            self.slug, page_num, exc, len(all_products),
+                        )
+            if not _nav_ok:
                 break
 
         if page_num > _MAX_PAGES:
@@ -135,7 +195,14 @@ class CuraleafScraper(BaseScraper):
                     self.slug, page_num, len(products), len(all_products),
                 )
                 page_num += 1
-                if not await navigate_curaleaf_page(self.page, page_num):
+                try:
+                    if not await navigate_curaleaf_page(self.page, page_num):
+                        break
+                except Exception as exc:
+                    logger.warning(
+                        "[%s] Base menu pagination to page %d failed (%s) — keeping %d products",
+                        self.slug, page_num, exc, len(all_products),
+                    )
                     break
 
         if not all_products:
@@ -285,18 +352,57 @@ class CuraleafScraper(BaseScraper):
 
                     lines = [ln.strip() for ln in text_block.split("\n") if ln.strip()]
 
-                    # Pick the first line that is NOT just a strain type
+                    # Pick the first line that is a real product name.
+                    # Skip strain types, category labels, promo text, "by Brand",
+                    # "$X off" patterns, and price lines.
                     name = "Unknown"
+                    scraped_brand = ""
                     for ln in lines:
-                        if ln.lower() not in _STRAIN_ONLY:
-                            name = ln
-                            break
+                        low = ln.lower().strip()
+                        # Known non-name lines
+                        if low in _STRAIN_ONLY or low in _CATEGORY_ONLY:
+                            continue
+                        if re.match(r"^\$\d+\.?\d*\s*off\b", ln, re.IGNORECASE):
+                            continue
+                        if _PROMO_LINE.match(ln):
+                            continue
+                        # "by <Brand>" line — capture brand, keep looking for name
+                        by_m = _BY_BRAND.match(ln)
+                        if by_m:
+                            scraped_brand = by_m.group(1).strip()
+                            continue
+                        # Compound type labels: "Hybrid Flower", "Indica | Flower | 1g"
+                        if re.match(
+                            r"^(?:Indica|Sativa|Hybrid)"
+                            r"(?:\s*[|/]\s*|\s+)"
+                            r"(?:Flower|Vape|Edible|Concentrate|Preroll|Pre-Roll)",
+                            ln, re.IGNORECASE,
+                        ):
+                            continue
+                        # Pure price lines
+                        if re.match(r"^\$[\d.]+$", ln):
+                            continue
+                        # THC/CBD content lines: "THC: 29.37%"
+                        if re.match(r"^(?:THC|CBD|CBN)\s*:", ln, re.IGNORECASE):
+                            continue
+                        name = ln
+                        break
+
+                    # If no "by Brand" was found yet, scan remaining lines
+                    if not scraped_brand:
+                        for ln in lines:
+                            by_m = _BY_BRAND.match(ln.strip())
+                            if by_m:
+                                scraped_brand = by_m.group(1).strip()
+                                break
 
                     product: dict[str, Any] = {
                         "name": name,
                         "raw_text": text_block.strip(),
                         "product_url": self.url,  # fallback: dispensary menu URL
                     }
+                    if scraped_brand:
+                        product["scraped_brand"] = scraped_brand
 
                     # Extract product link from element or ancestor <a>
                     try:

@@ -50,8 +50,11 @@ _POST_AGE_GATE_WAIT = _AIQ_CFG.get("wait_after_age_gate_sec", 15)
 # Strain-only words — skip to next line when picking a product name.
 _STRAIN_ONLY = {"indica", "sativa", "hybrid", "cbd", "thc"}
 
-# Product selectors — AIQ-specific first, then generic fallbacks.
+# Product selectors — data-testid preferred (cleanest, avoids sub-elements),
+# then AIQ-specific, then generic fallbacks.
 _PRODUCT_SELECTORS = [
+    # data-testid is the cleanest — Jardin confirmed working with this
+    '[data-testid*="product"]',
     # AIQ / Dispense specific containers
     '#dispense-menu [class*="product"]',
     '#aiq-menu [class*="product"]',
@@ -59,12 +62,12 @@ _PRODUCT_SELECTORS = [
     '#dispense-menu [class*="card"]',
     '#aiq-menu [class*="card"]',
     # Dispense SPA selectors (React-rendered)
-    '[class*="product-card"]',
     '[class*="ProductCard"]',
     '[class*="productCard"]',
     '[class*="menu-product"]',
     '[class*="MenuProduct"]',
-    '[data-testid*="product"]',
+    # product-card last among specific selectors (matches sub-elements)
+    '[class*="product-card"]',
     # Generic fallbacks
     'div[class*="product"]',
     '[class*="menu-item"]',
@@ -79,6 +82,19 @@ _IFRAME_PATTERNS = [
     "alpineiq.com",
     "getaiq.com",
     "dispense",
+]
+
+# iframe URL substrings that indicate a non-menu iframe (chat widgets,
+# support embeds, etc.) — these must be excluded even if they match
+# _IFRAME_PATTERNS above.
+_IFRAME_EXCLUDE_PATTERNS = [
+    "chat-widget",
+    "chat",
+    "support",
+    "help",
+    "stripe.com",
+    "google.com/maps",
+    "recaptcha",
 ]
 
 # Wait for Dispense/AIQ content to appear in the DOM.
@@ -126,6 +142,123 @@ _WAIT_FOR_AIQ_JS = """
 }
 """
 
+# JS to extract products from Dispense/AIQ pages.
+# Strategy: find all elements with data-testid containing "product" that
+# also contain both a name (non-price text) and a price ($).  If those
+# yield too few results, fall back to scanning all elements with $ text
+# that look like product cards (reasonable size, contain a product name).
+_JS_EXTRACT_AIQ_PRODUCTS = """
+() => {
+    const products = [];
+    const seen = new Set();
+
+    function extractFromCard(el) {
+        const text = el.innerText || '';
+        if (!text.includes('$')) return null;
+        if (text.trim().length < 10 || text.trim().length > 2000) return null;
+
+        const lines = text.split('\\n').map(l => l.trim()).filter(l => l);
+        let name = '';
+        let price = '';
+        for (const line of lines) {
+            if (!name && line.length >= 3 && !line.includes('$') &&
+                !/^(indica|sativa|hybrid|cbd|thc)$/i.test(line) &&
+                !/^(add|remove|qty|quantity)/i.test(line)) {
+                name = line;
+            }
+            if (!price && line.includes('$')) {
+                price = line;
+            }
+        }
+        if (!name) return null;
+
+        const a = el.querySelector('a') || el.closest('a');
+        const href = a ? a.href : null;
+        const key = name + '|' + price;
+        if (seen.has(key)) return null;
+        seen.add(key);
+
+        return {
+            name: name,
+            raw_text: text.substring(0, 1000),
+            product_url: href || window.location.href,
+            price: price || null,
+        };
+    }
+
+    // Strategy 1: data-testid product cards (Pisos, Jardin)
+    // Only pick elements whose data-testid looks like a card wrapper,
+    // not sub-elements like "product-image" or "product-price".
+    const testIdEls = document.querySelectorAll('[data-testid]');
+    for (const el of testIdEls) {
+        const tid = el.getAttribute('data-testid') || '';
+        // Match "product-card", "product-N", "productCard" etc.
+        // Skip sub-elements: "product-image", "product-name", "product-price"
+        if (/product/i.test(tid) &&
+            !/image|img|name|title|price|weight|desc|badge|tag/i.test(tid)) {
+            const p = extractFromCard(el);
+            if (p) products.push(p);
+        }
+    }
+    if (products.length >= 5) return products;
+
+    // Strategy 2: AIQ-specific containers with child cards
+    const containers = [
+        document.querySelector('#aiq-menu'),
+        document.querySelector('#dispense-menu'),
+        document.querySelector('[data-aiq]'),
+    ].filter(Boolean);
+
+    for (const container of containers) {
+        // Try direct children first
+        for (const child of container.children) {
+            const p = extractFromCard(child);
+            if (p) products.push(p);
+        }
+        if (products.length >= 5) return products;
+
+        // Try deeper: any element with "product" or "card" in class
+        const cards = container.querySelectorAll(
+            '[class*="product"], [class*="card"], [class*="item"]'
+        );
+        for (const card of cards) {
+            const p = extractFromCard(card);
+            if (p) products.push(p);
+        }
+        if (products.length >= 5) return products;
+    }
+
+    // Strategy 3: Scan all elements with product-like classes
+    const allCards = document.querySelectorAll(
+        '[class*="product-card"], [class*="ProductCard"], [class*="productCard"], '
+        + '[class*="menu-product"], [class*="MenuProduct"], [class*="menu-item"], '
+        + '[class*="MenuItem"], article[class*="product"]'
+    );
+    for (const card of allCards) {
+        const p = extractFromCard(card);
+        if (p) products.push(p);
+    }
+    if (products.length >= 5) return products;
+
+    // Strategy 4: Broadest — any reasonably-sized div with a price
+    // that also contains an <a> tag (likely a product link)
+    const divs = document.querySelectorAll('div, article, li');
+    for (const div of divs) {
+        const text = div.innerText || '';
+        // Must be card-sized (not a container, not a fragment)
+        if (text.length < 20 || text.length > 800) continue;
+        if (!text.includes('$')) continue;
+        // Must contain a link (product cards almost always have one)
+        if (!div.querySelector('a')) continue;
+        // Must not be a child of an already-extracted element
+        const p = extractFromCard(div);
+        if (p) products.push(p);
+    }
+
+    return products;
+}
+"""
+
 # Junk patterns to strip from raw text
 _JUNK_PATTERNS = re.compile(
     r"(Add to (cart|bag|order)|Remove|View details|Out of stock|"
@@ -133,6 +266,51 @@ _JUNK_PATTERNS = re.compile(
     r"\bQty\b.*$|\bQuantity\b.*$)",
     re.IGNORECASE | re.MULTILINE,
 )
+
+# JS to scroll the AIQ/Dispense menu container element.
+# Dispense React SPAs often render products inside a scrollable inner div
+# rather than using window-level scroll.  This finds the menu container
+# and scrolls IT to trigger infinite-scroll loading.
+_JS_SCROLL_AIQ_CONTAINER = """
+async () => {
+    const delay = ms => new Promise(r => setTimeout(r, ms));
+
+    // Find the scrollable menu container
+    const candidates = [
+        document.querySelector('#aiq-menu'),
+        document.querySelector('#dispense-menu'),
+        document.querySelector('[data-aiq]'),
+        document.querySelector('[class*="menu-product"]'),
+        document.querySelector('[class*="product-list"]'),
+        document.querySelector('[class*="ProductList"]'),
+        document.querySelector('[class*="product-grid"]'),
+        document.querySelector('[class*="ProductGrid"]'),
+        document.querySelector('[class*="menu-container"]'),
+        document.querySelector('[class*="MenuContainer"]'),
+        document.querySelector('main'),
+    ].filter(Boolean);
+
+    for (const container of candidates) {
+        // Check if this element is scrollable
+        if (container.scrollHeight > container.clientHeight + 50) {
+            const maxScrolls = 25;
+            let lastHeight = 0;
+            for (let i = 0; i < maxScrolls; i++) {
+                container.scrollTop = container.scrollHeight;
+                await delay(800);
+                if (container.scrollHeight === lastHeight) break;
+                lastHeight = container.scrollHeight;
+            }
+            container.scrollTop = 0;
+            return true;
+        }
+    }
+
+    // Fallback: also scroll the window (some sites use both)
+    window.scrollTo(0, document.body.scrollHeight);
+    return false;
+}
+"""
 
 # JS to scroll to bottom and trigger lazy-loaded content.
 _JS_SCROLL_TO_BOTTOM = """
@@ -151,7 +329,9 @@ async () => {
 }
 """
 
-# "Load More" / "View More" button selectors
+# "Load More" / "View More" button selectors.
+# Dispense React SPAs may use various button labels and sometimes
+# render the button as a <div> or <span> with role="button".
 _LOAD_MORE_SELECTORS = [
     'button:has-text("Load More")',
     'button:has-text("View More")',
@@ -160,9 +340,17 @@ _LOAD_MORE_SELECTORS = [
     'button:has-text("Load more")',
     'button:has-text("View more")',
     'button:has-text("Show more")',
+    'button:has-text("See more")',
+    'button:has-text("More Products")',
+    'button:has-text("Next")',
     'a:has-text("Load More")',
     'a:has-text("View More")',
     'a:has-text("Show More")',
+    'a:has-text("See More")',
+    'a:has-text("Next")',
+    '[role="button"]:has-text("Load More")',
+    '[role="button"]:has-text("Show More")',
+    '[role="button"]:has-text("See More")',
 ]
 
 
@@ -203,6 +391,12 @@ class AIQScraper(BaseScraper):
         # --- Extract products ---
         products = await self._extract_products(target)
 
+        # --- Fallback: if iframe extraction yielded 0, try page context ---
+        if not products and isinstance(target, Frame):
+            logger.info("[%s] Iframe extraction yielded 0 — falling back to page context", self.slug)
+            await self._expand_all_products(self.page)
+            products = await self._extract_products(self.page)
+
         if not products:
             await self.save_debug_info("zero_products", target)
             logger.warning("[%s] No products found — see debug artifacts", self.slug)
@@ -221,6 +415,9 @@ class AIQScraper(BaseScraper):
         page itself.  For embedded sites (Jardin, Pisos, Green NV), the
         menu may be inside an iframe.
 
+        Excludes non-menu iframes (chat widgets, payment processors, etc.)
+        to avoid extracting from the wrong context.
+
         Returns the Page or Frame to extract products from.
         """
         # If we're already on a dispenseapp.com URL, products are on the page
@@ -228,19 +425,43 @@ class AIQScraper(BaseScraper):
             logger.info("[%s] Direct dispenseapp.com page — using page context", self.slug)
             return self.page
 
-        # Check for iframes from dispenseapp / alpineiq
+        # Check for iframes from dispenseapp / alpineiq, excluding non-menu iframes
+        menu_frame: Frame | None = None
         iframes = self.page.frames
         for frame in iframes:
             frame_url = frame.url or ""
+            if not frame_url:
+                continue
+
+            # Skip non-menu iframes (chat widgets, payments, maps, etc.)
+            is_excluded = any(excl in frame_url.lower() for excl in _IFRAME_EXCLUDE_PATTERNS)
+            if is_excluded:
+                logger.debug("[%s] Skipping non-menu iframe: %s", self.slug, frame_url[:80])
+                continue
+
             for pattern in _IFRAME_PATTERNS:
                 if pattern in frame_url:
-                    logger.info(
-                        "[%s] Found Dispense iframe: %s",
-                        self.slug, frame_url[:120],
-                    )
-                    # Dismiss age gate inside iframe too
-                    await dismiss_age_gate(frame, post_dismiss_wait_sec=3)
-                    return frame
+                    # Prefer iframes with "menu" in the URL over others
+                    if "menu" in frame_url.lower():
+                        logger.info(
+                            "[%s] Found Dispense menu iframe: %s",
+                            self.slug, frame_url[:120],
+                        )
+                        await dismiss_age_gate(frame, post_dismiss_wait_sec=3)
+                        return frame
+                    # Store as candidate but keep looking for a better match
+                    if menu_frame is None:
+                        menu_frame = frame
+                    break
+
+        if menu_frame:
+            frame_url = menu_frame.url or ""
+            logger.info(
+                "[%s] Found Dispense iframe (non-menu): %s",
+                self.slug, frame_url[:120],
+            )
+            await dismiss_age_gate(menu_frame, post_dismiss_wait_sec=3)
+            return menu_frame
 
         # No iframe found — products may be injected directly into the page
         logger.info("[%s] No Dispense iframe — using page context (embedded or direct)", self.slug)
@@ -251,10 +472,17 @@ class AIQScraper(BaseScraper):
     # ------------------------------------------------------------------
 
     async def _expand_all_products(self, target: Union[Page, Frame]) -> None:
-        """Scroll the page and click Load More buttons to reveal all products."""
-        # Scroll the parent page (even if products are in a frame,
-        # some sites use page-level scroll for lazy loading)
+        """Scroll the page and click Load More buttons to reveal all products.
+
+        Dispense React SPAs may use:
+        - Window-level scroll (infinite scroll on the page)
+        - Container-level scroll (scrollable inner menu div)
+        - Load More buttons with various text labels
+        We try all three approaches.
+        """
         page = target if isinstance(target, Page) else self.page
+
+        # Scroll the window (triggers infinite scroll on page-level listeners)
         try:
             await page.evaluate(_JS_SCROLL_TO_BOTTOM)
             await asyncio.sleep(2)
@@ -269,26 +497,51 @@ class AIQScraper(BaseScraper):
             except Exception:
                 pass
 
+        # Scroll the AIQ menu container itself — Dispense often uses a
+        # scrollable inner div rather than window scroll for infinite loading.
+        try:
+            await target.evaluate(_JS_SCROLL_AIQ_CONTAINER)
+            await asyncio.sleep(2)
+        except Exception:
+            pass
+
         # Click "Load More" / "View More" buttons until none remain
+        # Each click gets up to 2 retries with backoff before giving up.
         max_clicks = 30  # Green NV has 628 products — may need many clicks
+        total_clicked = 0
         for click_num in range(max_clicks):
             clicked = False
             for selector in _LOAD_MORE_SELECTORS:
-                try:
-                    btn = target.locator(selector).first
-                    if await btn.count() > 0 and await btn.is_visible():
-                        await btn.click()
-                        clicked = True
-                        logger.info(
-                            "[%s] Clicked '%s' (round %d)",
-                            self.slug, selector, click_num + 1,
-                        )
-                        await asyncio.sleep(1.5)
-                        break
-                except Exception:
-                    continue
+                for _retry in range(3):
+                    try:
+                        btn = target.locator(selector).first
+                        if await btn.count() > 0 and await btn.is_visible():
+                            await btn.click()
+                            clicked = True
+                            total_clicked += 1
+                            if total_clicked <= 3 or total_clicked % 10 == 0:
+                                logger.info(
+                                    "[%s] Clicked '%s' (round %d)",
+                                    self.slug, selector, click_num + 1,
+                                )
+                            await asyncio.sleep(1.5)
+                            # Scroll after each click to trigger lazy rendering
+                            try:
+                                await target.evaluate(_JS_SCROLL_AIQ_CONTAINER)
+                            except Exception:
+                                pass
+                        break  # success or button not found
+                    except Exception:
+                        if _retry < 2:
+                            await asyncio.sleep(2 ** (_retry + 1))
+                        continue
+                if clicked:
+                    break
             if not clicked:
                 break
+
+        if total_clicked:
+            logger.info("[%s] Load More: clicked %d times total", self.slug, total_clicked)
 
         # Final scroll after expanding
         try:
@@ -308,9 +561,60 @@ class AIQScraper(BaseScraper):
         """Extract product cards from the AIQ/Dispense page or frame.
 
         Tries selectors in order, uses the first one that yields results
-        with at least one price (``$``).  Each card's ``inner_text()``
-        is captured as ``raw_text`` for downstream parsing by CloudedLogic.
+        with at least one price (``$``).  If a selector matches a single
+        large container (e.g. the entire menu wrapper), falls back to
+        JS-based extraction that splits products by child elements.
         """
+        # Try JS-based extraction first (most robust for Dispense SPAs)
+        products = await self._extract_via_js(target)
+        if products:
+            return products
+
+        # Fallback: CSS selector cascade
+        products = await self._extract_via_selectors(target)
+        return products
+
+    async def _extract_via_js(self, target: Union[Page, Frame]) -> list[dict[str, Any]]:
+        """Extract products using JS — walks DOM to find individual cards."""
+        try:
+            raw = await target.evaluate(_JS_EXTRACT_AIQ_PRODUCTS)
+        except Exception:
+            logger.debug("JS product extraction failed", exc_info=True)
+            return []
+
+        products: list[dict[str, Any]] = []
+        for item in raw:
+            name = item.get("name", "Unknown")
+            raw_text = item.get("raw_text", "")
+            clean_text = _JUNK_PATTERNS.sub("", raw_text).strip()
+            product: dict[str, Any] = {
+                "name": name,
+                "raw_text": clean_text,
+                "product_url": item.get("product_url", self.url),
+            }
+            if item.get("price"):
+                product["price"] = item["price"]
+            products.append(product)
+
+        # Dedup
+        if products:
+            seen: set[str] = set()
+            unique: list[dict[str, Any]] = []
+            for p in products:
+                key = f"{p.get('name', '')}|{p.get('price', '')}"
+                if key not in seen:
+                    seen.add(key)
+                    unique.append(p)
+            if len(unique) < len(products):
+                logger.info("[%s] JS deduped %d → %d products", self.slug, len(products), len(unique))
+            products = unique
+
+        if products:
+            logger.info("[%s] JS extraction found %d products", self.slug, len(products))
+        return products
+
+    async def _extract_via_selectors(self, target: Union[Page, Frame]) -> list[dict[str, Any]]:
+        """Fallback: extract via CSS selector cascade."""
         products: list[dict[str, Any]] = []
 
         for selector in _PRODUCT_SELECTORS:
@@ -334,7 +638,7 @@ class AIQScraper(BaseScraper):
                 try:
                     text_block = await el.inner_text()
 
-                    # Skip elements without a price — not a real product card
+                    # Skip elements without a price
                     if "$" not in text_block:
                         continue
 
@@ -342,16 +646,18 @@ class AIQScraper(BaseScraper):
                     if len(text_block.strip()) < 10:
                         continue
 
+                    # Skip oversized containers (entire grids, not cards)
+                    if len(text_block.strip()) > 2000:
+                        continue
+
                     lines = [ln.strip() for ln in text_block.split("\n") if ln.strip()]
 
-                    # Pick the first line that isn't a strain type or price
                     name = "Unknown"
                     for ln in lines:
                         if ln.lower() not in _STRAIN_ONLY and "$" not in ln and len(ln) >= 3:
                             name = ln
                             break
 
-                    # Clean junk from raw text
                     clean_text = _JUNK_PATTERNS.sub("", text_block).strip()
 
                     product: dict[str, Any] = {
@@ -360,7 +666,6 @@ class AIQScraper(BaseScraper):
                         "product_url": self.url,
                     }
 
-                    # Extract product link from element or ancestor <a>
                     try:
                         href = await el.evaluate(
                             """el => {
@@ -374,7 +679,6 @@ class AIQScraper(BaseScraper):
                     except Exception:
                         pass
 
-                    # Extract first price line
                     for line in lines:
                         if "$" in line:
                             product["price"] = line
@@ -391,7 +695,7 @@ class AIQScraper(BaseScraper):
                 )
                 break
 
-        # --- Dedup by name+price ---
+        # Dedup
         if products:
             seen: set[str] = set()
             unique: list[dict[str, Any]] = []

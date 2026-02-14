@@ -38,7 +38,7 @@ export default function AdminDashboard() {
         const [productsRes, dealsRes, dispensariesRes, runsRes] =
           await Promise.all([
             supabase.from("products").select("id", { count: "exact", head: true }),
-            supabase.from("deals").select("id", { count: "exact", head: true }),
+            supabase.from("products").select("id", { count: "exact", head: true }).gt("deal_score", 0),
             supabase
               .from("dispensaries")
               .select("id", { count: "exact", head: true })

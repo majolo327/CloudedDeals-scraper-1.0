@@ -182,13 +182,20 @@ export function SwipeableCard({
           </p>
 
           {/* Product name */}
-          <h2 className="text-xl font-bold text-white mb-2 line-clamp-2 leading-tight">
+          <h2 className="text-xl font-bold text-white mb-2 line-clamp-3 leading-tight">
             {deal.product_name}
           </h2>
 
           {/* Meta */}
           <p className="text-sm text-slate-400 mb-auto">
-            {deal.weight} &bull; {deal.category.charAt(0).toUpperCase() + deal.category.slice(1)}
+            {deal.weight} &bull; {
+              deal.product_subtype === 'disposable' ? 'Disposable Vape'
+              : deal.product_subtype === 'cartridge' ? 'Vape Cartridge'
+              : deal.product_subtype === 'pod' ? 'Vape Pod'
+              : deal.product_subtype === 'infused_preroll' ? 'Infused Pre-Roll'
+              : deal.product_subtype === 'preroll_pack' ? 'Pre-Roll Pack'
+              : deal.category.charAt(0).toUpperCase() + deal.category.slice(1)
+            }
           </p>
 
           {/* Price block */}
@@ -218,6 +225,9 @@ export function SwipeableCard({
               Saved
             </div>
           )}
+
+          {/* Watermark for screenshots */}
+          <p className="text-[8px] text-slate-700 text-right mt-2 select-none">found on cloudeddeals.com</p>
         </div>
       </div>
     </animated.div>

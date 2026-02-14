@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Heart, Share2 } from 'lucide-react';
+import { X, Heart, Share } from 'lucide-react';
 import type { Deal } from '@/types';
 import { SwipeableCard } from './SwipeableCard';
 
@@ -136,7 +136,7 @@ export function SwipeOverlay({
                 onClick={onShareSaves}
                 className="flex items-center gap-2 px-5 py-3 rounded-xl bg-purple-500/15 border border-purple-500/25 text-purple-400 text-sm font-medium hover:bg-purple-500/25 transition-colors mb-4"
               >
-                <Share2 className="w-4 h-4" />
+                <Share className="w-4 h-4" />
                 Share today&apos;s favorites ({savedCount})
               </button>
             )}
@@ -203,7 +203,7 @@ export function SwipeOverlay({
 
             {/* Hint text — only shown for first few cards */}
             {seenCount < 3 && (
-              <p className="text-[10px] text-slate-600 text-center pb-[env(safe-area-inset-bottom)]">
+              <p className="text-[11px] text-slate-500 text-center pb-[env(safe-area-inset-bottom)]">
                 Swipe right to save &bull; Left to pass &bull; Tap for details
               </p>
             )}

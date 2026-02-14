@@ -1,0 +1,23 @@
+# CloudedDeals — Las Vegas Cannabis Deals
+# https://cloudeddeals.com
+
+User-agent: *
+Allow: /
+Allow: /las-vegas-dispensary-deals
+Allow: /strip-dispensary-deals
+Allow: /dispensary/
+Allow: /deals/
+Allow: /about
+Allow: /search
+Allow: /browse
+
+Disallow: /admin
+Disallow: /admin/
+Disallow: /auth/
+Disallow: /api/
+Disallow: /saved
+Disallow: /saves/
+Disallow: /health
+
+# Sitemap
+Sitemap: https://cloudeddeals.com/sitemap.xml

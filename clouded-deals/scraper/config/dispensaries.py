@@ -42,7 +42,7 @@ VIEWPORT = {"width": 1920, "height": 1080}
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/120.0.0.0 Safari/537.36"
+    "Chrome/131.0.0.0 Safari/537.36"
 )
 
 # Use 'domcontentloaded' — NOT 'networkidle' — to avoid hanging on
@@ -87,7 +87,7 @@ PLATFORM_DEFAULTS = {
     "rise": {
         "wait_after_age_gate_sec": 15,
         "embed_type": "direct",           # proprietary Next.js SPA, no iframe
-        "wait_until": "domcontentloaded",
+        "wait_until": "load",             # SPA needs full script execution to hydrate
     },
     "carrot": {
         "wait_after_age_gate_sec": 10,
@@ -145,8 +145,10 @@ DISPENSARIES = [
         "slug": "planet13",
         "platform": "dutchie",
         "url": "https://planet13.com/stores/planet-13-dispensary/specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/planet-13-dispensary/specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "iframe",   # P13 uses Dutchie iframe — hint avoids 60s js_embed detection
     },
     {
         "name": "Medizin",
@@ -155,6 +157,7 @@ DISPENSARIES = [
         "url": "https://planet13.com/stores/medizin-dispensary/specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "iframe",   # same as Planet 13
     },
     {
         "name": "Greenlight Downtown",
@@ -163,6 +166,7 @@ DISPENSARIES = [
         "url": "https://greenlightdispensary.com/downtown-las-vegas-menu/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",  # dtche param confirms JS embed
     },
     {
         "name": "Greenlight Paradise",
@@ -171,6 +175,7 @@ DISPENSARIES = [
         "url": "https://greenlightdispensary.com/paradise-menu/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",  # dtche param confirms JS embed
     },
     {
         "name": "The Grove",
@@ -179,14 +184,17 @@ DISPENSARIES = [
         "url": "https://www.thegrovenv.com/lasvegas/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",  # dtche param confirms JS embed
     },
     {
         "name": "Mint Paradise",
         "slug": "mint-paradise",
         "platform": "dutchie",
         "url": "https://mintdeals.com/paradise-lv/menu/?dtche%5Bpath%5D=specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/the-mint-paradise/specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",  # dtche param confirms JS embed
     },
     {
         "name": "Mint Rainbow",
@@ -195,6 +203,7 @@ DISPENSARIES = [
         "url": "https://mintdeals.com/rainbow-lv/menu/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",  # dtche param confirms JS embed
     },
     # --- Phase 1 additions (recon-confirmed Dutchie JS embeds) ---
     {
@@ -204,6 +213,7 @@ DISPENSARIES = [
         "url": "https://jadecannabisco.com/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",  # dtche param confirms JS embed
     },
     {
         "name": "Jade Cannabis Sky Pointe",
@@ -212,13 +222,14 @@ DISPENSARIES = [
         "url": "https://skypointe.jadecannabisco.com/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "js_embed",  # dtche param confirms JS embed
     },
     {
         "name": "The Grove Pahrump",
         "slug": "grove-pahrump",
         "platform": "dutchie",
         "url": "https://www.thegrovenv.com/pahrump/?dtche%5Bpath%5D=specials",
-        "is_active": True,
+        "is_active": False,  # Pahrump is outside Vegas metro — excluded for now
         "region": "southern-nv",
     },
     {
@@ -235,12 +246,13 @@ DISPENSARIES = [
         "slug": "treehouse",
         "platform": "dutchie",
         "url": "https://vegastreehouse.com/store/?dtche%5Bpath%5D=specials",
-        "is_active": True,
+        "is_active": False,  # chronic timeouts — demoted pre-beta
         "region": "southern-nv",
+        "embed_type": "js_embed",  # dtche param confirms JS embed
     },
 
     # ------------------------------------------------------------------
-    # CURALEAF SITES  (4) + ZEN LEAF (2)
+    # CURALEAF SITES  (4)
     # ------------------------------------------------------------------
     {
         "name": "Curaleaf Western",
@@ -274,24 +286,6 @@ DISPENSARIES = [
         "is_active": True,
         "region": "southern-nv",
     },
-    # --- Phase 1: Zen Leaf (Verano) — uses ProductCard like Curaleaf ---
-    {
-        "name": "Zen Leaf Flamingo",
-        "slug": "zen-leaf-flamingo",
-        "platform": "curaleaf",
-        "url": "https://zenleafdispensaries.com/locations/flamingo/menu/recreational",
-        "is_active": True,
-        "region": "southern-nv",
-    },
-    {
-        "name": "Zen Leaf North Las Vegas",
-        "slug": "zen-leaf-north-lv",
-        "platform": "curaleaf",
-        "url": "https://zenleafdispensaries.com/locations/north-las-vegas/menu/recreational",
-        "is_active": True,
-        "region": "southern-nv",
-    },
-
     # ------------------------------------------------------------------
     # JANE SITES  (19)
     # ------------------------------------------------------------------
@@ -299,7 +293,8 @@ DISPENSARIES = [
         "name": "Oasis Cannabis",
         "slug": "oasis",
         "platform": "jane",
-        "url": "https://oasiscannabis.com/shop/menu/specials",
+        "url": "https://www.iheartjane.com/stores/1649/oasis-cannabis-las-vegas/menu",
+        "fallback_url": "https://oasiscannabis.com/shop/menu/specials",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -310,6 +305,7 @@ DISPENSARIES = [
         "url": "https://www.deeprootsharvest.com/cheyenne",
         "is_active": True,
         "region": "southern-nv",
+        "hybrid_strategy": True,  # Deep Roots uses a different DOM structure
     },
     {
         "name": "Deep Roots Harvest Craig",
@@ -318,6 +314,7 @@ DISPENSARIES = [
         "url": "https://www.deeprootsharvest.com/craig",
         "is_active": True,
         "region": "southern-nv",
+        "hybrid_strategy": True,
     },
     {
         "name": "Deep Roots Harvest Blue Diamond",
@@ -326,6 +323,7 @@ DISPENSARIES = [
         "url": "https://www.deeprootsharvest.com/blue-diamond",
         "is_active": True,
         "region": "southern-nv",
+        "hybrid_strategy": True,
     },
     {
         "name": "Deep Roots Harvest Parkson",
@@ -334,6 +332,7 @@ DISPENSARIES = [
         "url": "https://www.deeprootsharvest.com/parkson",
         "is_active": True,
         "region": "southern-nv",
+        "hybrid_strategy": True,
     },
     {
         "name": "Cultivate Spring Mountain",
@@ -387,7 +386,8 @@ DISPENSARIES = [
         "name": "Beyond/Hello Sahara",
         "slug": "beyond-hello-sahara",
         "platform": "jane",
-        "url": "https://beyond-hello.com/nevada-dispensaries/las-vegas-sahara/adult-use-menu/",
+        "url": "https://www.iheartjane.com/stores/4361/beyond-hello-sahara-ave/menu",
+        "fallback_url": "https://beyond-hello.com/nevada-dispensaries/las-vegas-sahara/adult-use-menu/",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -407,7 +407,7 @@ DISPENSARIES = [
         "slug": "exhale",
         "platform": "jane",
         "url": "https://exhalebrands.com/store/",
-        "is_active": True,
+        "is_active": False,  # chronic timeouts — demoted pre-beta
         "region": "southern-nv",
     },
     {
@@ -425,6 +425,7 @@ DISPENSARIES = [
         "url": "https://lasvegas.treeoflifenv.com/store",
         "is_active": True,
         "region": "southern-nv",
+        "hybrid_strategy": True,  # DOM may differ — needs live investigation
     },
     {
         "name": "Tree of Life Centennial",
@@ -433,6 +434,7 @@ DISPENSARIES = [
         "url": "https://northlasvegas.treeoflifenv.com/store",
         "is_active": True,
         "region": "southern-nv",
+        "hybrid_strategy": True,  # DOM may differ — needs live investigation
     },
     {
         "name": "The Sanctuary N LV Blvd",
@@ -454,80 +456,89 @@ DISPENSARIES = [
     },
 
     # ------------------------------------------------------------------
-    # RISE SITES  (8) — proprietary Next.js SPA via cdn-bong.risecannabis.com
+    # RISE SITES — proprietary Next.js SPA via cdn-bong.risecannabis.com
+    #
+    # DISABLED Feb 2026: Rise deployed Cloudflare bot protection (Turnstile)
+    # which blocks headless browser scraping.  All locations deactivated
+    # until an alternative data source (API, feed, or Cloudflare bypass)
+    # is found.  Re-enable by setting is_active back to True.
+    #
+    # URL pattern:
+    #   /dispensaries/nevada/{slug}/{store-id}/pickup-menu/
     # ------------------------------------------------------------------
     {
         "name": "Rise Tropicana West",
         "slug": "rise-tropicana",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/tropicana-west/recreational-menu",
-        "is_active": True,
+        "url": "https://risecannabis.com/dispensaries/nevada/west-tropicana/886/pickup-menu/",
+        "is_active": False,  # Cloudflare blocked
         "region": "southern-nv",
     },
     {
-        "name": "Rise Rainbow",
+        "name": "Rise South Rainbow",
         "slug": "rise-rainbow",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/rainbow/recreational-menu",
-        "is_active": True,
+        "url": "https://risecannabis.com/dispensaries/nevada/south-rainbow/1718/pickup-menu/",
+        "is_active": False,  # Cloudflare blocked
         "region": "southern-nv",
     },
     {
         "name": "Rise Nellis",
         "slug": "rise-nellis",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/nellis/recreational-menu",
-        "is_active": True,
+        "url": "https://risecannabis.com/dispensaries/nevada/nellis/5267/pickup-menu/",
+        "is_active": False,  # Cloudflare blocked
         "region": "southern-nv",
     },
     {
-        "name": "Rise Durango",
+        "name": "Rise South Durango",
         "slug": "rise-durango",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/durango/recreational-menu",
-        "is_active": True,
+        "url": "https://risecannabis.com/dispensaries/nevada/south-durango/1885/pickup-menu/",
+        "is_active": False,  # Cloudflare blocked
         "region": "southern-nv",
     },
     {
         "name": "Rise Craig",
         "slug": "rise-craig",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/craig/recreational-menu",
-        "is_active": True,
+        "url": "https://risecannabis.com/dispensaries/nevada/craig-rd/5429/pickup-menu/",
+        "is_active": False,  # Cloudflare blocked
         "region": "southern-nv",
     },
     {
-        "name": "Rise Boulder Highway",
+        # Rebranded from "Boulder Highway" to "Henderson on Boulder"
+        "name": "Rise Henderson (Boulder)",
         "slug": "rise-boulder",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/boulder-highway/recreational-menu",
-        "is_active": True,
+        "url": "https://risecannabis.com/dispensaries/nevada/henderson-boulder/6211/pickup-menu/",
+        "is_active": False,  # Cloudflare blocked
         "region": "southern-nv",
     },
     {
+        # Cookies on the Strip still uses /recreational-menu/ (not pickup-menu)
         "name": "Cookies on the Strip",
         "slug": "cookies-strip-rise",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/cookies-on-the-strip/recreational-menu",
-        "is_active": True,
+        "url": "https://risecannabis.com/dispensaries/nevada/cookies-on-the-strip/888/recreational-menu/",
+        "is_active": False,  # Cloudflare blocked
         "region": "southern-nv",
     },
     {
-        # Rise-operated (recon confirmed: Rise score=2, 89 products)
+        # Cookies Flamingo merged into "Cookies on the Strip" (888) — deactivated.
         "name": "Cookies Flamingo",
         "slug": "cookies-flamingo",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/cookies-flamingo/recreational-menu",
-        "is_active": True,
+        "url": "https://risecannabis.com/dispensaries/nevada/cookies-on-the-strip/888/recreational-menu/",
+        "is_active": False,
         "region": "southern-nv",
     },
     {
-        # Listed as "Henderson" on risecannabis.com but located on Sunset Rd
         "name": "Rise Henderson (Sunset)",
         "slug": "rise-henderson",
         "platform": "rise",
-        "url": "https://risecannabis.com/dispensaries/nevada/henderson/recreational-menu",
-        "is_active": True,
+        "url": "https://risecannabis.com/dispensaries/nevada/henderson/887/pickup-menu/",
+        "is_active": False,  # Cloudflare blocked
         "region": "southern-nv",
     },
 
@@ -536,13 +547,13 @@ DISPENSARIES = [
     # ------------------------------------------------------------------
     {
         # Double age gate: first "Yes", then "I'M AT LEAST 21 YEARS OLD".
-        # Dutchie-powered — specials page targets deals directly.
+        # Uses iframe to goshango.com (confirmed from scrape logs 2026-02-12).
         "name": "SLV Dispensary",
         "slug": "slv",
         "platform": "dutchie",
         "url": "https://slvcannabis.com/specials/",
-        "embed_type": "direct",
-        "is_active": True,
+        "embed_type": "iframe",    # was "direct" — wrong; goshango.com iframe detected in logs
+        "is_active": False,  # chronic timeouts (double age gate + goshango iframe) — demoted pre-beta
         "region": "southern-nv",
     },
 
@@ -553,7 +564,7 @@ DISPENSARIES = [
         "name": "Wallflower Blue Diamond",
         "slug": "wallflower-blue-diamond",
         "platform": "carrot",
-        "url": "https://wallflower-house.com/deals/",
+        "url": "https://wallflower-house.com/store/category/specials",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -569,15 +580,17 @@ DISPENSARIES = [
         "name": "Jenny's Dispensary",
         "slug": "jennys",
         "platform": "carrot",
-        "url": "https://jennysdispensary.com/store/",
+        "url": "https://jennysdispensary.com/store/category/specials",
         "is_active": True,
         "region": "southern-nv",
     },
     {
+        # Euphoria's Carrot integration renders deals/specials on the main
+        # /menu page — /menu/category/specials is not a valid route.
         "name": "Euphoria Wellness",
         "slug": "euphoria-wellness",
         "platform": "carrot",
-        "url": "https://euphoriawellnessnv.com/menu/",
+        "url": "https://euphoriawellnessnv.com/menu",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -585,7 +598,7 @@ DISPENSARIES = [
         "name": "Silver Sage Wellness",
         "slug": "silver-sage",
         "platform": "carrot",
-        "url": "https://store.sswlv.com/",
+        "url": "https://store.sswlv.com/category/specials",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -621,16 +634,22 @@ DISPENSARIES = [
         "region": "southern-nv",
     },
     {
-        # Recon: 189 products, score 3
+        # Recon (Feb 2026): switched from AIQ to Dutchie.
+        # Dutchie page: dutchie.com/dispensaries/jardin-premium-cannabis-dispensary
+        # jardinlasvegas.com/store now embeds Dutchie (no longer AIQ).
         "name": "Jardin",
         "slug": "jardin",
-        "platform": "aiq",
-        "url": "https://www.jardinlasvegas.com/store",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/embedded-menu/jardin-premium-cannabis-dispensary/specials",
+        "fallback_url": "https://www.jardinlasvegas.com/store",
         "is_active": True,
         "region": "southern-nv",
+        "embed_type": "direct",
     },
     {
-        # Switched from AIQ to Dutchie — specials page with embedded menu
+        # Switched from AIQ to Dutchie — specials page with embedded menu.
+        # No embed_type hint — auto-detect via full cascade, same as the
+        # working Charleston/Henderson/Warm Springs siblings.
         "name": "Nevada Made Laughlin",
         "slug": "nevada-made-casino-dr",
         "platform": "dutchie",
@@ -1137,8 +1156,102 @@ DISPENSARIES = [
 ]
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Chain mapping — multi-location dispensaries that share inventory/brands.
+# Used to cap per-chain representation so no single chain dominates the feed.
+# Dispensaries NOT listed here are treated as their own standalone chain.
 # ---------------------------------------------------------------------------
+
+DISPENSARY_CHAINS: dict[str, str] = {
+    # The Dispensary NV (3 locations)
+    "td-gibson": "the-dispensary",
+    "td-eastern": "the-dispensary",
+    "td-decatur": "the-dispensary",
+    # Planet 13 / Medizin (same owner)
+    "planet13": "planet13",
+    "medizin": "planet13",
+    # Greenlight (2 locations)
+    "greenlight-downtown": "greenlight",
+    "greenlight-paradise": "greenlight",
+    # The Grove (Pahrump location excluded — outside Vegas metro)
+    "the-grove": "the-grove",
+    # Mint (2 locations)
+    "mint-paradise": "mint",
+    "mint-rainbow": "mint",
+    # Jade Cannabis (2 locations)
+    "jade-desert-inn": "jade",
+    "jade-sky-pointe": "jade",
+    # Curaleaf (4 locations)
+    "curaleaf-western": "curaleaf",
+    "curaleaf-north-lv": "curaleaf",
+    "curaleaf-strip": "curaleaf",
+    "curaleaf-the-reef": "curaleaf",
+    # Deep Roots Harvest (4 locations)
+    "deep-roots-cheyenne": "deep-roots",
+    "deep-roots-craig": "deep-roots",
+    "deep-roots-blue-diamond": "deep-roots",
+    "deep-roots-parkson": "deep-roots",
+    # Cultivate (2 locations)
+    "cultivate-spring": "cultivate",
+    "cultivate-durango": "cultivate",
+    # Thrive (5 locations)
+    "thrive-sahara": "thrive",
+    "thrive-cheyenne": "thrive",
+    "thrive-strip": "thrive",
+    "thrive-main": "thrive",
+    "thrive-southern-highlands": "thrive",
+    # Beyond/Hello (2 locations)
+    "beyond-hello-sahara": "beyond-hello",
+    "beyond-hello-twain": "beyond-hello",
+    # Tree of Life (2 locations)
+    "tree-of-life-jones": "tree-of-life",
+    "tree-of-life-centennial": "tree-of-life",
+    # Rise / GTI (7 locations)
+    "rise-tropicana": "rise",
+    "rise-rainbow": "rise",
+    "rise-nellis": "rise",
+    "rise-durango": "rise",
+    "rise-craig": "rise",
+    "rise-boulder": "rise",
+    "rise-henderson": "rise",
+    # Cookies (Rise-operated, 2 locations)
+    "cookies-strip-rise": "cookies-rise",
+    "cookies-flamingo": "cookies-rise",
+    # Nevada Made (4 locations)
+    "nevada-made-casino-dr": "nevada-made",
+    "nevada-made-charleston": "nevada-made",
+    "nevada-made-henderson": "nevada-made",
+    "nevada-made-warm-springs": "nevada-made",
+}
+
+
+# ---------------------------------------------------------------------------
+# Strip dispensaries — locations on or immediately adjacent to the Las Vegas
+# Strip.  Used for tagging / filtering in the frontend (tourists vs locals).
+# ---------------------------------------------------------------------------
+
+STRIP_DISPENSARIES: list[str] = [
+    "planet13",
+    "medizin",
+    "curaleaf-strip",
+    "curaleaf-the-reef",
+    "td-decatur",
+    "greenlight-downtown",
+    "greenlight-paradise",
+    "the-grove",
+    "mint-paradise",
+    "oasis",
+    "thrive-strip",
+]
+
+
+def is_strip_dispensary(slug: str) -> bool:
+    """Return ``True`` if the dispensary is on or near the Las Vegas Strip."""
+    return slug in STRIP_DISPENSARIES
+
+
+def get_chain_id(dispensary_slug: str) -> str:
+    """Get chain ID for a dispensary. Standalone stores return their own slug."""
+    return DISPENSARY_CHAINS.get(dispensary_slug, dispensary_slug)
 
 
 # ---------------------------------------------------------------------------
@@ -1157,8 +1270,8 @@ DISPENSARIES = [
 # ---------------------------------------------------------------------------
 
 PLATFORM_GROUPS: dict[str, list[str]] = {
-    "stable": ["dutchie", "curaleaf", "jane", "rise", "carrot", "aiq"],
-    "new": [],
+    "stable": ["dutchie", "curaleaf", "jane", "carrot", "aiq"],
+    "new": ["rise"],
 }
 
 # Reverse lookup: platform → group name

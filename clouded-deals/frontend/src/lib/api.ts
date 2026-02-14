@@ -1,7 +1,7 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { trackEvent } from './analytics';
-import { applyDispensaryDiversityCap } from '@/utils/dealFilters';
 import { normalizeWeightForDisplay } from '@/utils/weightNormalizer';
+import { applyChainDiversityCap, applyGlobalBrandCap } from '@/utils/dealFilters';
 import { getRegion, DEFAULT_REGION } from './region';
 import { DISPENSARIES as DISPENSARIES_STATIC } from '@/data/dispensaries';
 import type { Deal, Category, Dispensary, Brand } from '@/types';
@@ -11,6 +11,7 @@ import type { Deal, Category, Dispensary, Brand } from '@/types';
 // --------------------------------------------------------------------------
 
 const DEALS_CACHE_KEY = 'clouded_deals_cache';
+const EXPIRED_DEALS_CACHE_KEY = 'clouded_expired_deals_cache';
 
 interface DealCache {
   deals: Deal[];
@@ -38,6 +39,31 @@ function setCachedDeals(deals: Deal[]): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(DEALS_CACHE_KEY, JSON.stringify({ deals, timestamp: Date.now() }));
+  } catch {
+    // Storage full — ignore
+  }
+}
+
+function getCachedExpiredDeals(): Deal[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(EXPIRED_DEALS_CACHE_KEY);
+    if (!raw) return null;
+    const cache: DealCache = JSON.parse(raw);
+    // Expired cache valid for 36 hours (covers overnight + morning gap)
+    if (Date.now() - cache.timestamp > 36 * 60 * 60 * 1000) return null;
+    return cache.deals
+      .filter(d => d.brand && d.dispensary)
+      .map(d => ({ ...d, created_at: new Date(d.created_at) }));
+  } catch {
+    return null;
+  }
+}
+
+function setCachedExpiredDeals(deals: Deal[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(EXPIRED_DEALS_CACHE_KEY, JSON.stringify({ deals, timestamp: Date.now() }));
   } catch {
     // Storage full — ignore
   }
@@ -237,7 +263,7 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
         .gt('deal_score', 0)
         .gt('sale_price', 0)
         .order('deal_score', { ascending: false })
-        .limit(200),
+        .limit(500),
       supabase
         .from('deal_save_counts')
         .select('deal_id, save_count'),
@@ -268,13 +294,21 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
           })
       : [];
 
-    // Enforce dispensary diversity: max 15 deals per dispensary.
-    // Backend curation already limits to 25 per dispo with brand dedup —
-    // this is a lighter client-side safety net, not the primary filter.
-    const deals = applyDispensaryDiversityCap(allDeals, 15);
+    // Chain-level cap: multi-location chains (Rise=7, Thrive=5, etc.)
+    // can flood the feed. Cap at 15 per chain while guaranteeing at least
+    // 1 deal per individual dispensary. Backend already caps per-store at 10.
+    const chainCapped = applyChainDiversityCap(allDeals, 15);
 
-    // Cache for offline use
+    // Two-tier brand cap: (1) max 4 per brand per category so one brand
+    // can't crowd out an entire category, (2) max 12 per brand total so
+    // a brand with deals across every category can't flood the deck.
+    const deals = applyGlobalBrandCap(chainCapped, 4, 12);
+
+    // Cache for offline use + as expired fallback for next morning
     setCachedDeals(deals);
+    if (deals.length > 0) {
+      setCachedExpiredDeals(deals);
+    }
 
     // Track slow loads
     const duration = performance.now() - start;
@@ -294,6 +328,69 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
     }
 
     return { deals: [], error: message };
+  }
+}
+
+// --------------------------------------------------------------------------
+// Expired deals — yesterday's deals for early-morning browsing
+// --------------------------------------------------------------------------
+
+export async function fetchExpiredDeals(region?: string): Promise<FetchDealsResult> {
+  if (!isSupabaseConfigured) {
+    return { deals: [], error: null };
+  }
+
+  const activeRegion = region ?? getRegion() ?? DEFAULT_REGION;
+
+  // Offline — serve cached expired deals
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    const cached = getCachedExpiredDeals();
+    if (cached) return { deals: cached, error: null };
+    return { deals: [], error: null };
+  }
+
+  try {
+    // Fetch recently deactivated products (is_active = false, scraped within last 48h)
+    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+
+    const { data, error } = await supabase
+      .from('products')
+      .select(
+        `id, name, brand, category, original_price, sale_price, discount_percent,
+         weight_value, weight_unit, deal_score, product_url, scraped_at, created_at,
+         is_infused, product_subtype, strain_type,
+         dispensary:dispensaries!inner(id, name, address, city, state, platform, url, region, latitude, longitude)`
+      )
+      .eq('is_active', false)
+      .eq('dispensaries.region', activeRegion)
+      .gt('deal_score', 0)
+      .gt('sale_price', 0)
+      .gte('scraped_at', cutoff)
+      .order('deal_score', { ascending: false })
+      .limit(200);
+
+    if (error) throw error;
+
+    const allDeals = data
+      ? (data as unknown as ProductRow[])
+          .filter((row) => {
+            if (!row.name || row.name.length < 5 || (row.sale_price ?? 0) <= 0) return false;
+            if (!row.dispensary || Array.isArray(row.dispensary)) return false;
+            return true;
+          })
+          .map(normalizeDeal)
+      : [];
+
+    const chainCapped = applyChainDiversityCap(allDeals, 15);
+    const deals = applyGlobalBrandCap(chainCapped, 4, 12);
+
+    setCachedExpiredDeals(deals);
+    return { deals, error: null };
+  } catch {
+    // Fall back to cached expired deals
+    const cached = getCachedExpiredDeals();
+    if (cached) return { deals: cached, error: null };
+    return { deals: [], error: null };
   }
 }
 
@@ -338,11 +435,13 @@ export async function fetchDispensaries(region?: string): Promise<FetchDispensar
   const activeRegion = region ?? getRegion() ?? DEFAULT_REGION;
 
   try {
-    // Fetch ALL dispensaries in the region (not just is_active)
+    // Only show active dispensaries — inactive ones (e.g. Rise, blocked
+    // by Cloudflare) should not appear in the browse UI.
     const { data, error } = await supabase
       .from('dispensaries')
       .select('id, name, address, city, platform, url, is_active, region')
       .eq('region', activeRegion)
+      .eq('is_active', true)
       .order('name', { ascending: true });
 
     if (error) throw error;
@@ -427,10 +526,10 @@ export async function searchExtendedDeals(
       )
       .eq('is_active', true)
       .eq('dispensaries.region', activeRegion)
-      .gt('discount_percent', 0)
       .gt('sale_price', 0)
+      .or('discount_percent.gt.0,discount_percent.is.null')
       .or(`name.ilike.${pattern},brand.ilike.${pattern},category.ilike.${pattern},product_subtype.ilike.${pattern},strain_type.ilike.${pattern}`)
-      .order('discount_percent', { ascending: false })
+      .order('deal_score', { ascending: false })
       .limit(200);
 
     if (error) throw error;

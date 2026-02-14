@@ -99,75 +99,86 @@ BRAND_COMPARISON_BRANDS = ['Rove', 'Stiiizy', 'Matrix', 'City Trees', 'Airo']
 
 BRANDS = sorted(set([
     # A
-    'Advanced Vapor Devices', 'Airo', 'AiroPro', 'Alien Labs', 'AMA', 'Avexia', 'Amp',
+    'Advanced Vapor Devices', 'Aether Gardens', 'Airo', 'AiroPro', 'Alien Labs',
+    'Almora', 'AMA', 'Avexia', 'Amp',
     # B
     'Backpack Boyz', 'Bad Batch', 'Bad Boy', 'BaM', 'Ballers', 'Bear Quartz',
-    'Beboe', 'Bic', 'Big Chief Extracts', 'BirthJays', 'Bits', 'Blazer',
-    'Blazy Susan', 'Blink', 'BLUEBIRDS', 'BLVD', 'Bonanza Cannabis',
-    'Boom Town', 'Bounti', 'Brass Knuckles', 'Bud Bandz',
+    'Beboe', 'Bhang', 'Bic', 'Big Chief Extracts', 'Binske', 'BirthJays', 'Bits',
+    'Blazer', 'Blazy Susan', 'Blink', 'BLUEBIRDS', 'BLVD', 'Bohemian Brothers',
+    'Bonanza Cannabis', 'Boom Town', 'Bounti', 'Brass Knuckles', 'Bud Bandz',
     # C
-    'Cake', 'Cali Traditional', 'Camino', 'Camo', 'CAMP', 'Cannafornia',
-    'Cannabreezy', 'Cannalean', 'Cannavative', 'Cannavore', 'Cannavore Confections',
-    'Caviar Gold', 'Cheeba Chews', 'Church', 'Circle S Farms', 'City Trees',
-    'Claybourne Co.', 'CLEAR Brands', 'Clout King', 'Connected', 'Cookies',
-    'Cosmonaut', 'Cotton Mouth', 'Curaleaf',
+    'Cake', 'Cali Traditional', 'Camino', 'Camo', 'CAMP', 'CANN', 'Cannafornia',
+    'Cannabiotix', 'Cannabreezy', 'Cannalean', 'Cannavative', 'Cannavore',
+    'Cannavore Confections', 'Caviar Gold', 'Cheeba Chews', 'Church',
+    'Circle S Farms', 'City Trees', 'Claybourne Co.', 'CLEAR Brands', 'Clout King',
+    'Connected', 'Cookies', 'Cosmonaut', 'Cotton Mouth', 'Cresco', 'Crumbs',
+    'Cultivate', 'Curaleaf',
     # D
     'Dabwoods', 'DADiRRi', 'Dazed!', 'Deep Roots', 'Desert Blaze',
-    'Desert Bloom', 'Dimension Engineering LLC', 'Dime Industries', 'Dipper',
-    'Doja', "Doctor Solomon's", 'Dogwalkers', 'Doinks', 'Dope Dope', 'Dr. Dabber',
-    'Dreamland', 'Dreamland Chocolates', 'Drink Loud',
+    'Desert Bloom', 'DGF', 'Dimension Engineering LLC', 'Dime Industries', 'Dipper',
+    'Doja', "Doctor Solomon's", 'Dogwalkers', 'Doinks', 'Dope Dope', 'Dosist',
+    'Dr. Dabber', 'Dr. Zodiak', 'Dreamland', 'Dreamland Chocolates', 'Drink Loud',
+    'Dzyne',
     # E
     'Edie Parker', 'Element', 'Ember Valley', 'Emperors Choice', 'Encore',
-    'Encore Edibles', 'Entourage', 'EPC', 'Escape Pod', 'Essence',
+    'Encore Edibles', 'Entourage', 'EPC', 'Escape Pod', 'Essence', 'Exhale',
     'The Essence', 'Evergreen Organix', 'EVOL', 'Eyce',
     # F
-    'Featured Farms', 'Find.', 'Fleur', 'Flight Bites', 'Flora Vega',
-    'FloraVega', 'Fuze Extracts',
+    'Featured Farms', 'Fig Farms', 'Find.', 'Fleur', 'Flight Bites', 'Flora Vega',
+    'FloraVega', 'Flower One', 'Fumeur', 'Fuze Extracts',
     # G
-    'GB Sciences', 'Ghost Town', 'Golden Savvy', 'Golden State Banana',
-    'Good Green', 'Good Tide', 'Grassroots', 'GRAV Labs',
-    'Green Life Productions', 'Greenway LV', 'Groove',
+    'Garcia Hand Picked', 'GB Sciences', 'Ghost Town', 'Glass House', 'GLP',
+    'Golden Savvy', 'Golden State Banana', 'Good Green', 'Good Tide',
+    'Grandiflora', 'Grassroots', 'GRAV Labs', 'Green Life Productions',
+    'Greenway LV', 'Greenway Medical', 'Groove', 'Grön', 'GTI',
     # H
     'HaHa Edibles', 'Hamilton Devices', 'Haze', 'Heavy Hitters', 'High Hemp',
-    'Highlights', 'Hijinks', 'Hippies Peaces', 'Hits Blunt',
-    'Houseplant', 'Huni Badger', 'Hustlers Ambition', "Hustler's Ambition",
+    'High Roller', 'Highlights', 'Highly Edible', 'Hijinks', 'Hippies Peaces',
+    'Hits Blunt', 'Houseplant', 'HSH', 'Huni Badger', 'Hustlers Ambition',
+    "Hustler's Ambition", 'Huxton',
     # I
-    'Incredibles', 'INDO',
+    'IGO', 'Incredibles', 'INDO',
     # J-K
     'JAMS', 'Jasper', 'Jeeter', 'Jungle Boys', 'Just Edibles',
-    'KANHA', 'Kannabis', 'Keef', 'Khalifa Kush', 'Khalifa Yellow',
-    'Kingpen', 'Kiva', 'Kiva Lost Farm', 'Kynd',
+    'KANHA', 'Kanji', 'Kannabis', 'Keef', 'Khalifa Kush', 'Khalifa Yellow',
+    'Kingpen', 'Kiva', 'Kiva Lost Farm', 'Kushberry Farms', 'Kynd',
     # L
-    'Later Days', 'LAVI', 'LEVEL', 'Lift Tickets', 'LIT',
-    "Local's Only", 'Lost Farm', 'LP Exotics',
+    'Later Days', 'LAVI', 'Leaf & Vine', 'Leaf and Vine', 'Lemonnade', 'LEVEL',
+    'Lift Tickets', 'LIT', "Local's Only", 'Local Cannabis', 'Lost Farm',
+    'Lowell', 'LP Exotics',
     # M
-    'Matrix', 'Medizin', 'Mojo', 'Moxie', 'Mystic Timbers',
+    'Matrix', 'MedMen', 'Medizin', 'Mellow Vibes', 'Mojave', 'Mojo', 'Moxie',
+    'MPX', 'MUV', 'Mystic Timbers',
     # N-O
-    "Nature's Chemistry", 'Neon Cactus', 'Nitro Dabs',
-    'No Brand Name', 'Nordic Goddess',
-    'OCB Rolling Papers & Cones', 'Old Pal', 'OMG THC',
+    "Nature's Chemistry", 'Neon Cactus', 'Nitro Dabs', 'NLVO',
+    'Nordic Goddess', 'NuLeaf', 'Nuvaria',
+    'Oasis', 'OCB Rolling Papers & Cones', 'Old Pal', 'OMG THC',
     # P
     'Pacific Stone', 'PACKS', 'Packwoods', 'PANNA Extracts', 'PAX',
-    'Phantom Farms', 'Pheno Exotics', 'Pis WMS', 'Planet 13', 'Plug Play',
-    'Poke a Bowl', 'Polaris', 'Presidential', 'Prime', 'Prospectors',
-    'Provisions',
-    # R
-    'Raw Garden', 'Redwood', 'REEFORM', 'Remedy', 'Reserve', 'RNBW',
-    'Rove', 'Royalesque', 'Ruby Pearl Co.', 'Runtz', 'RYTHM',
+    'Phat Panda', 'Phantom Farms', 'Pheno Exotics', 'Pis WMS', 'Planet 13',
+    'Plug Play', 'PLUS', 'Poke a Bowl', 'Polaris', 'Presidential', 'Prime',
+    'Prospectors', 'Provisions', 'Punch Edibles',
+    # Q-R
+    'Qualcan',
+    'Raw Garden', 'Redwood', 'REEFORM', 'Reina', 'Remedy', 'Reserve', 'RNBW',
+    'Robhots', 'Rove', 'Royalesque', 'Ruby Pearl Co.', 'Runtz', 'RYTHM',
     # S
-    'Sauce Essentials', 'Savvy', 'SeCHe', 'SELECT', 'Sip',
+    'Sauce Essentials', 'Savvy', 'SeCHe', 'SELECT', 'Shango', 'Sip',
     'Sin City', 'Smokiez Edibles', 'Smyle Labs', 'Special Blue',
-    'Srene', 'StackHouse NV', 'State Flower', 'STIIIZY', 'Storz & Bickel',
-    'Sundae Co.', 'Super Good', 'Superior',
+    'Srene', 'StackHouse NV', 'State Flower', 'Stillwater', 'STIIIZY',
+    'Stone Road', 'Storz & Bickel', 'Sundae Co.', 'Super Good', 'Superior',
+    'SVC',
     # T
-    'Tahoe Hydro', 'THC Design', 'The Bank', 'The Dispensary',
-    'The Grower Circle', 'The Lab', 'Toker Poker', 'Trendi', 'Tryke',
-    'Tsunami Labs', 'Tumbleweedz', 'Twisted Hemp', 'Tyson 2.0',
+    'Tahoe Hydro', 'Taproots', 'Terra', 'THC Design', 'The Bank', 'The Clear',
+    'The Grower Circle', 'The Lab', 'The Sanctuary', 'The Source', 'Thrive',
+    'Toast', 'Toker Poker', 'Trendi', 'Trulieve', 'Tryke',
+    'Tsunami Labs', 'Tumbleweed', 'Tumbleweedz', 'TWE', 'Twisted Hemp',
+    'Tyson 2.0',
     # U-V
-    "Uncle Arnie's", 'Uncle Arnies', 'Verano', 'VERT Unlimited',
+    "Uncle Arnie's", 'Uncle Arnies', 'Vada', 'Vapen', 'Verano', 'VERT Unlimited',
     'Vegas Valley Growers', 'Virtue', 'Vlasic Labs', 'Voon',
-    # W-Y
-    'Wana', 'Wonderbrett', 'Wyld', 'Your Highness',
+    # W-Z
+    'Wana', 'Wonderbrett', 'Wyld', 'WYLD CBD', 'Your Highness',
     # &-prefixed
     '&Shine',
     # ── Michigan-native brands ──────────────────────────────────────
@@ -233,7 +244,13 @@ BRAND_ALIASES: dict[str, str] = {
     'AiroPro': 'Airo',
     'CLEAR Brands': 'The Clear',
     'Evergreen Organix': 'EGO',
+    'GLP': 'Green Life Productions',
     "Local's Only": "Local's Only",   # canonical form with apostrophe
+    'Leaf and Vine': 'Leaf & Vine',   # normalize ampersand form
+    'MUV': 'MÜV',                     # normalize to umlaut form
+    'The Essence': 'Essence',         # "by The Essence" → canonical "Essence"
+    'Tumbleweed': 'Tumbleweedz',      # normalize spelling
+    'WYLD CBD': 'Wyld',               # product line → parent brand
     # Multi-state brand aliases
     'MKX Oil Co': 'MKX',
     'Timeless Vapes': 'Timeless',
@@ -279,6 +296,9 @@ _BRAND_VARIATION_MAP: dict[str, str] = {
     'tsunami': 'Tsunami Labs',
     'pheno exotic': 'Pheno Exotics',
     'indo cannabis': 'INDO',
+    'sauce': 'Sauce Essentials',
+    'vlasic': 'Vlasic Labs',
+    'müv': 'MÜV',
     # Multi-state brand variations
     'mkx oil': 'MKX',
     'mkx oil co': 'MKX',
@@ -351,7 +371,7 @@ _VARIATION_PATTERNS: list[tuple[re.Pattern, str]] = [
 
 _STRAIN_BRAND_BLOCKERS = [
     # "Haze" is a brand, but these are strains:
-    (re.compile(r'\b(?:ghost\s*train|super\s*(?:lemon|silver)|purple|amnesia|neville|blue|catpiss|dungeon|hawaiian|original|golden|x|double|single)\s+haze\b', re.IGNORECASE), 'Haze'),
+    (re.compile(r'\b(?:ghost\s*train|super\s*(?:lemon|silver)|purple|amnesia|neville|blue|catpiss|dungeon|hawaiian|original|golden|x|double|single|citrus|lemon|lime|mango|strawberry|peach|tropical)\s+haze\b', re.IGNORECASE), 'Haze'),
     # Also block if "haze" follows known connectors in compound strain names
     (re.compile(r'\bhaze\s+(?:og|kush|berry|dawg|diesel|cake|cookies|dream|punch|wreck|star|pie|queen|king|widow|mac|zkittlez)\b', re.IGNORECASE), 'Haze'),
 
@@ -363,18 +383,44 @@ _STRAIN_BRAND_BLOCKERS = [
     (re.compile(r'\b(?:girl\s*scout|thin\s*mint|platinum|animal|lemon|cherry|'
                 r'forum\s*cut|sugar|blueberry|sunset|fire|sour\s*fire|og|'
                 r'mandarin|guava|grape|peanut\s*butter|london\s*pound|kush|'
-                r'berry|tropical|strawberry|orange|purple|white|gelato|'
-                r'biscotti)\s+cookies\b', re.IGNORECASE), 'Cookies'),
+                r'berry|tropical|tropicana|strawberry|orange|purple|white|gelato|'
+                r'biscotti|garlic|alien)\s+cookies\b', re.IGNORECASE), 'Cookies'),
 
     # "Runtz" is a brand, but these are strains:
     (re.compile(r'\b(?:white|pink|gelatti|gelato|tropical|gruntz|rainbow|'
-                r'grape|obama|gummy|blue|apple|peach|mango|banana)\s+runtz\b', re.IGNORECASE), 'Runtz'),
+                r'grape|obama|gummy|blue|apple|peach|mango|banana|melon|'
+                r'cherry|strawberry|lemon|orange|potato|candy)\s+runtz\b', re.IGNORECASE), 'Runtz'),
 
     # "Church" is a brand, but "The Church" is a strain
     (re.compile(r'\bthe\s+church\b', re.IGNORECASE), 'Church'),
 
     # "Element" — "5th Element" is a strain
     (re.compile(r'\b5th\s+element\b', re.IGNORECASE), 'Element'),
+
+    # "SELECT" — "Seche Select" is a product line from SeCHe, not the SELECT brand
+    (re.compile(r'\bseche\s+select\b', re.IGNORECASE), 'SELECT'),
+
+    # "SELECT" — "select $20 eighths" is promotional copy, not the brand
+    (re.compile(r'\bselect\s+\$\d+', re.IGNORECASE), 'SELECT'),
+    (re.compile(r'\bselect\s+(?:eighths?|strains?|items?|products?)\b', re.IGNORECASE), 'SELECT'),
+
+    # "Sauce Essentials" — "Live Sauce" / "Cured Sauce" are concentrate formats
+    (re.compile(r'\b(?:live|cured|diamond)\s+sauce\b', re.IGNORECASE), 'Sauce Essentials'),
+
+    # "PACKS" is a brand, but "Ice Packs", "Infused … Packs", "Variety Pack",
+    # etc. are product-form descriptors.  Block PACKS detection when preceded
+    # by these common context words.
+    (re.compile(r'\b(?:ice|variety|infused\s+ice|infused)\s+packs?\b', re.IGNORECASE), 'PACKS'),
+
+    # "PLUS" is a brand (edibles), but it's a common English word.
+    # Block in promotional contexts: "plus tax", "plus free", etc.
+    (re.compile(r'\bplus\s+(?:tax|free|more|extra|shipping|delivery)\b', re.IGNORECASE), 'PLUS'),
+
+    # "Toast" is a brand, but "French Toast", "Cinnamon Toast" are strains.
+    (re.compile(r'\b(?:french|cinnamon)\s+toast\b', re.IGNORECASE), 'Toast'),
+
+    # "Terra" is a brand, but block in common compound terms
+    (re.compile(r'\bterra\s+(?:cotta|firma)\b', re.IGNORECASE), 'Terra'),
 ]
 
 # ============================================================================
@@ -527,7 +573,7 @@ DISPENSARIES = {
         'expected': 60,
     },
     'deep_roots_cheyenne': {
-        'url': 'https://deeprootsharvest.com/cheyenne/menu?category=specials',
+        'url': 'https://www.deeprootsharvest.com/cheyenne',
         'platform': 'jane',
         'name': 'Deep Roots Cheyenne',
         'link': 'https://bit.ly/dr-chey',
@@ -536,7 +582,7 @@ DISPENSARIES = {
         'expected': 33,
     },
     'deep_roots_craig': {
-        'url': 'https://deeprootsharvest.com/craig/menu?category=specials',
+        'url': 'https://www.deeprootsharvest.com/craig',
         'platform': 'jane',
         'name': 'Deep Roots Craig',
         'link': 'https://bit.ly/dr-craig',
@@ -545,7 +591,7 @@ DISPENSARIES = {
         'expected': 38,
     },
     'deep_roots_blue_diamond': {
-        'url': 'https://deeprootsharvest.com/blue-diamond/menu?category=specials',
+        'url': 'https://www.deeprootsharvest.com/blue-diamond',
         'platform': 'jane',
         'name': 'Deep Roots Blue Diamond',
         'link': 'https://bit.ly/dr-bd',
@@ -554,7 +600,7 @@ DISPENSARIES = {
         'expected': 27,
     },
     'deep_roots_parkson': {
-        'url': 'https://deeprootsharvest.com/parkson/menu?category=specials',
+        'url': 'https://www.deeprootsharvest.com/parkson',
         'platform': 'jane',
         'name': 'Deep Roots Parkson',
         'link': 'https://bit.ly/dr-park',
@@ -741,22 +787,35 @@ class CloudedLogic:
         if re.search(r'\d+\.?\d*\s*g\s*/\s*\d+\s*pk\b', t):
             return 'preroll'
 
-        # 4. CONCENTRATE (requires BOTH keyword AND weight)
+        # 4. CONCENTRATE (requires keyword; weight strongly preferred but
+        #    concentrate-only keywords like "badder" are unambiguous even
+        #    without weight — the deal detector still validates weight later)
         # IMPORTANT: If the product also has vape keywords (cart, pod, etc.),
         # it's a vape — not a concentrate.  "Live Resin Cart 0.5g" = vape.
         concentrate_keywords = [
             'badder', 'batter', 'budder', 'shatter', 'wax', 'sauce',
             'diamonds', 'sugar', 'crumble', 'hash', 'rosin', 'dab',
             'terp sauce', 'thca', 'crystals', 'isolate', 'live resin',
-            'cured resin', 'lr', 'cr',
+            'cured resin', 'lr', 'cr', 'extract', 'nug run',
         ]
-        vape_keywords_re = re.compile(r'\b(cart|cartridge|pod|disposable|vape|pen|all-in-one)\b')
+        # These keywords are unambiguously concentrates even without weight.
+        # NOTE: "live resin" / "cured resin" are NOT here because they also
+        # appear in vape names ("Live Resin Cart").
+        _UNAMBIGUOUS_CONCENTRATE = {
+            'badder', 'batter', 'budder', 'shatter', 'crumble', 'rosin',
+            'diamonds', 'nug run',
+        }
+        vape_keywords_re = re.compile(r'\b(cart|cartridge|pod|disposable|vape|pen|all[- ]?in[- ]?one|aio|ready[- ]?to[- ]?use)\b')
         has_concentrate = any(kw in t for kw in concentrate_keywords)
-        has_concentrate_weight = any(w in t for w in ['.5g', '1g', '1.0g', '2g', '0.5g'])
+        has_concentrate_weight = (
+            any(w in t for w in ['.5g', '1g', '1.0g', '2g', '0.5g'])
+            or bool(re.search(r'\b1/[248]\s*(?:oz)?\b', t))  # fractional oz
+        )
         has_vape_keyword = bool(vape_keywords_re.search(t))
-        if has_concentrate and has_concentrate_weight and not has_vape_keyword:
-            self.stats['concentrates_found'] += 1
-            return 'concentrate'
+        if has_concentrate and not has_vape_keyword:
+            if has_concentrate_weight or any(kw in t for kw in _UNAMBIGUOUS_CONCENTRATE):
+                self.stats['concentrates_found'] += 1
+                return 'concentrate'
 
         # 5. FLOWER by weight pattern (3.5g, 7g, 14g, 28g)
         # MOVED BEFORE VAPE: These weights are unambiguously flower.
@@ -771,7 +830,7 @@ class CloudedLogic:
         # Use word-boundary regex to prevent false positives from
         # substrings (e.g. "pen" matching "Aspen", "open", "expend").
         edible_keywords = ['gummies', 'gummy', 'chocolate', 'candy', 'brownie']
-        if re.search(r'\b(cart|cartridge|pod|disposable|vape|pen|all-in-one)\b', t):
+        if re.search(r'\b(cart|cartridge|pod|disposable|vape|pen|all[- ]?in[- ]?one|aio|ready[- ]?to[- ]?use)\b', t):
             if not any(w in t for w in edible_keywords):
                 return 'vape'
 
@@ -780,11 +839,19 @@ class CloudedLogic:
         if any(w in t for w in flower_keywords):
             return 'flower'
 
-        # 8. EDIBLE fallback
+        # 8. EDIBLE fallback (keyword)
         if any(w in t for w in edible_keywords):
             return 'edible'
 
-        # 9. Other
+        # 9. WEIGHT-BASED INFERENCE — last chance before "other"
+        # Products with mg content (e.g. "100mg") are almost always edibles
+        if re.search(r'\b\d+\s*mg\b', t):
+            return 'edible'
+        # Sub-gram weights without vape keywords → likely concentrate
+        if re.search(r'\b0\.[5-9]\s*g\b', t) and not has_vape_keyword:
+            return 'concentrate'
+
+        # 10. Other
         return 'other'
 
     # ────────────────────────────────────────────────────────────────
@@ -1075,11 +1142,26 @@ class CloudedLogic:
             self.stats['infused_prerolls_tagged'] += 1
 
         # ── Step 3: Extract and validate weight WITH category ────
-        weight_match = re.search(r'([\d.]+)\s*(g|mg|oz)\b', clean_text, re.IGNORECASE)
+        # Check fractional-oz patterns FIRST (1/8oz, 1/4oz, 1/2oz) to
+        # prevent the numeric regex from incorrectly matching the
+        # denominator (e.g. "8oz" from "1/8oz").
+        _frac_oz_m = re.search(r'\b(1/[248])\s*(?:oz)?\b', clean_text, re.IGNORECASE)
+        _FRAC_GRAMS = {"1/8": 3.5, "1/4": 7.0, "1/2": 14.0}
         weight = None
-        if weight_match:
-            raw_weight = weight_match.group(0)
+        if _frac_oz_m and _frac_oz_m.group(1) in _FRAC_GRAMS:
+            grams = _FRAC_GRAMS[_frac_oz_m.group(1)]
+            raw_weight = f"{grams}g"
             weight = self.validate_weight(raw_weight, category)
+        else:
+            weight_match = re.search(r'([\d.]+)\s*(g|mg|oz)\b', clean_text, re.IGNORECASE)
+            if weight_match:
+                raw_weight = weight_match.group(0)
+                # Convert oz to grams for validation
+                oz_m = re.match(r'([\d.]+)\s*oz\b', raw_weight, re.IGNORECASE)
+                if oz_m:
+                    oz_val = float(oz_m.group(1))
+                    raw_weight = f"{round(oz_val * 28, 1)}g"
+                weight = self.validate_weight(raw_weight, category)
 
             # Special handling for edibles
             if category == 'edible':

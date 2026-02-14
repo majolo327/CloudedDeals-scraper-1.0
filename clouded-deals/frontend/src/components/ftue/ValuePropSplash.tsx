@@ -47,7 +47,7 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
 
         {/* Subtext */}
         <p className="text-base text-slate-400 max-w-sm leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
-          We checked every dispensary this morning so you don&apos;t have to. Save what you love, skip what you don&apos;t &mdash; your feed gets smarter.
+          We checked every dispensary this morning so you don&apos;t have to. Hand-curated deals, updated daily.
         </p>
 
         {/* Feature callouts */}
