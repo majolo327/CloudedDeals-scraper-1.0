@@ -90,7 +90,7 @@ export function ContactBanner({ onDismiss, savedDealsCount, addToast }: ContactB
       {/* Dismiss button */}
       <button
         onClick={onDismiss}
-        className="absolute top-3 right-3 w-7 h-7 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/10 transition-all"
+        className="absolute top-2 right-2 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/10 transition-all"
         aria-label="Dismiss"
       >
         <X className="w-4 h-4" />

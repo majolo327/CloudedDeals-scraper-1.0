@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Heart, MapPin, X } from 'lucide-react';
 import type { Deal } from '@/types';
 import { getDistanceMiles, getDisplayName, getPricePerUnit } from '@/utils';
 import { getUserCoords } from './ftue';
-import { ShareModal } from './modals/ShareModal';
 
 interface DealCardProps {
   deal: Deal;
@@ -27,8 +26,6 @@ const categoryLabels: Record<string, string> = {
 };
 
 export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onSave, onDismiss, onClick, distanceLabel }: DealCardProps) {
-  const [showShare, setShowShare] = useState(false);
-
   const distance = useMemo(() => {
     const userCoords = getUserCoords();
     if (!userCoords) return null;
@@ -82,7 +79,7 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
             e.stopPropagation();
             onSave();
           }}
-          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all shrink-0 ${
+          className={`min-w-[44px] min-h-[44px] -mt-2 -mr-2 rounded-lg flex items-center justify-center transition-all shrink-0 ${
             isSaved
               ? 'bg-purple-500/10 text-purple-400'
               : 'text-slate-500 hover:text-purple-400 hover:bg-purple-500/10'
@@ -94,7 +91,7 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
       </div>
 
       {/* Product name */}
-      <h3 className="text-xs sm:text-[15px] font-medium text-slate-100 mb-0.5 sm:mb-1 line-clamp-2 leading-snug">
+      <h3 className="text-xs sm:text-sm font-medium text-slate-100 mb-0.5 sm:mb-1 line-clamp-2 leading-snug">
         {getDisplayName(deal.product_name, deal.brand?.name || '')}
       </h3>
 
@@ -140,7 +137,7 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
               e.stopPropagation();
               onDismiss();
             }}
-            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-400 hover:bg-white/5 transition-colors shrink-0"
+            className="p-2 min-w-[44px] min-h-[44px] -mr-2 -mb-1 rounded-lg text-slate-600 hover:text-slate-400 hover:bg-white/5 transition-colors shrink-0 flex items-center justify-center"
             aria-label="Dismiss deal"
           >
             <X className="w-3.5 h-3.5" />
@@ -150,10 +147,6 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
 
       {/* Watermark for screenshots */}
       <p className="text-[8px] sm:text-[9px] text-slate-600 text-right mt-1 sm:mt-2 select-none">found on cloudeddeals.com</p>
-
-      {showShare && (
-        <ShareModal deal={deal} onClose={() => setShowShare(false)} />
-      )}
     </div>
   );
 }
