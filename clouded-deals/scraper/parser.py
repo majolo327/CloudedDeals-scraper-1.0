@@ -617,6 +617,14 @@ def detect_brand(text: str) -> str | None:
 # =====================================================================
 # 4. Category detection
 # =====================================================================
+# DEPRECATED: These functions are NOT used in production.
+# The canonical category detection system is CloudedLogic.detect_category()
+# in clouded_logic.py (10-step hierarchical detection with vape/concentrate
+# disambiguation and weight-based inference).
+#
+# These simpler keyword-based functions remain only for test_parser.py
+# backwards compatibility.  Do NOT use them in new code.
+# =====================================================================
 
 CATEGORY_KEYWORDS: dict[str, list[str]] = {
     "skip":        ["rso", "tincture", "topical", "capsule", "cbd only",

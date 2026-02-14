@@ -41,7 +41,7 @@ CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
         "28": 100,    # full oz — relaxed from $79
     },
     "vape": 35,           # carts/pods — relaxed from $25
-    "edible": 15,         # gummies/chocolates — relaxed from $9
+    "edible": 20,         # gummies/chocolates — raised from $15 for multi-dose
     "concentrate": {      # weight-based: live rosin can be pricier
         "0.5": 25,        # half gram
         "1": 45,          # gram — raised from flat $35

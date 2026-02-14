@@ -374,20 +374,26 @@ class CarrotScraper(BaseScraper):
             pass
 
         # Click "Load More" / "View More" buttons until none remain
+        # Each click gets up to 2 retries with backoff before giving up.
         max_clicks = 20
         for click_num in range(max_clicks):
             clicked = False
             for selector in _LOAD_MORE_SELECTORS:
-                try:
-                    btn = self.page.locator(selector).first
-                    if await btn.count() > 0 and await btn.is_visible():
-                        await btn.click()
-                        clicked = True
-                        logger.info("[%s] Clicked '%s' (round %d)", self.slug, selector, click_num + 1)
-                        await asyncio.sleep(1.5)
-                        break
-                except Exception:
-                    continue
+                for _retry in range(3):
+                    try:
+                        btn = self.page.locator(selector).first
+                        if await btn.count() > 0 and await btn.is_visible():
+                            await btn.click()
+                            clicked = True
+                            logger.info("[%s] Clicked '%s' (round %d)", self.slug, selector, click_num + 1)
+                            await asyncio.sleep(1.5)
+                        break  # success or button not found
+                    except Exception:
+                        if _retry < 2:
+                            await asyncio.sleep(2 ** (_retry + 1))
+                        continue
+                if clicked:
+                    break
             if not clicked:
                 break
 
