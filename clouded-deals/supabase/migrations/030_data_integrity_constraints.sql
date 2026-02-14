@@ -84,7 +84,7 @@ ALTER TABLE products
 ALTER TABLE dispensaries DROP CONSTRAINT IF EXISTS chk_dispensaries_platform;
 ALTER TABLE dispensaries
   ADD CONSTRAINT chk_dispensaries_platform
-  CHECK (platform IN ('dutchie', 'curaleaf', 'jane', 'carrot', 'aiq', 'rise'));
+  CHECK (platform IN ('dutchie', 'curaleaf', 'jane', 'carrot', 'aiq', 'rise', 'pending'));
 
 ALTER TABLE dispensaries DROP CONSTRAINT IF EXISTS chk_dispensaries_region;
 ALTER TABLE dispensaries
