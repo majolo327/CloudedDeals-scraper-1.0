@@ -831,10 +831,12 @@ def _log_deal_history(
     try:
         # Use RPC for atomic upsert — increments times_seen on conflict
         # instead of resetting to 1 (see 027_upsert_deal_observation.sql).
-        import json
+        # Pass the list directly — the Supabase client serializes it to a
+        # JSONB array.  json.dumps() would double-encode it into a string
+        # scalar, causing "cannot extract elements from a scalar" errors.
         for i in range(0, len(history_rows), _UPSERT_CHUNK_SIZE):
             chunk = history_rows[i : i + _UPSERT_CHUNK_SIZE]
-            db.rpc("upsert_deal_observations", {"observations": json.dumps(chunk)}).execute()
+            db.rpc("upsert_deal_observations", {"observations": chunk}).execute()
         logger.info(
             "[%s] Logged %d deal observations to deal_history",
             dispensary_id, len(history_rows),
@@ -877,8 +879,14 @@ def _expire_stale_deal_history(group_slugs: list[str] | None = None) -> None:
 
 _SITE_TIMEOUT_SEC = SITE_TIMEOUT_SEC  # 600 s (from config)
 _RETRY_TIMEOUT_SEC = 300  # Reduced timeout on retries — if first attempt timed out at 600s, a shorter window avoids wasting another 600s
-_MAX_RETRIES = 3
-_RETRY_DELAYS = [5, 15, 30]  # Exponential-ish backoff between retries
+_MAX_RETRIES = 2  # 2 attempts total — saves ~5 min per broken site vs 3
+_RETRY_DELAYS = [5, 15]  # Backoff between retries
+
+# Job-level time budget (seconds).  The orchestrator will skip retries
+# and abort new scrape attempts when the elapsed time exceeds this limit,
+# ensuring the summary report is always generated before the GitHub Actions
+# hard timeout kills the process.  Set 5 min below the GHA timeout-minutes.
+_JOB_BUDGET_SEC = int(os.getenv("JOB_BUDGET_SEC", "6900"))  # 115 min
 
 
 def _split_weight(weight_str: str | None) -> tuple[float | None, str | None]:
@@ -1120,6 +1128,7 @@ async def scrape_site(
     dispensary: dict[str, Any],
     *,
     browser: Any = None,
+    deadline: float = 0,
 ) -> dict[str, Any]:
     """Scrape a single dispensary with timeout and retry.
 
@@ -1127,12 +1136,33 @@ async def scrape_site(
     retry attempts (if the first 600 s attempt timed out, spending
     another 600 s on the same site is unlikely to help — 300 s is
     enough for a warm retry where caches/DNS are primed).
+
+    When *deadline* is set (epoch timestamp), retries are skipped if
+    the job is running low on time and per-attempt timeouts are capped
+    to the remaining budget so individual sites can't overrun the job.
     """
     slug = dispensary["slug"]
 
     for attempt in range(1, _MAX_RETRIES + 1):
+        # ── Job deadline gate ──────────────────────────────────────
+        if deadline:
+            remaining = deadline - time.time()
+            if remaining <= 30:
+                logger.warning(
+                    "[%s] Skipping attempt %d — only %.0fs left in job budget",
+                    slug, attempt, remaining,
+                )
+                return {"slug": slug, "error": "Skipped — job deadline reached"}
+
         # First attempt gets full timeout; retries get reduced timeout
         timeout = _SITE_TIMEOUT_SEC if attempt == 1 else _RETRY_TIMEOUT_SEC
+
+        # Cap timeout to remaining job budget (leave 15s for cleanup)
+        if deadline:
+            timeout = min(timeout, int(deadline - time.time()) - 15)
+            if timeout <= 0:
+                return {"slug": slug, "error": "Skipped — insufficient time remaining"}
+
         logger.info(
             "[%s] Starting scrape (%s) — attempt %d/%d (timeout=%ds)",
             slug, dispensary["platform"], attempt, _MAX_RETRIES, timeout,
@@ -1301,160 +1331,187 @@ async def run(slug_filter: str | None = None) -> None:
          if any(d["platform"] == k for d in dispensaries)},
     )
     run_id = _create_run()
+    deadline = start + _JOB_BUDGET_SEC
+    logger.info("  DEADLINE:     %.0f min from now", _JOB_BUDGET_SEC / 60)
 
+    # Initialize ALL result trackers upfront so the finally block can
+    # always generate a summary — even if the pipeline crashes mid-scrape.
     sites_scraped: list[str] = []
     sites_failed: list[dict[str, str]] = []
     total_products = 0
     total_deals = 0
-
-    # Launch ONE shared browser for all concurrent scrapers
-    pw = await async_playwright().start()
-    browser = await pw.chromium.launch(
-        headless=True,
-        args=BROWSER_ARGS + [
-            "--disable-gpu",
-            "--disable-extensions",
-            "--disable-background-timer-throttling",
-        ],
-    )
-    logger.info("Shared browser launched — dispatching %d sites", len(dispensaries))
-
-    # Dual-semaphore approach: a global cap prevents too many total browser
-    # contexts, and per-platform caps prevent heavy platforms (Dutchie) from
-    # monopolising all slots and starving lighter scrapers.
-    global_semaphore = asyncio.Semaphore(concurrency)
-    platform_semaphores: dict[str, asyncio.Semaphore] = {
-        plat: asyncio.Semaphore(cap)
-        for plat, cap in _PLATFORM_CONCURRENCY.items()
-    }
-
-    async def _bounded_scrape(dispensary: dict[str, Any]) -> dict[str, Any]:
-        """Scrape a single site, bounded by global + platform semaphores."""
-        plat = dispensary["platform"]
-        plat_sem = platform_semaphores.get(plat, global_semaphore)
-        async with global_semaphore:
-            async with plat_sem:
-                site_start = time.time()
-                logger.info("[START] %s (%s)", dispensary["name"], plat)
-                result = await scrape_site(dispensary, browser=browser)
-                elapsed_s = time.time() - site_start
-                label = "DONE" if not result.get("error") else "FAIL"
-                logger.info(
-                    "[%s]  %s — %.1fs — %d products",
-                    label, dispensary["name"], elapsed_s,
-                    result.get("products", 0),
-                )
-                return result
-
-    # Run all sites concurrently (bounded by semaphore)
-    results = await asyncio.gather(
-        *[_bounded_scrape(d) for d in dispensaries],
-        return_exceptions=True,
-    )
-
-    # Close shared browser
-    await browser.close()
-    await pw.stop()
-
-    # Process results
     all_top_deals: list[dict[str, Any]] = []
     all_cut_deals: list[dict[str, Any]] = []
-    site_reports: list[dict[str, Any]] = []  # per-site data for summary
+    site_reports: list[dict[str, Any]] = []
+    status = "failed"
 
-    for disp, result in zip(dispensaries, results):
-        if isinstance(result, Exception):
-            logger.error("Unhandled exception: %s", result)
-            sites_failed.append({"slug": "unknown", "error": str(result)})
+    try:
+        # Launch ONE shared browser for all concurrent scrapers
+        pw = await async_playwright().start()
+        browser = await pw.chromium.launch(
+            headless=True,
+            args=BROWSER_ARGS + [
+                "--disable-gpu",
+                "--disable-extensions",
+                "--disable-background-timer-throttling",
+            ],
+        )
+        logger.info("Shared browser launched — dispatching %d sites", len(dispensaries))
+
+        # Dual-semaphore approach: a global cap prevents too many total browser
+        # contexts, and per-platform caps prevent heavy platforms (Dutchie) from
+        # monopolising all slots and starving lighter scrapers.
+        global_semaphore = asyncio.Semaphore(concurrency)
+        platform_semaphores: dict[str, asyncio.Semaphore] = {
+            plat: asyncio.Semaphore(cap)
+            for plat, cap in _PLATFORM_CONCURRENCY.items()
+        }
+
+        async def _bounded_scrape(dispensary: dict[str, Any]) -> dict[str, Any]:
+            """Scrape a single site, bounded by global + platform semaphores."""
+            plat = dispensary["platform"]
+            plat_sem = platform_semaphores.get(plat, global_semaphore)
+            async with global_semaphore:
+                async with plat_sem:
+                    site_start = time.time()
+                    logger.info("[START] %s (%s)", dispensary["name"], plat)
+                    result = await scrape_site(
+                        dispensary, browser=browser, deadline=deadline,
+                    )
+                    elapsed_s = time.time() - site_start
+                    label = "DONE" if not result.get("error") else "FAIL"
+                    logger.info(
+                        "[%s]  %s — %.1fs — %d products",
+                        label, dispensary["name"], elapsed_s,
+                        result.get("products", 0),
+                    )
+                    return result
+
+        # Run all sites concurrently (bounded by semaphore)
+        results = await asyncio.gather(
+            *[_bounded_scrape(d) for d in dispensaries],
+            return_exceptions=True,
+        )
+
+        # Close shared browser
+        await browser.close()
+        await pw.stop()
+
+        # Process results
+        for disp, result in zip(dispensaries, results):
+            if isinstance(result, Exception):
+                logger.error("Unhandled exception: %s", result)
+                sites_failed.append({"slug": "unknown", "error": str(result)})
+                site_reports.append({
+                    "slug": disp["slug"],
+                    "name": disp["name"],
+                    "platform": disp["platform"],
+                    "error": str(result),
+                    "products": 0,
+                    "deals": 0,
+                    "_report_data": {},
+                })
+                continue
+            slug = result.get("slug", disp["slug"])
+            rd = result.get("_report_data", {})
+            if result.get("error"):
+                sites_failed.append(
+                    {"slug": slug, "error": result["error"]}
+                )
+            else:
+                sites_scraped.append(slug)
+                total_products += result.get("products", 0)
+                total_deals += result.get("deals", 0)
+                all_top_deals.extend(rd.get("top_deals", []))
+                all_cut_deals.extend(rd.get("cut_deals", []))
             site_reports.append({
-                "slug": disp["slug"],
+                "slug": slug,
                 "name": disp["name"],
                 "platform": disp["platform"],
-                "error": str(result),
-                "products": 0,
-                "deals": 0,
-                "_report_data": {},
+                "error": result.get("error"),
+                "products": result.get("products", 0),
+                "deals": result.get("deals", 0),
+                "_report_data": rd,
             })
-            continue
-        slug = result.get("slug", disp["slug"])
-        rd = result.get("_report_data", {})
-        if result.get("error"):
-            sites_failed.append(
-                {"slug": slug, "error": result["error"]}
+
+        # Determine final status
+        if not sites_failed:
+            status = "completed"
+        elif sites_scraped:
+            status = "completed_with_errors"
+        # else status remains "failed"
+
+    except Exception as exc:
+        logger.error("FATAL: Scrape pipeline crashed: %s", exc, exc_info=True)
+        sites_failed.append({"slug": "pipeline", "error": str(exc)})
+
+    finally:
+        # ── CRASH-PROOF REPORTING ──────────────────────────────────
+        # Everything below runs even if the pipeline crashes or the
+        # job deadline is reached, ensuring operators always get a
+        # summary to diagnose issues.
+        elapsed = time.time() - start
+
+        try:
+            _complete_run(
+                run_id,
+                status=status,
+                total_products=total_products,
+                qualifying_deals=total_deals,
+                sites_scraped=sites_scraped,
+                sites_failed=sites_failed,
+                runtime_seconds=int(elapsed),
             )
-        else:
-            sites_scraped.append(slug)
-            total_products += result.get("products", 0)
-            total_deals += result.get("deals", 0)
-            all_top_deals.extend(rd.get("top_deals", []))
-            all_cut_deals.extend(rd.get("cut_deals", []))
-        site_reports.append({
-            "slug": slug,
-            "name": disp["name"],
-            "platform": disp["platform"],
-            "error": result.get("error"),
-            "products": result.get("products", 0),
-            "deals": result.get("deals", 0),
-            "_report_data": rd,
-        })
+        except Exception as exc:
+            logger.warning("Failed to complete run in DB: %s", exc)
 
-    # Determine final status
-    if not sites_failed:
-        status = "completed"
-    elif sites_scraped:
-        status = "completed_with_errors"
-    else:
-        status = "failed"
+        logger.info("=" * 60)
+        logger.info("SCRAPE COMPLETE")
+        logger.info("  Status:     %s", status)
+        logger.info("  Products:   %d", total_products)
+        logger.info("  Deals:      %d", total_deals)
+        logger.info("  Sites OK:   %d/%d", len(sites_scraped), len(dispensaries))
+        logger.info("  Duration:   %.1f min", elapsed / 60)
+        if sites_failed:
+            logger.info("  Failed:")
+            for f in sites_failed:
+                logger.info("    - %s: %s", f["slug"], f["error"])
+        logger.info("=" * 60)
 
-    elapsed = time.time() - start
+        # ─── Daily Metrics (pipeline quality tracking) ───────────────
+        try:
+            collect_daily_metrics(
+                db,
+                all_top_deals,
+                run_id=run_id,
+                total_products=total_products,
+                sites_scraped=len(sites_scraped),
+                sites_failed=len(sites_failed),
+                runtime_seconds=int(elapsed),
+                dry_run=DRY_RUN,
+            )
+        except Exception as exc:
+            logger.warning("Failed to collect daily metrics: %s", exc)
 
-    _complete_run(
-        run_id,
-        status=status,
-        total_products=total_products,
-        qualifying_deals=total_deals,
-        sites_scraped=sites_scraped,
-        sites_failed=sites_failed,
-        runtime_seconds=int(elapsed),
-    )
+        # ─── Detailed Deal Report ─────────────────────────────────────
+        try:
+            _log_deal_report(all_top_deals, all_cut_deals)
+        except Exception as exc:
+            logger.warning("Failed to log deal report: %s", exc)
 
-    logger.info("=" * 60)
-    logger.info("SCRAPE COMPLETE")
-    logger.info("  Status:     %s", status)
-    logger.info("  Products:   %d", total_products)
-    logger.info("  Deals:      %d", total_deals)
-    logger.info("  Sites OK:   %d/%d", len(sites_scraped), len(dispensaries))
-    logger.info("  Duration:   %.1f min", elapsed / 60)
-    if sites_failed:
-        logger.info("  Failed:")
-        for f in sites_failed:
-            logger.info("    - %s: %s", f["slug"], f["error"])
-    logger.info("=" * 60)
-
-    # ─── Daily Metrics (pipeline quality tracking) ───────────────
-    collect_daily_metrics(
-        db,
-        all_top_deals,
-        run_id=run_id,
-        total_products=total_products,
-        sites_scraped=len(sites_scraped),
-        sites_failed=len(sites_failed),
-        runtime_seconds=int(elapsed),
-        dry_run=DRY_RUN,
-    )
-
-    # ─── Detailed Deal Report ─────────────────────────────────────
-    _log_deal_report(all_top_deals, all_cut_deals)
-
-    # ─── Enhanced Scrape Summary (GitHub Actions readable) ─────
-    _log_scrape_summary(
-        site_reports,
-        all_top_deals,
-        all_cut_deals,
-        sites_failed=sites_failed,
-        total_products=total_products,
-        total_deals=total_deals,
-        elapsed_sec=elapsed,
-    )
+        # ─── Enhanced Scrape Summary (GitHub Actions readable) ─────
+        try:
+            _log_scrape_summary(
+                site_reports,
+                all_top_deals,
+                all_cut_deals,
+                sites_failed=sites_failed,
+                total_products=total_products,
+                total_deals=total_deals,
+                elapsed_sec=elapsed,
+            )
+        except Exception as exc:
+            logger.warning("Failed to write scrape summary: %s", exc)
 
 
 def _log_deal_report(
