@@ -118,6 +118,7 @@ DISPENSARIES = [
         "slug": "td-gibson",
         "platform": "dutchie",
         "url": "https://thedispensarynv.com/shop-gibson/?dtche%5Bpath%5D=specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-henderson/specials",
         "is_active": True,
         "region": "southern-nv",
         "embed_type": "js_embed",
@@ -127,6 +128,7 @@ DISPENSARIES = [
         "slug": "td-eastern",
         "platform": "dutchie",
         "url": "https://thedispensarynv.com/shop-eastern/?dtche%5Bpath%5D=specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-eastern-express/specials",
         "is_active": True,
         "region": "southern-nv",
         "embed_type": "js_embed",
@@ -136,6 +138,7 @@ DISPENSARIES = [
         "slug": "td-decatur",
         "platform": "dutchie",
         "url": "https://thedispensarynv.com/shop-decatur/?dtche%5Bpath%5D=specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-las-vegas/specials",
         "is_active": True,
         "region": "southern-nv",
         "embed_type": "js_embed",
@@ -182,6 +185,7 @@ DISPENSARIES = [
         "slug": "the-grove",
         "platform": "dutchie",
         "url": "https://www.thegrovenv.com/lasvegas/?dtche%5Bpath%5D=specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/the-grove-las-vegas/specials",
         "is_active": True,
         "region": "southern-nv",
         "embed_type": "js_embed",  # dtche param confirms JS embed
@@ -201,6 +205,7 @@ DISPENSARIES = [
         "slug": "mint-rainbow",
         "platform": "dutchie",
         "url": "https://mintdeals.com/rainbow-lv/menu/?dtche%5Bpath%5D=specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/the-mint-spring-valley/specials",
         "is_active": True,
         "region": "southern-nv",
         "embed_type": "js_embed",  # dtche param confirms JS embed
@@ -211,6 +216,7 @@ DISPENSARIES = [
         "slug": "jade-desert-inn",
         "platform": "dutchie",
         "url": "https://jadecannabisco.com/?dtche%5Bpath%5D=specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/blum-desert-inn/specials",
         "is_active": True,
         "region": "southern-nv",
         "embed_type": "js_embed",  # dtche param confirms JS embed
@@ -383,11 +389,13 @@ DISPENSARIES = [
         "region": "southern-nv",
     },
     {
+        # Sahara was failing with iheartjane.com as primary — swap to
+        # beyond-hello.com first (matches working Twain config).
         "name": "Beyond/Hello Sahara",
         "slug": "beyond-hello-sahara",
         "platform": "jane",
-        "url": "https://www.iheartjane.com/stores/4361/beyond-hello-sahara-ave/menu",
-        "fallback_url": "https://beyond-hello.com/nevada-dispensaries/las-vegas-sahara/adult-use-menu/",
+        "url": "https://beyond-hello.com/nevada-dispensaries/las-vegas-sahara/adult-use-menu/",
+        "fallback_url": "https://www.iheartjane.com/stores/4361/beyond-hello-sahara-ave/menu",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -419,22 +427,26 @@ DISPENSARIES = [
         "region": "southern-nv",
     },
     {
+        # Custom domain was failing — add iheartjane.com as fallback
+        # (store ID 4219 confirmed via web search).
         "name": "Tree of Life Jones",
         "slug": "tree-of-life-jones",
         "platform": "jane",
         "url": "https://lasvegas.treeoflifenv.com/store",
+        "fallback_url": "https://www.iheartjane.com/stores/4219/tree-of-life-las-vegas/menu",
         "is_active": True,
         "region": "southern-nv",
-        "hybrid_strategy": True,  # DOM may differ — needs live investigation
     },
     {
+        # Custom domain was failing — add iheartjane.com as fallback
+        # (store ID 3274 confirmed via web search).
         "name": "Tree of Life Centennial",
         "slug": "tree-of-life-centennial",
         "platform": "jane",
         "url": "https://northlasvegas.treeoflifenv.com/store",
+        "fallback_url": "https://www.iheartjane.com/stores/3274/tree-of-life-north-las-vegas/menu",
         "is_active": True,
         "region": "southern-nv",
-        "hybrid_strategy": True,  # DOM may differ — needs live investigation
     },
     {
         "name": "The Sanctuary N LV Blvd",
