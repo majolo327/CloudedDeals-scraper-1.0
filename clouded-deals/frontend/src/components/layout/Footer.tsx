@@ -86,9 +86,15 @@ export function Footer({ onNavigateToForBusiness, onNavigate, onNavigateToAbout,
         )}
 
         <p className="text-center text-xs text-slate-500 leading-relaxed">
-          Clouded Deals is not a licensed cannabis retailer. All deals are subject to
-          dispensary verification. Prices shown do not include tax. For adults 21+ only.
-          This is not medical advice.
+          Clouded Deals is not a licensed cannabis retailer and does not sell, distribute,
+          or deliver cannabis products. All deals are subject to dispensary verification.
+          Prices shown do not include tax. For adults 21+ only. This is not medical advice.
+        </p>
+        <p className="text-center text-[10px] text-slate-600 leading-relaxed mt-2 max-w-lg mx-auto">
+          Cannabis is illegal under federal law. Do not transport cannabis across state lines.
+          Do not operate a vehicle under the influence. Cannabis may be harmful to your health.
+          Do not use if pregnant or nursing. Keep out of reach of children.
+          Nevada law limits adult possession to 1 oz of flower or 1/8 oz of concentrates.
         </p>
 
         <div className="mt-8 pt-6 border-t border-slate-800/50">
