@@ -1493,6 +1493,13 @@ async def run(slug_filter: str | None = None) -> None:
         except Exception as exc:
             logger.warning("Failed to collect daily metrics: %s", exc)
 
+        # ─── Refresh materialized view ────────────────────────────────
+        try:
+            db.rpc("refresh_deal_save_counts", {}).execute()
+            logger.info("Refreshed deal_save_counts materialized view")
+        except Exception as exc:
+            logger.warning("Failed to refresh deal_save_counts: %s", exc)
+
         # ─── Detailed Deal Report ─────────────────────────────────────
         try:
             _log_deal_report(all_top_deals, all_cut_deals)
