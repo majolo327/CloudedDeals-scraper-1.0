@@ -80,7 +80,7 @@ export function AdminPinGate({ onVerified }: AdminPinGateProps) {
     if (digit && newDigits.every((d) => d !== '')) {
       verifyPin(newDigits.join(''));
     }
-  }, [digits, lockedUntil]);
+  }, [digits, lockedUntil, verifyPin]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleKeyDown = useCallback((index: number, e: React.KeyboardEvent) => {
     if (e.key === 'Backspace' && !digits[index] && index > 0) {
@@ -96,7 +96,7 @@ export function AdminPinGate({ onVerified }: AdminPinGateProps) {
       setDigits(newDigits);
       verifyPin(pasted);
     }
-  }, []);
+  }, [verifyPin]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const verifyPin = async (pin: string) => {
     setVerifying(true);
