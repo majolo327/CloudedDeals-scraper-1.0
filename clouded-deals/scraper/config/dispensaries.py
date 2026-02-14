@@ -1,21 +1,23 @@
 """
-Dispensary configuration across 4 regions and 6 platforms.
+Dispensary configuration across 6 regions and 6 platforms.
 
 Regions:
   - southern-nv: Las Vegas metro — 63 dispensaries (production)
   - michigan:    MI data collection — 114 dispensaries (Dutchie-dominant)
   - illinois:    IL data collection — 88 dispensaries (Rise/Curaleaf/Dutchie/Jane)
   - arizona:     AZ data collection — 52 dispensaries (Dutchie-dominant)
+  - missouri:    MO data collection — 31 dispensaries (Dutchie-only)
+  - new-jersey:  NJ data collection — 34 dispensaries (Dutchie + Rise + Zen Leaf)
 
-Platforms (317 total):
-  - dutchie: 210 — iframe-based menus (Dutchie/TD sites)
+Platforms (382 total):
+  - dutchie: 270 — iframe-based menus (Dutchie/TD sites)
   - jane:     48 — hybrid iframe/direct with "View More" pagination
-  - curaleaf: 31 — direct page loads (Curaleaf + Zen Leaf)
-  - rise:     19 — proprietary Next.js SPA (Rise/GTI + Cookies)
+  - curaleaf: 34 — direct page loads (Curaleaf + Zen Leaf)
+  - rise:     21 — proprietary Next.js SPA (Rise/GTI + Cookies)
   - carrot:    6 — JS widget via getcarrot.io
   - aiq:       3 — Alpine IQ / Dispense React SPA
 
-Total active: 317 dispensaries (63 NV + 114 MI + 88 IL + 52 AZ)
+Total active: 382 dispensaries (63 NV + 114 MI + 88 IL + 52 AZ + 31 MO + 34 NJ)
 
 Sites marked ``is_active: False`` are known-broken (redirects, rebrands,
 etc.) and will be skipped by the orchestrator.  They remain in the config
@@ -1015,6 +1017,123 @@ DISPENSARIES = [
     {"name": "Zen Leaf Phoenix Cave Creek AZ", "slug": "zen-leaf-phoenix-az", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/phoenix-n-cave-creek/menu/recreational", "is_active": True, "region": "arizona"},
     {"name": "Zen Leaf Gilbert AZ", "slug": "zen-leaf-gilbert", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/gilbert/menu/recreational", "is_active": True, "region": "arizona"},
     {"name": "Zen Leaf Prescott AZ", "slug": "zen-leaf-prescott", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/prescott/menu/recreational", "is_active": True, "region": "arizona"},
+
+    # ==================================================================
+    # MISSOURI — Data collection. 5th largest adult-use market nationally.
+    # $1.53B in 2025 sales. 214 licensed dispensaries. Dutchie-dominant.
+    # Key chains: Key Missouri (9), Greenlight (10), From The Earth (3),
+    # Green Releaf (3), Terrabis, Bloc, Star Buds, Nature Med.
+    # Population: 6.2M. Major metros: KC (516K), StL (280K),
+    # Springfield (171K), Columbia (131K).
+    # ==================================================================
+
+    # ── KEY MISSOURI (9 locations, Dutchie — Proper Cannabis partner) ─
+    {"name": "Key Missouri Cameron", "slug": "key-mo-cameron", "platform": "dutchie", "url": "https://dutchie.com/dispensary/key-missouri-cameron", "is_active": True, "region": "missouri"},
+    {"name": "Key Missouri KC East", "slug": "key-mo-kc-east", "platform": "dutchie", "url": "https://dutchie.com/dispensary/key-missouri-front-st", "is_active": True, "region": "missouri"},
+    {"name": "Key Missouri KC North", "slug": "key-mo-kc-north", "platform": "dutchie", "url": "https://dutchie.com/dispensary/key-missouri-kansas-city-north", "is_active": True, "region": "missouri"},
+    {"name": "Key Missouri KC South", "slug": "key-mo-kc-south", "platform": "dutchie", "url": "https://dutchie.com/dispensary/key-missouri-kansas-city-south", "is_active": True, "region": "missouri"},
+    {"name": "Key Missouri O'Fallon", "slug": "key-mo-ofallon", "platform": "dutchie", "url": "https://dutchie.com/dispensary/key-missouri-ofallon", "is_active": True, "region": "missouri"},
+    {"name": "Key Missouri Cape Girardeau", "slug": "key-mo-cape-girardeau", "platform": "dutchie", "url": "https://dutchie.com/dispensary/key-missouri-cape-girardeau", "is_active": True, "region": "missouri"},
+    {"name": "Key Missouri Belton", "slug": "key-mo-belton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/key-missouri-belton", "is_active": True, "region": "missouri"},
+    {"name": "Key Missouri Springfield", "slug": "key-mo-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/key-missouri-springfield", "is_active": True, "region": "missouri"},
+    {"name": "Key Missouri Nixa", "slug": "key-mo-nixa", "platform": "dutchie", "url": "https://dutchie.com/dispensary/key-missouri-nixa", "is_active": True, "region": "missouri"},
+
+    # ── GREENLIGHT DISPENSARY MO (10 locations, Dutchie) ──────────
+    {"name": "Greenlight Columbia MO", "slug": "greenlight-mo-columbia", "platform": "dutchie", "url": "https://dutchie.com/dispensary/3fifteen-primo-columbia", "is_active": True, "region": "missouri"},
+    {"name": "Greenlight Hayti MO", "slug": "greenlight-mo-hayti", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenlight-dispensary-hayti", "is_active": True, "region": "missouri"},
+    {"name": "Greenlight Stateline KCMO", "slug": "greenlight-mo-stateline", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenlight-dispensary-prospect", "is_active": True, "region": "missouri"},
+    {"name": "Greenlight Joplin MO", "slug": "greenlight-mo-joplin", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenlight-dispensary-joplin", "is_active": True, "region": "missouri"},
+    {"name": "Greenlight Sikeston MO", "slug": "greenlight-mo-sikeston", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenlight-dispensary-sikeston", "is_active": True, "region": "missouri"},
+    {"name": "Greenlight Ferguson MO", "slug": "greenlight-mo-ferguson", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenlight-ferguson", "is_active": True, "region": "missouri"},
+    {"name": "Greenlight Harrisonville MO", "slug": "greenlight-mo-harrisonville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenlight-dispensary-harrisonville1", "is_active": True, "region": "missouri"},
+    {"name": "Greenlight Springfield MO", "slug": "greenlight-mo-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenlight-dispensary-springfield", "is_active": True, "region": "missouri"},
+    {"name": "Greenlight Independence MO", "slug": "greenlight-mo-independence", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenlight-dispensary-noland-road", "is_active": True, "region": "missouri"},
+    {"name": "Greenlight Berkeley Airport MO", "slug": "greenlight-mo-berkeley", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenlight-dispensary-berkely", "is_active": True, "region": "missouri"},
+
+    # ── FROM THE EARTH MO (3 locations, Dutchie — KC area) ───────
+    {"name": "From The Earth Independence MO", "slug": "fte-mo-independence", "platform": "dutchie", "url": "https://dutchie.com/dispensary/from-the-earth-40-hwy", "is_active": True, "region": "missouri"},
+    {"name": "From The Earth Westside KCMO", "slug": "fte-mo-westside", "platform": "dutchie", "url": "https://dutchie.com/dispensary/from-the-earth", "is_active": True, "region": "missouri"},
+    {"name": "From The Earth Raytown MO", "slug": "fte-mo-raytown", "platform": "dutchie", "url": "https://dutchie.com/dispensary/from-the-earth-350-hwy", "is_active": True, "region": "missouri"},
+
+    # ── GREEN RELEAF MO (3 locations, Dutchie) ───────────────────
+    {"name": "Green Releaf Columbia MO", "slug": "green-releaf-columbia", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-releaf-columbia", "is_active": True, "region": "missouri"},
+    {"name": "Green Releaf Moberly MO", "slug": "green-releaf-moberly", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-releaf-moberly", "is_active": True, "region": "missouri"},
+    {"name": "Green Releaf Troy MO", "slug": "green-releaf-troy", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-releaf-troy", "is_active": True, "region": "missouri"},
+
+    # ── TERRABIS MO (Dutchie) ────────────────────────────────────
+    {"name": "Terrabis O'Fallon MO", "slug": "terrabis-ofallon", "platform": "dutchie", "url": "https://dutchie.com/dispensary/terrabis-dispensary-ofallon", "is_active": True, "region": "missouri"},
+
+    # ── BLOC DISPENSARY MO (2 locations, Dutchie) ────────────────
+    {"name": "Bloc Valley Park MO", "slug": "bloc-mo-valley-park", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloc-dispensary-valley-park", "is_active": True, "region": "missouri"},
+    {"name": "Bloc Farmington MO", "slug": "bloc-mo-farmington", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloc-dispensary-farmington", "is_active": True, "region": "missouri"},
+
+    # ── OTHER MO DUTCHIE SINGLES ─────────────────────────────────
+    {"name": "Star Buds Festus MO", "slug": "star-buds-festus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/star-buds-festus", "is_active": True, "region": "missouri"},
+    {"name": "Nature Med Independence MO", "slug": "nature-med-independence", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nature-med-independence", "is_active": True, "region": "missouri"},
+    {"name": "Greenlight Rock Port MO", "slug": "greenlight-mo-rock-port", "platform": "dutchie", "url": "https://dutchie.com/dispensary/rock-port", "is_active": True, "region": "missouri"},
+
+    # ==================================================================
+    # NEW JERSEY — Data collection. $1B+ in 2024 sales. 190+ licensed
+    # dispensaries. NYC metro 20M+ population. MSO-heavy: Curaleaf (on
+    # Dutchie!), GTI/Rise, Verano/Zen Leaf, Ascend. Key insight: Curaleaf
+    # NJ migrated to Dutchie platform — scrapes via dutchie.py not
+    # curaleaf.py. Strong independent scene: MPX NJ, Sweetspot, Hashery,
+    # Bloc, AYR/GSD.
+    # ==================================================================
+
+    # ── ASCEND NJ (3 locations, Dutchie) ─────────────────────────
+    {"name": "Ascend Fort Lee NJ", "slug": "ascend-nj-fort-lee", "platform": "dutchie", "url": "https://dutchie.com/dispensary/fort-lee-new-jersey", "is_active": True, "region": "new-jersey"},
+    {"name": "Ascend Rochelle Park NJ", "slug": "ascend-nj-rochelle-park", "platform": "dutchie", "url": "https://dutchie.com/dispensary/rochelle-park-new-jersey", "is_active": True, "region": "new-jersey"},
+    {"name": "Ascend Wharton NJ", "slug": "ascend-nj-wharton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/wharton-new-jersey", "is_active": True, "region": "new-jersey"},
+
+    # ── CURALEAF NJ (on Dutchie — 5 storefronts) ─────────────────
+    {"name": "Curaleaf NJ Bellmawr Rec", "slug": "curaleaf-nj-bellmawr-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/curaleaf-nj-bellmawr-adult-use", "is_active": True, "region": "new-jersey"},
+    {"name": "Curaleaf NJ Bellmawr Med", "slug": "curaleaf-nj-bellmawr-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/curaleaf-nj-bellmawr", "is_active": True, "region": "new-jersey"},
+    {"name": "Curaleaf NJ Edgewater Park Rec", "slug": "curaleaf-nj-edgewater", "platform": "dutchie", "url": "https://dutchie.com/dispensary/curaleaf-nj-edgewater-park-adult-use", "is_active": True, "region": "new-jersey"},
+    {"name": "Curaleaf NJ Bordentown Rec", "slug": "curaleaf-nj-bordentown-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/curaleaf-nj-bordentown-adult-use", "is_active": True, "region": "new-jersey"},
+    {"name": "Curaleaf NJ Bordentown Med", "slug": "curaleaf-nj-bordentown-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/curaleaf-nj-bordentown", "is_active": True, "region": "new-jersey"},
+
+    # ── AYR WELLNESS / GSD NJ (3 storefronts, Dutchie) ───────────
+    {"name": "AYR NJ Union Med", "slug": "ayr-nj-union-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/garden-state-dispensary-union", "is_active": True, "region": "new-jersey"},
+    {"name": "AYR NJ Union Rec", "slug": "ayr-nj-union-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/garden-state-dispensary-union-REC", "is_active": True, "region": "new-jersey"},
+    {"name": "AYR NJ Woodbridge", "slug": "ayr-nj-woodbridge", "platform": "dutchie", "url": "https://dutchie.com/dispensary/garden-state-dispensary-woodbridge", "is_active": True, "region": "new-jersey"},
+
+    # ── MPX NJ (iAnthus — 4 storefronts, Dutchie) ────────────────
+    {"name": "MPX NJ Atlantic City Rec", "slug": "mpx-nj-ac-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/mpx-new-jersey-atlantic-city", "is_active": True, "region": "new-jersey"},
+    {"name": "MPX NJ Gloucester Rec", "slug": "mpx-nj-gloucester-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/mpx-new-jersey-gloucester1", "is_active": True, "region": "new-jersey"},
+    {"name": "MPX NJ Pennsauken Rec", "slug": "mpx-nj-pennsauken-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/mpx-new-jersey-pennsauken-rec", "is_active": True, "region": "new-jersey"},
+    {"name": "MPX NJ Pennsauken Med", "slug": "mpx-nj-pennsauken-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/mpx-new-jersey-pennsauken", "is_active": True, "region": "new-jersey"},
+
+    # ── SWEETSPOT NJ (3 storefronts, Dutchie) ────────────────────
+    {"name": "Sweetspot Voorhees NJ Rec", "slug": "sweetspot-nj-voorhees-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/sweetspot-new-jersey-rec", "is_active": True, "region": "new-jersey"},
+    {"name": "Sweetspot Voorhees NJ Med", "slug": "sweetspot-nj-voorhees-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/sweetspot-new-jersey-med", "is_active": True, "region": "new-jersey"},
+    {"name": "Sweetspot River Edge NJ", "slug": "sweetspot-nj-river-edge", "platform": "dutchie", "url": "https://dutchie.com/dispensary/x-sweetspot-river-edged", "is_active": True, "region": "new-jersey"},
+
+    # ── BLOC DISPENSARY NJ (3 storefronts, Dutchie) ──────────────
+    {"name": "Bloc Waretown NJ Rec", "slug": "bloc-nj-waretown-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloc-dispensary-waretown-rec", "is_active": True, "region": "new-jersey"},
+    {"name": "Bloc Waretown NJ Med", "slug": "bloc-nj-waretown-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloc-dispensary-waretown", "is_active": True, "region": "new-jersey"},
+    {"name": "Bloc Somerset NJ Med", "slug": "bloc-nj-somerset", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloc-dispensary-somerset", "is_active": True, "region": "new-jersey"},
+
+    # ── COOKIES NJ (Dutchie) ─────────────────────────────────────
+    {"name": "Cookies Harrison NJ", "slug": "cookies-nj-harrison", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cookies-harrison", "is_active": True, "region": "new-jersey"},
+
+    # ── OTHER NJ DUTCHIE INDEPENDENTS ─────────────────────────────
+    {"name": "Hashery Hackensack NJ", "slug": "hashery-hackensack", "platform": "dutchie", "url": "https://dutchie.com/dispensary/hashery-llc-hackensack", "is_active": True, "region": "new-jersey"},
+    {"name": "Social Leaf Toms River NJ", "slug": "social-leaf-toms-river", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-social-leaf-llc", "is_active": True, "region": "new-jersey"},
+    {"name": "Blossom Jersey City NJ", "slug": "blossom-jersey-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/blossom-dispensary", "is_active": True, "region": "new-jersey"},
+    {"name": "Union Chill Lambertville NJ", "slug": "union-chill-lambertville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/union-chill-lambertville-nj", "is_active": True, "region": "new-jersey"},
+    {"name": "Eastern Green NJ Rec", "slug": "eastern-green-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/eastern-green-dispensary-rec", "is_active": True, "region": "new-jersey"},
+    {"name": "Eastern Green NJ Med", "slug": "eastern-green-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/eastern-green-inc", "is_active": True, "region": "new-jersey"},
+    {"name": "Holistic Solutions Waterford NJ", "slug": "holistic-waterford", "platform": "dutchie", "url": "https://dutchie.com/dispensary/holistic-solutions", "is_active": True, "region": "new-jersey"},
+
+    # ── RISE NJ (GTI — Rise platform) ────────────────────────────
+    {"name": "Rise Bloomfield NJ", "slug": "rise-nj-bloomfield", "platform": "rise", "url": "https://risecannabis.com/dispensaries/new-jersey/bloomfield/3120/recreational-menu/", "is_active": True, "region": "new-jersey"},
+    {"name": "Rise Paterson NJ", "slug": "rise-nj-paterson", "platform": "rise", "url": "https://risecannabis.com/dispensaries/new-jersey/paterson/3104/recreational-menu/", "is_active": True, "region": "new-jersey"},
+
+    # ── ZEN LEAF NJ (Verano) ─────────────────────────────────────
+    {"name": "Zen Leaf Elizabeth NJ", "slug": "zen-leaf-nj-elizabeth", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/elizabeth/menu/recreational", "is_active": True, "region": "new-jersey"},
+    {"name": "Zen Leaf Lawrence NJ", "slug": "zen-leaf-nj-lawrence", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/lawrence/menu/recreational", "is_active": True, "region": "new-jersey"},
+    {"name": "Zen Leaf Neptune NJ", "slug": "zen-leaf-nj-neptune", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/neptune/menu/recreational", "is_active": True, "region": "new-jersey"},
 ]
 
 # ---------------------------------------------------------------------------

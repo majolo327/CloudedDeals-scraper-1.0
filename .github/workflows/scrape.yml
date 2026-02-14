@@ -8,6 +8,8 @@ on:
     - cron: "0 16 * * *"   # michigan     — 8:00 AM PST / 9:00 AM PDT
     - cron: "0 17 * * *"   # illinois     — 9:00 AM PST / 10:00 AM PDT
     - cron: "0 18 * * *"   # arizona      — 10:00 AM PST / 11:00 AM PDT
+    - cron: "0 19 * * *"   # missouri     — 11:00 AM PST / 12:00 PM PDT
+    - cron: "0 20 * * *"   # new-jersey   — 12:00 PM PST / 1:00 PM PDT
   workflow_dispatch:
     inputs:
       platform_group:
@@ -29,6 +31,8 @@ on:
           - michigan
           - illinois
           - arizona
+          - missouri
+          - new-jersey
         default: "all"
       dry_run:
         description: "Dry run (scrape but don't write to DB)"
@@ -73,6 +77,10 @@ jobs:
             echo "value=illinois" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.schedule }}" = "0 18 * * *" ]; then
             echo "value=arizona" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 19 * * *" ]; then
+            echo "value=missouri" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 20 * * *" ]; then
+            echo "value=new-jersey" >> $GITHUB_OUTPUT
           else
             echo "value=southern-nv" >> $GITHUB_OUTPUT
           fi

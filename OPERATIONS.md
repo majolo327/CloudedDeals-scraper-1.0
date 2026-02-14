@@ -16,7 +16,7 @@ It runs as GitHub Actions cron jobs. No servers to maintain.
 
 ## Coverage
 
-**317 active dispensaries** across 4 states and 6 menu platforms:
+**382 active dispensaries** across 6 states and 6 menu platforms:
 
 ### Nevada (Production — Consumer-Facing) — 63 dispensaries
 
@@ -54,6 +54,24 @@ It runs as GitHub Actions cron jobs. No servers to maintain.
 | **Dutchie** | 44 | Trulieve/Harvest (12), Sol Flower (6), The Mint (4), Nature's Medicines (3), Nirvana (4), Ponderosa (7), Cookies, TruMed, Noble Herb, Earth's Healing, Tucson Saints, Story AZ, Curaleaf-Dutchie (2) |
 | **Curaleaf** | 8 | Curaleaf AZ (4), Zen Leaf AZ (4) |
 
+### Missouri (Data Collection — NOT Consumer-Facing) — 31 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Dutchie** | 31 | Key Missouri (9), Greenlight (10), From The Earth (3), Green Releaf (3), Terrabis (1), Bloc MO (2), Star Buds, Nature Med, Rock Port |
+
+**Market context:** $1.53B in 2025 sales (5th largest adult-use market nationally). 214 licensed dispensaries. Top brands: Illicit, Flora Farms, Vivid, Sinse, Proper, Clovr, Good Day Farm.
+
+### New Jersey (Data Collection — NOT Consumer-Facing) — 34 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Dutchie** | 29 | Ascend (3), Curaleaf NJ (5, migrated to Dutchie!), AYR/GSD (3), MPX NJ (4), Sweetspot (3), Bloc NJ (3), Cookies Harrison, independents (7) |
+| **Rise** | 2 | Rise Bloomfield, Rise Paterson |
+| **Curaleaf** | 3 | Zen Leaf Elizabeth, Lawrence, Neptune |
+
+**Market context:** $1B+ in 2024 sales. 190+ licensed dispensaries. NYC metro 20M+ pop. Key insight: Curaleaf NJ migrated to Dutchie — scrapes via dutchie.py. Top brands: Rythm (GTI), Kind Tree (TerrAscend), Verano, Ozone (Ascend), Cookies, Fernway.
+
 ---
 
 ## How It Runs
@@ -67,10 +85,12 @@ Each region runs on its own cron schedule, staggered 1 hour apart:
 | **michigan** | 16:00 | 9:00 AM | 114 |
 | **illinois** | 17:00 | 10:00 AM | 88 |
 | **arizona** | 18:00 | 11:00 AM | 52 |
+| **missouri** | 19:00 | 12:00 PM | 31 |
+| **new-jersey** | 20:00 | 1:00 PM | 34 |
 
 - **Where:** GitHub Actions (`.github/workflows/scrape.yml`)
 - **Duration:** ~30-60 min per region
-- **Isolation:** Each region runs independently — NV failures don't affect MI/IL/AZ
+- **Isolation:** Each region runs independently — failures don't affect other states
 
 ### Manual Trigger
 Go to GitHub repo > **Actions** tab > **Daily Scraper** > **Run workflow**:
@@ -78,17 +98,19 @@ Go to GitHub repo > **Actions** tab > **Daily Scraper** > **Run workflow**:
 | Input | Options | What it does |
 |-------|---------|--------------|
 | **Platform group** | `all` / `stable` / `new` | Which platforms to scrape |
-| **Region** | `all` / `southern-nv` / `michigan` / `illinois` / `arizona` | Which state to scrape |
+| **Region** | `all` / `southern-nv` / `michigan` / `illinois` / `arizona` / `missouri` / `new-jersey` | Which state to scrape |
 | **Dry run** | true/false | Scrape but don't write to DB (for testing) |
 | **Limited** | true/false | Only 1 site per platform (quick smoke test) |
 | **Single site** | slug like `td-gibson` | Scrape just one site |
 
-### Typical Morning Workflow
+### Typical Daily Workflow
 1. 8 AM — Nevada cron fires automatically (63 dispensaries)
 2. 9 AM — Michigan cron fires (114 dispensaries)
 3. 10 AM — Illinois cron fires (88 dispensaries)
 4. 11 AM — Arizona cron fires (52 dispensaries)
-5. ~12 PM — All regions complete, check Actions tab for green checks
+5. 12 PM — Missouri cron fires (31 dispensaries)
+6. 1 PM — New Jersey cron fires (34 dispensaries)
+7. ~2 PM — All 6 regions complete, check Actions tab for green checks
 
 ---
 
@@ -155,7 +177,7 @@ Stratified by category to ensure variety:
 
 | Table | Purpose | Key fields |
 |-------|---------|------------|
-| `dispensaries` | All 317 sites across 4 states | slug, name, url, platform, region, is_active |
+| `dispensaries` | All 382 sites across 6 states | slug, name, url, platform, region, is_active |
 | `products` | Every scraped product | dispensary_id, name, brand, category, sale_price, original_price, discount_percent, deal_score, is_active, scraped_at |
 | `deals` | Top 200 qualifying deals | product_id, dispensary_id, deal_score |
 | `scrape_runs` | Audit trail per run | status, platform_group, total_products, qualifying_deals, runtime_seconds |
@@ -173,7 +195,7 @@ clouded-deals/scraper/
   deal_detector.py           # Deal scoring & top-200 selection
   product_classifier.py      # Infused/pack detection
   parser.py                  # Price/weight/THC extraction
-  config/dispensaries.py     # All 317 site configs + platform groups
+  config/dispensaries.py     # All 382 site configs + platform groups
   platforms/
     dutchie.py               # Dutchie scraper (iframe/JS embed)
     curaleaf.py              # Curaleaf + Zen Leaf scraper

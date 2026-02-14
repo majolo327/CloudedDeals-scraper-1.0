@@ -192,6 +192,20 @@ BRANDS = sorted(set([
     'Harvest', 'Trulieve', 'Sol Flower',
     'Nectar Farms', 'Canamo', 'Copperstate Farms',
     'Shango', 'Hana Meds', 'Nature Med',
+    # ── Missouri-native brands ───────────────────────────────────────
+    'Illicit Gardens', 'Illicit', 'Flora Farms', 'Vivid',
+    'Sinse', 'Sinse Cannabis', 'Proper Cannabis', 'Proper',
+    'Clovr', 'Good Day Farm', 'Elevate', 'Elevate Missouri',
+    'HeadChange', 'Codes', 'C4', 'Ostara', 'BeLeaf',
+    "Missouri's Own", 'Amaze Cannabis', 'Key Cannabis',
+    'Greenlight', 'Star Buds', 'Vertical',
+    'Local Cannabis', 'Peak', 'Canna Mojo', 'Honeybee',
+    # ── New Jersey-native brands ─────────────────────────────────────
+    'Kind Tree', 'Fernway', 'Ozone', 'Garden Greens',
+    'Clade9', 'Jersey Canna', 'Sweet Spot',
+    'The Botanist', 'TerrAscend', 'Prism',
+    'Dogwalkers', 'Beboe', 'Encore',
+    'Effin', 'Treeworks',
 ]), key=str.lower)
 
 # Pre-compute lowercase brand set for fast lookup
@@ -227,6 +241,14 @@ BRAND_ALIASES: dict[str, str] = {
     'Stiizy MI': 'STIIIZY',
     'Verano IL': 'Verano',
     'Wana MI': 'Wana',
+    # Missouri aliases
+    'Sinse Cannabis': 'Sinse',
+    'Proper Cannabis': 'Proper',
+    'Elevate Missouri': 'Elevate',
+    'Illicit Gardens': 'Illicit',
+    # NJ aliases
+    'Verano Reserve': 'Verano',
+    'Full Tilt': 'Verano',
 }
 
 # ============================================================================
@@ -289,6 +311,27 @@ _BRAND_VARIATION_MAP: dict[str, str] = {
     'tru|med': 'Tru Infusion',
     'copperstate': 'Copperstate Farms',
     'mohave': 'Mohave Cannabis',
+    # Missouri variations
+    'illicit gardens': 'Illicit',
+    'flora farm': 'Flora Farms',
+    'good day farms': 'Good Day Farm',
+    'head change': 'HeadChange',
+    'headchange cannabis': 'HeadChange',
+    'sinse cannabis': 'Sinse',
+    'proper cannabis': 'Proper',
+    'amaze': 'Amaze Cannabis',
+    'greenlight cannabis': 'Greenlight',
+    'star bud': 'Star Buds',
+    # NJ variations
+    'kind tree nj': 'Kind Tree',
+    'terrascend': 'TerrAscend',
+    'fernway vape': 'Fernway',
+    'fernway vapes': 'Fernway',
+    'garden green': 'Garden Greens',
+    'jersey canna': 'Jersey Canna',
+    'the botanist nj': 'The Botanist',
+    'clade 9': 'Clade9',
+    'effin\'': 'Effin',
 }
 
 _VARIATION_PATTERNS: list[tuple[re.Pattern, str]] = [

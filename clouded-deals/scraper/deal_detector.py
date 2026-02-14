@@ -104,6 +104,12 @@ BRAND_TIERS: dict[str, dict[str, Any]] = {
             # Arizona-native popular brands
             "abundant organics", "grow sciences", "item 9 labs",
             "timeless", "sonoran roots", "mohave cannabis",
+            # Missouri-native popular brands
+            "illicit", "flora farms", "vivid", "sinse",
+            "proper", "clovr", "good day farm", "headchange",
+            # New Jersey-native popular brands
+            "kind tree", "fernway", "ozone", "rythm",
+            "garden greens", "the botanist", "clade9",
         },
         "points": 12,
     },
