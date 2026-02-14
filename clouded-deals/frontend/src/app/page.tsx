@@ -75,7 +75,6 @@ export default function Home() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // Streak milestone toast
   // Handle ?auth=success redirect from magic link
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -528,7 +527,6 @@ export default function Home() {
               aria-selected={activePage === tab.id}
               aria-label={tab.label}
               onClick={() => setActivePage(tab.id)}
-              {...(tab.id === 'search' ? { 'data-coach': 'nav-search' } : {})}
               className={`flex flex-col items-center gap-0.5 px-3 py-2 min-w-[56px] min-h-[48px] text-[11px] font-medium transition-colors ${
                 activePage === tab.id
                   ? 'text-purple-400'

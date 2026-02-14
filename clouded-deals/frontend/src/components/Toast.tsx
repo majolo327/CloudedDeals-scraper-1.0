@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Heart, X, Trophy, Flame, Sparkles } from 'lucide-react';
+import { Check, Heart, X, Trophy, Sparkles } from 'lucide-react';
 
 export interface ToastData {
   id: string;
   message: string;
-  type: 'success' | 'info' | 'saved' | 'removed' | 'milestone' | 'streak' | 'discovery';
+  type: 'success' | 'info' | 'saved' | 'removed' | 'milestone' | 'discovery';
 }
 
 interface ToastProps {
@@ -18,7 +18,7 @@ export function Toast({ toast, onDismiss }: ToastProps) {
   const [isLeaving, setIsLeaving] = useState(false);
 
   useEffect(() => {
-    const duration = ['milestone', 'streak', 'discovery'].includes(toast.type) ? 3500 : 2500;
+    const duration = ['milestone', 'discovery'].includes(toast.type) ? 3500 : 2500;
     const timer = setTimeout(() => {
       setIsLeaving(true);
       setTimeout(() => onDismiss(toast.id), 300);
@@ -32,7 +32,6 @@ export function Toast({ toast, onDismiss }: ToastProps) {
     saved: <Heart className="w-4 h-4 fill-current" />,
     removed: <X className="w-4 h-4" />,
     milestone: <Trophy className="w-4 h-4" />,
-    streak: <Flame className="w-4 h-4" />,
     discovery: <Sparkles className="w-4 h-4" />
   };
 
@@ -42,7 +41,6 @@ export function Toast({ toast, onDismiss }: ToastProps) {
     saved: 'bg-purple-500/20 border-purple-500/30 text-purple-400',
     removed: 'bg-slate-700/80 border-slate-600/50 text-slate-300',
     milestone: 'bg-amber-500/20 border-amber-500/30 text-amber-400',
-    streak: 'bg-orange-500/20 border-orange-500/30 text-orange-400',
     discovery: 'bg-cyan-500/20 border-cyan-500/30 text-cyan-400'
   };
 

@@ -108,7 +108,6 @@ export function DealsPage({
   return (
     <>
       <StickyStatsBar
-        savedCount={savedCount}
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
       >

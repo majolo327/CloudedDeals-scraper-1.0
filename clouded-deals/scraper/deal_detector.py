@@ -275,7 +275,7 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     # ------------------------------------------------------------------
     if source_platform == "jane":
         brand = product.get("brand")
-        if not brand or _get_brand_score(brand) <= 5:
+        if not brand or _score_brand(brand) <= 5:
             return False  # recognized brand required for Jane loose mode
         return _passes_price_cap(sale_price, category, weight_value)
 

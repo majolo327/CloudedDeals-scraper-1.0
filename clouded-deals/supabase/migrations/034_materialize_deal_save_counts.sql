@@ -13,7 +13,8 @@
 --   - Trigger: after scrape completes or via pg_cron every 15 min
 -- =========================================================================
 
--- Drop the existing regular view first
+-- Drop both forms to ensure idempotency (re-runnable)
+DROP MATERIALIZED VIEW IF EXISTS public.deal_save_counts;
 DROP VIEW IF EXISTS public.deal_save_counts;
 
 -- Create materialized view with same schema
@@ -38,6 +39,7 @@ CREATE OR REPLACE FUNCTION refresh_deal_save_counts()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
     REFRESH MATERIALIZED VIEW CONCURRENTLY deal_save_counts;

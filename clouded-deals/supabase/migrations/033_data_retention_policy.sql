@@ -17,6 +17,7 @@ CREATE OR REPLACE FUNCTION run_data_retention()
 RETURNS TABLE(table_name TEXT, rows_deleted BIGINT)
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     _deleted BIGINT;
