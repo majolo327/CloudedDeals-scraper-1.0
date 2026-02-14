@@ -2,10 +2,12 @@ name: Daily Scraper
 
 on:
   schedule:
-    # Cron targets 7:00 AM PST / 8:00 AM PDT (15:00 UTC). GitHub Actions
-    # cron typically runs 15-30 min late, so actual start lands ~7:15-7:30
-    # AM PST (winter) or ~8:15-8:30 AM PDT (summer).
-    - cron: "0 15 * * *"
+    # Staggered crons per region — each gets its own isolated run.
+    # GitHub Actions cron typically runs 15-30 min late.
+    - cron: "0 15 * * *"   # southern-nv  — 7:00 AM PST / 8:00 AM PDT
+    - cron: "0 16 * * *"   # michigan     — 8:00 AM PST / 9:00 AM PDT
+    - cron: "0 17 * * *"   # illinois     — 9:00 AM PST / 10:00 AM PDT
+    - cron: "0 18 * * *"   # arizona      — 10:00 AM PST / 11:00 AM PDT
   workflow_dispatch:
     inputs:
       platform_group:
@@ -16,6 +18,17 @@ on:
           - all
           - stable
           - new
+        default: "all"
+      region:
+        description: "Region/state to scrape"
+        required: false
+        type: choice
+        options:
+          - all
+          - southern-nv
+          - michigan
+          - illinois
+          - arizona
         default: "all"
       dry_run:
         description: "Dry run (scrape but don't write to DB)"
@@ -33,10 +46,9 @@ on:
         type: string
         default: ""
 
-# Concurrency is scoped by platform group so "stable" and "new" can
-# run in parallel without cancelling each other.
+# Concurrency is scoped by region so each state runs independently.
 concurrency:
-  group: scraper-${{ github.event.inputs.platform_group || 'stable' }}
+  group: scraper-${{ github.event.inputs.region || 'scheduled' }}-${{ github.event.inputs.platform_group || 'stable' }}
   cancel-in-progress: false
 
 jobs:
@@ -49,6 +61,21 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Determine region
+        id: region
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ github.event.inputs.region || 'all' }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 16 * * *" ]; then
+            echo "value=michigan" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 17 * * *" ]; then
+            echo "value=illinois" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 18 * * *" ]; then
+            echo "value=arizona" >> $GITHUB_OUTPUT
+          else
+            echo "value=southern-nv" >> $GITHUB_OUTPUT
+          fi
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -85,12 +112,15 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
           LIMIT_DISPENSARIES: ${{ github.event.inputs.limit_dispensaries || 'false' }}
           SINGLE_SITE: ${{ github.event.inputs.single_site || '' }}
-          FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
-          # Cron runs "stable" only; manual dispatch uses the selected group.
+          # Force run for manual dispatch and non-NV scheduled regions
+          # (idempotency check doesn't track per-region yet).
+          FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.region.outputs.value != 'southern-nv' && 'true' || 'false' }}
           PLATFORM_GROUP: ${{ github.event.inputs.platform_group || 'stable' }}
+          REGION: ${{ steps.region.outputs.value }}
         run: |
           echo "=== Scraper Configuration ==="
           echo "Group:      $PLATFORM_GROUP"
+          echo "Region:     $REGION"
           echo "Dry run:    $DRY_RUN"
           echo "Limited:    $LIMIT_DISPENSARIES"
           echo "Single:     $SINGLE_SITE"
@@ -107,7 +137,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: debug-screenshots-${{ github.event.inputs.platform_group || 'stable' }}-${{ github.run_id }}
+          name: debug-screenshots-${{ steps.region.outputs.value }}-${{ github.run_id }}
           path: |
             clouded-deals/scraper/debug_screenshots/
           retention-days: 7
@@ -117,7 +147,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: scraper-logs-${{ github.event.inputs.platform_group || 'stable' }}-${{ github.run_id }}
+          name: scraper-logs-${{ steps.region.outputs.value }}-${{ github.run_id }}
           path: |
             clouded-deals/scraper/*.log
           retention-days: 7

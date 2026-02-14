@@ -6,57 +6,88 @@
 
 ## What This Is
 
-A web scraper that visits 61 cannabis dispensary websites across Southern Nevada every morning, extracts their menus and pricing, detects deals worth showing users, scores them, and pushes the top 200 to our Supabase database. The frontend reads from that database.
+A web scraper that visits cannabis dispensary websites every morning, extracts their menus and pricing, detects deals worth showing users, scores them, and pushes the top 200 to our Supabase database. The frontend reads from that database.
 
-It runs as a GitHub Actions cron job. No servers to maintain.
+It runs as GitHub Actions cron jobs. No servers to maintain.
+
+**Multi-state data collection (Feb 2026):** We now scrape across 4 states — Nevada (production/consumer-facing), plus Michigan, Illinois, and Arizona for data collection and ML training purposes. New-state data is collected but NOT displayed on the consumer frontend. This gives us millions of data points for B2B value, brand intelligence, and ML model training before we ever launch in those markets.
 
 ---
 
 ## Coverage
 
-**61 active dispensaries** across 6 menu platforms:
+**114 active dispensaries** across 4 states and 6 menu platforms:
+
+### Nevada (Production — Consumer-Facing)
 
 | Platform | Sites | Status | Examples |
 |----------|-------|--------|----------|
 | **Dutchie** | 16 | Stable (daily cron) | Planet 13, Medizin, TD, Greenlight, The Grove, Mint, Jade, Sahara, Treehouse, SLV |
 | **Curaleaf** | 6 | Stable (daily cron) | Curaleaf Western/Strip/NLV/Reef, Zen Leaf Flamingo/NLV |
 | **Jane** | 19 | Stable (daily cron) | Oasis, Deep Roots, Cultivate, Thrive, Beyond/Hello, Exhale, Tree of Life, Sanctuary, The Source |
-| **Rise** | 9 | New (manual trigger) | Rise x6, Cookies Strip, Cookies Flamingo, Rise Henderson |
-| **Carrot** | 6 | New (manual trigger) | Wallflower, Inyo, Jenny's, Euphoria, Silver Sage, ShowGrow |
-| **AIQ** | 5 | New (manual trigger) | Green NV, Pisos, Jardin, Nevada Made Casino Dr/Charleston |
+| **Rise** | 9 | Stable (daily cron) | Rise x6, Cookies Strip, Cookies Flamingo, Rise Henderson |
+| **Carrot** | 6 | Stable (daily cron) | Wallflower, Inyo, Jenny's, Euphoria, Silver Sage, ShowGrow |
+| **AIQ** | 5 | Stable (daily cron) | Green NV, Pisos, Jardin, Nevada Made Casino Dr/Charleston |
 
 Plus 2 inactive AIQ sites (Nevada Made Henderson/Warm Springs — returning 403s).
-
 **Not covered:** Top Notch (Weedmaps — different ecosystem entirely).
+
+### Michigan (Data Collection — NOT Consumer-Facing)
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Dutchie** | 15 | Lume (3), Skymint (3), JARS (3), Cloud Cannabis (3), Joyology (3) |
+| **Curaleaf** | 3 | Curaleaf MI (2), Zen Leaf Buchanan (1) |
+
+### Illinois (Data Collection — NOT Consumer-Facing)
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Rise** | 8 | Rise Mundelein, Niles, Naperville, Lake in the Hills, Effingham, Canton, Quincy, Joliet |
+| **Curaleaf** | 9 | Curaleaf IL (4), Zen Leaf IL (5) |
+
+### Arizona (Data Collection — NOT Consumer-Facing)
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Dutchie** | 9 | Trulieve/Harvest (6), Sol Flower (3) |
+| **Curaleaf** | 8 | Curaleaf AZ (4), Zen Leaf AZ (4) |
 
 ---
 
 ## How It Runs
 
-### Daily Automatic (Stable Group)
-- **When:** 8:00 AM Pacific, every day
-- **What runs:** Dutchie + Curaleaf + Jane = 41 dispensaries
-- **Duration:** ~30-60 min depending on site response times
-- **Where:** GitHub Actions (`.github/workflows/scrape.yml`)
-- **Cost:** Free tier GitHub Actions minutes
+### Daily Automatic (Staggered by Region)
+Each region runs on its own cron schedule, staggered 1 hour apart:
 
-### Manual Trigger (New Platforms or Full Run)
+| Region | Cron (UTC) | Local Time (PDT) | Dispensaries |
+|--------|-----------|-------------------|--------------|
+| **southern-nv** | 15:00 | 8:00 AM | 63 |
+| **michigan** | 16:00 | 9:00 AM | 18 |
+| **illinois** | 17:00 | 10:00 AM | 17 |
+| **arizona** | 18:00 | 11:00 AM | 16 |
+
+- **Where:** GitHub Actions (`.github/workflows/scrape.yml`)
+- **Duration:** ~30-60 min per region
+- **Isolation:** Each region runs independently — NV failures don't affect MI/IL/AZ
+
+### Manual Trigger
 Go to GitHub repo > **Actions** tab > **Daily Scraper** > **Run workflow**:
 
 | Input | Options | What it does |
 |-------|---------|--------------|
-| **Platform group** | `all` / `stable` / `new` | Which dispensaries to scrape |
+| **Platform group** | `all` / `stable` / `new` | Which platforms to scrape |
+| **Region** | `all` / `southern-nv` / `michigan` / `illinois` / `arizona` | Which state to scrape |
 | **Dry run** | true/false | Scrape but don't write to DB (for testing) |
 | **Limited** | true/false | Only 1 site per platform (quick smoke test) |
 | **Single site** | slug like `td-gibson` | Scrape just one site |
 
-**Key rule:** Stable and New groups don't interfere with each other. Running "stable" won't delete yesterday's "new" data. They can even run simultaneously.
-
 ### Typical Morning Workflow
-1. 8 AM — Stable cron fires automatically (Dutchie/Curaleaf/Jane)
-2. ~9 AM — Check if it succeeded (Actions tab, green check)
-3. When ready — Manually trigger "new" group (Rise/Carrot/AIQ)
-4. Both groups' data coexists in the DB
+1. 8 AM — Nevada cron fires automatically (63 dispensaries)
+2. 9 AM — Michigan cron fires (18 dispensaries)
+3. 10 AM — Illinois cron fires (17 dispensaries)
+4. 11 AM — Arizona cron fires (16 dispensaries)
+5. ~12 PM — All regions complete, check Actions tab for green checks
 
 ---
 
@@ -173,6 +204,17 @@ Set as GitHub Actions secrets:
 | `SUPABASE_SERVICE_KEY` | Service role key (full DB access) |
 
 These are the only two secrets. Everything else is configured in code.
+
+**Environment variables (set in workflow, not secrets):**
+
+| Variable | Options | What it does |
+|----------|---------|--------------|
+| `PLATFORM_GROUP` | `all` / `stable` / `new` | Which platforms to include |
+| `REGION` | `all` / `southern-nv` / `michigan` / `illinois` / `arizona` | Which state to scrape |
+| `DRY_RUN` | `true` / `false` | Skip DB writes |
+| `FORCE_RUN` | `true` / `false` | Skip idempotency check |
+| `LIMIT_DISPENSARIES` | `true` / `false` | 1 site per platform |
+| `SINGLE_SITE` | slug | Scrape just one site |
 
 ---
 

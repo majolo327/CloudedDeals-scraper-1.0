@@ -1,19 +1,28 @@
 """
-Dispensary configuration for Las Vegas locations across 6 platforms.
+Dispensary configuration across 4 regions and 6 platforms.
+
+Regions:
+  - southern-nv: Las Vegas metro — 63 dispensaries (production)
+  - michigan:    MI data collection — 18 dispensaries (Dutchie/Curaleaf)
+  - illinois:    IL data collection — 17 dispensaries (Rise/Curaleaf/Zen Leaf)
+  - arizona:     AZ data collection — 16 dispensaries (Dutchie/Curaleaf/Zen Leaf)
 
 Platforms:
-  - dutchie: iframe-based menus (Dutchie/TD sites)  — 20 sites
-  - curaleaf: direct page loads (Curaleaf + Zen Leaf) — 6 sites
-  - jane: hybrid iframe/direct with "View More" pagination — 19 sites
-  - rise: proprietary Next.js SPA (Rise/GTI + Cookies) — 9 sites
-  - carrot: JS widget via getcarrot.io               — 6 sites
-  - aiq: Alpine IQ / Dispense React SPA              — 3 sites
+  - dutchie: iframe-based menus (Dutchie/TD sites)
+  - curaleaf: direct page loads (Curaleaf + Zen Leaf)
+  - jane: hybrid iframe/direct with "View More" pagination
+  - rise: proprietary Next.js SPA (Rise/GTI + Cookies)
+  - carrot: JS widget via getcarrot.io
+  - aiq: Alpine IQ / Dispense React SPA
 
-Total active: 63 dispensaries
+Total active: 114 dispensaries (63 NV + 18 MI + 17 IL + 16 AZ)
 
 Sites marked ``is_active: False`` are known-broken (redirects, rebrands,
 etc.) and will be skipped by the orchestrator.  They remain in the config
 so the DB seed keeps their rows for historical data.
+
+Multi-state dispensaries use the ``region`` field for filtering.
+The ``REGION`` env var in main.py controls which state is scraped.
 """
 
 # ---------------------------------------------------------------------------
@@ -654,6 +663,465 @@ DISPENSARIES = [
         "is_active": True,
         "region": "southern-nv",
     },
+
+    # ==================================================================
+    # MICHIGAN DISPENSARIES — Data collection (not consumer-facing)
+    # Dutchie-dominant market. Using direct Dutchie URLs for simplicity.
+    # ==================================================================
+
+    # --- Lume Cannabis (MI's largest chain, 30+ locations, Dutchie) ---
+    {
+        "name": "Lume Walled Lake",
+        "slug": "lume-walled-lake",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/lume-cannabis-co-walled-lake",
+        "is_active": True,
+        "region": "michigan",
+    },
+    {
+        "name": "Lume Monroe",
+        "slug": "lume-monroe",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/lume-monroe",
+        "is_active": True,
+        "region": "michigan",
+    },
+    {
+        "name": "Lume Petoskey",
+        "slug": "lume-petoskey",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/lume-cannabis-co-petoskey",
+        "is_active": True,
+        "region": "michigan",
+    },
+
+    # --- Skymint (20+ locations, Dutchie) ---
+    {
+        "name": "Skymint Ann Arbor",
+        "slug": "skymint-ann-arbor",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/skymint-ann-arbor",
+        "is_active": True,
+        "region": "michigan",
+    },
+    {
+        "name": "Skymint Kalamazoo",
+        "slug": "skymint-kalamazoo",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/skymint-kalamazoo",
+        "is_active": True,
+        "region": "michigan",
+    },
+    {
+        "name": "Skymint Grand Rapids",
+        "slug": "skymint-grand-rapids",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/skymint-division",
+        "is_active": True,
+        "region": "michigan",
+    },
+
+    # --- JARS Cannabis (20+ locations, Dutchie) ---
+    {
+        "name": "JARS Ann Arbor",
+        "slug": "jars-ann-arbor",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/jars-ann-arbor-packard",
+        "is_active": True,
+        "region": "michigan",
+    },
+    {
+        "name": "JARS Grand Rapids",
+        "slug": "jars-grand-rapids",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/jars-grand-rapids",
+        "is_active": True,
+        "region": "michigan",
+    },
+    {
+        "name": "JARS Monroe",
+        "slug": "jars-monroe-mi",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/jars-monroe",
+        "is_active": True,
+        "region": "michigan",
+    },
+
+    # --- Cloud Cannabis (10+ locations, Dutchie) ---
+    {
+        "name": "Cloud Cannabis Detroit",
+        "slug": "cloud-detroit",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/cloud-cannabis-detroit",
+        "is_active": True,
+        "region": "michigan",
+    },
+    {
+        "name": "Cloud Cannabis Kalamazoo",
+        "slug": "cloud-kalamazoo",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/cloud-cannabis-kalamazoo",
+        "is_active": True,
+        "region": "michigan",
+    },
+    {
+        "name": "Cloud Cannabis Traverse City",
+        "slug": "cloud-traverse-city",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/cloud-cannabis-traverse-city",
+        "is_active": True,
+        "region": "michigan",
+    },
+
+    # --- Joyology (10+ locations, Dutchie) ---
+    {
+        "name": "Joyology Center Line",
+        "slug": "joyology-center-line",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/joyology-of-center-line",
+        "is_active": True,
+        "region": "michigan",
+    },
+    {
+        "name": "Joyology Portage",
+        "slug": "joyology-portage",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/joyology-of-portage",
+        "is_active": True,
+        "region": "michigan",
+    },
+    {
+        "name": "Joyology Three Rivers",
+        "slug": "joyology-three-rivers",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/joyology-three-rivers",
+        "is_active": True,
+        "region": "michigan",
+    },
+
+    # --- Curaleaf Michigan (Curaleaf platform) ---
+    {
+        "name": "Curaleaf MI Kalamazoo",
+        "slug": "curaleaf-mi-kalamazoo",
+        "platform": "curaleaf",
+        "url": "https://curaleaf.com/shop/michigan/curaleaf-mi-kalamazoo",
+        "is_active": True,
+        "region": "michigan",
+    },
+    {
+        "name": "Curaleaf MI Bangor",
+        "slug": "curaleaf-mi-bangor",
+        "platform": "curaleaf",
+        "url": "https://curaleaf.com/dispensary/michigan?%2Fbangor%2F=",
+        "is_active": True,
+        "region": "michigan",
+    },
+
+    # --- Zen Leaf Michigan (Verano — same platform as NV) ---
+    {
+        "name": "Zen Leaf Buchanan",
+        "slug": "zen-leaf-buchanan",
+        "platform": "curaleaf",
+        "url": "https://zenleafdispensaries.com/locations/buchanan/recreational/menu/",
+        "is_active": True,
+        "region": "michigan",
+    },
+
+    # ==================================================================
+    # ILLINOIS DISPENSARIES — Data collection (not consumer-facing)
+    # MSO-dominated market: Rise (GTI), Curaleaf, Zen Leaf (Verano).
+    # ==================================================================
+
+    # --- Rise Illinois (GTI — 11 locations, Rise platform) ---
+    {
+        "name": "Rise Mundelein IL",
+        "slug": "rise-mundelein",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/illinois/mundelein/1342/recreational-menu/",
+        "is_active": True,
+        "region": "illinois",
+    },
+    {
+        "name": "Rise Niles IL",
+        "slug": "rise-niles",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/illinois/niles/1812/recreational-menu/",
+        "is_active": True,
+        "region": "illinois",
+    },
+    {
+        "name": "Rise Naperville IL",
+        "slug": "rise-naperville",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/illinois/naperville/2265/recreational-menu/",
+        "is_active": True,
+        "region": "illinois",
+    },
+    {
+        "name": "Rise Lake in the Hills IL",
+        "slug": "rise-lake-hills",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/illinois/lake-in-the-hills/2901/recreational-menu/",
+        "is_active": True,
+        "region": "illinois",
+    },
+    {
+        "name": "Rise Effingham IL",
+        "slug": "rise-effingham",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/illinois/effingham/1497/recreational-menu/",
+        "is_active": True,
+        "region": "illinois",
+    },
+    {
+        "name": "Rise Canton IL",
+        "slug": "rise-canton",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/illinois/canton/1343/recreational-menu/",
+        "is_active": True,
+        "region": "illinois",
+    },
+    {
+        "name": "Rise Quincy IL",
+        "slug": "rise-quincy",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/illinois/quincy/1338/recreational-menu/",
+        "is_active": True,
+        "region": "illinois",
+    },
+    {
+        "name": "Rise Joliet IL",
+        "slug": "rise-joliet",
+        "platform": "rise",
+        "url": "https://risecannabis.com/dispensaries/illinois/joliet-colorado/1340/recreational-menu/",
+        "is_active": True,
+        "region": "illinois",
+    },
+
+    # --- Curaleaf Illinois (Curaleaf platform) ---
+    {
+        "name": "Curaleaf IL Weed Street",
+        "slug": "curaleaf-il-weed-st",
+        "platform": "curaleaf",
+        "url": "https://curaleaf.com/shop/illinois/curaleaf-il-weed-street",
+        "is_active": True,
+        "region": "illinois",
+    },
+    {
+        "name": "Curaleaf IL Worth",
+        "slug": "curaleaf-il-worth",
+        "platform": "curaleaf",
+        "url": "https://curaleaf.com/shop/illinois/curaleaf-il-worth",
+        "is_active": True,
+        "region": "illinois",
+    },
+    {
+        "name": "Curaleaf IL Morris",
+        "slug": "curaleaf-il-morris",
+        "platform": "curaleaf",
+        "url": "https://curaleaf.com/shop/illinois/curaleaf-il-morris",
+        "is_active": True,
+        "region": "illinois",
+    },
+    {
+        "name": "Curaleaf IL Skokie",
+        "slug": "curaleaf-il-skokie",
+        "platform": "curaleaf",
+        "url": "https://curaleaf.com/shop/illinois/curaleaf-il-skokie",
+        "is_active": True,
+        "region": "illinois",
+    },
+
+    # --- Zen Leaf Illinois (Verano — 10 locations, same platform as NV) ---
+    {
+        "name": "Zen Leaf St. Charles IL",
+        "slug": "zen-leaf-st-charles",
+        "platform": "curaleaf",
+        "url": "https://zenleafdispensaries.com/locations/st-charles/menu/recreational",
+        "is_active": True,
+        "region": "illinois",
+    },
+    {
+        "name": "Zen Leaf Naperville IL",
+        "slug": "zen-leaf-naperville",
+        "platform": "curaleaf",
+        "url": "https://zenleafdispensaries.com/locations/naperville/menu",
+        "is_active": True,
+        "region": "illinois",
+    },
+    {
+        "name": "Zen Leaf Lombard IL",
+        "slug": "zen-leaf-lombard",
+        "platform": "curaleaf",
+        "url": "https://zenleafdispensaries.com/locations/lombard/menu",
+        "is_active": True,
+        "region": "illinois",
+    },
+    {
+        "name": "Zen Leaf Chicago West Loop",
+        "slug": "zen-leaf-west-loop",
+        "platform": "curaleaf",
+        "url": "https://zenleafdispensaries.com/locations/chicago-west-loop/menu",
+        "is_active": True,
+        "region": "illinois",
+    },
+    {
+        "name": "Zen Leaf Highland Park IL",
+        "slug": "zen-leaf-highland-park",
+        "platform": "curaleaf",
+        "url": "https://zenleafdispensaries.com/locations/highland-park/menu/recreational",
+        "is_active": True,
+        "region": "illinois",
+    },
+
+    # ==================================================================
+    # ARIZONA DISPENSARIES — Data collection (not consumer-facing)
+    # Dutchie-dominant market. Trulieve (Harvest) is the largest chain.
+    # ==================================================================
+
+    # --- Trulieve/Harvest Arizona (20+ locations, Dutchie) ---
+    {
+        "name": "Trulieve Scottsdale AZ",
+        "slug": "trulieve-scottsdale",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/harvest-of-scottsdale",
+        "is_active": True,
+        "region": "arizona",
+    },
+    {
+        "name": "Trulieve Phoenix AZ",
+        "slug": "trulieve-phoenix",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/harvest-of-phoenix",
+        "is_active": True,
+        "region": "arizona",
+    },
+    {
+        "name": "Trulieve Tempe AZ",
+        "slug": "trulieve-tempe",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/harvest-of-tempe",
+        "is_active": True,
+        "region": "arizona",
+    },
+    {
+        "name": "Trulieve Tucson AZ",
+        "slug": "trulieve-tucson",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/harvest-of-tucson",
+        "is_active": True,
+        "region": "arizona",
+    },
+    {
+        "name": "Trulieve Glendale AZ",
+        "slug": "trulieve-glendale",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/harvest-of-glendale",
+        "is_active": True,
+        "region": "arizona",
+    },
+    {
+        "name": "Trulieve Casa Grande AZ",
+        "slug": "trulieve-casa-grande",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/harvest-of-case-grande",
+        "is_active": True,
+        "region": "arizona",
+    },
+
+    # --- Sol Flower (5+ locations, Dutchie) ---
+    {
+        "name": "Sol Flower Sun City AZ",
+        "slug": "sol-flower-sun-city",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/sol-flower-dispensary",
+        "is_active": True,
+        "region": "arizona",
+    },
+    {
+        "name": "Sol Flower Tempe AZ",
+        "slug": "sol-flower-tempe",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/sol-flower-dispensary-mcclintock",
+        "is_active": True,
+        "region": "arizona",
+    },
+    {
+        "name": "Sol Flower Scottsdale Airpark",
+        "slug": "sol-flower-scottsdale",
+        "platform": "dutchie",
+        "url": "https://dutchie.com/dispensary/sol-flower-scottsdale-airpark",
+        "is_active": True,
+        "region": "arizona",
+    },
+
+    # --- Curaleaf Arizona (8-10 locations, Curaleaf platform) ---
+    {
+        "name": "Curaleaf AZ Scottsdale",
+        "slug": "curaleaf-az-scottsdale",
+        "platform": "curaleaf",
+        "url": "https://curaleaf.com/stores/curaleaf-dispensary-scottsdale",
+        "is_active": True,
+        "region": "arizona",
+    },
+    {
+        "name": "Curaleaf AZ Phoenix Airport",
+        "slug": "curaleaf-az-phoenix",
+        "platform": "curaleaf",
+        "url": "https://curaleaf.com/stores/curaleaf-dispensary-phoenix-airport",
+        "is_active": True,
+        "region": "arizona",
+    },
+    {
+        "name": "Curaleaf AZ Tucson",
+        "slug": "curaleaf-az-tucson",
+        "platform": "curaleaf",
+        "url": "https://curaleaf.com/stores/curaleaf-dispensary-tucson",
+        "is_active": True,
+        "region": "arizona",
+    },
+    {
+        "name": "Curaleaf AZ Youngtown",
+        "slug": "curaleaf-az-youngtown",
+        "platform": "curaleaf",
+        "url": "https://curaleaf.com/dispensary/arizona/curaleaf-dispensary-youngtown",
+        "is_active": True,
+        "region": "arizona",
+    },
+
+    # --- Zen Leaf Arizona (Verano — 7 locations, same platform as NV) ---
+    {
+        "name": "Zen Leaf Chandler AZ",
+        "slug": "zen-leaf-chandler",
+        "platform": "curaleaf",
+        "url": "https://zenleafdispensaries.com/locations/chandler/menu/recreational",
+        "is_active": True,
+        "region": "arizona",
+    },
+    {
+        "name": "Zen Leaf Phoenix Cave Creek AZ",
+        "slug": "zen-leaf-phoenix-az",
+        "platform": "curaleaf",
+        "url": "https://zenleafdispensaries.com/locations/phoenix-n-cave-creek/menu/recreational",
+        "is_active": True,
+        "region": "arizona",
+    },
+    {
+        "name": "Zen Leaf Gilbert AZ",
+        "slug": "zen-leaf-gilbert",
+        "platform": "curaleaf",
+        "url": "https://zenleafdispensaries.com/locations/gilbert/menu/recreational",
+        "is_active": True,
+        "region": "arizona",
+    },
+    {
+        "name": "Zen Leaf Prescott AZ",
+        "slug": "zen-leaf-prescott",
+        "platform": "curaleaf",
+        "url": "https://zenleafdispensaries.com/locations/prescott/menu/recreational",
+        "is_active": True,
+        "region": "arizona",
+    },
 ]
 
 # ---------------------------------------------------------------------------
@@ -718,4 +1186,17 @@ def get_dispensaries_by_group(group: str) -> list[dict]:
     return [
         d for d in DISPENSARIES
         if d.get("is_active", True) and d["platform"] in platforms
+    ]
+
+
+def get_dispensaries_by_region(region: str) -> list[dict]:
+    """Return active dispensaries belonging to a region/state.
+
+    Valid regions: 'southern-nv', 'michigan', 'illinois', 'arizona', 'all'.
+    """
+    if region == "all":
+        return get_active_dispensaries()
+    return [
+        d for d in DISPENSARIES
+        if d.get("is_active", True) and d.get("region", "southern-nv") == region
     ]
