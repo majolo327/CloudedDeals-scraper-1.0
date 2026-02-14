@@ -62,43 +62,7 @@ export function AdminPinGate({ onVerified }: AdminPinGateProps) {
     return () => clearInterval(interval);
   }, [lockedUntil]);
 
-  const handleDigitChange = useCallback((index: number, value: string) => {
-    if (lockedUntil) return;
-
-    const digit = value.replace(/\D/g, '').slice(-1);
-    const newDigits = [...digits];
-    newDigits[index] = digit;
-    setDigits(newDigits);
-    setError('');
-
-    // Auto-advance to next input
-    if (digit && index < PIN_LENGTH - 1) {
-      inputRefs.current[index + 1]?.focus();
-    }
-
-    // Auto-submit when all digits entered
-    if (digit && newDigits.every((d) => d !== '')) {
-      verifyPin(newDigits.join(''));
-    }
-  }, [digits, lockedUntil, verifyPin]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleKeyDown = useCallback((index: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !digits[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-  }, [digits]);
-
-  const handlePaste = useCallback((e: React.ClipboardEvent) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, PIN_LENGTH);
-    if (pasted.length === PIN_LENGTH) {
-      const newDigits = pasted.split('');
-      setDigits(newDigits);
-      verifyPin(pasted);
-    }
-  }, [verifyPin]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const verifyPin = async (pin: string) => {
+  const verifyPin = useCallback(async (pin: string) => {
     setVerifying(true);
     setError('');
 
@@ -134,7 +98,43 @@ export function AdminPinGate({ onVerified }: AdminPinGateProps) {
     } finally {
       setVerifying(false);
     }
-  };
+  }, [attempts, onVerified]);
+
+  const handleDigitChange = useCallback((index: number, value: string) => {
+    if (lockedUntil) return;
+
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const newDigits = [...digits];
+    newDigits[index] = digit;
+    setDigits(newDigits);
+    setError('');
+
+    // Auto-advance to next input
+    if (digit && index < PIN_LENGTH - 1) {
+      inputRefs.current[index + 1]?.focus();
+    }
+
+    // Auto-submit when all digits entered
+    if (digit && newDigits.every((d) => d !== '')) {
+      verifyPin(newDigits.join(''));
+    }
+  }, [digits, lockedUntil, verifyPin]);
+
+  const handleKeyDown = useCallback((index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !digits[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  }, [digits]);
+
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, PIN_LENGTH);
+    if (pasted.length === PIN_LENGTH) {
+      const newDigits = pasted.split('');
+      setDigits(newDigits);
+      verifyPin(pasted);
+    }
+  }, [verifyPin]);
 
   const remainingLockout = lockedUntil ? Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000)) : 0;
 
