@@ -120,7 +120,9 @@ export function useDealHistory() {
   }, []);
 
   // Archive expired deals: compare saved IDs against current deal IDs.
-  // Moves expired saves to history and returns the IDs that were archived.
+  // Moves expired saves to history and returns only the IDs that were
+  // successfully archived (or already in history). Deals without snapshots
+  // are NOT returned — they stay in savedDeals rather than silently vanishing.
   const archiveExpired = useCallback((
     savedDealIds: Set<string>,
     currentDealIds: Set<string>,
@@ -137,14 +139,18 @@ export function useDealHistory() {
 
     const now = Date.now();
     const newEntries: HistoryEntry[] = [];
+    const processedIds: string[] = [];
 
     for (const id of expired) {
-      // Check if already in history
+      // Check if already in history — safe to remove from saved
       const alreadyArchived = history.some(h => h.deal.id === id);
-      if (alreadyArchived) continue;
+      if (alreadyArchived) {
+        processedIds.push(id);
+        continue;
+      }
 
       const snapshot = snapshots[id];
-      if (!snapshot) continue; // No snapshot data, can't archive
+      if (!snapshot) continue; // Keep in saved — don't drop without a trace
 
       newEntries.push({
         deal: snapshot,
@@ -152,6 +158,7 @@ export function useDealHistory() {
         expired_at: now,
         status: 'expired',
       });
+      processedIds.push(id);
     }
 
     if (newEntries.length > 0) {
@@ -166,7 +173,7 @@ export function useDealHistory() {
       });
     }
 
-    return expired;
+    return processedIds;
   }, [snapshots, history]);
 
   // Clear all history
