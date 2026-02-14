@@ -431,6 +431,80 @@ Coach marks use `data-coach` attributes on elements for targeting. State stored 
 
 ---
 
+## Daily Deal Review — Founder Workflow
+
+Flag deals from the app (tap any deal → Flag button). Reports go to the `deal_reports` table. Review them daily.
+
+### Check flagged deals (Supabase SQL Editor)
+
+```sql
+-- Today's reports — what got flagged today
+SELECT product_name, dispensary_name, brand_name, deal_price,
+       report_type, report_message, created_at
+FROM deal_reports
+WHERE report_date = CURRENT_DATE
+ORDER BY created_at DESC;
+```
+
+```sql
+-- Summary view — unreviewed reports grouped by deal (highest report count first)
+SELECT * FROM deal_report_summary;
+```
+
+```sql
+-- All unreviewed reports with full detail
+SELECT product_name, dispensary_name, brand_name, deal_price,
+       report_type, report_message, anon_id, created_at
+FROM deal_reports
+WHERE reviewed = FALSE
+ORDER BY created_at DESC;
+```
+
+### Mark reports as reviewed
+
+```sql
+-- Mark all reports for a specific deal as reviewed
+UPDATE deal_reports
+SET reviewed = TRUE, reviewed_at = NOW()
+WHERE deal_id = 'INSERT-DEAL-UUID-HERE';
+```
+
+```sql
+-- Mark ALL unreviewed reports as reviewed (daily clear)
+UPDATE deal_reports
+SET reviewed = TRUE, reviewed_at = NOW()
+WHERE reviewed = FALSE;
+```
+
+### What to learn from flagged deals
+
+When you see recurring flags, ask Claude to investigate. Paste the flagged deals and ask:
+
+> "Here are today's flagged deals from CloudedDeals. For each one, tell me:
+> 1. Is this a scraper bug (wrong price extraction, wrong category, stale data)?
+> 2. Is this a scoring bug (deal shouldn't have qualified)?
+> 3. Is this a site issue (deal expired between scrape and user visit)?
+> 4. What specific scraper/scoring change would prevent this in the future?"
+
+**Common patterns and what they mean:**
+
+| Flag pattern | Likely cause | Fix |
+|---|---|---|
+| `wrong_price` on one dispensary | Price selector changed on their site | Debug that platform scraper, check extraction selectors |
+| `deal_gone` across many dispensaries | Scrape ran too early, deals changed mid-day | Consider running scraper closer to dispensary open time |
+| `deal_gone` on one dispensary only | That dispensary updates menu frequently | Mark as volatile, scrape 2x/day if needed |
+| `wrong_product` — wrong category | Category inference missed a keyword | Add keyword to `clouded_logic.py` category detection |
+| `wrong_product` — wrong brand | Brand name extracted from promo text | Check `parser.py` brand extraction order |
+| `wrong_price` + message "actual price is $X" | Original price vs sale price confusion | Check platform scraper's price field mapping |
+
+### Improving deal accuracy over time
+
+1. **Weekly:** Review `deal_report_summary` — are any dispensaries or brands repeatedly flagged?
+2. **Monthly:** Run the scraper in dry-run mode (`limited: true`) and spot-check 10 deals against live dispensary sites
+3. **After fixing a scraper bug:** Re-run the affected dispensary with `single_site` dispatch and verify the fix
+
+---
+
 ## Engineering Priorities — Operational Readiness
 
 These are the tactical engineering tasks that make the product production-grade. They sit alongside the strategic roadmap below. Do them as you go — most are 1-2 day efforts, not multi-week projects.

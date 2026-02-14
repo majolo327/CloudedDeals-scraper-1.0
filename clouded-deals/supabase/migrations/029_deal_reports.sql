@@ -13,12 +13,13 @@ CREATE TABLE IF NOT EXISTS deal_reports (
   product_name TEXT,
   reviewed BOOLEAN DEFAULT FALSE,
   reviewed_at TIMESTAMPTZ,
+  report_date DATE DEFAULT CURRENT_DATE,  -- used for spam-prevention index (avoids IMMUTABLE cast issue)
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Prevent spam: one report per user per deal per type per day
 CREATE UNIQUE INDEX IF NOT EXISTS idx_deal_reports_unique_daily
-  ON deal_reports (deal_id, anon_id, report_type, (created_at::DATE));
+  ON deal_reports (deal_id, anon_id, report_type, report_date);
 
 -- Fast lookups by deal and by date
 CREATE INDEX IF NOT EXISTS idx_deal_reports_deal_id ON deal_reports(deal_id);
