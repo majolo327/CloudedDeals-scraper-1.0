@@ -82,7 +82,7 @@ export function CompactDealCard({
     <div
       data-coach="deal-card"
       onClick={onClick}
-      className={`relative glass frost rounded-xl p-4 cursor-pointer transition-gentle card-interactive min-h-[170px] flex flex-col ${getAnimationClass()} ${
+      className={`relative glass frost rounded-xl p-3 sm:p-4 cursor-pointer transition-gentle card-interactive min-h-[170px] flex flex-col ${getAnimationClass()} ${
         saveGlow ? 'animate-save-glow' : ''
       } ${
         isRecommended ? 'border-l-2 border-l-purple-500/40' : ''
@@ -111,12 +111,12 @@ export function CompactDealCard({
             e.stopPropagation();
             onSave();
           }}
-          className={`p-1.5 -mt-1 -mr-1.5 rounded-lg transition-all shrink-0 ${
+          className={`w-8 h-8 min-w-[44px] min-h-[44px] -mt-1 -mr-1.5 rounded-lg flex items-center justify-center transition-all shrink-0 ${
             isSaved
               ? 'text-purple-400 bg-purple-500/15'
               : 'text-slate-600 hover:text-purple-400 hover:bg-purple-500/10'
           }`}
-          title={isSaved ? 'Saved' : 'Save deal'}
+          aria-label={isSaved ? 'Unsave deal' : 'Save deal'}
         >
           <Heart
             className={`w-4 h-4 ${isSaved ? 'fill-current' : ''} ${
@@ -127,7 +127,7 @@ export function CompactDealCard({
       </div>
 
       {/* Product name */}
-      <h3 className="text-[12px] sm:text-[13px] font-semibold text-slate-100 line-clamp-3 leading-snug mb-0.5">
+      <h3 className="text-xs sm:text-sm font-semibold text-slate-100 line-clamp-3 leading-snug mb-0.5">
         {getDisplayName(deal.product_name, deal.brand.name)}
       </h3>
 
@@ -170,10 +170,10 @@ export function CompactDealCard({
             e.stopPropagation();
             onDismiss();
           }}
-          className="p-1 rounded text-slate-700 hover:text-slate-400 transition-colors shrink-0"
-          title="Pass"
+          className="p-2 min-w-[44px] min-h-[44px] -mr-2 -mb-1 rounded-lg text-slate-700 hover:text-slate-400 transition-colors shrink-0 flex items-center justify-center"
+          aria-label="Dismiss deal"
         >
-          <X className="w-3 h-3" />
+          <X className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>

@@ -305,24 +305,6 @@ export function SearchPage({
     setRecentSearches([]);
   };
 
-  const tierLabel: Record<string, string> = {
-    premium: 'Premium',
-    established: 'Established',
-    local: 'Local',
-    value: 'Value',
-    verified: 'Verified',
-    standard: '',
-  };
-
-  const tierColor: Record<string, string> = {
-    premium: 'text-amber-400 bg-amber-500/10',
-    established: 'text-emerald-400 bg-emerald-500/10',
-    local: 'text-blue-400 bg-blue-500/10',
-    value: 'text-slate-400 bg-slate-500/10',
-    verified: 'text-purple-400 bg-purple-500/10',
-    standard: 'text-slate-500 bg-slate-500/10',
-  };
-
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
       {/* Expired deals notice */}
@@ -462,11 +444,6 @@ export function SearchPage({
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <p className="text-sm font-medium text-white truncate">{disp.name}</p>
-                              {tierLabel[disp.tier] && (
-                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${tierColor[disp.tier]}`}>
-                                  {tierLabel[disp.tier]}
-                                </span>
-                              )}
                             </div>
                             <p className="text-xs text-slate-500 truncate">{disp.address}</p>
                             <div className="flex items-center gap-3 mt-1">
@@ -532,11 +509,6 @@ export function SearchPage({
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <p className="text-sm font-medium text-white truncate">{brand.name}</p>
-                              {tierLabel[brand.tier] && (
-                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${tierColor[brand.tier]}`}>
-                                  {tierLabel[brand.tier]}
-                                </span>
-                              )}
                             </div>
                             <div className="flex items-center gap-2 mt-0.5">
                               <span className="text-xs text-slate-500 capitalize">

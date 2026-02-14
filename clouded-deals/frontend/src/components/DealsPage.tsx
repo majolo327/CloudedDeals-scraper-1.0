@@ -141,8 +141,8 @@ export function DealsPage({
           {/* Expired deals banner */}
           {isExpired && <ExpiredDealsBanner expiredCount={deals.length} />}
 
-          {/* Header row */}
-          <div className="flex items-center justify-between mb-4 gap-3">
+          {/* Header row — compact */}
+          <div className="flex items-center justify-between mb-3 gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <h2 className="text-sm font-medium text-slate-300 shrink-0">
                 {isExpired ? "Yesterday's deals" : "Today's deals"}{deals.length > 0 ? ` (${deals.length})` : ''}
@@ -155,7 +155,7 @@ export function DealsPage({
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {/* View mode toggle — swipe button opens fullscreen overlay */}
+              {/* View mode toggle */}
               <div
                 data-coach="view-toggle"
                 className="flex items-center bg-slate-800/60 rounded-lg p-0.5 border border-slate-700/50"
@@ -182,7 +182,7 @@ export function DealsPage({
             </div>
           </div>
 
-          {/* Challenge progress bar */}
+          {/* Challenge + brands + deck progress — all slim inline elements */}
           {challengeData && (
             <ChallengeBar
               onboardingComplete={challengeData.onboardingComplete}
@@ -191,9 +191,8 @@ export function DealsPage({
             />
           )}
 
-          {/* Your top brands — shown once user has saved 3+ deals from at least 1 brand */}
           {topBrands.length > 0 && topBrands[0][1] >= 3 && (
-            <div className="flex items-center gap-2 mb-4 text-xs">
+            <div className="flex items-center gap-2 mb-3 text-xs px-1">
               <span className="text-slate-500">Your brands:</span>
               {topBrands.map(([name, count]) => (
                 <span key={name} className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400/80 font-medium">
@@ -203,23 +202,20 @@ export function DealsPage({
             </div>
           )}
 
-          {/* Deck progress bar — after first dismiss */}
           {deck.totalDeals > 0 && deck.dismissedCount > 0 && (
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs text-slate-400">
-                  {deck.seenCount} of {deck.totalDeals} deals seen
-                </span>
-                <span className="text-xs text-slate-500">
-                  {deck.totalDeals - deck.seenCount} remaining
-                </span>
-              </div>
-              <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+            <div className="flex items-center gap-3 mb-3 px-1">
+              <span className="text-xs text-slate-400">
+                {deck.seenCount}/{deck.totalDeals} seen
+              </span>
+              <div className="flex-1 h-1 bg-slate-800 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${(deck.seenCount / deck.totalDeals) * 100}%` }}
                 />
               </div>
+              <span className="text-[11px] text-slate-500">
+                {deck.totalDeals - deck.seenCount} left
+              </span>
             </div>
           )}
 
