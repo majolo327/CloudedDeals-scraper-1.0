@@ -181,6 +181,42 @@ BRANDS = sorted(set([
     'Wana', 'Wonderbrett', 'Wyld', 'WYLD CBD', 'Your Highness',
     # &-prefixed
     '&Shine',
+    # ── Michigan-native brands ──────────────────────────────────────
+    'Lume', 'Skymint', 'Michigrown', 'Glorious Cannabis',
+    'North Coast', 'Pleasantrees', 'Redbud Roots', 'Fluresh',
+    'Common Citizen', "Freddy's Fuego", 'The Botanical Co',
+    'Platinum Vape', 'MKX', 'MKX Oil Co', 'Light Sky Farms',
+    'Puffin', 'Monster Xtracts', 'Stiizy MI',
+    'Wana MI', 'High Supply', 'Gage Cannabis', 'HOD',
+    'Cloud Cannabis', 'Puff Cannabis', 'JARS',
+    # ── Illinois-native brands ──────────────────────────────────────
+    'Revolution', 'Aeriz', 'Bedford Grow', 'Cresco',
+    'Good News', "Mindy's", "Mindy's Edibles", 'FloraCal',
+    'PTS', 'Columbia Care', 'Ascend', 'Ozone', 'Simply Herb',
+    'Nature\'s Grace', 'Rhythm', 'GTI', 'PharmaCann',
+    'Shelby County', 'Justice Grown', 'Verano IL',
+    'Beboe', 'Matter', 'Superflux',
+    # ── Arizona-native brands ───────────────────────────────────────
+    'Abundant Organics', 'Grow Sciences', 'Item 9 Labs',
+    'Venom Extracts', 'Timeless', 'Timeless Vapes', 'Ponderosa',
+    'Mohave Cannabis', 'Sonoran Roots', 'Tru Infusion',
+    'Harvest', 'Trulieve', 'Sol Flower',
+    'Nectar Farms', 'Canamo', 'Copperstate Farms',
+    'Shango', 'Hana Meds', 'Nature Med',
+    # ── Missouri-native brands ───────────────────────────────────────
+    'Illicit Gardens', 'Illicit', 'Flora Farms', 'Vivid',
+    'Sinse', 'Sinse Cannabis', 'Proper Cannabis', 'Proper',
+    'Clovr', 'Good Day Farm', 'Elevate', 'Elevate Missouri',
+    'HeadChange', 'Codes', 'C4', 'Ostara', 'BeLeaf',
+    "Missouri's Own", 'Amaze Cannabis', 'Key Cannabis',
+    'Greenlight', 'Star Buds', 'Vertical',
+    'Local Cannabis', 'Peak', 'Canna Mojo', 'Honeybee',
+    # ── New Jersey-native brands ─────────────────────────────────────
+    'Kind Tree', 'Fernway', 'Ozone', 'Garden Greens',
+    'Clade9', 'Jersey Canna', 'Sweet Spot',
+    'The Botanist', 'TerrAscend', 'Prism',
+    'Dogwalkers', 'Beboe', 'Encore',
+    'Effin', 'Treeworks',
 ]), key=str.lower)
 
 # Pre-compute lowercase brand set for fast lookup
@@ -215,6 +251,21 @@ BRAND_ALIASES: dict[str, str] = {
     'The Essence': 'Essence',         # "by The Essence" → canonical "Essence"
     'Tumbleweed': 'Tumbleweedz',      # normalize spelling
     'WYLD CBD': 'Wyld',               # product line → parent brand
+    # Multi-state brand aliases
+    'MKX Oil Co': 'MKX',
+    'Timeless Vapes': 'Timeless',
+    "Mindy's Edibles": "Mindy's",
+    'Stiizy MI': 'STIIIZY',
+    'Verano IL': 'Verano',
+    'Wana MI': 'Wana',
+    # Missouri aliases
+    'Sinse Cannabis': 'Sinse',
+    'Proper Cannabis': 'Proper',
+    'Elevate Missouri': 'Elevate',
+    'Illicit Gardens': 'Illicit',
+    # NJ aliases
+    'Verano Reserve': 'Verano',
+    'Full Tilt': 'Verano',
 }
 
 # ============================================================================
@@ -248,6 +299,59 @@ _BRAND_VARIATION_MAP: dict[str, str] = {
     'sauce': 'Sauce Essentials',
     'vlasic': 'Vlasic Labs',
     'müv': 'MÜV',
+    # Multi-state brand variations
+    'mkx oil': 'MKX',
+    'mkx oil co': 'MKX',
+    'platinum vapes': 'Platinum Vape',
+    'plat vape': 'Platinum Vape',
+    'cresco labs': 'Cresco',
+    'high supply by cresco': 'High Supply',
+    'good news by cresco': 'Good News',
+    "mindy's by cresco": "Mindy's",
+    "mindy's kitchen": "Mindy's",
+    'gti': 'GTI',
+    'green thumb': 'GTI',
+    'green thumb industries': 'GTI',
+    'rythm by gti': 'RYTHM',
+    'rhythm': 'RYTHM',
+    'bedford grow': 'Bedford Grow',
+    'revolution cannabis': 'Revolution',
+    'rev cannabis': 'Revolution',
+    'aeriz cannabis': 'Aeriz',
+    'pts cannabis': 'PTS',
+    'item 9': 'Item 9 Labs',
+    'item nine': 'Item 9 Labs',
+    'item nine labs': 'Item 9 Labs',
+    'grow sciences': 'Grow Sciences',
+    'venom': 'Venom Extracts',
+    'timeless vape': 'Timeless',
+    'abundant': 'Abundant Organics',
+    'sonoran': 'Sonoran Roots',
+    'tru infusion': 'Tru Infusion',
+    'tru|med': 'Tru Infusion',
+    'copperstate': 'Copperstate Farms',
+    'mohave': 'Mohave Cannabis',
+    # Missouri variations
+    'illicit gardens': 'Illicit',
+    'flora farm': 'Flora Farms',
+    'good day farms': 'Good Day Farm',
+    'head change': 'HeadChange',
+    'headchange cannabis': 'HeadChange',
+    'sinse cannabis': 'Sinse',
+    'proper cannabis': 'Proper',
+    'amaze': 'Amaze Cannabis',
+    'greenlight cannabis': 'Greenlight',
+    'star bud': 'Star Buds',
+    # NJ variations
+    'kind tree nj': 'Kind Tree',
+    'terrascend': 'TerrAscend',
+    'fernway vape': 'Fernway',
+    'fernway vapes': 'Fernway',
+    'garden green': 'Garden Greens',
+    'jersey canna': 'Jersey Canna',
+    'the botanist nj': 'The Botanist',
+    'clade 9': 'Clade9',
+    'effin\'': 'Effin',
 }
 
 _VARIATION_PATTERNS: list[tuple[re.Pattern, str]] = [

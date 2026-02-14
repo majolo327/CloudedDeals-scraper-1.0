@@ -96,6 +96,21 @@ BRAND_TIERS: dict[str, dict[str, Any]] = {
             "wana", "incredibles", "verano", "grassroots",
             "rythm", "plug play", "pax", "kingpen",
             "doja", "wonderbrett", "ember valley", "backpack boyz",
+            # Michigan-native popular brands
+            "platinum vape", "mkx", "lume", "skymint",
+            "element", "redbud roots", "pleasantrees",
+            # Illinois-native popular brands
+            "revolution", "aeriz", "bedford grow", "cresco",
+            "high supply", "good news", "matter", "superflux",
+            # Arizona-native popular brands
+            "abundant organics", "grow sciences", "item 9 labs",
+            "timeless", "sonoran roots", "mohave cannabis",
+            # Missouri-native popular brands
+            "illicit", "flora farms", "vivid", "sinse",
+            "proper", "clovr", "good day farm", "headchange",
+            # New Jersey-native popular brands
+            "kind tree", "fernway", "ozone", "rythm",
+            "garden greens", "the botanist", "clade9",
         },
         "points": 12,
     },

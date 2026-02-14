@@ -16,6 +16,11 @@ Environment variables (for CI):
     PLATFORM_GROUP=stable     # scrape only stable platforms (dutchie/curaleaf/jane)
     PLATFORM_GROUP=new        # scrape only new platforms (rise/carrot/aiq)
     PLATFORM_GROUP=all        # scrape everything (default)
+    REGION=southern-nv        # scrape only one region/state
+    REGION=michigan           # scrape only Michigan dispensaries
+    REGION=illinois           # scrape only Illinois dispensaries
+    REGION=arizona            # scrape only Arizona dispensaries
+    REGION=all                # scrape all regions (default)
 """
 
 from __future__ import annotations
@@ -38,6 +43,7 @@ from playwright.async_api import async_playwright
 from config.dispensaries import (
     BROWSER_ARGS, DISPENSARIES, SITE_TIMEOUT_SEC,
     get_platforms_for_group, get_dispensaries_by_group,
+    get_dispensaries_by_region,
 )
 from clouded_logic import CloudedLogic, BRANDS_LOWER
 from deal_detector import detect_deals, get_last_report_data
@@ -89,6 +95,10 @@ FORCE_RUN = os.getenv("FORCE_RUN", "false").lower() == "true"
 # their stale products are deactivated — other groups are untouched.
 PLATFORM_GROUP = os.getenv("PLATFORM_GROUP", "all").lower()
 
+# Region filter: "southern-nv", "michigan", "illinois", "arizona", or "all".
+# When set, only dispensaries from that region are scraped.
+REGION = os.getenv("REGION", "all").lower()
+
 if not SUPABASE_URL or not SUPABASE_KEY:
     logger.error("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set")
     sys.exit(1)
@@ -119,10 +129,10 @@ def _create_run() -> str:
     if DRY_RUN:
         logger.info("[DRY RUN] Would create scrape_runs entry")
         return "dry-run"
-    payload: dict[str, Any] = {"status": "running", "platform_group": PLATFORM_GROUP}
+    payload: dict[str, Any] = {"status": "running", "region": REGION, "platform_group": PLATFORM_GROUP}
     row = db.table("scrape_runs").insert(payload).execute()
     run_id: str = row.data[0]["id"]
-    logger.info("Scrape run started: %s (group=%s)", run_id, PLATFORM_GROUP)
+    logger.info("Scrape run started: %s (region=%s, group=%s)", run_id, REGION, PLATFORM_GROUP)
     return run_id
 
 
@@ -1209,6 +1219,14 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
     # Filter by is_active from config first
     active = [d for d in DISPENSARIES if d.get("is_active", True)]
 
+    # Apply region filter
+    if REGION != "all":
+        active = [d for d in active if d.get("region", "southern-nv") == REGION]
+        logger.info(
+            "Region '%s': %d dispensaries",
+            REGION, len(active),
+        )
+
     # Apply platform group filter
     if PLATFORM_GROUP != "all":
         group_platforms = set(get_platforms_for_group(PLATFORM_GROUP))
@@ -1300,6 +1318,7 @@ async def run(slug_filter: str | None = None) -> None:
     logger.info("  LIMITED:      %s", LIMIT_DISPENSARIES)
     logger.info("  FORCE_RUN:    %s", FORCE_RUN)
     logger.info("  GROUP:        %s", PLATFORM_GROUP)
+    logger.info("  REGION:       %s", REGION)
     logger.info("  SINGLE:       %s", slug_filter or "(all)")
     logger.info("  CONCURRENCY:  %d global, dutchie=%d jane=%d curaleaf=%d aiq=%d",
                 SCRAPE_CONCURRENCY,
@@ -1464,6 +1483,56 @@ async def run(slug_filter: str | None = None) -> None:
             )
         except Exception as exc:
             logger.warning("Failed to complete run in DB: %s", exc)
+
+        # ─── Human-readable scrape summary ──────────────────────────
+        logger.info("")
+        logger.info("=" * 64)
+        logger.info("  SCRAPE SUMMARY — %s", REGION.upper())
+        logger.info("=" * 64)
+        logger.info("  Status:      %s", status)
+        logger.info("  Region:      %s", REGION)
+        logger.info("  Products:    %d", total_products)
+        logger.info("  Deals:       %d", total_deals)
+        logger.info("  Sites OK:    %d / %d", len(sites_scraped), len(dispensaries))
+        logger.info("  Sites FAIL:  %d", len(sites_failed))
+        logger.info("  Duration:    %.1f min", elapsed / 60)
+
+        # Per-platform breakdown
+        from collections import Counter
+        platform_ok: Counter[str] = Counter()
+        platform_products: Counter[str] = Counter()
+        for d in dispensaries:
+            slug = d["slug"]
+            plat = d.get("platform", "unknown")
+            if slug in sites_scraped:
+                platform_ok[plat] += 1
+        for d in dispensaries:
+            plat = d.get("platform", "unknown")
+            if d["slug"] in sites_scraped:
+                platform_products[plat] += 1
+        platform_total: Counter[str] = Counter(d.get("platform", "unknown") for d in dispensaries)
+
+        logger.info("  ┌─────────────────────────────────────────────┐")
+        logger.info("  │  Platform        OK / Total    Status       │")
+        logger.info("  ├─────────────────────────────────────────────┤")
+        for plat in sorted(platform_total.keys()):
+            ok = platform_ok[plat]
+            tot = platform_total[plat]
+            pct = round(ok / tot * 100) if tot > 0 else 0
+            bar = "OK" if pct == 100 else f"{pct}%"
+            icon = "✓" if pct == 100 else ("!" if pct > 0 else "✗")
+            logger.info("  │  %-14s  %3d / %-3d      %s %-5s      │", plat, ok, tot, icon, bar)
+        logger.info("  └─────────────────────────────────────────────┘")
+
+        if sites_failed:
+            logger.info("")
+            logger.info("  Failed sites:")
+            for f in sites_failed:
+                err_short = f["error"][:60] + "..." if len(f["error"]) > 60 else f["error"]
+                logger.info("    ✗ %-30s %s", f["slug"], err_short)
+
+        logger.info("")
+        logger.info("=" * 64)
 
         logger.info("=" * 60)
         logger.info("SCRAPE COMPLETE")

@@ -6,15 +6,19 @@
 
 ## What This Is
 
-A web scraper that visits 61 cannabis dispensary websites across Southern Nevada every morning, extracts their menus and pricing, detects deals worth showing users, scores them, and pushes the top 200 to our Supabase database. The frontend reads from that database.
+A web scraper that visits cannabis dispensary websites every morning, extracts their menus and pricing, detects deals worth showing users, scores them, and pushes the top 200 to our Supabase database. The frontend reads from that database.
 
-It runs as a GitHub Actions cron job. No servers to maintain.
+It runs as GitHub Actions cron jobs. No servers to maintain.
+
+**Multi-state data collection (Feb 2026):** We now scrape across 4 states — Nevada (production/consumer-facing), plus Michigan, Illinois, and Arizona for data collection and ML training purposes. New-state data is collected but NOT displayed on the consumer frontend. This gives us millions of data points for B2B value, brand intelligence, and ML model training before we ever launch in those markets.
 
 ---
 
 ## Coverage
 
-**61 active dispensaries** across 6 menu platforms:
+**382 active dispensaries** across 6 states and 6 menu platforms:
+
+### Nevada (Production — Consumer-Facing) — 63 dispensaries
 
 | Platform | Sites | Status | Examples |
 |----------|-------|--------|----------|
@@ -22,41 +26,94 @@ It runs as a GitHub Actions cron job. No servers to maintain.
 | **Curaleaf** | 4 | Stable (daily cron) | Curaleaf Western/Strip/NLV/Reef |
 | **Jane** | 19 | Stable (daily cron) | Oasis, Deep Roots, Cultivate, Thrive, Beyond/Hello, Exhale, Tree of Life, Sanctuary, The Source |
 | **Rise** | 9 | **Disabled** (Cloudflare Turnstile) | Rise x6, Cookies Strip, Cookies Flamingo, Rise Henderson |
-| **Carrot** | 6 | New (manual trigger) | Wallflower, Inyo, Jenny's, Euphoria, Silver Sage, ShowGrow |
-| **AIQ** | 5 | New (manual trigger) | Green NV, Pisos, Jardin, Nevada Made Casino Dr/Charleston |
+| **Carrot** | 6 | Stable (daily cron) | Wallflower, Inyo, Jenny's, Euphoria, Silver Sage, ShowGrow |
+| **AIQ** | 5 | Stable (daily cron) | Green NV, Pisos, Jardin, Nevada Made Casino Dr/Charleston |
 
 Plus 2 inactive AIQ sites (Nevada Made Henderson/Warm Springs — returning 403s).
 
 **Not covered:** Top Notch (Weedmaps — different ecosystem entirely).
 
+### Michigan (Data Collection — NOT Consumer-Facing) — 114 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Dutchie** | 111 | Lume (37), Skymint (11), JARS (12), Cloud Cannabis (8), Joyology (9), High Profile (6), Pinnacle (5), Pleasantrees (5), Herbana (3), Detroit independents (11), Lansing/Flint (4) |
+| **Curaleaf** | 3 | Curaleaf MI (2), Zen Leaf Buchanan (1) |
+
+### Illinois (Data Collection — NOT Consumer-Facing) — 88 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Rise** | 10 | Rise Mundelein, Niles, Naperville, Lake in the Hills, Effingham, Canton, Quincy, Joliet, Charleston, Joliet Rock Creek |
+| **Curaleaf** | 14 | Curaleaf IL (5), Zen Leaf IL (9) |
+| **Dutchie** | 35 | Ascend (10), Windy City (5), Thrive IL (5), Mission (3), Maribis (2), Curaleaf-Dutchie (5), Planet 13 IL, Village (2), Lux Leaf, Share |
+| **Jane** | 29 | Beyond/Hello (5), Verilife (8), Consume (6), nuEra (5), EarthMed (3), Hatch (2) |
+
+### Arizona (Data Collection — NOT Consumer-Facing) — 52 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Dutchie** | 44 | Trulieve/Harvest (12), Sol Flower (6), The Mint (4), Nature's Medicines (3), Nirvana (4), Ponderosa (7), Cookies, TruMed, Noble Herb, Earth's Healing, Tucson Saints, Story AZ, Curaleaf-Dutchie (2) |
+| **Curaleaf** | 8 | Curaleaf AZ (4), Zen Leaf AZ (4) |
+
+### Missouri (Data Collection — NOT Consumer-Facing) — 31 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Dutchie** | 31 | Key Missouri (9), Greenlight (10), From The Earth (3), Green Releaf (3), Terrabis (1), Bloc MO (2), Star Buds, Nature Med, Rock Port |
+
+**Market context:** $1.53B in 2025 sales (5th largest adult-use market nationally). 214 licensed dispensaries. Top brands: Illicit, Flora Farms, Vivid, Sinse, Proper, Clovr, Good Day Farm.
+
+### New Jersey (Data Collection — NOT Consumer-Facing) — 34 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Dutchie** | 29 | Ascend (3), Curaleaf NJ (5, migrated to Dutchie!), AYR/GSD (3), MPX NJ (4), Sweetspot (3), Bloc NJ (3), Cookies Harrison, independents (7) |
+| **Rise** | 2 | Rise Bloomfield, Rise Paterson |
+| **Curaleaf** | 3 | Zen Leaf Elizabeth, Lawrence, Neptune |
+
+**Market context:** $1B+ in 2024 sales. 190+ licensed dispensaries. NYC metro 20M+ pop. Key insight: Curaleaf NJ migrated to Dutchie — scrapes via dutchie.py. Top brands: Rythm (GTI), Kind Tree (TerrAscend), Verano, Ozone (Ascend), Cookies, Fernway.
+
 ---
 
 ## How It Runs
 
-### Daily Automatic (Stable Group)
-- **When:** 8:00 AM Pacific, every day
-- **What runs:** Dutchie + Curaleaf + Jane = 41 dispensaries
-- **Duration:** ~30-60 min depending on site response times
-- **Where:** GitHub Actions (`.github/workflows/scrape.yml`)
-- **Cost:** Free tier GitHub Actions minutes
+### Daily Automatic (Staggered by Region)
+Each region runs on its own cron schedule, spaced by **local time zone**:
 
-### Manual Trigger (New Platforms or Full Run)
+| Region | Cron (UTC) | Local Time | Timezone | Dispensaries |
+|--------|-----------|------------|----------|--------------|
+| **southern-nv** | 16:00 | 8:00 AM PST | Pacific (UTC-8) | 63 |
+| **arizona** | 18:00 | 11:00 AM MST | Arizona (UTC-7, no DST) | 52 |
+| **illinois** | 19:30 | 1:30 PM CST | Central (UTC-6) | 88 |
+| **missouri** | 21:00 | 3:00 PM CST | Central (UTC-6) | 31 |
+| **michigan** | 22:00 | 5:00 PM EST | Eastern (UTC-5) | 114 |
+| **new-jersey** | 23:00 | 6:00 PM EST | Eastern (UTC-5) | 34 |
+
+- **Where:** GitHub Actions (`.github/workflows/scrape.yml`)
+- **Duration:** ~30-60 min per region
+- **Isolation:** Each region runs independently — failures don't affect other states
+- **Concurrency:** Each region has its own concurrency group so runs never queue behind other states
+
+### Manual Trigger
 Go to GitHub repo > **Actions** tab > **Daily Scraper** > **Run workflow**:
 
 | Input | Options | What it does |
 |-------|---------|--------------|
-| **Platform group** | `all` / `stable` / `new` | Which dispensaries to scrape |
+| **Platform group** | `all` / `stable` / `new` | Which platforms to scrape |
+| **Region** | `all` / `southern-nv` / `michigan` / `illinois` / `arizona` / `missouri` / `new-jersey` | Which state to scrape |
 | **Dry run** | true/false | Scrape but don't write to DB (for testing) |
 | **Limited** | true/false | Only 1 site per platform (quick smoke test) |
 | **Single site** | slug like `td-gibson` | Scrape just one site |
 
-**Key rule:** Stable and New groups don't interfere with each other. Running "stable" won't delete yesterday's "new" data. They can even run simultaneously.
-
-### Typical Morning Workflow
-1. 8 AM — Stable cron fires automatically (Dutchie/Curaleaf/Jane)
-2. ~9 AM — Check if it succeeded (Actions tab, green check)
-3. When ready — Manually trigger "new" group (Rise/Carrot/AIQ)
-4. Both groups' data coexists in the DB
+### Typical Daily Workflow
+1. 8:00 AM PST — Nevada production cron fires (63 dispensaries)
+2. 11:00 AM MST — Arizona cron fires (52 dispensaries)
+3. 1:30 PM CST — Illinois cron fires (88 dispensaries)
+4. 3:00 PM CST — Missouri cron fires (31 dispensaries)
+5. 5:00 PM EST — Michigan cron fires (114 dispensaries)
+6. 6:00 PM EST — New Jersey cron fires (34 dispensaries)
+7. ~7 PM EST / ~4 PM PST — All 6 regions complete, check Actions tab for green checks
 
 ---
 
@@ -123,7 +180,7 @@ Stratified by category to ensure variety:
 
 | Table | Purpose | Key fields |
 |-------|---------|------------|
-| `dispensaries` | All 63 sites (61 active) | slug, name, url, platform, is_active |
+| `dispensaries` | All 382 sites across 6 states | slug, name, url, platform, region, is_active |
 | `products` | Every scraped product | dispensary_id, name, brand, category, sale_price, original_price, discount_percent, deal_score, is_active, scraped_at |
 | `deals` | Top 200 qualifying deals | product_id, dispensary_id, deal_score |
 | `scrape_runs` | Audit trail per run | status, platform_group, total_products, qualifying_deals, runtime_seconds |
@@ -141,7 +198,7 @@ clouded-deals/scraper/
   deal_detector.py           # Deal scoring & top-200 selection
   product_classifier.py      # Infused/pack detection
   parser.py                  # Price/weight/THC extraction
-  config/dispensaries.py     # All 61 site configs + platform groups
+  config/dispensaries.py     # All 382 site configs + platform groups
   platforms/
     dutchie.py               # Dutchie scraper (iframe/JS embed)
     curaleaf.py              # Curaleaf scraper
@@ -173,6 +230,17 @@ Set as GitHub Actions secrets:
 | `SUPABASE_SERVICE_KEY` | Service role key (full DB access) |
 
 These are the only two secrets. Everything else is configured in code.
+
+**Environment variables (set in workflow, not secrets):**
+
+| Variable | Options | What it does |
+|----------|---------|--------------|
+| `PLATFORM_GROUP` | `all` / `stable` / `new` | Which platforms to include |
+| `REGION` | `all` / `southern-nv` / `michigan` / `illinois` / `arizona` | Which state to scrape |
+| `DRY_RUN` | `true` / `false` | Skip DB writes |
+| `FORCE_RUN` | `true` / `false` | Skip idempotency check |
+| `LIMIT_DISPENSARIES` | `true` / `false` | 1 site per platform |
+| `SINGLE_SITE` | slug | Scrape just one site |
 
 ---
 
