@@ -16,41 +16,42 @@ It runs as GitHub Actions cron jobs. No servers to maintain.
 
 ## Coverage
 
-**114 active dispensaries** across 4 states and 6 menu platforms:
+**317 active dispensaries** across 4 states and 6 menu platforms:
 
-### Nevada (Production — Consumer-Facing)
+### Nevada (Production — Consumer-Facing) — 63 dispensaries
 
 | Platform | Sites | Status | Examples |
 |----------|-------|--------|----------|
-| **Dutchie** | 16 | Stable (daily cron) | Planet 13, Medizin, TD, Greenlight, The Grove, Mint, Jade, Sahara, Treehouse, SLV |
+| **Dutchie** | 20 | Stable (daily cron) | Planet 13, Medizin, TD, Greenlight, The Grove, Mint, Jade, Sahara, Treehouse, SLV, Nevada Made |
 | **Curaleaf** | 6 | Stable (daily cron) | Curaleaf Western/Strip/NLV/Reef, Zen Leaf Flamingo/NLV |
 | **Jane** | 19 | Stable (daily cron) | Oasis, Deep Roots, Cultivate, Thrive, Beyond/Hello, Exhale, Tree of Life, Sanctuary, The Source |
 | **Rise** | 9 | Stable (daily cron) | Rise x6, Cookies Strip, Cookies Flamingo, Rise Henderson |
 | **Carrot** | 6 | Stable (daily cron) | Wallflower, Inyo, Jenny's, Euphoria, Silver Sage, ShowGrow |
-| **AIQ** | 5 | Stable (daily cron) | Green NV, Pisos, Jardin, Nevada Made Casino Dr/Charleston |
+| **AIQ** | 3 | Stable (daily cron) | Green NV, Pisos, Jardin |
 
-Plus 2 inactive AIQ sites (Nevada Made Henderson/Warm Springs — returning 403s).
 **Not covered:** Top Notch (Weedmaps — different ecosystem entirely).
 
-### Michigan (Data Collection — NOT Consumer-Facing)
+### Michigan (Data Collection — NOT Consumer-Facing) — 114 dispensaries
 
 | Platform | Sites | Chains |
 |----------|-------|--------|
-| **Dutchie** | 15 | Lume (3), Skymint (3), JARS (3), Cloud Cannabis (3), Joyology (3) |
+| **Dutchie** | 111 | Lume (37), Skymint (11), JARS (12), Cloud Cannabis (8), Joyology (9), High Profile (6), Pinnacle (5), Pleasantrees (5), Herbana (3), Detroit independents (11), Lansing/Flint (4) |
 | **Curaleaf** | 3 | Curaleaf MI (2), Zen Leaf Buchanan (1) |
 
-### Illinois (Data Collection — NOT Consumer-Facing)
+### Illinois (Data Collection — NOT Consumer-Facing) — 88 dispensaries
 
 | Platform | Sites | Chains |
 |----------|-------|--------|
-| **Rise** | 8 | Rise Mundelein, Niles, Naperville, Lake in the Hills, Effingham, Canton, Quincy, Joliet |
-| **Curaleaf** | 9 | Curaleaf IL (4), Zen Leaf IL (5) |
+| **Rise** | 10 | Rise Mundelein, Niles, Naperville, Lake in the Hills, Effingham, Canton, Quincy, Joliet, Charleston, Joliet Rock Creek |
+| **Curaleaf** | 14 | Curaleaf IL (5), Zen Leaf IL (9) |
+| **Dutchie** | 35 | Ascend (10), Windy City (5), Thrive IL (5), Mission (3), Maribis (2), Curaleaf-Dutchie (5), Planet 13 IL, Village (2), Lux Leaf, Share |
+| **Jane** | 29 | Beyond/Hello (5), Verilife (8), Consume (6), nuEra (5), EarthMed (3), Hatch (2) |
 
-### Arizona (Data Collection — NOT Consumer-Facing)
+### Arizona (Data Collection — NOT Consumer-Facing) — 52 dispensaries
 
 | Platform | Sites | Chains |
 |----------|-------|--------|
-| **Dutchie** | 9 | Trulieve/Harvest (6), Sol Flower (3) |
+| **Dutchie** | 44 | Trulieve/Harvest (12), Sol Flower (6), The Mint (4), Nature's Medicines (3), Nirvana (4), Ponderosa (7), Cookies, TruMed, Noble Herb, Earth's Healing, Tucson Saints, Story AZ, Curaleaf-Dutchie (2) |
 | **Curaleaf** | 8 | Curaleaf AZ (4), Zen Leaf AZ (4) |
 
 ---
@@ -63,9 +64,9 @@ Each region runs on its own cron schedule, staggered 1 hour apart:
 | Region | Cron (UTC) | Local Time (PDT) | Dispensaries |
 |--------|-----------|-------------------|--------------|
 | **southern-nv** | 15:00 | 8:00 AM | 63 |
-| **michigan** | 16:00 | 9:00 AM | 18 |
-| **illinois** | 17:00 | 10:00 AM | 17 |
-| **arizona** | 18:00 | 11:00 AM | 16 |
+| **michigan** | 16:00 | 9:00 AM | 114 |
+| **illinois** | 17:00 | 10:00 AM | 88 |
+| **arizona** | 18:00 | 11:00 AM | 52 |
 
 - **Where:** GitHub Actions (`.github/workflows/scrape.yml`)
 - **Duration:** ~30-60 min per region
@@ -84,9 +85,9 @@ Go to GitHub repo > **Actions** tab > **Daily Scraper** > **Run workflow**:
 
 ### Typical Morning Workflow
 1. 8 AM — Nevada cron fires automatically (63 dispensaries)
-2. 9 AM — Michigan cron fires (18 dispensaries)
-3. 10 AM — Illinois cron fires (17 dispensaries)
-4. 11 AM — Arizona cron fires (16 dispensaries)
+2. 9 AM — Michigan cron fires (114 dispensaries)
+3. 10 AM — Illinois cron fires (88 dispensaries)
+4. 11 AM — Arizona cron fires (52 dispensaries)
 5. ~12 PM — All regions complete, check Actions tab for green checks
 
 ---
@@ -154,7 +155,7 @@ Stratified by category to ensure variety:
 
 | Table | Purpose | Key fields |
 |-------|---------|------------|
-| `dispensaries` | All 63 sites (61 active) | slug, name, url, platform, is_active |
+| `dispensaries` | All 317 sites across 4 states | slug, name, url, platform, region, is_active |
 | `products` | Every scraped product | dispensary_id, name, brand, category, sale_price, original_price, discount_percent, deal_score, is_active, scraped_at |
 | `deals` | Top 200 qualifying deals | product_id, dispensary_id, deal_score |
 | `scrape_runs` | Audit trail per run | status, platform_group, total_products, qualifying_deals, runtime_seconds |
@@ -172,7 +173,7 @@ clouded-deals/scraper/
   deal_detector.py           # Deal scoring & top-200 selection
   product_classifier.py      # Infused/pack detection
   parser.py                  # Price/weight/THC extraction
-  config/dispensaries.py     # All 61 site configs + platform groups
+  config/dispensaries.py     # All 317 site configs + platform groups
   platforms/
     dutchie.py               # Dutchie scraper (iframe/JS embed)
     curaleaf.py              # Curaleaf + Zen Leaf scraper
