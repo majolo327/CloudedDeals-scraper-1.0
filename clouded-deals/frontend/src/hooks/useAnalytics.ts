@@ -62,6 +62,20 @@ export interface RetentionCohort {
   day14: number;
 }
 
+export interface ViralMetrics {
+  sharesToday: number;
+  sharesInRange: number;
+  sharedPageViews: number;
+  referralClicks: number;
+  referralConversions: number;
+  /** K-factor = (avg invites per user) * (conversion rate of invites) */
+  viralCoefficient: number;
+  /** Shares that resulted in at least one page view */
+  shareViewRate: number;
+  /** Referral clicks that converted to a save action */
+  clickToConversionRate: number;
+}
+
 export interface AnalyticsData {
   scoreboard: ScoreboardData;
   funnel: FunnelStep[];
@@ -75,6 +89,7 @@ export interface AnalyticsData {
   allTimeUniqueVisitors: number;
   retentionCohorts: RetentionCohort[];
   totalEventsInRange: number;
+  viral: ViralMetrics;
 }
 
 export interface EventRow {
@@ -121,6 +136,11 @@ export function useAnalytics(range: DateRange = '7d') {
         funnel: [], eventBreakdown: [], topDeals: [], hourlyActivity: [],
         recentEvents: [], dailyVisitors: [], devices: [], referrers: [],
         allTimeUniqueVisitors: 0, retentionCohorts: [], totalEventsInRange: 0,
+        viral: {
+          sharesToday: 0, sharesInRange: 0, sharedPageViews: 0,
+          referralClicks: 0, referralConversions: 0, viralCoefficient: 0,
+          shareViewRate: 0, clickToConversionRate: 0,
+        },
       });
       setLoading(false);
       return;
@@ -201,6 +221,15 @@ export function useAnalytics(range: DateRange = '7d') {
       let savesToday = 0;
       let dealClicksToday = 0;
 
+      // Viral / referral accumulators
+      const sharers = new Set<string>();          // unique users who shared
+      let sharesInRange = 0;                       // total share events (deal_shared + share_saves)
+      let sharesToday = 0;
+      let sharedPageViews = 0;                     // shared_page_view events
+      let referralClicks = 0;                      // referral_click events
+      let referralConversions = 0;                 // referral_conversion events
+      const referralConverters = new Set<string>();// unique users who converted
+
       for (const event of events) {
         const dateKey = event.created_at.slice(0, 10);
 
@@ -234,6 +263,19 @@ export function useAnalytics(range: DateRange = '7d') {
           todayVisitors.add(event.anon_id);
           if (['deal_saved', 'deal_save'].includes(event.event_name)) savesToday++;
           if (event.event_name === 'get_deal_click') dealClicksToday++;
+          if (['deal_shared', 'share_saves'].includes(event.event_name)) sharesToday++;
+        }
+
+        // Viral / referral tracking
+        if (['deal_shared', 'share_saves'].includes(event.event_name)) {
+          sharesInRange++;
+          sharers.add(event.anon_id);
+        }
+        if (event.event_name === 'shared_page_view') sharedPageViews++;
+        if (event.event_name === 'referral_click') referralClicks++;
+        if (event.event_name === 'referral_conversion') {
+          referralConversions++;
+          referralConverters.add(event.anon_id);
         }
 
         // Device type
@@ -415,6 +457,32 @@ export function useAnalytics(range: DateRange = '7d') {
         }
       }
 
+      // ----- Viral coefficient -----
+      // K = (shares per user) * (conversion rate per share impression)
+      // shares per active user = sharesInRange / funnelActivated.size
+      // conversion rate = referralConversions / max(referralClicks, sharedPageViews)
+      const activeUsers = funnelActivated.size || funnelVisitors.size || 1;
+      const avgSharesPerUser = sharesInRange / activeUsers;
+      const shareImpressions = Math.max(referralClicks, sharedPageViews, 1);
+      const conversionRate = referralConversions / shareImpressions;
+      const viralCoefficient = parseFloat((avgSharesPerUser * conversionRate).toFixed(3));
+
+      const shareViewRate = sharesInRange > 0
+        ? Math.round((sharedPageViews / sharesInRange) * 100) : 0;
+      const clickToConversionRate = referralClicks > 0
+        ? Math.round((referralConversions / referralClicks) * 100) : 0;
+
+      const viral: ViralMetrics = {
+        sharesToday,
+        sharesInRange,
+        sharedPageViews,
+        referralClicks,
+        referralConversions,
+        viralCoefficient,
+        shareViewRate,
+        clickToConversionRate,
+      };
+
       setData({
         scoreboard,
         funnel,
@@ -428,6 +496,7 @@ export function useAnalytics(range: DateRange = '7d') {
         allTimeUniqueVisitors: allTimeSessionsRes.count ?? 0,
         retentionCohorts,
         totalEventsInRange: events.length,
+        viral,
       });
     } catch (err) {
       setError(String(err));

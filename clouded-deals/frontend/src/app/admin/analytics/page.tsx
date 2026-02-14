@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAnalytics, exportEventsCSV } from '@/hooks/useAnalytics';
-import type { FunnelStep, DeviceBreakdown, ReferrerSource, DailyVisitors, RetentionCohort } from '@/hooks/useAnalytics';
+import type { FunnelStep, DeviceBreakdown, ReferrerSource, DailyVisitors, RetentionCohort, ViralMetrics } from '@/hooks/useAnalytics';
 
 type DateRange = '24h' | '7d' | '30d' | 'all';
 
@@ -28,6 +28,12 @@ const EVENT_LABELS: Record<string, string> = {
   session_heartbeat: 'Heartbeats',
   daily_visit: 'Daily Visits',
   referral_click: 'Referral Clicks',
+  referral_conversion: 'Referral Conversions',
+  share_saves: 'Share Saves List',
+  shared_page_view: 'Shared Page Views',
+  shared_get_deal_click: 'Shared Deal Clicks',
+  shared_page_cta: 'Shared Page CTAs',
+  user_feedback: 'User Feedback',
   onboarding_completed: 'Onboarding Done',
   onboarding_skipped: 'Onboarding Skipped',
   onboarding_screen_viewed: 'Onboarding Views',
@@ -94,7 +100,7 @@ export default function AnalyticsPage() {
   const {
     scoreboard, funnel, eventBreakdown, topDeals, hourlyActivity, recentEvents,
     dailyVisitors, devices, referrers, allTimeUniqueVisitors, retentionCohorts,
-    totalEventsInRange,
+    totalEventsInRange, viral,
   } = data;
 
   const progressPct = Math.min((allTimeUniqueVisitors / VISITOR_GOAL) * 100, 100);
@@ -156,10 +162,11 @@ export default function AnalyticsPage() {
       {/* ================================================================ */}
       <section>
         <SectionHeading>Morning Scoreboard</SectionHeading>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
           <ScoreboardCard label="Visitors Today" value={scoreboard.visitorsToday} />
           <ScoreboardCard label="Saves Today" value={scoreboard.savesToday} />
           <ScoreboardCard label="Deal Clicks Today" value={scoreboard.dealClicksToday} />
+          <ScoreboardCard label="Shares Today" value={viral.sharesToday} />
           <ScoreboardCard
             label="Return Rate"
             value={`${scoreboard.returnRate}%`}
@@ -233,7 +240,15 @@ export default function AnalyticsPage() {
       </section>
 
       {/* ================================================================ */}
-      {/* SECTION 3: OPERATIONAL (collapsible)                             */}
+      {/* SECTION 3: VIRAL & SHARING                                       */}
+      {/* ================================================================ */}
+      <section className="space-y-6">
+        <SectionHeading>Viral &amp; Sharing</SectionHeading>
+        <ViralCard viral={viral} range={range} />
+      </section>
+
+      {/* ================================================================ */}
+      {/* SECTION 4: OPERATIONAL (collapsible)                             */}
       {/* ================================================================ */}
       <section>
         <button
@@ -733,6 +748,10 @@ function EventBadge({ name }: { name: string }) {
     get_deal_click: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400',
     deal_modal_open: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400',
     deal_shared: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-400',
+    share_saves: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-400',
+    shared_page_view: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400',
+    referral_click: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400',
+    referral_conversion: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
     search: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
     error: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
   };
@@ -743,6 +762,124 @@ function EventBadge({ name }: { name: string }) {
     }`}>
       {EVENT_LABELS[name] || name}
     </span>
+  );
+}
+
+function ViralCard({ viral, range }: { viral: ViralMetrics; range: string }) {
+  const kColor = viral.viralCoefficient >= 0.3
+    ? 'text-green-600 dark:text-green-400'
+    : viral.viralCoefficient >= 0.1
+      ? 'text-amber-600 dark:text-amber-400'
+      : 'text-red-500 dark:text-red-400';
+
+  const kIndicator = trafficLight(viral.viralCoefficient * 100, 30, 10);
+
+  // Share funnel steps
+  const funnelSteps = [
+    { label: 'Shares', count: viral.sharesInRange, sub: 'deal_shared + share_saves' },
+    { label: 'Link Views', count: viral.sharedPageViews, sub: 'shared page opens' },
+    { label: 'Referral Clicks', count: viral.referralClicks, sub: 'clicked through to app' },
+    { label: 'Conversions', count: viral.referralConversions, sub: 'referred user saved a deal' },
+  ];
+  const maxFunnel = Math.max(...funnelSteps.map(s => s.count), 1);
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      {/* K-Factor headline card */}
+      <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Viral Coefficient (K-Factor)</h3>
+        </div>
+        <div className="p-5">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="flex items-baseline gap-2">
+              <span className={`text-5xl font-bold ${kColor}`}>
+                {viral.viralCoefficient.toFixed(2)}
+              </span>
+              <span className={`inline-block h-3 w-3 rounded-full ${
+                kIndicator === 'green' ? 'bg-green-500' : kIndicator === 'yellow' ? 'bg-amber-400' : 'bg-red-500'
+              }`} />
+            </div>
+            <div className="text-xs text-zinc-500 dark:text-zinc-400">
+              <p>Target: <span className="font-bold text-zinc-700 dark:text-zinc-300">&ge; 0.3</span></p>
+              <p className="mt-0.5">Viral at: <span className="font-bold text-zinc-700 dark:text-zinc-300">&ge; 1.0</span></p>
+              <p className="mt-0.5 text-[10px]">{range} window</p>
+            </div>
+          </div>
+
+          {/* Breakdown metrics */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-lg bg-zinc-50 dark:bg-zinc-800/50 px-3 py-2.5">
+              <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide">Shares</p>
+              <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{viral.sharesInRange}</p>
+              <p className="text-[10px] text-zinc-400">{viral.sharesToday} today</p>
+            </div>
+            <div className="rounded-lg bg-zinc-50 dark:bg-zinc-800/50 px-3 py-2.5">
+              <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide">Link Views</p>
+              <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{viral.sharedPageViews}</p>
+              <p className="text-[10px] text-zinc-400">{viral.shareViewRate}% view rate</p>
+            </div>
+            <div className="rounded-lg bg-zinc-50 dark:bg-zinc-800/50 px-3 py-2.5">
+              <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide">Ref. Clicks</p>
+              <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{viral.referralClicks}</p>
+            </div>
+            <div className="rounded-lg bg-zinc-50 dark:bg-zinc-800/50 px-3 py-2.5">
+              <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide">Conversions</p>
+              <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{viral.referralConversions}</p>
+              <p className="text-[10px] text-zinc-400">{viral.clickToConversionRate}% click→save</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Share funnel */}
+      <Card title="Share Funnel">
+        {funnelSteps.every(s => s.count === 0) ? (
+          <p className="text-sm text-zinc-400">No share data yet in this range.</p>
+        ) : (
+          <div className="space-y-1">
+            {funnelSteps.map((step, i) => {
+              const widthPct = maxFunnel > 0 ? (step.count / maxFunnel) * 100 : 0;
+              const convRate = i > 0 && funnelSteps[i - 1].count > 0
+                ? Math.round((step.count / funnelSteps[i - 1].count) * 100)
+                : null;
+              const funnelColors = ['bg-pink-500/50', 'bg-rose-500/50', 'bg-orange-500/50', 'bg-emerald-500/50'];
+
+              return (
+                <div key={step.label}>
+                  {convRate !== null && (
+                    <div className="flex justify-center py-0.5">
+                      <span className={`text-[10px] font-bold ${
+                        convRate >= 30 ? 'text-green-600 dark:text-green-400' : 'text-zinc-400'
+                      }`}>
+                        &#x2193; {convRate}%
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                        {step.label}
+                      </span>
+                      <span className="text-[9px] text-zinc-400">({step.sub})</span>
+                    </div>
+                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                      {step.count}
+                    </span>
+                  </div>
+                  <div className="h-6 rounded bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                    <div
+                      className={`h-full rounded transition-all duration-500 ${funnelColors[i]}`}
+                      style={{ width: `${Math.max(widthPct, 2)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Heart, DollarSign, Trash2, Clock, Share2, Check, Sun, ChevronDown, ArrowUpDown, History } from 'lucide-react';
+import { Heart, DollarSign, Trash2, Clock, Share, Check, Sun, ChevronDown, ArrowUpDown, History } from 'lucide-react';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { getDiscountPercent, getDisplayName, getDistanceMiles } from '@/utils';
 import { createShareLink } from '@/lib/share';
@@ -128,20 +128,34 @@ export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClear
     const dealIds = activeDeals.map((d) => d.id);
     const result = await createShareLink(dealIds);
 
-    if (result.error || !result.shareUrl) {
-      setShareState('idle');
-      return;
-    }
+    // Build fallback text list when Supabase share link fails
+    const buildFallbackText = () => {
+      const lines = activeDeals.map(
+        (d) => `${d.brand?.name ? `${d.brand.name} — ` : ''}${d.product_name}: $${d.deal_price} at ${d.dispensary?.name || 'Unknown'}`,
+      );
+      return `${activeDeals.length} cannabis deals in Las Vegas — they expire tonight!\n\n${lines.join('\n')}\n\nFound on CloudedDeals.com`;
+    };
 
-    trackEvent('share_saves', undefined, {
-      deal_count: dealIds.length,
-      share_id: result.shareId,
-    });
+    let shareUrl: string;
+    let shareText: string;
+
+    if (result.error || !result.shareUrl) {
+      // Fallback: share as plain text list instead of a link
+      shareUrl = 'https://cloudeddeals.com';
+      shareText = buildFallbackText();
+    } else {
+      trackEvent('share_saves', undefined, {
+        deal_count: dealIds.length,
+        share_id: result.shareId,
+      });
+      shareUrl = result.shareUrl;
+      shareText = `Check out these ${activeDeals.length} cannabis deals in Las Vegas — they expire tonight!`;
+    }
 
     const shareData = {
       title: `${activeDeals.length} deals I found on CloudedDeals`,
-      text: `Check out these ${activeDeals.length} cannabis deals in Las Vegas — they expire tonight!`,
-      url: result.shareUrl,
+      text: shareText,
+      url: shareUrl,
     };
 
     // Try native Web Share API first (mobile), fall back to clipboard
@@ -155,17 +169,35 @@ export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClear
         return;
       }
     } else {
+      // Clipboard fallback: copy the share URL (or fallback text if no link)
+      const clipboardContent = result.shareUrl || buildFallbackText();
       try {
-        await navigator.clipboard.writeText(result.shareUrl);
+        await navigator.clipboard.writeText(clipboardContent);
         setShareState('copied');
+        addToast?.('Link copied to clipboard!', 'success');
       } catch {
-        setShareState('idle');
-        return;
+        // Last-resort fallback using execCommand
+        try {
+          const textArea = document.createElement('textarea');
+          textArea.value = clipboardContent;
+          textArea.style.position = 'fixed';
+          textArea.style.opacity = '0';
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          setShareState('copied');
+          addToast?.('Link copied to clipboard!', 'success');
+        } catch {
+          setShareState('idle');
+          addToast?.('Unable to share — try screenshotting your saves instead', 'info');
+          return;
+        }
       }
     }
 
     setTimeout(() => setShareState('idle'), 2500);
-  }, [activeDeals]);
+  }, [activeDeals, addToast]);
 
   const currentSortLabel = SORT_OPTIONS.find(o => o.id === sortBy)?.label || 'Saved Order';
 
@@ -215,7 +247,7 @@ export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClear
                     </>
                   ) : (
                     <>
-                      <Share2 className="w-3.5 h-3.5" />
+                      <Share className="w-3.5 h-3.5" />
                       Share
                     </>
                   )}
