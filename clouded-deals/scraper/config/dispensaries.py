@@ -144,14 +144,16 @@ DISPENSARIES = [
         "embed_type": "js_embed",
     },
     {
+        # Planet 13's site uses geolocation-based store selection that blocks
+        # menu rendering from non-Las Vegas IPs.  Use Dutchie embedded menu
+        # as primary to bypass the location selector entirely.
         "name": "Planet 13",
         "slug": "planet13",
         "platform": "dutchie",
-        "url": "https://planet13.com/stores/planet-13-dispensary/specials",
-        "fallback_url": "https://dutchie.com/embedded-menu/planet-13-dispensary/specials",
+        "url": "https://dutchie.com/embedded-menu/planet-13-dispensary/specials",
+        "fallback_url": "https://planet13.com/stores/planet-13-dispensary/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "iframe",   # P13 uses Dutchie iframe — hint avoids 60s js_embed detection
     },
     {
         "name": "Medizin",

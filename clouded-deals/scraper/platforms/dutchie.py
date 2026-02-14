@@ -137,6 +137,11 @@ class DutchieScraper(BaseScraper):
         embed_hint = self.dispensary.get("embed_type") or _DUTCHIE_CFG.get("embed_type")
         fallback_url = self.dispensary.get("fallback_url")
 
+        # dutchie.com/embedded-menu URLs render products directly —
+        # override hint to "direct" to skip 105s of iframe/JS detection.
+        if "dutchie.com/embedded-menu" in self.url:
+            embed_hint = "direct"
+
         # --- Navigate with wait_until='load' (scripts fully execute) ------
         await self.goto()
 
@@ -434,12 +439,17 @@ class DutchieScraper(BaseScraper):
         except PlaywrightTimeout:
             logger.warning("[%s] Smart-wait (fallback): no content after 60s", self.slug)
 
-        # Try detection — use full cascade (no hint) since fallback URL
-        # may use a different embed type than the primary.
+        # Detect embed type — dutchie.com/embedded-menu pages render
+        # products directly (no iframe/JS container), so use "direct"
+        # hint to skip 105s of wasted iframe+JS embed detection.
+        fb_hint: str | None = None
+        if "dutchie.com/embedded-menu" in fallback_url:
+            fb_hint = "direct"
         fb_target, fb_embed = await find_dutchie_content(
             self.page,
             iframe_timeout_ms=45_000,
             js_embed_timeout_sec=60,
+            embed_type_hint=fb_hint,
         )
 
         if fb_target is None:
