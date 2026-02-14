@@ -2,14 +2,14 @@ name: Daily Scraper
 
 on:
   schedule:
-    # Staggered crons per region — each gets its own isolated run.
+    # Staggered crons per region — spaced by LOCAL time zone.
     # GitHub Actions cron typically runs 15-30 min late.
-    - cron: "0 15 * * *"   # southern-nv  — 7:00 AM PST / 8:00 AM PDT
-    - cron: "0 16 * * *"   # michigan     — 8:00 AM PST / 9:00 AM PDT
-    - cron: "0 17 * * *"   # illinois     — 9:00 AM PST / 10:00 AM PDT
-    - cron: "0 18 * * *"   # arizona      — 10:00 AM PST / 11:00 AM PDT
-    - cron: "0 19 * * *"   # missouri     — 11:00 AM PST / 12:00 PM PDT
-    - cron: "0 20 * * *"   # new-jersey   — 12:00 PM PST / 1:00 PM PDT
+    - cron: "0 16 * * *"   # southern-nv  — 8:00 AM PST  (Pacific UTC-8)
+    - cron: "0 18 * * *"   # arizona      — 11:00 AM MST (Arizona UTC-7, no DST)
+    - cron: "30 19 * * *"  # illinois     — 1:30 PM CST  (Central UTC-6)
+    - cron: "0 21 * * *"   # missouri     — 3:00 PM CST  (Central UTC-6)
+    - cron: "0 22 * * *"   # michigan     — 5:00 PM EST  (Eastern UTC-5)
+    - cron: "0 23 * * *"   # new-jersey   — 6:00 PM EST  (Eastern UTC-5)
   workflow_dispatch:
     inputs:
       platform_group:
@@ -50,9 +50,10 @@ on:
         type: string
         default: ""
 
-# Concurrency is scoped by region so each state runs independently.
+# Concurrency is scoped per-region so each state runs independently.
+# Scheduled runs key off the cron expression; manual runs key off region input.
 concurrency:
-  group: scraper-${{ github.event.inputs.region || 'scheduled' }}-${{ github.event.inputs.platform_group || 'stable' }}
+  group: scraper-${{ github.event.schedule || github.event.inputs.region || 'default' }}
   cancel-in-progress: false
 
 jobs:
@@ -71,15 +72,15 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "value=${{ github.event.inputs.region || 'all' }}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 16 * * *" ]; then
-            echo "value=michigan" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 17 * * *" ]; then
-            echo "value=illinois" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.schedule }}" = "0 18 * * *" ]; then
             echo "value=arizona" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 19 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "30 19 * * *" ]; then
+            echo "value=illinois" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 21 * * *" ]; then
             echo "value=missouri" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 20 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "0 22 * * *" ]; then
+            echo "value=michigan" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 23 * * *" ]; then
             echo "value=new-jersey" >> $GITHUB_OUTPUT
           else
             echo "value=southern-nv" >> $GITHUB_OUTPUT

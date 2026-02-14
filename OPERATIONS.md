@@ -77,20 +77,21 @@ It runs as GitHub Actions cron jobs. No servers to maintain.
 ## How It Runs
 
 ### Daily Automatic (Staggered by Region)
-Each region runs on its own cron schedule, staggered 1 hour apart:
+Each region runs on its own cron schedule, spaced by **local time zone**:
 
-| Region | Cron (UTC) | Local Time (PDT) | Dispensaries |
-|--------|-----------|-------------------|--------------|
-| **southern-nv** | 15:00 | 8:00 AM | 63 |
-| **michigan** | 16:00 | 9:00 AM | 114 |
-| **illinois** | 17:00 | 10:00 AM | 88 |
-| **arizona** | 18:00 | 11:00 AM | 52 |
-| **missouri** | 19:00 | 12:00 PM | 31 |
-| **new-jersey** | 20:00 | 1:00 PM | 34 |
+| Region | Cron (UTC) | Local Time | Timezone | Dispensaries |
+|--------|-----------|------------|----------|--------------|
+| **southern-nv** | 16:00 | 8:00 AM PST | Pacific (UTC-8) | 63 |
+| **arizona** | 18:00 | 11:00 AM MST | Arizona (UTC-7, no DST) | 52 |
+| **illinois** | 19:30 | 1:30 PM CST | Central (UTC-6) | 88 |
+| **missouri** | 21:00 | 3:00 PM CST | Central (UTC-6) | 31 |
+| **michigan** | 22:00 | 5:00 PM EST | Eastern (UTC-5) | 114 |
+| **new-jersey** | 23:00 | 6:00 PM EST | Eastern (UTC-5) | 34 |
 
 - **Where:** GitHub Actions (`.github/workflows/scrape.yml`)
 - **Duration:** ~30-60 min per region
 - **Isolation:** Each region runs independently — failures don't affect other states
+- **Concurrency:** Each region has its own concurrency group so runs never queue behind other states
 
 ### Manual Trigger
 Go to GitHub repo > **Actions** tab > **Daily Scraper** > **Run workflow**:
@@ -104,13 +105,13 @@ Go to GitHub repo > **Actions** tab > **Daily Scraper** > **Run workflow**:
 | **Single site** | slug like `td-gibson` | Scrape just one site |
 
 ### Typical Daily Workflow
-1. 8 AM — Nevada cron fires automatically (63 dispensaries)
-2. 9 AM — Michigan cron fires (114 dispensaries)
-3. 10 AM — Illinois cron fires (88 dispensaries)
-4. 11 AM — Arizona cron fires (52 dispensaries)
-5. 12 PM — Missouri cron fires (31 dispensaries)
-6. 1 PM — New Jersey cron fires (34 dispensaries)
-7. ~2 PM — All 6 regions complete, check Actions tab for green checks
+1. 8:00 AM PST — Nevada production cron fires (63 dispensaries)
+2. 11:00 AM MST — Arizona cron fires (52 dispensaries)
+3. 1:30 PM CST — Illinois cron fires (88 dispensaries)
+4. 3:00 PM CST — Missouri cron fires (31 dispensaries)
+5. 5:00 PM EST — Michigan cron fires (114 dispensaries)
+6. 6:00 PM EST — New Jersey cron fires (34 dispensaries)
+7. ~7 PM EST / ~4 PM PST — All 6 regions complete, check Actions tab for green checks
 
 ---
 
