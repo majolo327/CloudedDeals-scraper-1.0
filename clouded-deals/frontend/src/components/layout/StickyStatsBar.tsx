@@ -4,7 +4,6 @@ type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'prer
 
 interface StickyStatsBarProps {
   savedCount: number;
-  streak: number;
   activeCategory?: DealCategory;
   onCategoryChange?: (category: DealCategory) => void;
   children?: React.ReactNode;

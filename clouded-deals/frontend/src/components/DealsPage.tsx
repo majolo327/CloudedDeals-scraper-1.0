@@ -24,7 +24,6 @@ interface DealsPageProps {
   toggleSavedDeal: (id: string) => void;
   setSelectedDeal: (deal: Deal | null) => void;
   savedCount: number;
-  streak: number;
   isExpired?: boolean;
   onDismissDeal?: () => void;
   onShareSaves?: () => void;
@@ -38,7 +37,6 @@ export function DealsPage({
   toggleSavedDeal,
   setSelectedDeal,
   savedCount,
-  streak,
   isExpired = false,
   onDismissDeal,
   onShareSaves,
@@ -111,7 +109,6 @@ export function DealsPage({
     <>
       <StickyStatsBar
         savedCount={savedCount}
-        streak={streak}
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
       >
