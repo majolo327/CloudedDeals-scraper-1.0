@@ -27,6 +27,7 @@ export default function SharedSavesPage() {
   const [expired, setExpired] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
+  const [sharerAnonId, setSharerAnonId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!shareId) return;
@@ -39,6 +40,13 @@ export default function SharedSavesPage() {
         setNotFound(true);
         setLoading(false);
         return;
+      }
+
+      // Store the sharer's anon_id as referrer so downstream save actions
+      // fire referral_conversion events (same mechanism as ?ref= on home page)
+      if (shared.anon_id && typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('clouded_referrer', shared.anon_id);
+        setSharerAnonId(shared.anon_id);
       }
 
       const expiryDate = new Date(shared.expires_at);
@@ -55,6 +63,9 @@ export default function SharedSavesPage() {
       setLoading(false);
     })();
   }, [shareId]);
+
+  // Build home link with referral attribution
+  const homeHref = sharerAnonId ? `/?ref=${sharerAnonId}` : '/';
 
   const countdown = useMemo(() => {
     if (!expiresAt) return null;
@@ -122,11 +133,11 @@ export default function SharedSavesPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-xl border-b border-purple-500/10">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="text-lg font-bold tracking-tight">
+          <Link href={homeHref} className="text-lg font-bold tracking-tight">
             Clouded<span className="text-purple-400">Deals</span>
           </Link>
           <Link
-            href="/"
+            href={homeHref}
             onClick={() => trackEvent('shared_page_cta', undefined, { share_id: shareId, state: 'active' })}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 text-xs font-medium hover:bg-purple-500/20 transition-colors"
           >
@@ -182,7 +193,7 @@ export default function SharedSavesPage() {
           <Sun className="w-3.5 h-3.5 text-purple-400/70 shrink-0" />
           <p className="text-xs text-purple-400/80">
             New deals drop every morning at 8 AM.{' '}
-            <Link href="/" className="underline text-purple-300/90 hover:text-purple-200">
+            <Link href={homeHref} className="underline text-purple-300/90 hover:text-purple-200">
               Browse all deals
             </Link>
           </p>
@@ -195,7 +206,7 @@ export default function SharedSavesPage() {
             Prices shown do not include tax. For adults 21+ only. This is not medical advice.
           </p>
           <Link
-            href="/"
+            href={homeHref}
             onClick={() => trackEvent('shared_page_cta', undefined, { share_id: shareId, state: 'footer' })}
             className="inline-flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 font-medium"
           >
