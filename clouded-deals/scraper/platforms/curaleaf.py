@@ -149,15 +149,26 @@ class CuraleafScraper(BaseScraper):
 
             page_num += 1
             # CRITICAL: navigate_curaleaf_page checks is_enabled() internally.
-            try:
-                if not await navigate_curaleaf_page(self.page, page_num):
-                    break
-            except Exception as exc:
-                # Gracefully stop pagination — keep products we already have.
-                logger.warning(
-                    "[%s] Pagination to page %d failed (%s) — keeping %d products from earlier pages",
-                    self.slug, page_num, exc, len(all_products),
-                )
+            # Retry up to 2 times with exponential backoff on failure.
+            _nav_ok = False
+            for _attempt in range(3):
+                try:
+                    _nav_ok = await navigate_curaleaf_page(self.page, page_num)
+                    break  # success (or end of pages)
+                except Exception as exc:
+                    if _attempt < 2:
+                        backoff = 2 ** (_attempt + 1)  # 2s, 4s
+                        logger.warning(
+                            "[%s] Pagination to page %d attempt %d failed (%s) — retrying in %ds",
+                            self.slug, page_num, _attempt + 1, exc, backoff,
+                        )
+                        await asyncio.sleep(backoff)
+                    else:
+                        logger.warning(
+                            "[%s] Pagination to page %d failed after 3 attempts (%s) — keeping %d products",
+                            self.slug, page_num, exc, len(all_products),
+                        )
+            if not _nav_ok:
                 break
 
         if page_num > _MAX_PAGES:
@@ -184,7 +195,14 @@ class CuraleafScraper(BaseScraper):
                     self.slug, page_num, len(products), len(all_products),
                 )
                 page_num += 1
-                if not await navigate_curaleaf_page(self.page, page_num):
+                try:
+                    if not await navigate_curaleaf_page(self.page, page_num):
+                        break
+                except Exception as exc:
+                    logger.warning(
+                        "[%s] Base menu pagination to page %d failed (%s) — keeping %d products",
+                        self.slug, page_num, exc, len(all_products),
+                    )
                     break
 
         if not all_products:

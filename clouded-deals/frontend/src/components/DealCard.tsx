@@ -46,7 +46,6 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
 
   return (
     <div
-      data-coach="deal-card"
       onClick={onClick}
       className={`group glass frost rounded-xl p-3 sm:p-4 cursor-pointer transition-gentle card-interactive h-full flex flex-col ${
         isExpired ? 'opacity-50 saturate-[0.6]' : ''
@@ -74,7 +73,6 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
           )}
         </div>
         <button
-          data-coach="save-button"
           onClick={(e) => {
             e.stopPropagation();
             onSave();

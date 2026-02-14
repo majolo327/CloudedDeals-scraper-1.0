@@ -1,18 +1,16 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { LayoutGrid, Layers, Clock, ChevronDown } from 'lucide-react';
+import { Clock, ChevronDown } from 'lucide-react';
 import type { Deal } from '@/types';
-import type { ChallengeDefinition } from '@/config/challenges';
 import { DealCard } from './cards';
 import { SwipeOverlay } from './SwipeOverlay';
 import { InlineFeedbackPrompt } from './FeedbackWidget';
 import { ExpiredDealsBanner } from './ExpiredDealsBanner';
-import { ChallengeBar } from './ChallengeBar';
 import { FilterSheet } from './FilterSheet';
 import { StickyStatsBar } from './layout';
 import { DealCardSkeleton } from './Skeleton';
-import { formatUpdateTime, getTimeUntilMidnight } from '@/utils';
+import { getTimeUntilMidnight } from '@/utils';
 import { useDeck } from '@/hooks/useDeck';
 import { useUniversalFilters, formatDistance } from '@/hooks/useUniversalFilters';
 
@@ -26,16 +24,9 @@ interface DealsPageProps {
   toggleSavedDeal: (id: string) => void;
   setSelectedDeal: (deal: Deal | null) => void;
   savedCount: number;
-  streak: number;
   isExpired?: boolean;
   onDismissDeal?: () => void;
   onShareSaves?: () => void;
-  challengeData?: {
-    onboardingComplete: boolean;
-    onboardingProgress: { current: number; total: number; isCompleted: boolean };
-    nextChallenge: { challenge: ChallengeDefinition; progress: { progress: number; isCompleted: boolean } } | null;
-  };
-  topBrands?: [string, number][];
 }
 
 export function DealsPage({
@@ -46,12 +37,9 @@ export function DealsPage({
   toggleSavedDeal,
   setSelectedDeal,
   savedCount,
-  streak,
   isExpired = false,
   onDismissDeal,
   onShareSaves,
-  challengeData,
-  topBrands = [],
 }: DealsPageProps) {
   const [activeCategory, setActiveCategory] = useState<DealCategory>('all');
   const [isLoading, setIsLoading] = useState(true);
@@ -120,8 +108,6 @@ export function DealsPage({
   return (
     <>
       <StickyStatsBar
-        savedCount={savedCount}
-        streak={streak}
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
       >
@@ -141,98 +127,23 @@ export function DealsPage({
           {/* Expired deals banner */}
           {isExpired && <ExpiredDealsBanner expiredCount={deals.length} />}
 
-          {/* Header row — compact */}
-          <div className="flex items-center justify-between mb-3 gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <h2 className="text-sm font-medium text-slate-300 shrink-0">
-                {isExpired ? "Yesterday's deals" : "Today's deals"}{deals.length > 0 ? ` (${deals.length})` : ''}
-              </h2>
-              {deals.length > 0 && !isExpired && (
-                <span className="text-xs text-slate-500 font-normal truncate">{formatUpdateTime(deals)}</span>
-              )}
-              {isExpired && (
-                <span className="text-xs text-amber-400/80 font-normal truncate">prices may have changed</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {/* View mode toggle */}
-              <div
-                data-coach="view-toggle"
-                className="flex items-center bg-slate-800/60 rounded-lg p-0.5 border border-slate-700/50"
-                role="group"
-                aria-label="View mode"
-              >
-                <button
-                  aria-label="Grid view"
-                  className="p-1.5 rounded-md transition-all bg-purple-500/20 text-purple-400"
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  aria-label="Open swipe mode"
-                  onClick={() => setSwipeOpen(true)}
-                  className="p-1.5 rounded-md transition-all text-slate-500 hover:text-slate-300"
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <span className="text-xs text-slate-500">
-                {countdown}
-              </span>
-            </div>
-          </div>
-
-          {/* Challenge + brands + deck progress — all slim inline elements */}
-          {challengeData && (
-            <ChallengeBar
-              onboardingComplete={challengeData.onboardingComplete}
-              onboardingProgress={challengeData.onboardingProgress}
-              nextChallenge={challengeData.nextChallenge}
-            />
-          )}
-
-          {topBrands.length > 0 && topBrands[0][1] >= 3 && (
-            <div className="flex items-center gap-2 mb-3 text-xs px-1">
-              <span className="text-slate-500">Your brands:</span>
-              {topBrands.map(([name, count]) => (
-                <span key={name} className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400/80 font-medium">
-                  {name} ({count})
-                </span>
-              ))}
-            </div>
-          )}
-
-          {deck.totalDeals > 0 && deck.dismissedCount > 0 && (
-            <div className="flex items-center gap-3 mb-3 px-1">
-              <span className="text-xs text-slate-400">
-                {deck.seenCount}/{deck.totalDeals} seen
-              </span>
-              <div className="flex-1 h-1 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${(deck.seenCount / deck.totalDeals) * 100}%` }}
-                />
-              </div>
-              <span className="text-[11px] text-slate-500">
-                {deck.totalDeals - deck.seenCount} left
-              </span>
-            </div>
-          )}
-
-          {/* Active filter indicator */}
-          {hasActiveFilters && (
-            <div className="flex items-center justify-between mb-3 px-1">
-              <span className="text-xs text-slate-400 font-medium">
-                {filteredDeals.length} deal{filteredDeals.length !== 1 ? 's' : ''}
-              </span>
+          {/* Header row — clean and minimal */}
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-medium text-slate-300">
+              {isExpired ? "Yesterday's deals" : "Today's deals"}{deals.length > 0 ? ` (${deals.length})` : ''}
+            </h2>
+            {isExpired && (
+              <span className="text-xs text-amber-400/80">prices may have changed</span>
+            )}
+            {hasActiveFilters && (
               <button
                 onClick={resetFilters}
                 className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
               >
                 Clear filters
               </button>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Deal content — always grid mode */}
           {isLoading ? (

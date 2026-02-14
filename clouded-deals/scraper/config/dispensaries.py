@@ -235,7 +235,7 @@ DISPENSARIES = [
         "slug": "treehouse",
         "platform": "dutchie",
         "url": "https://vegastreehouse.com/store/?dtche%5Bpath%5D=specials",
-        "is_active": True,
+        "is_active": False,  # chronic timeouts — demoted pre-beta
         "region": "southern-nv",
         "embed_type": "js_embed",  # dtche param confirms JS embed
     },
@@ -396,7 +396,7 @@ DISPENSARIES = [
         "slug": "exhale",
         "platform": "jane",
         "url": "https://exhalebrands.com/store/",
-        "is_active": True,
+        "is_active": False,  # chronic timeouts — demoted pre-beta
         "region": "southern-nv",
     },
     {
@@ -542,7 +542,7 @@ DISPENSARIES = [
         "platform": "dutchie",
         "url": "https://slvcannabis.com/specials/",
         "embed_type": "iframe",    # was "direct" — wrong; goshango.com iframe detected in logs
-        "is_active": True,
+        "is_active": False,  # chronic timeouts (double age gate + goshango iframe) — demoted pre-beta
         "region": "southern-nv",
     },
 

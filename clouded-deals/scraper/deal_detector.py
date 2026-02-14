@@ -22,6 +22,7 @@ Only the ~200 deals returned by ``select_top_deals`` should have
 from __future__ import annotations
 
 import logging
+import re
 from collections import defaultdict
 from itertools import cycle
 from typing import Any
@@ -40,7 +41,7 @@ CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
         "28": 100,    # full oz — relaxed from $79
     },
     "vape": 35,           # carts/pods — relaxed from $25
-    "edible": 15,         # gummies/chocolates — relaxed from $9
+    "edible": 20,         # gummies/chocolates — raised from $15 for multi-dose
     "concentrate": {      # weight-based: live rosin can be pricier
         "0.5": 25,        # half gram
         "1": 45,          # gram — raised from flat $35
@@ -270,12 +271,12 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     # price.  We cannot calculate discount_percent, so we skip the
     # discount and original-price checks.  Qualification is:
     #   1. Price within category cap
-    #   2. Known brand detected
+    #   2. Recognized brand (must be in BRAND_TIERS, not just any string)
     # ------------------------------------------------------------------
     if source_platform == "jane":
         brand = product.get("brand")
-        if not brand:
-            return False  # brand match required for Jane loose mode
+        if not brand or _score_brand(brand) <= 5:
+            return False  # recognized brand required for Jane loose mode
         return _passes_price_cap(sale_price, category, weight_value)
 
     # --- Standard filters (non-Jane platforms) ---
@@ -423,8 +424,12 @@ def _score_brand(brand: str) -> int:
     for tier_data in BRAND_TIERS.values():
         if brand_lower in tier_data["brands"]:
             return tier_data["points"]
-        # Substring match for compound names (e.g. "Alien Labs Cannabis")
-        if any(b in brand_lower for b in tier_data["brands"] if len(b) > 3):
+        # Word-boundary match for compound names (e.g. "Alien Labs Cannabis")
+        if any(
+            re.search(r"\b" + re.escape(b) + r"\b", brand_lower)
+            for b in tier_data["brands"]
+            if len(b) > 3
+        ):
             return tier_data["points"]
 
     return 5  # any brand > no brand
@@ -453,14 +458,18 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
 
     source_platform = product.get("source_platform", "")
 
+    # Cap discount at 80% for scoring purposes.  Hard filter already
+    # rejects >85%, but values between 80-85% are almost always parsing
+    # artifacts.  Prevents inflated scores from slipping into top 20.
+    discount = min(discount, 80)
+
     # Jane products have no original price / discount data.  Give them a
     # flat baseline so they can compete with other platforms on
     # brand/value/category alone.  Non-Jane platforms get up to 45 pts
-    # (35 discount depth + 10 dollars saved); 22 roughly equals a 30%
-    # discount, giving Jane products fair representation without
-    # inflating mediocre listings.
+    # (35 discount depth + 10 dollars saved); 15 roughly equals a 20%
+    # discount — keeps Jane products visible without inflating the feed.
     if source_platform == "jane":
-        score += 22  # baseline in lieu of discount depth + dollars saved
+        score += 15  # baseline in lieu of discount depth + dollars saved
     else:
         # 1. DISCOUNT DEPTH (up to 35 points)
         if discount >= 50:

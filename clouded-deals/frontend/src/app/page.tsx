@@ -23,12 +23,8 @@ import { ToastContainer } from '@/components/Toast';
 import type { ToastData } from '@/components/Toast';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { useDealHistory } from '@/hooks/useDealHistory';
-import { useStreak } from '@/hooks/useStreak';
-import { useBrandAffinity } from '@/hooks/useBrandAffinity';
-import { useChallenges } from '@/hooks/useChallenges';
 import { initializeAnonUser, trackEvent, trackPageView, trackDealModalOpen } from '@/lib/analytics';
-import { FTUEFlow, isFTUECompleted, CoachMarks, isCoachMarksSeen } from '@/components/ftue';
-import { useSmartTips } from '@/hooks/useSmartTips';
+import { FTUEFlow, isFTUECompleted } from '@/components/ftue';
 import { createShareLink } from '@/lib/share';
 
 type AppPage = 'home' | 'search' | 'browse' | 'saved' | 'about' | 'terms' | 'privacy';
@@ -50,15 +46,9 @@ export default function Home() {
     if (typeof window === 'undefined') return false;
     return !isFTUECompleted();
   });
-  const [showCoachMarks, setShowCoachMarks] = useState(false);
-
   const { savedDeals, usedDeals, toggleSavedDeal, removeSavedDeals, markDealUsed, isDealUsed, savedCount } =
     useSavedDeals();
   const dealHistory = useDealHistory();
-  const { streak, isNewMilestone, clearMilestone } = useStreak();
-  const { trackBrand, topBrands } = useBrandAffinity();
-  const challenges = useChallenges();
-  const smartTips = useSmartTips();
 
   // Age verification & anonymous tracking
   useEffect(() => {
@@ -84,20 +74,6 @@ export default function Home() {
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
-
-  // Streak milestone toast
-  useEffect(() => {
-    if (isNewMilestone) {
-      addToast(`${isNewMilestone}-day streak! Keep it up.`, 'streak');
-      clearMilestone();
-    }
-  }, [isNewMilestone, clearMilestone, addToast]);
-
-  // Saved deals as array (for challenge progress computation)
-  const savedDealsList = useMemo(
-    () => deals.filter((d) => savedDeals.has(d.id)),
-    [deals, savedDeals]
-  );
 
   // Handle ?auth=success redirect from magic link
   useEffect(() => {
@@ -250,38 +226,12 @@ export default function Home() {
         const deal = deals.find((d) => d.id === dealId);
         if (deal) {
           dealHistory.snapshotDeal(deal);
-          trackBrand(deal.brand.name);
-          challenges.updateProgress('save', deal, savedDealsList);
-        }
-
-        // Build context for smart tip engine
-        const newCount = savedCount + 1;
-        const dispensaryIds = new Set(savedDealsList.map(d => d.dispensary.id));
-        if (deal) dispensaryIds.add(deal.dispensary.id);
-        const categorySet = new Set(savedDealsList.map(d => d.category));
-        if (deal) categorySet.add(deal.category);
-        const brandCount = deal?.brand?.name
-          ? savedDealsList.filter(d => d.brand?.name === deal.brand?.name).length + 1
-          : 0;
-
-        const tip = smartTips.onSave({
-          totalSavedCount: newCount,
-          brandName: deal?.brand?.name,
-          brandSaveCount: brandCount,
-          uniqueDispensaryCount: dispensaryIds.size,
-          uniqueCategoryCount: categorySet.size,
-        });
-
-        if (tip?.message) {
-          addToast(tip.message, tip.type);
         }
       } else {
         dealHistory.removeSnapshot(dealId);
-        const tip = smartTips.onUnsave();
-        if (tip.message) addToast(tip.message, tip.type);
       }
     },
-    [savedDeals, toggleSavedDeal, deals, trackBrand, addToast, challenges, savedDealsList, savedCount, smartTips]
+    [savedDeals, toggleSavedDeal, deals, addToast, dealHistory]
   );
 
   // Share saves handler — used by swipe overlay's "Share today's favorites" CTA
@@ -327,11 +277,6 @@ export default function Home() {
 
   const handleFTUEComplete = useCallback(() => {
     setShowFTUE(false);
-    // Show coach marks on first deals feed view
-    if (!isCoachMarksSeen()) {
-      // Delay so the deals page renders first and coach mark targets exist
-      setTimeout(() => setShowCoachMarks(true), 600);
-    }
   }, []);
 
   // AgeGate
@@ -465,19 +410,8 @@ export default function Home() {
               toggleSavedDeal={handleToggleSave}
               setSelectedDeal={setSelectedDeal}
               savedCount={savedCount}
-              streak={streak}
               isExpired={isShowingExpired}
-              onDismissDeal={() => {
-                const tip = smartTips.onDismiss();
-                if (tip?.message) addToast(tip.message, tip.type);
-              }}
               onShareSaves={handleShareSaves}
-              challengeData={{
-                onboardingComplete: challenges.onboardingComplete,
-                onboardingProgress: challenges.onboardingProgress,
-                nextChallenge: challenges.nextChallenge,
-              }}
-              topBrands={topBrands}
             />
           )
         )}
@@ -540,7 +474,6 @@ export default function Home() {
         onReplayTour={() => {
           setActivePage('home');
           setShowFTUE(true);
-          setShowCoachMarks(false);
           window.scrollTo(0, 0);
         }}
       />
@@ -576,11 +509,6 @@ export default function Home() {
       {/* Feedback widget — subtle floating icon, bottom-right */}
       <FeedbackWidget />
 
-      {/* Coach marks overlay — shown once after FTUE on first deals view */}
-      {showCoachMarks && (
-        <CoachMarks onComplete={() => setShowCoachMarks(false)} />
-      )}
-
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
@@ -599,7 +527,6 @@ export default function Home() {
               aria-selected={activePage === tab.id}
               aria-label={tab.label}
               onClick={() => setActivePage(tab.id)}
-              {...(tab.id === 'search' ? { 'data-coach': 'nav-search' } : {})}
               className={`flex flex-col items-center gap-0.5 px-3 py-2 min-w-[56px] min-h-[48px] text-[11px] font-medium transition-colors ${
                 activePage === tab.id
                   ? 'text-purple-400'

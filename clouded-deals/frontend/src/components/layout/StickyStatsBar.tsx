@@ -3,8 +3,6 @@
 type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'preroll';
 
 interface StickyStatsBarProps {
-  savedCount: number;
-  streak: number;
   activeCategory?: DealCategory;
   onCategoryChange?: (category: DealCategory) => void;
   children?: React.ReactNode;
@@ -26,7 +24,6 @@ export function StickyStatsBar({
 
   return (
     <div
-      data-coach="filter-bar"
       className="sticky top-14 sm:top-16 z-40 backdrop-blur-xl border-b"
       style={{ backgroundColor: 'rgba(10, 14, 26, 0.92)', borderColor: 'var(--border-subtle)' }}
     >
