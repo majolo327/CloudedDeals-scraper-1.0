@@ -24,22 +24,17 @@ export function ChallengeBar({
   onboardingProgress,
   nextChallenge,
 }: ChallengeBarProps) {
-  // Onboarding phase
+  // Onboarding phase — slim single-line bar
   if (!onboardingComplete) {
     const { current, total } = onboardingProgress;
     const pct = Math.min((current / total) * 100, 100);
 
     return (
-      <div className="glass-subtle frost rounded-xl px-4 py-3 mb-4 animate-in fade-in">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-slate-200">
-            {'\uD83D\uDC4B'} Rate {total} deals to unlock your feed
-          </span>
-          <span className="text-xs text-slate-500 tabular-nums">
-            {current}/{total}
-          </span>
-        </div>
-        <div className="h-1.5 rounded-full overflow-hidden bg-white/5">
+      <div className="flex items-center gap-3 mb-3 px-1">
+        <span className="text-xs text-slate-400 whitespace-nowrap">
+          {'\uD83D\uDC4B'} Rate {total - current} more to unlock
+        </span>
+        <div className="flex-1 h-1 rounded-full overflow-hidden bg-white/5">
           <div
             className="h-full rounded-full bg-gradient-to-r from-purple-500 to-purple-400"
             style={{
@@ -48,11 +43,14 @@ export function ChallengeBar({
             }}
           />
         </div>
+        <span className="text-[11px] text-slate-500 tabular-nums">
+          {current}/{total}
+        </span>
       </div>
     );
   }
 
-  // Post-onboarding: show next challenge
+  // Post-onboarding: slim inline challenge progress
   if (!nextChallenge) return null;
 
   const { challenge, progress } = nextChallenge;
@@ -60,16 +58,11 @@ export function ChallengeBar({
   const pct = target > 0 ? Math.min((progress.progress / target) * 100, 100) : 0;
 
   return (
-    <div className="glass-subtle frost rounded-xl px-4 py-3 mb-4 animate-in fade-in">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-slate-200">
-          {challenge.icon} {challenge.description}
-        </span>
-        <span className="text-xs text-slate-500 tabular-nums">
-          {progress.progress}/{target}
-        </span>
-      </div>
-      <div className="h-1.5 rounded-full overflow-hidden bg-white/5">
+    <div className="flex items-center gap-3 mb-3 px-1">
+      <span className="text-xs text-slate-400 whitespace-nowrap truncate max-w-[200px]">
+        {challenge.icon} {challenge.description}
+      </span>
+      <div className="flex-1 h-1 rounded-full overflow-hidden bg-white/5">
         <div
           className="h-full rounded-full bg-gradient-to-r from-purple-500 to-purple-400"
           style={{
@@ -78,6 +71,9 @@ export function ChallengeBar({
           }}
         />
       </div>
+      <span className="text-[11px] text-slate-500 tabular-nums">
+        {progress.progress}/{target}
+      </span>
     </div>
   );
 }

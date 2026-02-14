@@ -256,18 +256,17 @@ export function FilterSheet({
 
   return (
     <>
-      {/* Trigger button */}
+      {/* Trigger button — styled as a chip to match category pills */}
       <button
         onClick={() => setIsOpen(true)}
-        className="relative flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+        className={`relative flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+          activeFilterCount > 0
+            ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+            : 'text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10'
+        }`}
       >
-        <SlidersHorizontal className="w-4 h-4" />
-        <span className="hidden sm:inline">Filters</span>
-        {activeFilterCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-purple-500 text-white text-[11px] font-bold flex items-center justify-center">
-            {activeFilterCount}
-          </span>
-        )}
+        <SlidersHorizontal className="w-3.5 h-3.5" />
+        {activeFilterCount > 0 ? activeFilterCount : ''}
       </button>
 
       {/* Overlay — rendered via portal */}

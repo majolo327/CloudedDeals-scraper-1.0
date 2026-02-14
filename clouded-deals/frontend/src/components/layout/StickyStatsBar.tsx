@@ -18,7 +18,7 @@ export function StickyStatsBar({
   const categories: { id: DealCategory; label: string }[] = [
     { id: 'all', label: 'All' },
     { id: 'flower', label: 'Flower' },
-    { id: 'concentrate', label: 'Concentrate' },
+    { id: 'concentrate', label: 'Conc.' },
     { id: 'vape', label: 'Vape' },
     { id: 'edible', label: 'Edible' },
     { id: 'preroll', label: 'Preroll' },
@@ -30,15 +30,15 @@ export function StickyStatsBar({
       className="sticky top-14 sm:top-16 z-40 backdrop-blur-xl border-b"
       style={{ backgroundColor: 'rgba(10, 14, 26, 0.92)', borderColor: 'var(--border-subtle)' }}
     >
-      <div className="max-w-6xl mx-auto px-4 h-12 flex items-center gap-2">
+      <div className="max-w-6xl mx-auto px-4 h-11 flex items-center gap-1.5">
         {children && <div className="flex-shrink-0">{children}</div>}
         {onCategoryChange && (
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide min-w-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide min-w-0">
             {categories.map((category) => (
               <button
                 key={category.id}
                 onClick={() => onCategoryChange(category.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
                   activeCategory === category.id
                     ? 'bg-white/10 text-white border border-white/20'
                     : 'text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10'
