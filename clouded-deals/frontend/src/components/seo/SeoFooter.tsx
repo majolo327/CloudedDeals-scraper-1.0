@@ -164,9 +164,14 @@ export function SeoFooter() {
           <p className="text-center text-xs text-slate-500 leading-relaxed mb-3">
             Every deal is ranked on merit. No sponsored placements. No ads. Ever.
           </p>
-          <p className="text-center text-xs text-slate-600 leading-relaxed max-w-lg mx-auto mb-3">
-            CloudedDeals is not a licensed cannabis retailer. All deals are subject to
-            dispensary verification. Prices shown do not include tax. For adults 21+ only.
+          <p className="text-center text-xs text-slate-600 leading-relaxed max-w-lg mx-auto mb-2">
+            CloudedDeals is not a licensed cannabis retailer and does not sell, distribute,
+            or deliver cannabis products. All deals are subject to dispensary verification.
+            Prices shown do not include tax. For adults 21+ only. This is not medical advice.
+          </p>
+          <p className="text-center text-[10px] text-slate-700 leading-relaxed max-w-lg mx-auto mb-3">
+            Cannabis is illegal under federal law. Do not transport cannabis across state lines.
+            Do not operate a vehicle under the influence. Keep out of reach of children.
           </p>
           <p className="text-xs text-slate-600 text-center">
             &copy; {new Date().getFullYear()} CloudedDeals. Las Vegas, NV.
