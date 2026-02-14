@@ -325,6 +325,38 @@ Coach marks use `data-coach` attributes on elements for targeting. State stored 
 
 ## Changelog
 
+### Feb 14, 2026 — UX Audit, Deal Reporting, Operational Cleanup
+
+**Three-pass audit of the entire frontend codebase — declutter, accessibility, and deal accuracy tooling.**
+
+1. **UI Declutter Pass**
+   - ChallengeBar collapsed from full-width card to slim inline progress bar (~1/3 vertical space)
+   - StickyStatsBar reduced from h-12 to h-11, tighter chip spacing
+   - Filter button restyled from blocky bg-slate-800 to rounded-full chip matching category pills
+   - DealsPage header/deck progress compacted to slim inline rows
+   - Browse page: tap brand goes directly to filtered deals (was expand → dropdown → second tap)
+   - Browse page: dispensary buttons (Menu, Deals) shown inline (was hidden behind expand/collapse)
+   - Removed Premium/Local/Established tier tags from BrowsePage and SearchPage
+
+2. **Deal Reporting Feature** (`ReportDealModal.tsx`, migration `029_deal_reports.sql`)
+   - Users and founder can flag deals with specific issue types: wrong_price, deal_gone, wrong_product, other
+   - Optional message field for details (e.g. "actual price is $25")
+   - Writes to `deal_reports` table in Supabase with spam prevention (unique per user/deal/type/day)
+   - Admin summary view `deal_report_summary` groups reports by deal for daily review
+   - Flag button added to DealModal action row
+   - `onAccuracyFeedback` callback wired up in page.tsx (was previously disconnected)
+   - Toast notification on successful report
+
+3. **Accessibility & Touch Target Pass**
+   - All interactive elements across 8+ components now meet 44px minimum touch targets (Apple HIG / WCAG)
+   - Added aria-labels to all buttons missing them (save, dismiss, share, flag, location, feedback)
+   - Removed dead code: unused ShareModal import/state/render in DealCard
+
+4. **Centralized localStorage Keys** (`lib/storageKeys.ts`)
+   - All 12 localStorage keys moved to constants file to prevent typos and enable audit
+
+---
+
 ### Feb 12, 2026 — NOT_BRANDS Filter, Jane Loose Qualification, Enhanced Scrape Report
 
 **Improvements to brand detection, category inference, Jane deal handling, and operator visibility.**
@@ -396,6 +428,155 @@ Coach marks use `data-coach` attributes on elements for targeting. State stored 
 - Added Terms of Service and Privacy Policy pages
 - Added anti-regression metrics system + CI health endpoint
 - 583 unit tests passing (up from 421)
+
+---
+
+## Daily Deal Review — Founder Workflow
+
+Flag deals from the app (tap any deal → Flag button). Reports go to the `deal_reports` table. Review them daily.
+
+### Check flagged deals (Supabase SQL Editor)
+
+```sql
+-- Today's reports — what got flagged today
+SELECT product_name, dispensary_name, brand_name, deal_price,
+       report_type, report_message, created_at
+FROM deal_reports
+WHERE report_date = CURRENT_DATE
+ORDER BY created_at DESC;
+```
+
+```sql
+-- Summary view — unreviewed reports grouped by deal (highest report count first)
+SELECT * FROM deal_report_summary;
+```
+
+```sql
+-- All unreviewed reports with full detail
+SELECT product_name, dispensary_name, brand_name, deal_price,
+       report_type, report_message, anon_id, created_at
+FROM deal_reports
+WHERE reviewed = FALSE
+ORDER BY created_at DESC;
+```
+
+### Mark reports as reviewed
+
+```sql
+-- Mark all reports for a specific deal as reviewed
+UPDATE deal_reports
+SET reviewed = TRUE, reviewed_at = NOW()
+WHERE deal_id = 'INSERT-DEAL-UUID-HERE';
+```
+
+```sql
+-- Mark ALL unreviewed reports as reviewed (daily clear)
+UPDATE deal_reports
+SET reviewed = TRUE, reviewed_at = NOW()
+WHERE reviewed = FALSE;
+```
+
+### What to learn from flagged deals
+
+When you see recurring flags, ask Claude to investigate. Paste the flagged deals and ask:
+
+> "Here are today's flagged deals from CloudedDeals. For each one, tell me:
+> 1. Is this a scraper bug (wrong price extraction, wrong category, stale data)?
+> 2. Is this a scoring bug (deal shouldn't have qualified)?
+> 3. Is this a site issue (deal expired between scrape and user visit)?
+> 4. What specific scraper/scoring change would prevent this in the future?"
+
+**Common patterns and what they mean:**
+
+| Flag pattern | Likely cause | Fix |
+|---|---|---|
+| `wrong_price` on one dispensary | Price selector changed on their site | Debug that platform scraper, check extraction selectors |
+| `deal_gone` across many dispensaries | Scrape ran too early, deals changed mid-day | Consider running scraper closer to dispensary open time |
+| `deal_gone` on one dispensary only | That dispensary updates menu frequently | Mark as volatile, scrape 2x/day if needed |
+| `wrong_product` — wrong category | Category inference missed a keyword | Add keyword to `clouded_logic.py` category detection |
+| `wrong_product` — wrong brand | Brand name extracted from promo text | Check `parser.py` brand extraction order |
+| `wrong_price` + message "actual price is $X" | Original price vs sale price confusion | Check platform scraper's price field mapping |
+
+### Improving deal accuracy over time
+
+1. **Weekly:** Review `deal_report_summary` — are any dispensaries or brands repeatedly flagged?
+2. **Monthly:** Run the scraper in dry-run mode (`limited: true`) and spot-check 10 deals against live dispensary sites
+3. **After fixing a scraper bug:** Re-run the affected dispensary with `single_site` dispatch and verify the fix
+
+---
+
+## Engineering Priorities — Operational Readiness
+
+These are the tactical engineering tasks that make the product production-grade. They sit alongside the strategic roadmap below. Do them as you go — most are 1-2 day efforts, not multi-week projects.
+
+### 1. Deal Accuracy Feedback Loop ✅ SHIPPED (Feb 14, 2026)
+- [x] `ReportDealModal` — users flag wrong_price, deal_gone, wrong_product, other
+- [x] `deal_reports` Supabase table with RLS + spam prevention (unique per user/deal/type/day)
+- [x] `deal_report_summary` admin view — groups by deal_id for daily review
+- [x] Flag button in DealModal, toast confirmation on submit
+- [ ] **TODO:** Run migration `029_deal_reports.sql` on production Supabase
+- [ ] **TODO:** Add deal_reports widget to admin dashboard (`/admin`) — table of today's reports with resolve button
+- [ ] **TODO:** Auto-suppress deals with 3+ reports (add `is_flagged` column to deals, check in frontend query)
+- [ ] **TODO:** Daily Slack/email digest of flagged deals (Supabase Edge Function or cron)
+
+### 2. Analytics Dashboard Audit
+- [x] Admin dashboard exists and is functional — pulls from Supabase `analytics_events`, `user_sessions`, `user_events`
+- [x] 30+ event types tracked, session tracking, retention cohorts all operational
+- [ ] **TODO:** Add funnel visualization: landing → FTUE complete → first save → return visit → share
+- [ ] **TODO:** Add deal report metrics to admin dashboard (reports/day, top reported deals, resolution rate)
+- [ ] **TODO:** Track "Get This Deal" click-through → dispensary website as conversion event
+- [ ] **TODO:** Add per-dispensary engagement breakdown (which dispensaries generate most saves/clicks)
+
+### 3. Error Monitoring
+- [ ] Add Sentry (or Highlight.io) to Next.js frontend — catch unhandled errors, slow renders, failed API calls
+- [ ] Add Sentry to scraper Python codebase — catch parse errors, timeout patterns, new site layouts
+- [ ] Set up Slack alerts for: scraper run failures, zero-product sites, error rate spikes
+- [ ] Goal: know about problems before users report them
+
+### 4. Performance / Lighthouse Pass
+- [ ] Run Lighthouse CI on every deploy — target 90+ on Performance, Accessibility, SEO
+- [ ] Audit bundle size — tree-shake unused lucide icons, lazy-load modals (DealModal, ShareModal, ReportDealModal)
+- [ ] Add `loading="lazy"` to any images if/when product images are added
+- [ ] Verify Core Web Vitals (LCP, FID, CLS) are green in Search Console
+- [ ] Consider ISR (Incremental Static Regeneration) for deal pages if traffic justifies it
+
+### 5. SEO Pages
+- [ ] `/dispensary/[slug]` — individual dispensary page with today's deals, address, hours, map
+- [ ] `/brand/[slug]` — brand page with current deals across all dispensaries
+- [ ] `/deals/[category]` — category landing pages (flower deals, vape deals, etc.)
+- [ ] Proper `<title>`, `<meta description>`, structured data (Product schema) on all pages
+- [ ] Sitemap.xml generated from active dispensaries + brands
+- [ ] Goal: organic traffic from "las vegas dispensary deals", "[brand] deals near me"
+
+### 6. SMS / Push Notification Pipeline
+- [x] SMS waitlist banner exists and collects phone numbers
+- [ ] **TODO:** Build daily deal digest — top 5 deals summary via SMS (Twilio or similar)
+- [ ] **TODO:** Price drop alerts — "STIIIZY cart you saved dropped to $25 at Medizin"
+- [ ] **TODO:** PWA push notifications as alternative to SMS (free, no per-message cost)
+- [ ] **TODO:** Frequency control — users choose daily, 3x/week, or deal-triggered only
+
+### 7. Auth & Persistence
+- [ ] Currently: all user data (saves, dismissals, preferences) lives in localStorage — lost on device change or clear
+- [ ] Add optional Supabase Auth (magic link or Google OAuth) — zero-friction, no password
+- [ ] Sync saves, preferences, and streak data to server when logged in
+- [ ] Merge anonymous session data into account on first login
+- [ ] Unlock cross-device experience and long-term retention tracking
+- [ ] Don't gate any features behind auth — it's purely an enhancement
+
+### 8. PWA (Progressive Web App)
+- [ ] Add `manifest.json` with app name, icons, theme colors
+- [ ] Add service worker for offline shell + cache-first for static assets
+- [ ] "Add to Home Screen" prompt after 2nd visit (browser-native, not custom modal)
+- [ ] Offline fallback page: "You're offline — here are your saved deals"
+- [ ] Goal: feel like a native app without App Store friction
+
+### 9. Technical Debt Tracker
+- [ ] `storageKeys.ts` created but not yet adopted everywhere — migrate remaining hardcoded key strings
+- [ ] `lib/socialProof.ts` fully built but never called — wire up when DAU justifies it (50+ DAU)
+- [ ] `price_history` table accumulating data silently — surface in frontend when 30-60 days of data exists
+- [ ] Rise scraper disabled (Cloudflare Turnstile) — revisit after PMF + traction
+- [ ] SLV double age gate may break if Treez changes — monitor
+- [ ] Gamification features (streaks, challenges, milestones) may need tuning based on user feedback
 
 ---
 

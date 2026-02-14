@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Heart, BadgeCheck, MapPin, ExternalLink, MessageCircle, CheckCircle, Navigation } from 'lucide-react';
+import { X, Heart, BadgeCheck, MapPin, ExternalLink, MessageCircle, CheckCircle, Navigation, Flag } from 'lucide-react';
 import { ShareModal } from './ShareModal';
 import { AccuracyModal } from './AccuracyModal';
+import { ReportDealModal } from './ReportDealModal';
 import type { Deal } from '@/types';
 import { getMapsUrl, getDisplayName } from '@/utils';
 import { trackGetDealClick } from '@/lib/analytics';
@@ -16,6 +17,7 @@ interface DealModalProps {
   isUsed?: boolean;
   onMarkUsed?: () => void;
   onAccuracyFeedback?: (accurate: boolean) => void;
+  onDealReported?: () => void;
 }
 
 function formatShareText(deal: Deal, url: string): string {
@@ -33,11 +35,13 @@ export function DealModal({
   isUsed = false,
   onMarkUsed,
   onAccuracyFeedback,
+  onDealReported,
 }: DealModalProps) {
   const savings = (deal.original_price || deal.deal_price) - deal.deal_price;
   const savingsPercent = deal.original_price ? Math.round((savings / deal.original_price) * 100) : 0;
   const [showShareModal, setShowShareModal] = useState(false);
   const [showAccuracyModal, setShowAccuracyModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -205,10 +209,17 @@ export function DealModal({
               <button
                 onClick={handleShare}
                 className="py-3 sm:py-3.5 px-3 sm:px-4 min-h-[48px] min-w-[48px] rounded-xl font-semibold transition-all flex items-center justify-center gap-2 bg-white/5 text-white hover:bg-white/10"
-                title="Share this deal"
+                aria-label="Share this deal"
               >
                 <MessageCircle className="w-5 h-5" />
                 <span className="hidden sm:inline">Share</span>
+              </button>
+              <button
+                onClick={() => setShowReportModal(true)}
+                className="py-3 sm:py-3.5 px-3 sm:px-4 min-h-[48px] min-w-[48px] rounded-xl font-semibold transition-all flex items-center justify-center gap-2 bg-white/5 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                aria-label="Flag this deal"
+              >
+                <Flag className="w-4 h-4" />
               </button>
               <button
                 onClick={onToggleSave}
@@ -255,6 +266,12 @@ export function DealModal({
         <ShareModal deal={deal} onClose={() => setShowShareModal(false)} />
       )}
       <AccuracyModal isOpen={showAccuracyModal} onClose={handleAccuracyResponse} />
+      <ReportDealModal
+        deal={deal}
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onReported={onDealReported}
+      />
     </div>
   );
 }
