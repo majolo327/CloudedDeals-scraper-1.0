@@ -557,6 +557,16 @@ export default function Home() {
             markDealUsed(selectedDeal.id);
             addToast('Marked as used', 'success');
           }}
+          onAccuracyFeedback={(accurate) => {
+            trackEvent('deal_viewed', selectedDeal.id, {
+              action: 'accuracy_feedback',
+              accurate,
+              dispensary: selectedDeal.dispensary?.name,
+            });
+          }}
+          onDealReported={() => {
+            addToast('Thanks for flagging — we\'ll review it.', 'info');
+          }}
         />
       )}
 
