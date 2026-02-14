@@ -355,6 +355,19 @@ Coach marks use `data-coach` attributes on elements for targeting. State stored 
 4. **Centralized localStorage Keys** (`lib/storageKeys.ts`)
    - All 12 localStorage keys moved to constants file to prevent typos and enable audit
 
+5. **Database Integrity Constraints** (migration `030_data_integrity_constraints.sql`)
+   - Applied 16 CHECK constraints across `products`, `dispensaries`, `scrape_runs`, `deal_reports`
+   - Products: category enum (6 values), deal_score 0-100, sale/original price positive, discount/THC/CBD 0-100%, weight_unit enum, product_subtype enum, strain_type enum, name min 3 chars (NOT VALID for existing rows)
+   - Dispensaries: platform enum (7 values), region enum
+   - Scrape runs: status enum, platform_group enum
+   - Deal reports: report_type enum
+
+6. **Data Cleanup Before Constraints** (one-time SQL, not in migrations)
+   - 3,103 products had `category='other'` — added `'other'` to constraint (legitimate category used by deal_detector.py for unclassified products)
+   - 272 products had `thc_percent` > 100 (milligram values stored in percent column) — nulled out
+   - CBD percent had same issue — nulled out
+   - 42 dispensaries had `platform='pending'` (not yet assigned to a scraper) — added `'pending'` to constraint
+
 ---
 
 ### Feb 12, 2026 — NOT_BRANDS Filter, Jane Loose Qualification, Enhanced Scrape Report
@@ -577,6 +590,8 @@ These are the tactical engineering tasks that make the product production-grade.
 - [ ] Rise scraper disabled (Cloudflare Turnstile) — revisit after PMF + traction
 - [ ] SLV double age gate may break if Treez changes — monitor
 - [ ] Gamification features (streaks, challenges, milestones) may need tuning based on user feedback
+- [ ] THC/CBD scraper leaking milligrams into percent columns — 272 rows had thc_percent up to 749 (edibles reporting mg as %). Fix in parser.py: detect mg values (>100) and either convert or null before DB write
+- [ ] 42 dispensaries with `platform='pending'` — assign actual platforms or remove if stale
 
 ---
 
