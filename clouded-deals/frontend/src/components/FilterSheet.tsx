@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { SlidersHorizontal, X, RotateCcw, Check, MapPin, ChevronDown, Navigation, Loader2 } from 'lucide-react';
+import { SlidersHorizontal, X, RotateCcw, Check, MapPin, ChevronDown, Navigation, Loader2, Search } from 'lucide-react';
 import type { Category } from '@/types';
 import { DISPENSARIES } from '@/data/dispensaries';
 import { VALID_WEIGHTS_BY_CATEGORY } from '@/utils/weightNormalizer';
@@ -103,11 +103,12 @@ export function FilterSheet({
   onLocationSet,
 }: FilterSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [sortOpen, setSortOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(true);
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationPrompt, setLocationPrompt] = useState<LocationPromptState>('hidden');
   const [zipInput, setZipInput] = useState('');
   const [zipError, setZipError] = useState('');
+  const [dispensarySearch, setDispensarySearch] = useState('');
   const zipInputRef = useRef<HTMLInputElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
@@ -119,6 +120,12 @@ export function FilterSheet({
   }, []);
 
   const weightOptions = useMemo(() => getWeightOptions(filters.categories), [filters.categories]);
+
+  const filteredDispensaries = useMemo(() => {
+    if (!dispensarySearch.trim()) return dispensaries;
+    const q = dispensarySearch.toLowerCase().trim();
+    return dispensaries.filter((d) => d.name.toLowerCase().includes(q));
+  }, [dispensaries, dispensarySearch]);
 
   const activeFilterCount = externalActiveCount ?? [
     filters.categories.length > 0,
@@ -259,14 +266,15 @@ export function FilterSheet({
       {/* Trigger button — styled as a chip to match category pills */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`relative flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+        aria-label={`Filters${activeFilterCount > 0 ? ` (${activeFilterCount} active)` : ''}`}
+        className={`relative flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium whitespace-nowrap transition-all ${
           activeFilterCount > 0
             ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
-            : 'text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10'
+            : 'bg-slate-700/50 text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10'
         }`}
       >
         <SlidersHorizontal className="w-3.5 h-3.5" />
-        {activeFilterCount > 0 ? activeFilterCount : ''}
+        {activeFilterCount > 0 ? activeFilterCount : 'Filter'}
       </button>
 
       {/* Overlay — rendered via portal */}
@@ -306,7 +314,8 @@ export function FilterSheet({
                 )}
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  aria-label="Close filters"
+                  className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -321,55 +330,55 @@ export function FilterSheet({
                     <button
                       key={cat}
                       onClick={() => toggleCategory(cat)}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-purple-500/15 text-purple-400 text-xs font-medium"
+                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-purple-500/15 text-purple-400 text-xs font-medium"
                     >
                       {cat}
-                      <X className="w-2.5 h-2.5" />
+                      <X className="w-3 h-3" />
                     </button>
                   ))}
                   {filters.priceRange !== 'all' && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, priceRange: 'all', quickFilter: 'none' })}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-medium"
+                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-medium"
                     >
                       {PRICE_RANGES.find(r => r.id === filters.priceRange)?.label}
-                      <X className="w-2.5 h-2.5" />
+                      <X className="w-3 h-3" />
                     </button>
                   )}
                   {filters.minDiscount > 0 && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, minDiscount: 0, quickFilter: 'none' })}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/15 text-amber-400 text-xs font-medium"
+                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-amber-500/15 text-amber-400 text-xs font-medium"
                     >
                       {filters.minDiscount}%+ off
-                      <X className="w-2.5 h-2.5" />
+                      <X className="w-3 h-3" />
                     </button>
                   )}
                   {filters.distanceRange !== 'all' && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, distanceRange: 'all', quickFilter: 'none' })}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/15 text-blue-400 text-xs font-medium"
+                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-blue-500/15 text-blue-400 text-xs font-medium"
                     >
                       {DISTANCE_OPTIONS.find(d => d.id === filters.distanceRange)?.label}
-                      <X className="w-2.5 h-2.5" />
+                      <X className="w-3 h-3" />
                     </button>
                   )}
                   {filters.weightFilter !== 'all' && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, weightFilter: 'all' })}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-cyan-500/15 text-cyan-400 text-xs font-medium"
+                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-cyan-500/15 text-cyan-400 text-xs font-medium"
                     >
                       {filters.weightFilter}
-                      <X className="w-2.5 h-2.5" />
+                      <X className="w-3 h-3" />
                     </button>
                   )}
                   {filters.dispensaryIds.length > 0 && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, dispensaryIds: [], quickFilter: 'none' })}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/15 text-blue-400 text-xs font-medium"
+                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-blue-500/15 text-blue-400 text-xs font-medium"
                     >
                       {filters.dispensaryIds.length} store{filters.dispensaryIds.length !== 1 ? 's' : ''}
-                      <X className="w-2.5 h-2.5" />
+                      <X className="w-3 h-3" />
                     </button>
                   )}
                 </div>
@@ -485,7 +494,7 @@ export function FilterSheet({
                       <button
                         key={cat.id}
                         onClick={() => toggleCategory(cat.id)}
-                        className={`flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-full text-xs font-medium transition-all ${
+                        className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all ${
                           isSelected
                             ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
                             : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
@@ -550,24 +559,34 @@ export function FilterSheet({
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs text-slate-500">Dispensary</p>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <button
                             onClick={selectAllDispensaries}
-                            className="text-[11px] text-purple-400 hover:text-purple-300 transition-colors"
+                            className="px-2 py-1 min-h-[32px] text-[11px] text-purple-400 hover:text-purple-300 transition-colors"
                           >
                             Select All
                           </button>
-                          <span className="text-slate-700">|</span>
                           <button
                             onClick={clearAllDispensaries}
-                            className="text-[11px] text-slate-400 hover:text-slate-300 transition-colors"
+                            className="px-2 py-1 min-h-[32px] text-[11px] text-slate-400 hover:text-slate-300 transition-colors"
                           >
                             Clear
                           </button>
                         </div>
                       </div>
+                      {/* Dispensary search */}
+                      <div className="relative mb-2">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                        <input
+                          type="text"
+                          value={dispensarySearch}
+                          onChange={(e) => setDispensarySearch(e.target.value)}
+                          placeholder="Search dispensaries..."
+                          className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500/50 transition-colors"
+                        />
+                      </div>
                       <div className="space-y-1 max-h-40 overflow-y-auto rounded-lg bg-slate-800/50 p-2">
-                        {dispensaries.map((d) => {
+                        {filteredDispensaries.map((d) => {
                           const isChecked = filters.dispensaryIds.includes(d.id);
                           return (
                             <label
@@ -607,7 +626,7 @@ export function FilterSheet({
                     <button
                       key={range.id}
                       onClick={() => onFiltersChange({ ...filters, priceRange: range.id, quickFilter: 'none' })}
-                      className={`px-3 py-2 min-h-[40px] rounded-full text-xs font-medium transition-all ${
+                      className={`px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all ${
                         filters.priceRange === range.id
                           ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
                           : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
@@ -632,7 +651,7 @@ export function FilterSheet({
                         onFiltersChange({ ...filters, weightFilter: opt.id });
                         if (opt.id !== 'all') trackEvent('filter_change', undefined, { weight: opt.id });
                       }}
-                      className={`px-3 py-2 min-h-[40px] rounded-full text-xs font-medium transition-all ${
+                      className={`px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all ${
                         filters.weightFilter === opt.id
                           ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
                           : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
@@ -669,9 +688,13 @@ export function FilterSheet({
             <div className="flex-shrink-0 p-4 bg-slate-900/95 border-t border-slate-800 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <button
                 onClick={() => setIsOpen(false)}
-                className="w-full py-3 bg-purple-500 hover:bg-purple-400 text-white font-semibold rounded-xl transition-colors text-sm"
+                className={`w-full py-3 min-h-[48px] font-semibold rounded-xl transition-colors text-sm ${
+                  filteredCount === 0
+                    ? 'bg-slate-700 text-slate-400'
+                    : 'bg-purple-500 hover:bg-purple-400 text-white'
+                }`}
               >
-                Show {filteredCount} deal{filteredCount !== 1 ? 's' : ''}
+                {filteredCount === 0 ? 'No deals match' : `Show ${filteredCount} deal${filteredCount !== 1 ? 's' : ''}`}
               </button>
             </div>
           </div>

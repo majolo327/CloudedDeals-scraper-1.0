@@ -328,9 +328,10 @@ export function SearchPage({
           {searchQuery && (
             <button
               onClick={clearSearch}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-slate-700 text-slate-400 hover:text-white hover:bg-slate-600 transition-colors"
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -343,7 +344,7 @@ export function SearchPage({
             <button
               key={filter.id}
               onClick={() => handleCategoryFilter(filter.id as FilterCategory)}
-              className={`shrink-0 px-3 sm:px-4 py-2 min-h-[40px] rounded-full text-sm font-medium transition-all duration-200 ${
+              className={`shrink-0 px-3.5 sm:px-4 py-2 min-h-[44px] rounded-full text-sm font-medium transition-all duration-200 ${
                 activeCategory === filter.id
                   ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/25'
                   : 'bg-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700'
@@ -394,7 +395,7 @@ export function SearchPage({
                   <div className="flex items-center gap-2 pb-2">
                     <button
                       onClick={() => setActiveDispensary('all')}
-                      className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                      className={`shrink-0 px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all ${
                         activeDispensary === 'all'
                           ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                           : 'bg-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700 border border-transparent'
@@ -406,7 +407,7 @@ export function SearchPage({
                       <button
                         key={d.id}
                         onClick={() => setActiveDispensary(d.id)}
-                        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                        className={`shrink-0 px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all whitespace-nowrap ${
                           activeDispensary === d.id
                             ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                             : 'bg-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700 border border-transparent'
@@ -634,9 +635,9 @@ export function SearchPage({
 
               {/* No results at all */}
               {totalResults === 0 && filteredExtendedDeals.length === 0 && !extendedLoading && (
-                <div className="text-center py-16">
-                  <Search className="w-16 h-16 mx-auto mb-4 text-slate-700" />
-                  <p className="text-slate-400 text-lg mb-2">
+                <div className="text-center py-12">
+                  <Search className="w-10 h-10 mx-auto mb-3 text-slate-700" />
+                  <p className="text-slate-400 text-base mb-2">
                     No matches for &ldquo;{debouncedQuery}&rdquo;
                   </p>
                   <p className="text-slate-500 text-sm max-w-xs mx-auto">
@@ -649,7 +650,7 @@ export function SearchPage({
           )}
         </>
       ) : (
-        <div className="py-12">
+        <div className="py-8">
           {/* Recent Searches */}
           {recentSearches.length > 0 && (
             <div className="mb-10">
@@ -660,7 +661,8 @@ export function SearchPage({
                 </div>
                 <button
                   onClick={clearRecentSearches}
-                  className="text-xs text-slate-600 hover:text-slate-400 transition-colors"
+                  className="px-3 py-1.5 min-h-[44px] flex items-center text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                  aria-label="Clear recent searches"
                 >
                   Clear
                 </button>
@@ -670,7 +672,7 @@ export function SearchPage({
                   <button
                     key={query}
                     onClick={() => handleRecentClick(query)}
-                    className="px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700/50 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-white transition-all"
+                    className="px-4 py-2.5 min-h-[44px] rounded-full bg-slate-800/50 border border-slate-700/50 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-white transition-all"
                   >
                     {query}
                   </button>
@@ -680,8 +682,8 @@ export function SearchPage({
           )}
 
           <div className="text-center">
-            <Search className="w-20 h-20 mx-auto mb-4 text-slate-700" />
-            <p className="text-slate-400 text-lg mb-2">
+            <Search className="w-12 h-12 mx-auto mb-3 text-slate-700" />
+            <p className="text-slate-400 text-base mb-1.5">
               {isExpired
                 ? "Search yesterday's deals while we prepare today's"
                 : "Find exactly what you're looking for"}
