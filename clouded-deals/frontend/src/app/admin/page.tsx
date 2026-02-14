@@ -8,6 +8,7 @@ interface ScrapeRun {
   started_at: string;
   completed_at: string | null;
   status: string;
+  region: string;
   total_products: number;
   qualifying_deals: number;
   sites_scraped: string[];
@@ -111,7 +112,7 @@ export default function AdminDashboard() {
         />
         <StatCard
           label="Active Sites"
-          value={`${stats?.activeSites ?? 0} / 27`}
+          value={`${stats?.activeSites ?? 0}`}
         />
       </div>
 
@@ -143,6 +144,7 @@ export default function AdminDashboard() {
             <thead className="border-b border-zinc-100 text-xs text-zinc-500 dark:border-zinc-800">
               <tr>
                 <th className="px-4 py-2 font-medium">Started</th>
+                <th className="px-4 py-2 font-medium">Region</th>
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 font-medium">Products</th>
                 <th className="px-4 py-2 font-medium">Deals</th>
@@ -159,6 +161,9 @@ export default function AdminDashboard() {
                 >
                   <td className="whitespace-nowrap px-4 py-2">
                     {new Date(run.started_at).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-2">
+                    <RegionBadge region={run.region} />
                   </td>
                   <td className="px-4 py-2">
                     <StatusBadge status={run.status} />
@@ -185,7 +190,7 @@ export default function AdminDashboard() {
               {runs.length === 0 && (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-4 py-8 text-center text-zinc-400"
                   >
                     No scrape runs yet.
@@ -224,6 +229,38 @@ function StatCard({
         {value}
       </p>
     </div>
+  );
+}
+
+const REGION_LABELS: Record<string, string> = {
+  "southern-nv": "NV",
+  "michigan": "MI",
+  "illinois": "IL",
+  "arizona": "AZ",
+  "missouri": "MO",
+  "new-jersey": "NJ",
+  all: "ALL",
+};
+
+const REGION_COLORS: Record<string, string> = {
+  "southern-nv": "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",
+  michigan: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",
+  illinois: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400",
+  arizona: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400",
+  missouri: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400",
+  "new-jersey": "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400",
+  all: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
+};
+
+function RegionBadge({ region }: { region: string }) {
+  const label = REGION_LABELS[region] ?? region;
+  const color = REGION_COLORS[region] ?? "bg-zinc-100 text-zinc-600";
+  return (
+    <span
+      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${color}`}
+    >
+      {label}
+    </span>
   );
 }
 

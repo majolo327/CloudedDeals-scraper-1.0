@@ -8,11 +8,32 @@ interface ScrapeRun {
   started_at: string;
   completed_at: string | null;
   status: string;
+  region: string;
   total_products: number;
   qualifying_deals: number;
   sites_scraped: string[];
   sites_failed: { slug: string; error: string }[];
 }
+
+const REGION_LABELS: Record<string, string> = {
+  "southern-nv": "NV",
+  michigan: "MI",
+  illinois: "IL",
+  arizona: "AZ",
+  missouri: "MO",
+  "new-jersey": "NJ",
+  all: "ALL",
+};
+
+const REGION_COLORS: Record<string, string> = {
+  "southern-nv": "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",
+  michigan: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",
+  illinois: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400",
+  arizona: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400",
+  missouri: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400",
+  "new-jersey": "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400",
+  all: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
+};
 
 export default function ScraperPage() {
   const [currentRun, setCurrentRun] = useState<ScrapeRun | null>(null);
@@ -190,6 +211,7 @@ export default function ScraperPage() {
             <thead className="border-b border-zinc-100 text-xs text-zinc-500 dark:border-zinc-800">
               <tr>
                 <th className="px-4 py-2 font-medium">Started</th>
+                <th className="px-4 py-2 font-medium">Region</th>
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 font-medium">Products</th>
                 <th className="px-4 py-2 font-medium">Deals</th>
@@ -209,6 +231,13 @@ export default function ScraperPage() {
                   <tr key={run.id} className="text-zinc-700 dark:text-zinc-300">
                     <td className="whitespace-nowrap px-4 py-2">
                       {new Date(run.started_at).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${REGION_COLORS[run.region] ?? "bg-zinc-100 text-zinc-600"}`}
+                      >
+                        {REGION_LABELS[run.region] ?? run.region}
+                      </span>
                     </td>
                     <td className="px-4 py-2">
                       <span
@@ -241,7 +270,7 @@ export default function ScraperPage() {
               {runs.length === 0 && (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-4 py-8 text-center text-zinc-400"
                   >
                     No runs recorded yet.
