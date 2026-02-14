@@ -7,7 +7,7 @@ network-dependent.  They are NOT part of the fast CI suite.
 Run with::
 
     # All diagnostic tests
-    pytest tests/test_site_diagnostics.py -v -s --timeout=300
+    pytest tests/test_site_diagnostics.py -v -s --timeout=600
 
     # Single site
     pytest tests/test_site_diagnostics.py::TestP1Failures::test_td_gibson -v -s
@@ -74,13 +74,25 @@ pytestmark = [
 # Shared diagnostic helper
 # ---------------------------------------------------------------------------
 
+# Hard timeout for the asyncio-level kill switch.  pytest's signal-based
+# timeout (SIGALRM) cannot interrupt a blocked asyncio event loop — the
+# coroutine just keeps waiting.  asyncio.wait_for() cancels from inside
+# the event loop and actually unblocks the stuck coroutine.
+_DIAG_TIMEOUT_SEC = 300
+
+
 async def _run_diagnostic(
     slug: str,
     scraper_cls: type,
     *,
     extra_probes: list[str] | None = None,
+    timeout_sec: float = _DIAG_TIMEOUT_SEC,
 ) -> dict[str, Any]:
     """Run a full scrape for *slug* and return a diagnostic report.
+
+    Wraps the actual work in ``asyncio.wait_for()`` so the scraper
+    coroutine is cancelled if it exceeds *timeout_sec*.  This is the
+    hard kill switch that pytest's signal timeout cannot provide.
 
     The report dict includes:
         products       — list of extracted products
@@ -109,64 +121,82 @@ async def _run_diagnostic(
     }
 
     try:
-        async with scraper_cls(cfg) as scraper:
-            page = scraper.page
-
-            # --- Run the scrape ---
-            products = await scraper.scrape()
-            report["products"] = products
-            report["product_count"] = len(products)
-
-            # --- Page diagnostics ---
-            report["page_url"] = page.url
-            try:
-                report["page_title"] = await page.title()
-            except Exception:
-                report["page_title"] = "(error)"
-
-            # --- Iframe audit ---
-            try:
-                iframes = await page.query_selector_all("iframe")
-                report["iframe_count"] = len(iframes)
-                srcs = []
-                for el in iframes:
-                    src = await el.get_attribute("src") or "(no src)"
-                    srcs.append(src)
-                report["iframe_srcs"] = srcs
-            except Exception:
-                report["iframe_count"] = -1
-                report["iframe_srcs"] = []
-
-            # --- Product selector probes (on main page) ---
-            probes = [
-                '[data-testid*="product"]',
-                'div[class*="product"]',
-                'div[class*="ProductCard"]',
-                'a[href*="/product/"]',
-                'article',
-                '[class*="card"]',
-                '#carrot-store-root',
-                '[data-carrot-route]',
-                '#dutchie--embed',
-                '[data-dutchie]',
-                '._flex_80y9c_1',
-            ]
-            if extra_probes:
-                probes.extend(extra_probes)
-
-            probe_counts: dict[str, int] = {}
-            for sel in probes:
-                try:
-                    count = await page.locator(sel).count()
-                    if count > 0:
-                        probe_counts[sel] = count
-                except Exception:
-                    pass
-            report["probe_counts"] = probe_counts
-
+        report = await asyncio.wait_for(
+            _run_diagnostic_inner(slug, cfg, scraper_cls, report, extra_probes),
+            timeout=timeout_sec,
+        )
+    except asyncio.TimeoutError:
+        report["error"] = f"Hard timeout after {timeout_sec}s — scraper hung"
+        logger.error("Diagnostic HARD TIMEOUT for %s after %ds", slug, timeout_sec)
     except Exception as exc:
         report["error"] = f"{type(exc).__name__}: {exc}"
         logger.error("Diagnostic scrape FAILED for %s: %s", slug, exc, exc_info=True)
+
+    return report
+
+
+async def _run_diagnostic_inner(
+    slug: str,
+    cfg: dict[str, Any],
+    scraper_cls: type,
+    report: dict[str, Any],
+    extra_probes: list[str] | None,
+) -> dict[str, Any]:
+    """Inner diagnostic logic — called inside asyncio.wait_for()."""
+    async with scraper_cls(cfg) as scraper:
+        page = scraper.page
+
+        # --- Run the scrape ---
+        products = await scraper.scrape()
+        report["products"] = products
+        report["product_count"] = len(products)
+
+        # --- Page diagnostics ---
+        report["page_url"] = page.url
+        try:
+            report["page_title"] = await page.title()
+        except Exception:
+            report["page_title"] = "(error)"
+
+        # --- Iframe audit ---
+        try:
+            iframes = await page.query_selector_all("iframe")
+            report["iframe_count"] = len(iframes)
+            srcs = []
+            for el in iframes:
+                src = await el.get_attribute("src") or "(no src)"
+                srcs.append(src)
+            report["iframe_srcs"] = srcs
+        except Exception:
+            report["iframe_count"] = -1
+            report["iframe_srcs"] = []
+
+        # --- Product selector probes (on main page) ---
+        probes = [
+            '[data-testid*="product"]',
+            'div[class*="product"]',
+            'div[class*="ProductCard"]',
+            'a[href*="/product/"]',
+            'article',
+            '[class*="card"]',
+            '#carrot-store-root',
+            '[data-carrot-route]',
+            '#dutchie--embed',
+            '[data-dutchie]',
+            '._flex_80y9c_1',
+        ]
+        if extra_probes:
+            probes.extend(extra_probes)
+
+        probe_counts: dict[str, int] = {}
+        for sel in probes:
+            try:
+                count = await page.locator(sel).count()
+                if count > 0:
+                    probe_counts[sel] = count
+            except Exception:
+                pass
+        report["probe_counts"] = probe_counts
 
     return report
 
@@ -557,16 +587,17 @@ class TestDeepDiagnostics:
     pipeline breaks for each site.
     """
 
-    @pytest.mark.timeout(120)
+    @pytest.mark.timeout(180)
     async def test_td_age_gate_triggers_embed(self):
-        """Verify that clicking TD's age gate button injects the Dutchie embed.
+        """Verify that clicking TD's age gate button injects the Dutchie embed."""
+        try:
+            await asyncio.wait_for(
+                self._td_age_gate_inner(), timeout=120,
+            )
+        except asyncio.TimeoutError:
+            pytest.fail("TD age gate test timed out after 120s — browser hung")
 
-        The critical insight from production history: TD's embed script only
-        fires AFTER the age gate button click callback.  Force-removing the
-        overlay via JS does NOT trigger the embed injection.
-
-        This test clicks the age gate and then checks for Dutchie content.
-        """
+    async def _td_age_gate_inner(self):
         from playwright.async_api import async_playwright
 
         cfg = get_dispensary_by_slug("td-gibson")
@@ -647,14 +678,17 @@ class TestDeepDiagnostics:
                 "is no longer correct."
             )
 
-    @pytest.mark.timeout(120)
+    @pytest.mark.timeout(180)
     async def test_planet13_direct_page_products(self):
-        """Verify that Planet 13 renders product cards directly on page.
+        """Verify that Planet 13 renders product cards directly on page."""
+        try:
+            await asyncio.wait_for(
+                self._planet13_inner(), timeout=120,
+            )
+        except asyncio.TimeoutError:
+            pytest.fail("Planet 13 test timed out after 120s — browser hung")
 
-        Planet 13 uses Dutchie but renders the menu directly (no iframe,
-        no #dutchie--embed container).  Products should appear as standard
-        Dutchie ``[data-testid="product-card"]`` elements.
-        """
+    async def _planet13_inner(self):
         from playwright.async_api import async_playwright
 
         cfg = get_dispensary_by_slug("planet13")
@@ -719,13 +753,17 @@ class TestDeepDiagnostics:
                 f"JS-embed mode, or products need different selectors."
             )
 
-    @pytest.mark.timeout(120)
+    @pytest.mark.timeout(180)
     async def test_oasis_jane_iframe_detection(self):
-        """Verify Oasis Jane iframe is detectable.
+        """Verify Oasis Jane iframe is detectable."""
+        try:
+            await asyncio.wait_for(
+                self._oasis_jane_inner(), timeout=120,
+            )
+        except asyncio.TimeoutError:
+            pytest.fail("Oasis Jane test timed out after 120s — browser hung")
 
-        Oasis uses Jane — products should be in an iheartjane.com iframe
-        or rendered directly.  This test probes both strategies.
-        """
+    async def _oasis_jane_inner(self):
         from playwright.async_api import async_playwright
 
         cfg = get_dispensary_by_slug("oasis")
@@ -814,14 +852,17 @@ class TestDeepDiagnostics:
                 "The site may have changed platforms or the URL may need updating."
             )
 
-    @pytest.mark.timeout(120)
+    @pytest.mark.timeout(300)
     async def test_carrot_site_dom_structure(self):
-        """Probe all Carrot zero-product sites to identify DOM differences.
+        """Probe all Carrot zero-product sites to identify DOM differences."""
+        try:
+            await asyncio.wait_for(
+                self._carrot_dom_inner(), timeout=240,
+            )
+        except asyncio.TimeoutError:
+            pytest.fail("Carrot DOM audit timed out after 240s — browser hung")
 
-        Runs a quick probe against each Carrot site and prints the DOM
-        structure findings.  This helps identify which Carrot deployment
-        mode each site uses and why products aren't being found.
-        """
+    async def _carrot_dom_inner(self):
         from playwright.async_api import async_playwright
 
         carrot_sites = [
