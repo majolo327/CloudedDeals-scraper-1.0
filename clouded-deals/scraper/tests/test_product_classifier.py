@@ -74,6 +74,41 @@ class TestPackDetection:
         assert r["product_subtype"] is None
 
 
+class TestVapeDisposableDetection:
+
+    @pytest.mark.parametrize("name", [
+        "Strawberry All In One Live Resin 0.5g",
+        "STIIIZY All-In-One Pen 1g",
+        "AIO Live Resin Vape",
+        "Ready To Use Disposable Pen",
+        "Ready-To-Use Live Resin 0.5g",
+        "Disposable Vape 0.3g",
+    ])
+    def test_disposable_indicators_when_vape(self, name):
+        r = classify_product(name, brand=None, category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_stiiizy_all_in_one_is_disposable_not_pod(self):
+        """STIIIZY is normally a pod brand, but 'All In One' overrides to disposable."""
+        r = classify_product(
+            "Strawberry Milkshake All In One Live Resin Liquid Diamonds Pen",
+            brand="STIIIZY", category="vape",
+        )
+        assert r["product_subtype"] == "disposable"
+
+    @pytest.mark.parametrize("name,wrong_cat", [
+        ("Strawberry Milkshake All In One Live Resin", "flower"),
+        ("AIO Live Resin Pen", "edible"),
+        ("Ready To Use Vape", "concentrate"),
+        ("Disposable Pen 0.5g", "other"),
+    ])
+    def test_disposable_corrects_wrong_category(self, name, wrong_cat):
+        """Disposable indicators should override a wrong category to vape."""
+        r = classify_product(name, brand=None, category=wrong_cat)
+        assert r["corrected_category"] == "vape"
+        assert r["product_subtype"] == "disposable"
+
+
 class TestNoFlags:
 
     def test_regular_flower(self):
