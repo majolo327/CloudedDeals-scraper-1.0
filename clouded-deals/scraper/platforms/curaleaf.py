@@ -2,10 +2,10 @@
 Scraper for Curaleaf dispensary pages.
 
 Flow:
-  1. Navigate directly to the ``/shop/nevada/`` store URL.
+  1. Navigate directly to the store URL (``/shop/{state}/`` or ``/stores/``).
   2. Handle the age gate — Curaleaf now **redirects** to
      ``/age-gate?returnurl=...`` instead of showing an overlay.  We must
-     detect the redirect, select Nevada, and submit.
+     detect the redirect, select the correct state, and submit.
   3. Wait for the React SPA to render product cards.
   4. Extract product cards from the direct page.
   5. Paginate via numbered / "Next" buttons.
@@ -20,6 +20,7 @@ import asyncio
 import logging
 import re
 from typing import Any
+from urllib.parse import urlparse
 
 from playwright.async_api import TimeoutError as PlaywrightTimeout
 
@@ -95,6 +96,42 @@ _PRODUCT_SELECTORS = [
     '[class*="card"]',
     'article',
 ]
+
+
+# Map region slugs to full state names (for age gate dropdown) and abbreviations.
+_REGION_TO_STATE: dict[str, tuple[str, str]] = {
+    "michigan": ("Michigan", "MI"),
+    "illinois": ("Illinois", "IL"),
+    "nevada": ("Nevada", "NV"),
+    "southern-nv": ("Nevada", "NV"),
+    "arizona": ("Arizona", "AZ"),
+}
+
+
+def _infer_state(url: str, dispensary: dict[str, Any]) -> tuple[str, str]:
+    """Infer state name and abbreviation for the Curaleaf age gate.
+
+    Resolution order:
+      1. URL path: ``/shop/{state}/...`` → title-cased state name
+      2. Dispensary config ``region`` field → lookup in _REGION_TO_STATE
+      3. Fallback: ("Nevada", "NV") for backward compatibility
+    """
+    # Try extracting from /shop/{state}/ URL pattern
+    match = re.search(r"/shop/(\w[\w-]*)/", url)
+    if match:
+        slug = match.group(1).lower()
+        if slug in _REGION_TO_STATE:
+            return _REGION_TO_STATE[slug]
+        # Unknown slug in URL — title-case it as best guess
+        return slug.title(), slug[:2].upper()
+
+    # Try the dispensary config "region" field
+    region = dispensary.get("region", "").lower()
+    if region in _REGION_TO_STATE:
+        return _REGION_TO_STATE[region]
+
+    # Fallback: Nevada (backward compat for NV /stores/ URLs)
+    return ("Nevada", "NV")
 
 
 class CuraleafScraper(BaseScraper):
@@ -218,10 +255,25 @@ class CuraleafScraper(BaseScraper):
         """Handle Curaleaf's redirect-based age gate.
 
         Curaleaf redirects ``/shop/...`` to ``/age-gate?returnurl=...``.
-        We need to select Nevada and submit to get back to the shop page.
-        If we're NOT on the age-gate page, fall back to the generic handler.
+        We need to select the correct state and submit to get back to the
+        shop page.  The state is inferred from the URL path or dispensary
+        config — no hardcoded state.
+
+        For non-curaleaf.com domains (e.g. Zen Leaf), falls back to the
+        generic overlay-based age gate handler.
         """
         current_url = self.page.url
+        parsed = urlparse(current_url)
+
+        # Zen Leaf and other non-curaleaf.com domains don't use the
+        # redirect-based age gate — they use standard overlays.
+        if "curaleaf.com" not in parsed.netloc:
+            logger.info(
+                "[%s] Non-curaleaf.com domain (%s) — using generic age gate handler",
+                self.slug, parsed.netloc,
+            )
+            await self.handle_age_gate(post_wait_sec=0)
+            return
 
         if "/age-gate" not in current_url:
             logger.info("[%s] No age-gate redirect detected — trying generic handler", self.slug)
@@ -229,6 +281,10 @@ class CuraleafScraper(BaseScraper):
             return
 
         logger.info("[%s] Detected Curaleaf age-gate redirect: %s", self.slug, current_url)
+
+        # Infer the correct state from the URL or dispensary config
+        state_name, state_abbr = _infer_state(self.url, self.dispensary)
+        logger.info("[%s] Age gate state: %s (%s)", self.slug, state_name, state_abbr)
 
         # Step 1: Select state from dropdown
         state_selectors = [
@@ -246,24 +302,24 @@ class CuraleafScraper(BaseScraper):
                 await locator.wait_for(state="visible", timeout=5_000)
                 tag = await locator.evaluate("el => el.tagName.toLowerCase()")
                 if tag == "select":
-                    await locator.select_option(label="Nevada")
-                    logger.info("[%s] Selected 'Nevada' from <select> dropdown", self.slug)
+                    await locator.select_option(label=state_name)
+                    logger.info("[%s] Selected '%s' from <select> dropdown", self.slug, state_name)
                 else:
                     await locator.click()
                     await asyncio.sleep(1)
-                    nv_option = self.page.locator('text="Nevada"').first
+                    state_option = self.page.locator(f'text="{state_name}"').first
                     try:
-                        await nv_option.wait_for(state="visible", timeout=3_000)
-                        await nv_option.click()
-                        logger.info("[%s] Clicked 'Nevada' option in dropdown", self.slug)
+                        await state_option.wait_for(state="visible", timeout=3_000)
+                        await state_option.click()
+                        logger.info("[%s] Clicked '%s' option in dropdown", self.slug, state_name)
                     except PlaywrightTimeout:
-                        nv_option = self.page.locator('text="NV"').first
+                        state_option = self.page.locator(f'text="{state_abbr}"').first
                         try:
-                            await nv_option.wait_for(state="visible", timeout=2_000)
-                            await nv_option.click()
-                            logger.info("[%s] Clicked 'NV' option in dropdown", self.slug)
+                            await state_option.wait_for(state="visible", timeout=2_000)
+                            await state_option.click()
+                            logger.info("[%s] Clicked '%s' option in dropdown", self.slug, state_abbr)
                         except PlaywrightTimeout:
-                            logger.debug("[%s] Could not find Nevada/NV in dropdown via %r", self.slug, selector)
+                            logger.debug("[%s] Could not find %s/%s in dropdown via %r", self.slug, state_name, state_abbr, selector)
                             continue
                 break
             except PlaywrightTimeout:
@@ -302,14 +358,20 @@ class CuraleafScraper(BaseScraper):
             except PlaywrightTimeout:
                 continue
 
-        # Wait for redirect back to store page
+        # Wait for redirect back to store page.
+        # Curaleaf uses two URL patterns: /stores/ (NV, AZ) and /shop/ (MI, IL).
+        # Check which pattern matches the original URL and wait for that.
+        if "/shop/" in self.url:
+            redirect_pattern = "**/shop/**"
+        else:
+            redirect_pattern = "**/stores/**"
         try:
-            await self.page.wait_for_url("**/stores/**", timeout=15_000)
+            await self.page.wait_for_url(redirect_pattern, timeout=15_000)
             logger.info("[%s] Redirected back to store: %s", self.slug, self.page.url)
         except PlaywrightTimeout:
             logger.warning(
-                "[%s] Did not redirect back to store after age gate — current URL: %s",
-                self.slug, self.page.url,
+                "[%s] Did not redirect back to store after age gate (expected %s) — current URL: %s",
+                self.slug, redirect_pattern, self.page.url,
             )
             await self.save_debug_info("age_gate_stuck")
 

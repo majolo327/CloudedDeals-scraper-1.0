@@ -137,6 +137,14 @@ class DutchieScraper(BaseScraper):
         embed_hint = self.dispensary.get("embed_type") or _DUTCHIE_CFG.get("embed_type")
         fallback_url = self.dispensary.get("fallback_url")
 
+        # Auto-detect: dutchie.com/dispensary/* pages are direct React SPAs
+        # with NO iframe.  Override to "direct" to skip the 270s iframe
+        # detection cascade + 60s JS embed cascade entirely.
+        url_host = urlparse(self.url).netloc
+        if url_host in ("dutchie.com", "www.dutchie.com"):
+            embed_hint = "direct"
+            logger.info("[%s] Auto-detected embed_type='direct' for %s URL", self.slug, url_host)
+
         # --- Navigate with wait_until='load' (scripts fully execute) ------
         await self.goto()
 
