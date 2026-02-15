@@ -26,7 +26,7 @@ on:
     - cron: "30 11 * * *"   # massachusetts  — 6:30 AM EST  (17 sites, ~15 min)
     - cron: "0 12 * * *"    # new-york       — 7:00 AM EST  (18 sites, ~15 min)
     - cron: "30 12 * * *"   # new-jersey     — 7:30 AM EST  (34 sites, ~25 min)
-    - cron: "0 13 * * *"    # ohio           — 8:00 AM EST  (20 sites, ~15 min)
+    - cron: "0 13 * * *"    # ohio           — 8:00 AM EST  (22 sites, ~15 min)
     #
     # ── Midwest / Great Lakes ───────────────────────────────────────
     - cron: "30 13 * * *"   # michigan       — 8:30 AM EST  (114 sites, ~50 min)

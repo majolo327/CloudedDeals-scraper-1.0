@@ -48,7 +48,7 @@ const CONFIGURED_SITES: Record<string, number> = {
   arizona: 52,
   missouri: 31,
   "new-jersey": 34,
-  ohio: 20,
+  ohio: 22,
   colorado: 17,
   "new-york": 18,
   massachusetts: 17,
