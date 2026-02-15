@@ -160,7 +160,7 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is True
 
     def test_edible_over_cap(self, make_product):
-        p = make_product(category="edible", sale_price=16.0, original_price=32.0,
+        p = make_product(category="edible", sale_price=22.0, original_price=44.0,
                          discount_percent=50)
         assert passes_hard_filters(p) is False
 
@@ -175,8 +175,8 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is True
 
     def test_preroll_over_cap(self, make_product):
-        p = make_product(category="preroll", sale_price=11.0, original_price=20.0,
-                         discount_percent=45)
+        p = make_product(category="preroll", sale_price=16.0, original_price=32.0,
+                         discount_percent=50)
         assert passes_hard_filters(p) is False
 
     # ── Unknown category ───────────────────────────────────────────

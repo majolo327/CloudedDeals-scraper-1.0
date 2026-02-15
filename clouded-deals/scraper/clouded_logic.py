@@ -380,11 +380,41 @@ _STRAIN_BRAND_BLOCKERS = [
 
     # "Cookies" is a brand — but only block if the word isn't at the start
     # (e.g., "Girl Scout Cookies" strain, but "Cookies Gary Payton" IS the brand)
-    (re.compile(r'\b(?:girl\s*scout|thin\s*mint|platinum|animal|lemon|cherry|'
+    #
+    # ENGINEERING NOTE — Cookie strains are EXTREMELY prevalent:
+    # GSC (Girl Scout Cookies) is one of the most-crossed parent strains in
+    # cannabis.  Breeders routinely cross it with other genetics, producing
+    # hundreds of "X Cookies" cultivar names.  In practice, dispensary menus
+    # contain far more cookie-cross STRAIN names than actual Cookies-brand
+    # products.  This list must be kept comprehensive; when in doubt, add the
+    # prefix — a missing entry causes a false Cookies-brand tag on every unit
+    # of that strain across every dispensary we scrape.
+    #
+    # Rule of thumb: if "<word> Cookies" appears on a menu and the product
+    # is NOT manufactured by the Cookies brand, the prefix belongs here.
+    (re.compile(r'\b(?:'
+                # --- classic / OG cookie crosses ---
+                r'girl\s*scout|thin\s*mint|platinum|animal|lemon|cherry|'
                 r'forum\s*cut|sugar|blueberry|sunset|fire|sour\s*fire|og|'
                 r'mandarin|guava|grape|peanut\s*butter|london\s*pound|kush|'
-                r'berry|tropical|tropicana|strawberry|orange|purple|white|gelato|'
-                r'biscotti|garlic|alien)\s+cookies\b', re.IGNORECASE), 'Cookies'),
+                r'berry|tropical|tropicana|strawberry|orange|purple|white|'
+                r'gelato|biscotti|garlic|alien|'
+                # --- additional common cookie-cross strains ---
+                r'lilac|pink|monster|samoa|space|key\s*lime|mint|banana|'
+                r'royal|tangerine|mac|golden|frosted|peach|papaya|'
+                r'watermelon|melon|mochi|diesel|gorilla|jungle|dosi|'
+                r'wedding|miracle|gmo|cream|funky|snow|moon|dirty|'
+                r'sour|butter|candy|honey|rainbow|coffee|lava|crunch|'
+                r'modified|crispy|emerald|neon|exotic|cosmic|red\s*velvet|'
+                r'caramel|vanilla|coconut|lavender|apricot|citrus|ginger|'
+                r'ice\s*cream|pumpkin|pistachio|truffle|'
+                # --- catch-all for numbered / lettered prefixes ---
+                r'\d+\s*'
+                r')\s+cookies\b', re.IGNORECASE), 'Cookies'),
+
+    # "Cookies and Cream" / "Cookies N Cream" is a strain (Starfighter x GSC),
+    # NOT a Cookies-brand product — even though "Cookies" appears at the start.
+    (re.compile(r'\bcookies\s+(?:and|n|&|x)\s+cream\b', re.IGNORECASE), 'Cookies'),
 
     # "Runtz" is a brand, but these are strains:
     (re.compile(r'\b(?:white|pink|gelatti|gelato|tropical|gruntz|rainbow|'
@@ -1148,6 +1178,7 @@ class CloudedLogic:
         _frac_oz_m = re.search(r'\b(1/[248])\s*(?:oz)?\b', clean_text, re.IGNORECASE)
         _FRAC_GRAMS = {"1/8": 3.5, "1/4": 7.0, "1/2": 14.0}
         weight = None
+        raw_weight = None
         if _frac_oz_m and _frac_oz_m.group(1) in _FRAC_GRAMS:
             grams = _FRAC_GRAMS[_frac_oz_m.group(1)]
             raw_weight = f"{grams}g"
@@ -1163,8 +1194,9 @@ class CloudedLogic:
                     raw_weight = f"{round(oz_val * 28, 1)}g"
                 weight = self.validate_weight(raw_weight, category)
 
-            # Special handling for edibles
-            if category == 'edible':
+            # Special handling for edibles — only normalize when a weight
+            # string was actually extracted to avoid UnboundLocalError.
+            if category == 'edible' and raw_weight is not None:
                 normalized = self.normalize_weight(raw_weight)
                 if normalized is None:
                     self.stats['rejected_tiny_edibles'] += 1

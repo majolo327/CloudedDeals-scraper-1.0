@@ -1,5 +1,19 @@
 name: Daily Scraper
 
+# Dynamic run name so each state is identifiable at a glance in the Actions UI.
+run-name: >-
+  Scrape — ${{
+    github.event_name == 'workflow_dispatch'
+      && (github.event.inputs.region || 'all')
+    || github.event.schedule == '0 16 * * *' && 'nevada'
+    || github.event.schedule == '0 18 * * *' && 'arizona'
+    || github.event.schedule == '30 19 * * *' && 'illinois'
+    || github.event.schedule == '0 21 * * *' && 'missouri'
+    || github.event.schedule == '0 22 * * *' && 'michigan'
+    || github.event.schedule == '0 23 * * *' && 'new-jersey'
+    || 'unknown'
+  }}
+
 on:
   schedule:
     # Optimized cron schedule — all 11 states.
