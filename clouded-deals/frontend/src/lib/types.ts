@@ -33,6 +33,8 @@ export interface Product {
   thc_percent: number | null;
   cbd_percent: number | null;
   raw_text: string | null;
+  product_subtype: string | null;
+  product_url: string | null;
   scraped_at: string;
 }
 

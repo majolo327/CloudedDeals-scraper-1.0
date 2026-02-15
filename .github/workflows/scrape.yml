@@ -5,17 +5,12 @@ run-name: >-
   Scrape — ${{
     github.event_name == 'workflow_dispatch'
       && (github.event.inputs.region || 'all')
-    || github.event.schedule == '0 11 * * *'  && 'pennsylvania'
-    || github.event.schedule == '30 11 * * *' && 'massachusetts'
-    || github.event.schedule == '0 12 * * *'  && 'new-york'
-    || github.event.schedule == '30 12 * * *' && 'new-jersey'
-    || github.event.schedule == '0 13 * * *'  && 'ohio'
-    || github.event.schedule == '30 13 * * *' && 'michigan'
-    || github.event.schedule == '30 14 * * *' && 'arizona'
-    || github.event.schedule == '0 15 * * *'  && 'illinois'
-    || github.event.schedule == '30 15 * * *' && 'colorado'
-    || github.event.schedule == '5 16 * * *'  && 'southern-nv'
-    || github.event.schedule == '0 17 * * *'  && 'missouri'
+    || github.event.schedule == '0 16 * * *' && 'nevada'
+    || github.event.schedule == '0 18 * * *' && 'arizona'
+    || github.event.schedule == '30 19 * * *' && 'illinois'
+    || github.event.schedule == '0 21 * * *' && 'missouri'
+    || github.event.schedule == '0 22 * * *' && 'michigan'
+    || github.event.schedule == '0 23 * * *' && 'new-jersey'
     || 'unknown'
   }}
 

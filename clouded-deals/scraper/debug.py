@@ -64,7 +64,8 @@ if disps.data:
 
 # --- Products (today) ---
 print("\n--- Products ---")
-today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+today = today_start.isoformat()
 all_products = db.table("products").select("id", count="exact").limit(1).execute()
 today_products = db.table("products").select("id", count="exact").gte("scraped_at", today).limit(1).execute()
 print(f"  Total:    {all_products.count or 0}")
@@ -103,6 +104,55 @@ if top.data:
     print("  Top deals by score:")
     for d in top.data:
         print(f"    - score={d['deal_score']} @ {d['dispensary_id']}")
+
+# --- Deal counts by dispensary (yesterday vs today) ---
+print("\n--- Deals by Dispensary (Yesterday vs Today) ---")
+yesterday = (today_start - timedelta(days=1)).isoformat()
+tomorrow = (today_start + timedelta(days=1)).isoformat()
+
+disp_resp = db.table("dispensaries").select("id, name, platform, is_active").execute()
+disp_map = {d["id"]: d for d in (disp_resp.data or [])}
+slugs = list(disp_map.keys())
+
+def _count_by_disp(table, ts_col, gte, lt):
+    """Return {slug: count} for rows in [gte, lt)."""
+    counts = {}
+    for i in range(0, len(slugs), 50):
+        batch = slugs[i : i + 50]
+        rows = (
+            db.table(table)
+            .select("dispensary_id")
+            .in_("dispensary_id", batch)
+            .gte(ts_col, gte)
+            .lt(ts_col, lt)
+            .execute()
+        ).data or []
+        for r in rows:
+            s = r["dispensary_id"]
+            counts[s] = counts.get(s, 0) + 1
+    return counts
+
+y_products = _count_by_disp("products", "scraped_at", yesterday, today)
+t_products = _count_by_disp("products", "scraped_at", today, tomorrow)
+y_deals = _count_by_disp("deals", "created_at", yesterday, today)
+t_deals = _count_by_disp("deals", "created_at", today, tomorrow)
+
+for platform in sorted(set(d["platform"] for d in disp_map.values())):
+    p_slugs = sorted(
+        [s for s, d in disp_map.items() if d["platform"] == platform],
+        key=lambda s: disp_map[s]["name"],
+    )
+    print(f"\n  {platform.upper()}")
+    print(f"  {'Name':<34s} {'Yest prod':>9s} {'deals':>5s}  {'Today prod':>10s} {'deals':>5s}")
+    yp_tot = yd_tot = tp_tot = td_tot = 0
+    for s in p_slugs:
+        info = disp_map[s]
+        tag = "" if info.get("is_active") else " [OFF]"
+        yp = y_products.get(s, 0); yd = y_deals.get(s, 0)
+        tp = t_products.get(s, 0); td = t_deals.get(s, 0)
+        yp_tot += yp; yd_tot += yd; tp_tot += tp; td_tot += td
+        print(f"  {(info['name'][:32] + tag):<34s} {yp:>9d} {yd:>5d}  {tp:>10d} {td:>5d}")
+    print(f"  {'TOTAL':<34s} {yp_tot:>9d} {yd_tot:>5d}  {tp_tot:>10d} {td_tot:>5d}")
 
 # --- Analytics events ---
 print("\n--- Analytics ---")

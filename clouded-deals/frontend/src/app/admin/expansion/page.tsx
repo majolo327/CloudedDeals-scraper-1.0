@@ -256,17 +256,17 @@ function SummaryCard({
     <div
       className={`rounded-xl border px-4 py-4 ${
         muted
-          ? "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950"
-          : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+          ? "border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/80"
+          : "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900"
       }`}
     >
-      <p className="text-xs font-medium text-zinc-500">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400">{label}</p>
       <p
-        className={`mt-1 text-2xl font-bold ${muted ? "text-zinc-400" : "text-zinc-900 dark:text-zinc-100"}`}
+        className={`mt-1 text-2xl font-bold ${muted ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-900 dark:text-white"}`}
       >
         {value}
       </p>
-      <p className="mt-0.5 text-xs text-zinc-400">{sub}</p>
+      <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{sub}</p>
     </div>
   );
 }
@@ -297,12 +297,12 @@ function RegionCard({
 
   const statusStyles: Record<string, string> = {
     green:
-      "border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/30",
+      "border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-950/60",
     yellow:
-      "border-yellow-200 bg-yellow-50/50 dark:border-yellow-900 dark:bg-yellow-950/30",
-    red: "border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/30",
-    blue: "border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/30",
-    zinc: "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900",
+      "border-yellow-300 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/60",
+    red: "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/60",
+    blue: "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/60",
+    zinc: "border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900",
   };
 
   const dotStyles: Record<string, string> = {
@@ -334,20 +334,20 @@ function RegionCard({
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-xs font-bold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+            <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-xs font-bold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-100">
               {meta.emoji}
             </span>
-            <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
               {meta.label}
             </h3>
           </div>
-          <p className="mt-0.5 text-xs text-zinc-500">
+          <p className="mt-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
             {configuredSites} configured sites
           </p>
         </div>
         <div className="flex items-center gap-1.5">
           <span className={`h-2.5 w-2.5 rounded-full ${dotStyles[statusColor]}`} />
-          <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+          <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
             {hasData ? latestRun.status.replace(/_/g, " ") : "no data"}
           </span>
         </div>
@@ -370,13 +370,13 @@ function RegionCard({
           />
         </div>
       ) : (
-        <div className="mt-3 rounded-lg bg-zinc-100 px-3 py-4 text-center text-xs text-zinc-400 dark:bg-zinc-800">
+        <div className="mt-3 rounded-lg bg-zinc-100 px-3 py-4 text-center text-xs font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
           Awaiting first scrape run
         </div>
       )}
 
       {hasData && (
-        <p className="mt-2 text-xs text-zinc-400">
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
           Last run:{" "}
           {new Date(latestRun.started_at).toLocaleString(undefined, {
             month: "short",
@@ -403,13 +403,13 @@ function MiniStat({
   accent?: boolean;
 }) {
   return (
-    <div className="rounded-lg bg-white/60 px-2 py-1.5 dark:bg-zinc-800/60">
-      <p className="text-[10px] font-medium text-zinc-400">{label}</p>
+    <div className="rounded-lg bg-white/80 px-2.5 py-2 dark:bg-zinc-800">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{label}</p>
       <p
         className={`text-sm font-bold ${
           accent
-            ? "text-green-600 dark:text-green-400"
-            : "text-zinc-700 dark:text-zinc-300"
+            ? "text-green-700 dark:text-green-400"
+            : "text-zinc-900 dark:text-zinc-100"
         }`}
       >
         {value}
@@ -428,23 +428,23 @@ function RegionDetail({
   const recent = runs.slice(0, 10);
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+    <div className="rounded-xl border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+        <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
           {regionLabel} — Recent Runs
         </h3>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-zinc-100 text-xs text-zinc-500 dark:border-zinc-800">
+          <thead className="border-b border-zinc-200 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
             <tr>
-              <th className="px-4 py-2 font-medium">Date</th>
-              <th className="px-4 py-2 font-medium">Status</th>
-              <th className="px-4 py-2 font-medium">Products</th>
-              <th className="px-4 py-2 font-medium">Deals</th>
-              <th className="px-4 py-2 font-medium">Sites OK</th>
-              <th className="px-4 py-2 font-medium">Failed</th>
-              <th className="px-4 py-2 font-medium">Duration</th>
+              <th className="px-4 py-2 font-semibold">Date</th>
+              <th className="px-4 py-2 font-semibold">Status</th>
+              <th className="px-4 py-2 font-semibold">Products</th>
+              <th className="px-4 py-2 font-semibold">Deals</th>
+              <th className="px-4 py-2 font-semibold">Sites OK</th>
+              <th className="px-4 py-2 font-semibold">Failed</th>
+              <th className="px-4 py-2 font-semibold">Duration</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -459,7 +459,7 @@ function RegionDetail({
               return (
                 <tr
                   key={run.id}
-                  className="text-zinc-700 dark:text-zinc-300"
+                  className="text-zinc-800 dark:text-zinc-200"
                 >
                   <td className="whitespace-nowrap px-4 py-2 text-xs">
                     {new Date(run.started_at).toLocaleString(undefined, {
@@ -500,7 +500,7 @@ function RegionDetail({
               <tr>
                 <td
                   colSpan={7}
-                  className="px-4 py-8 text-center text-zinc-400"
+                  className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400"
                 >
                   No runs yet for this region.
                 </td>
@@ -514,15 +514,15 @@ function RegionDetail({
       {recent[0] &&
         Array.isArray(recent[0].sites_failed) &&
         recent[0].sites_failed.length > 0 && (
-          <div className="border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
-            <p className="mb-2 text-xs font-semibold text-red-500">
+          <div className="border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
+            <p className="mb-2 text-xs font-semibold text-red-600 dark:text-red-400">
               Failed Sites (latest run):
             </p>
             <div className="space-y-1">
               {recent[0].sites_failed.map((f, i) => (
                 <div key={i} className="flex gap-2 text-xs">
-                  <span className="font-mono text-zinc-500">{f.slug}</span>
-                  <span className="truncate text-red-400">{f.error}</span>
+                  <span className="font-mono text-zinc-700 dark:text-zinc-300">{f.slug}</span>
+                  <span className="truncate text-red-500 dark:text-red-400">{f.error}</span>
                 </div>
               ))}
             </div>

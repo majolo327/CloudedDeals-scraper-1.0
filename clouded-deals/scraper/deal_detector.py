@@ -47,17 +47,27 @@ CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
         "1": 45,          # gram — raised from flat $35
         "2": 75,          # 2g buckets
     },
-    "preroll": 10,        # single prerolls — relaxed from $6
+    "preroll": 9,         # regular flower prerolls — tightened from $10 (should be $5-9)
+    "infused_preroll": 15, # infused prerolls are premium products
     "preroll_pack": 25,   # preroll multi-packs — relaxed from $20
 }
 
 # Global hard-filter thresholds (apply to ALL categories)
 HARD_FILTERS = {
-    "min_discount_percent": 15,   # relaxed from 20%
+    "min_discount_percent": 12,   # relaxed from 15% — captures more mid-tier deals
     "min_price": 3,               # below $3 = data error
     "max_price_absolute": 100,    # raised from $80 for oz flower + concentrates
     "max_discount_percent": 85,   # above 85% = fake/data error
     "require_original_price": True,
+}
+
+# Category-specific discount minimums — edibles and prerolls have real deals
+# at lower discount percentages (e.g. $8 edible marked down from $10 = 20%,
+# but a $9 edible from $10 = 10%).  These budget items are genuine deals
+# that consumers want to see, not data errors.
+CATEGORY_MIN_DISCOUNT: dict[str, float] = {
+    "edible": 10,
+    "preroll": 10,
 }
 
 # Maximum believable ORIGINAL price per category.  If the parsed original
@@ -102,15 +112,28 @@ BRAND_TIERS: dict[str, dict[str, Any]] = {
             # Illinois-native popular brands
             "revolution", "aeriz", "bedford grow", "cresco",
             "high supply", "good news", "matter", "superflux",
+            "thrive", "essence", "cake", "&shine",
+            "pts", "nature's grace", "encore edibles",
+            "savvy", "reserve",
             # Arizona-native popular brands
             "abundant organics", "grow sciences", "item 9 labs",
             "timeless", "sonoran roots", "mohave cannabis",
             # Missouri-native popular brands
             "illicit", "flora farms", "vivid", "sinse",
             "proper", "clovr", "good day farm", "headchange",
+            "elevate", "greenlight", "haze", "nature med",
+            "vertical", "star buds", "bloc", "terrabis",
+            "c4", "amaze cannabis", "keef", "robhots",
             # New Jersey-native popular brands
             "kind tree", "fernway", "ozone", "rythm",
             "garden greens", "the botanist", "clade9",
+            "terrascend", "good green", "later days",
+            "grön", "gron", "jams", "beboe", "avexia",
+            "level", "bits",
+            # Nevada dispensary house brands (boost when detected)
+            "deep roots", "deep roots harvest",
+            "state flower", "cultivation labs",
+            "the sanctuary",
         },
         "points": 12,
     },
@@ -139,14 +162,14 @@ CATEGORY_BOOST: dict[str, int] = {
 # Phase 3: Top-200 selection parameters
 # =====================================================================
 
-TARGET_DEAL_COUNT = 200
+TARGET_DEAL_COUNT = 250
 
 CATEGORY_TARGETS: dict[str, int] = {
-    "flower": 60,
-    "vape": 50,
-    "edible": 30,
-    "concentrate": 30,
-    "preroll": 20,
+    "flower": 75,       # raised from 60 — proportional to 250 target
+    "vape": 60,         # raised from 50
+    "edible": 40,       # raised from 35
+    "concentrate": 35,  # raised from 30
+    "preroll": 30,      # raised from 25
     "other": 10,
 }
 
@@ -156,26 +179,26 @@ CATEGORY_TARGETS: dict[str, int] = {
 CATEGORY_MINIMUMS: dict[str, int] = {
     "flower": 15,
     "vape": 12,
-    "edible": 8,
+    "edible": 12,       # raised from 8 — guarantee more edibles in feed
     "concentrate": 8,
-    "preroll": 5,
+    "preroll": 8,       # raised from 5 — guarantee more prerolls in feed
     "other": 0,
 }
 
 MAX_SAME_BRAND_TOTAL = 5          # was 8 — tighter cap so one brand can't dominate the feed
-MAX_SAME_DISPENSARY_TOTAL = 10
+MAX_SAME_DISPENSARY_TOTAL = 12
 MAX_CONSECUTIVE_SAME_CATEGORY = 3
 MAX_CONSECUTIVE_SAME_BRAND = 1        # no same-brand cards adjacent in the feed
 MAX_SAME_BRAND_PER_DISPENSARY = 2  # similarity dedup
 MAX_SAME_BRAND_PER_CATEGORY = 3    # cap per brand within a single category across all dispensaries
-MAX_UNKNOWN_BRAND_TOTAL = 8        # cap for unbranded products (more lenient since "unknown" covers many genuinely different brands)
+MAX_UNKNOWN_BRAND_TOTAL = 15       # raised from 8 — Jane stores often lack brand extraction, so more headroom needed
 
 # Backfill caps — used in round 2 when round 1 under-fills the target.
 # More generous than the primary caps so the feed can fill, but still
 # prevent a single brand/dispensary from taking over.
 _BACKFILL_BRAND_TOTAL = 10
 _BACKFILL_BRAND_PER_CATEGORY = 6
-_BACKFILL_DISPENSARY_TOTAL = 15
+_BACKFILL_DISPENSARY_TOTAL = 18
 _BACKFILL_UNKNOWN_BRAND_TOTAL = 15
 _BACKFILL_THRESHOLD = 0.85  # trigger backfill when round 1 fills < 85% of target
 
@@ -284,18 +307,18 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     # JANE LOOSE QUALIFICATION
     # Jane does NOT display original prices — only the deal/current
     # price.  We cannot calculate discount_percent, so we skip the
-    # discount and original-price checks.  Qualification is:
-    #   1. Price within category cap
-    #   2. Recognized brand (must be in BRAND_TIERS, not just any string)
+    # discount and original-price checks.  Qualification is price cap
+    # only.  Brand is NOT required here — many Jane sites (Deep Roots,
+    # Sanctuary, Beyond/Hello) have unreliable brand extraction.
+    # Products with recognized brands score higher in Phase 2;
+    # brandless products get a lower score but aren't excluded.
     # ------------------------------------------------------------------
     if source_platform == "jane":
-        brand = product.get("brand")
-        if not brand or _score_brand(brand) <= 5:
-            return False  # recognized brand required for Jane loose mode
         return _passes_price_cap(sale_price, category, weight_value)
 
     # --- Standard filters (non-Jane platforms) ---
-    if discount is None or discount < HARD_FILTERS["min_discount_percent"]:
+    min_disc = CATEGORY_MIN_DISCOUNT.get(category, HARD_FILTERS["min_discount_percent"])
+    if discount is None or discount < min_disc:
         return False
     if discount > HARD_FILTERS["max_discount_percent"]:
         return False  # fake discount / data error
@@ -310,6 +333,12 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
         return False
 
     # --- Category-specific price caps ---
+    # Preroll-specific: infused prerolls use a higher cap than regular flower
+    # prerolls.  Regular 1g flower prerolls should be $5-9 (never $10-12),
+    # but infused prerolls are premium products and legitimately cost more.
+    if category == "preroll" and subtype == "infused_preroll":
+        return sale_price <= CATEGORY_PRICE_CAPS.get("infused_preroll", 15)
+
     return _passes_price_cap(sale_price, category, weight_value)
 
 
@@ -344,7 +373,11 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
     # Reject deals with no detected brand — "UNKNOWN" brand cards are
     # confusing to users and indicate a parsing problem.  We have enough
     # volume that we can require a brand on every displayed deal.
-    if not brand:
+    # Exception: Jane products get a pass — Jane brand extraction is
+    # unreliable and we'd rather show a deal with a missing brand than
+    # exclude an entire dispensary.  The dispensary name gives context.
+    source_platform = product.get("source_platform", "")
+    if not brand and source_platform != "jane":
         return False
 
     # Reject strain-type-only product names
@@ -419,9 +452,11 @@ def _score_unit_value(category: str, price: float, weight_value: float | None) -
         if price <= 4:
             return 15
         elif price <= 6:
-            return 10
+            return 12
         elif price <= 8:
-            return 5
+            return 8
+        elif price <= 9:
+            return 4
         return 0
 
     return 0
@@ -462,6 +497,7 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
       4. Unit value            — up to 15 pts
       5. Category boost        — up to 8 pts
       6. Price attractiveness  — up to 12 pts
+      7. Budget deal bonus     — up to 5 pts (prerolls/edibles ≤$11)
     """
     score = 0
     discount = product.get("discount_percent") or 0
@@ -526,6 +562,13 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
         score += 6
     elif 0 < sale_price < 5:
         score += 4
+
+    # 7. BUDGET DEAL BONUS (up to 5 points)
+    # Prerolls and edibles at $11 or less are accessible price points that
+    # consumers actively seek out.  Give them a scoring boost so more appear
+    # in the feed instead of being outscored by higher-priced categories.
+    if category in ("preroll", "edible") and sale_price <= 11:
+        score += 5
 
     return min(100, score)
 
