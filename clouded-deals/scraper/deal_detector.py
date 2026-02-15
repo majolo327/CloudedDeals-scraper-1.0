@@ -507,10 +507,11 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
     # Jane products have no original price / discount data.  Give them a
     # flat baseline so they can compete with other platforms on
     # brand/value/category alone.  Non-Jane platforms get up to 45 pts
-    # (35 discount depth + 10 dollars saved); 15 roughly equals a 20%
-    # discount — keeps Jane products visible without inflating the feed.
+    # (35 discount depth + 10 dollars saved); 8 roughly equals a ~15%
+    # discount — keeps Jane products visible without crowding out
+    # genuinely discounted products from other platforms.
     if source_platform == "jane":
-        score += 15  # baseline in lieu of discount depth + dollars saved
+        score += 8  # baseline in lieu of discount depth + dollars saved
     else:
         # 1. DISCOUNT DEPTH (up to 35 points)
         if discount >= 50:

@@ -26,19 +26,25 @@ _RE_WAS_NOW = re.compile(
 )
 
 # "was $15 now $7 off" — the "now" amount is a discount, not a sale price.
+# Allows 0-1 intervening words between the discount amount and "off".
 _RE_WAS_NOW_OFF = re.compile(
     r"was\s+\$\s*(?P<original>[\d]+(?:\.[\d]{1,2})?)"
     r"\s+now\s+\$\s*(?P<discount>[\d]+(?:\.[\d]{1,2})?)"
-    r"\s*(?:off|save|discount)\b",
+    r"\s*(?:\w+\s+)?(?:off|save|discount)\b",
     re.IGNORECASE,
 )
 
 # Any standalone "$XX.XX" token.
 _RE_DOLLAR = re.compile(r"\$\s*(?P<amt>[\d]+(?:\.[\d]{1,2})?)")
 
-# Dollar amounts followed by "off" / "save" — these are discount labels, not prices.
+# Dollar amounts that represent discount labels, not prices.
+# Post-positioned: "$X off", "$X save", "$X discount"
+#   "save"/"discount" get a negative lookahead so "$30 save $5" doesn't
+#   falsely tag "$30 save" (it's a pre-positioned "save $5" instead).
+# Pre-positioned:  "save $X", "save up to $X", "discount $X"
 _RE_DISCOUNT_LABEL = re.compile(
-    r"\$\s*[\d]+(?:\.[\d]{1,2})?\s*(?:off|save|discount)\b",
+    r"\$\s*[\d]+(?:\.[\d]{1,2})?\s*(?:off\b|(?:save|discount)\b(?!\s*\$))"
+    r"|(?:save|discount)\s+(?:up\s+to\s+)?\$\s*[\d]+(?:\.[\d]{1,2})?",
     re.IGNORECASE,
 )
 
@@ -203,8 +209,9 @@ def _calc_discount(original: float, sale: float) -> float | None:
 def validate_prices(parsed: dict[str, Any]) -> dict[str, Any]:
     """Post-parse price sanity checks. Fixes common scraping errors.
 
-    - Detects discount amounts misread as sale prices (FIRST)
-    - Swaps original/sale when inverted
+    - Swaps original/sale when inverted (FIRST — so subsequent rules
+      operate on correctly-oriented prices)
+    - Detects discount amounts misread as sale prices
     - Clears fake discounts where prices are equal
     """
     sale = parsed.get("sale_price")
@@ -213,23 +220,23 @@ def validate_prices(parsed: dict[str, Any]) -> dict[str, Any]:
     if not sale or sale <= 0:
         return parsed
 
-    # Rule 1 (was Rule 3): Detect discount amounts misread as sale prices.
-    # Must run BEFORE swap logic so "$X off" values aren't reinterpreted.
-    # Heuristic: sale < $10 and sale < 25% of original → likely a discount
-    # amount (e.g. "$7 off" parsed as "$7").
+    # Rule 1: If sale_price > original_price, they're swapped.
+    # Must run FIRST so discount-amount detection sees the right values.
+    if original and original < sale:
+        parsed["original_price"] = sale
+        parsed["sale_price"] = original
+        sale, original = original, sale
+        parsed["discount_percent"] = _calc_discount(original, sale)
+
+    # Rule 2: Detect discount amounts misread as sale prices.
+    # Heuristic: sale < $10 and sale < 25% of original → likely a
+    # discount amount (e.g. "$7 off" parsed as "$7").
     if original and original > sale and sale < 10 and sale / original < 0.25:
         inferred_sale = original - sale
         if inferred_sale > 3:
             parsed["sale_price"] = inferred_sale
             sale = inferred_sale
             parsed["discount_percent"] = _calc_discount(original, inferred_sale)
-
-    # Rule 2: If sale_price > original_price, they're swapped
-    if original and original < sale:
-        parsed["original_price"] = sale
-        parsed["sale_price"] = original
-        sale, original = original, sale
-        parsed["discount_percent"] = _calc_discount(original, sale)
 
     # Rule 3: If original == sale, no real discount
     if original and original == sale:

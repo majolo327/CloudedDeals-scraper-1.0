@@ -125,8 +125,22 @@ class TestExtractPrices:
         assert r["sale_price"] == 37.0
 
     def test_discount_label_save_filtered(self):
+        """'$5 save' is a discount label → sale = $30 - $5 = $25."""
         r = extract_prices("$30 $5 save")
-        assert r["sale_price"] == 30.0
+        assert r["original_price"] == 30.0
+        assert r["sale_price"] == 25.0
+
+    def test_discount_label_save_prefix(self):
+        """'save $5' (keyword before amount) is a discount label."""
+        r = extract_prices("$30 save $5")
+        assert r["original_price"] == 30.0
+        assert r["sale_price"] == 25.0
+
+    def test_was_now_off_with_gap(self):
+        """'was $15 now $7 dollars off' — one word between amount and 'off'."""
+        r = extract_prices("was $15 now $7 dollars off")
+        assert r["original_price"] == 15.0
+        assert r["sale_price"] == 8.0
 
 
 # =====================================================================
@@ -167,6 +181,16 @@ class TestValidatePrices:
         p = validate_prices({"sale_price": 20.0, "original_price": 40.0, "discount_percent": 50.0})
         assert p["sale_price"] == 20.0
         assert p["original_price"] == 40.0
+
+    def test_inverted_discount_amount_detected(self):
+        """Inverted prices where sale is actually a discount amount.
+
+        Input: original=7, sale=30 (inverted, 7 is "$7 off").
+        After swap: original=30, sale=7. Then discount detect: sale=23.
+        """
+        p = validate_prices({"sale_price": 30.0, "original_price": 7.0, "discount_percent": None})
+        assert p["original_price"] == 30.0
+        assert p["sale_price"] == 23.0
 
 
 # =====================================================================

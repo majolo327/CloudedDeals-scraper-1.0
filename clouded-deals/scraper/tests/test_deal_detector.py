@@ -160,9 +160,13 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is True
 
     def test_edible_over_cap(self, make_product):
+        """Edible cap is $20 — $16 passes, $22 should fail."""
         p = make_product(category="edible", sale_price=16.0, original_price=32.0,
                          discount_percent=50)
-        assert passes_hard_filters(p) is False
+        assert passes_hard_filters(p) is True
+        p2 = make_product(category="edible", sale_price=22.0, original_price=44.0,
+                          discount_percent=50)
+        assert passes_hard_filters(p2) is False
 
     def test_concentrate_at_cap(self, make_product):
         p = make_product(category="concentrate", sale_price=35.0, original_price=70.0,
@@ -337,6 +341,26 @@ class TestCalculateDealScore:
                          original_price=60.0, category="flower", weight_value=3.5)
         s = calculate_deal_score(p)
         assert s <= 100
+
+    # ── Jane baseline scoring ─────────────────────────────────────
+
+    def test_jane_baseline_lower_than_30pct_discount(self, make_product):
+        """Jane baseline (8 pts) should score lower than a 30% Dutchie discount (22 pts)."""
+        jane_product = make_product(
+            discount_percent=0, brand="Cookies", sale_price=15.0,
+            original_price=None, category="flower", weight_value=3.5,
+            source_platform="jane",
+        )
+        dutchie_product = make_product(
+            discount_percent=30, brand="Cookies", sale_price=15.0,
+            original_price=21.43, category="flower", weight_value=3.5,
+            source_platform="dutchie",
+        )
+        jane_score = calculate_deal_score(jane_product)
+        dutchie_score = calculate_deal_score(dutchie_product)
+        assert dutchie_score > jane_score, (
+            f"Dutchie 30% off ({dutchie_score}) should beat Jane baseline ({jane_score})"
+        )
 
     # ── Category boosts are fair ─────────────────────────────────
 
