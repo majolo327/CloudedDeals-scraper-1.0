@@ -102,6 +102,9 @@ BRAND_TIERS: dict[str, dict[str, Any]] = {
             # Illinois-native popular brands
             "revolution", "aeriz", "bedford grow", "cresco",
             "high supply", "good news", "matter", "superflux",
+            "thrive", "essence", "cake", "&shine",
+            "pts", "nature's grace", "encore edibles",
+            "savvy", "reserve",
             # Arizona-native popular brands
             "abundant organics", "grow sciences", "item 9 labs",
             "timeless", "sonoran roots", "mohave cannabis",
