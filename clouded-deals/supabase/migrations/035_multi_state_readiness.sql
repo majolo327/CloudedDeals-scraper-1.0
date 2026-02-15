@@ -31,7 +31,12 @@ ALTER TABLE dispensaries
     'illinois',
     'arizona',
     'missouri',
-    'new-jersey'
+    'new-jersey',
+    'ohio',
+    'colorado',
+    'new-york',
+    'massachusetts',
+    'pennsylvania'
   ));
 
 -- =====================================================================

@@ -239,6 +239,11 @@ const REGION_LABELS: Record<string, string> = {
   "arizona": "AZ",
   "missouri": "MO",
   "new-jersey": "NJ",
+  ohio: "OH",
+  colorado: "CO",
+  "new-york": "NY",
+  massachusetts: "MA",
+  pennsylvania: "PA",
   all: "ALL",
 };
 
@@ -249,6 +254,11 @@ const REGION_COLORS: Record<string, string> = {
   arizona: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400",
   missouri: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400",
   "new-jersey": "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400",
+  ohio: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400",
+  colorado: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400",
+  "new-york": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400",
+  massachusetts: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400",
+  pennsylvania: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400",
   all: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
 };
 
