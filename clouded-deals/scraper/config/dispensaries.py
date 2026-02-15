@@ -1318,12 +1318,13 @@ DISPENSARIES = [
     {"name": "Ascend PA Scranton", "slug": "ascend-pa-scranton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/scranton-pennsylvania", "is_active": True, "region": "pennsylvania"},
 
     # ── RISE PA (GTI — largest state footprint: 19 locations) ───────
-    {"name": "Rise PA Philadelphia", "slug": "rise-pa-philly", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/philadelphia/", "is_active": True, "region": "pennsylvania"},
-    {"name": "Rise PA King of Prussia", "slug": "rise-pa-kop", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/king-of-prussia/", "is_active": True, "region": "pennsylvania"},
-    {"name": "Rise PA Monroeville", "slug": "rise-pa-monroeville", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/monroeville/", "is_active": True, "region": "pennsylvania"},
-    {"name": "Rise PA Steelton", "slug": "rise-pa-steelton", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/steelton/", "is_active": True, "region": "pennsylvania"},
-    {"name": "Rise PA Erie Lake", "slug": "rise-pa-erie-lake", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/erie-lake/", "is_active": True, "region": "pennsylvania"},
-    {"name": "Rise PA York", "slug": "rise-pa-york", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/york/", "is_active": True, "region": "pennsylvania"},
+    #    PA is medical-only → /medical-menu/ (not /recreational-menu/)
+    {"name": "Rise PA Philadelphia", "slug": "rise-pa-philly", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/philadelphia/5383/medical-menu/", "is_active": True, "region": "pennsylvania"},
+    {"name": "Rise PA King of Prussia", "slug": "rise-pa-kop", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/king-of-prussia/1552/medical-menu/", "is_active": True, "region": "pennsylvania"},
+    {"name": "Rise PA Monroeville", "slug": "rise-pa-monroeville", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/monroeville/2266/medical-menu/", "is_active": True, "region": "pennsylvania"},
+    {"name": "Rise PA Steelton", "slug": "rise-pa-steelton", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/steelton/1544/medical-menu/", "is_active": True, "region": "pennsylvania"},
+    {"name": "Rise PA Erie Lake", "slug": "rise-pa-erie-lake", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/erie-lake/392/medical-menu/", "is_active": True, "region": "pennsylvania"},
+    {"name": "Rise PA York", "slug": "rise-pa-york", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/york/1548/medical-menu/", "is_active": True, "region": "pennsylvania"},
 ]
 
 # ---------------------------------------------------------------------------
