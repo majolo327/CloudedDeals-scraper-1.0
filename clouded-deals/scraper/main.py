@@ -1335,6 +1335,34 @@ async def run(slug_filter: str | None = None) -> None:
 
     dispensaries = _get_active_dispensaries(slug_filter)
 
+    # ── Platform interleaving ──────────────────────────────────────────
+    # Without this, dispensaries are processed in config order (all Dutchie
+    # first, then Curaleaf, then Jane).  When the job deadline hits, the
+    # last-listed platform gets zero coverage (Illinois Jane: 0/29).
+    # Round-robin by platform ensures every platform gets fair time.
+    if len(dispensaries) > 1 and not slug_filter:
+        by_plat: dict[str, list[dict]] = {}
+        for d in dispensaries:
+            by_plat.setdefault(d["platform"], []).append(d)
+        for sites in by_plat.values():
+            random.shuffle(sites)
+        # Round-robin: take one from each platform in turn
+        interleaved: list[dict] = []
+        iterators = [iter(sites) for sites in by_plat.values()]
+        while iterators:
+            next_round = []
+            for it in iterators:
+                site = next(it, None)
+                if site is not None:
+                    interleaved.append(site)
+                    next_round.append(it)
+            iterators = next_round
+        dispensaries = interleaved
+        logger.info(
+            "Interleaved %d dispensaries across %d platforms",
+            len(dispensaries), len(by_plat),
+        )
+
     # Deactivate previous day's deals — scoped to this group's dispensaries
     # so a "stable" run doesn't wipe yesterday's "new" products.
     group_slugs = [d["slug"] for d in dispensaries] if PLATFORM_GROUP != "all" else None
