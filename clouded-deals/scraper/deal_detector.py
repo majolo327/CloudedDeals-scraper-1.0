@@ -108,6 +108,9 @@ BRAND_TIERS: dict[str, dict[str, Any]] = {
             # Missouri-native popular brands
             "illicit", "flora farms", "vivid", "sinse",
             "proper", "clovr", "good day farm", "headchange",
+            "elevate", "greenlight", "haze", "nature med",
+            "vertical", "star buds", "bloc", "terrabis",
+            "c4", "amaze cannabis", "keef", "robhots",
             # New Jersey-native popular brands
             "kind tree", "fernway", "ozone", "rythm",
             "garden greens", "the botanist", "clade9",

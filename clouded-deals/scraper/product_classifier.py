@@ -169,12 +169,27 @@ def classify_product(
     _EDIBLE_INDICATORS = ("edible", "gummy", "gummies", "chocolate", "candy",
                           "brownie", "chew", "lozenge", "mint", "cookie",
                           "beverage", "drink", "bar", "caramel", "tincture",
-                          "capsule", "tablet", "tea", "honey", "butter")
+                          "capsule", "tablet", "tea", "honey", "butter",
+                          "multipack", "pieces", "softgel", "melatonin")
+    # Non-cannabis accessories that should never be reclassified as prerolls
+    _ACCESSORY_INDICATORS = ("screen", "screens", "papers", "rolling paper",
+                             "tips", "filter", "grinder", "lighter", "tray",
+                             "stash", "storage", "pipe", "bong", "rig",
+                             "torch", "dab tool", "nail")
+    # Empty cones (RAW, Pop Cones, etc.) are rolling papers, not prerolls
+    _CONE_ACCESSORY_BRANDS = ("raw", "pop cones", "elements", "ocb", "zig zag",
+                              "zig-zag")
     is_edible_context = (
         cat in ("edible",)
         or any(kw in name_lower for kw in _EDIBLE_INDICATORS)
     )
-    if not is_infused and not is_edible_context:
+    is_accessory = (
+        any(kw in name_lower for kw in _ACCESSORY_INDICATORS)
+        or (any(b in name_lower for b in _CONE_ACCESSORY_BRANDS)
+            and "cone" in name_lower)
+    )
+    is_concentrate_context = cat in ("concentrate", "vape")
+    if not is_infused and not is_edible_context and not is_accessory and not is_concentrate_context:
         is_pack = any(p.search(name_lower) for p in _PACK_INDICATORS)
         is_pack_brand = brand_lower in _PACK_BRANDS
 
