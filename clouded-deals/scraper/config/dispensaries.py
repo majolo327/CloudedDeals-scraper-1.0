@@ -158,6 +158,7 @@ DISPENSARIES = [
         "slug": "medizin",
         "platform": "dutchie",
         "url": "https://planet13.com/stores/medizin-dispensary/specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/medizin-dispensary/specials",
         "is_active": True,
         "region": "southern-nv",
         "embed_type": "iframe",   # same as Planet 13

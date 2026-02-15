@@ -6,7 +6,7 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 import { fetchDeals, fetchExpiredDeals, fetchDispensaries } from '@/lib/api';
 import type { BrowseDispensary, FetchDealsResult, FetchDispensariesResult } from '@/lib/api';
 import type { Deal } from '@/types';
-import { AgeGate, Footer } from '@/components/layout';
+import { AgeGate, Footer, CookieConsentBanner } from '@/components/layout';
 import { DealsPage } from '@/components/DealsPage';
 import { SearchPage } from '@/components/SearchPage';
 import { BrowsePage } from '@/components/BrowsePage';
@@ -518,6 +518,11 @@ export default function Home() {
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+      {/* CCPA cookie consent banner */}
+      <CookieConsentBanner
+        onNavigateToPrivacy={() => setActivePage('privacy')}
+      />
 
       {/* Mobile bottom nav bar */}
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-xl border-t" style={{ backgroundColor: 'rgba(10, 14, 26, 0.95)', borderColor: 'var(--border-subtle)' }} aria-label="Main navigation">

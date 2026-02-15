@@ -1,24 +1,26 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 
 /**
  * GET /api/health
  *
- * Server-side health check — returns pipeline status and daily metrics.
- * No auth required (public monitoring endpoint).
+ * Public health check for monitoring (UptimeRobot, etc.) returns only
+ * { status, database, timestamp }.
  *
- * Response shape:
- * {
- *   status: "healthy" | "degraded" | "down",
- *   database: "connected" | "error",
- *   pipeline: { ... latest daily_metrics row ... } | null,
- *   tables: { products: number, dispensaries: number, ... },
- *   checks: { hasDealsToday: boolean, edibleCount: number, ... },
- *   timestamp: string
- * }
+ * Authenticated requests (Bearer ADMIN_API_KEY) also receive detailed
+ * pipeline metrics, table counts, and quality checks — same data the
+ * admin dashboard uses.
  */
-export async function GET() {
+function isAdminAuthed(request: NextRequest): boolean {
+  const authHeader = request.headers.get("authorization");
+  const expectedKey = process.env.ADMIN_API_KEY;
+  if (!expectedKey) return false;
+  return authHeader === `Bearer ${expectedKey}`;
+}
+
+export async function GET(request: NextRequest) {
   const timestamp = new Date().toISOString();
+  const detailed = isAdminAuthed(request);
 
   let db;
   try {
@@ -28,11 +30,8 @@ export async function GET() {
       {
         status: "down",
         database: "error",
-        pipeline: null,
-        tables: {},
-        checks: {},
         timestamp,
-        error: "Database not configured",
+        ...(detailed ? { pipeline: null, tables: {}, checks: {} } : {}),
       },
       { status: 503 }
     );
@@ -94,24 +93,34 @@ export async function GET() {
       status = "degraded";
     }
 
+    // Public response — just enough for uptime monitoring
+    const publicResponse = { status, database: "connected" as const, timestamp };
+
+    if (!detailed) {
+      return NextResponse.json(publicResponse);
+    }
+
+    // Admin response — full pipeline details
     return NextResponse.json({
-      status,
-      database: "connected",
+      ...publicResponse,
       pipeline,
       tables,
       checks,
-      timestamp,
     });
   } catch (err) {
     return NextResponse.json(
       {
         status: "down",
         database: "error",
-        pipeline: null,
-        tables: {},
-        checks: {},
         timestamp,
-        error: err instanceof Error ? err.message : "Unknown error",
+        ...(detailed
+          ? {
+              pipeline: null,
+              tables: {},
+              checks: {},
+              error: err instanceof Error ? err.message : "Unknown error",
+            }
+          : {}),
       },
       { status: 503 }
     );

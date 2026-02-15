@@ -1,6 +1,7 @@
 'use client';
 
 import { supabase } from './supabase';
+import { hasAnalyticsConsent } from '@/components/layout/CookieConsentBanner';
 
 const ANON_ID_KEY = 'clouded_anon_id';
 
@@ -100,6 +101,7 @@ let _heartbeatInterval: ReturnType<typeof setInterval> | null = null;
  * registers/updates the session, and starts heartbeat tracking.
  */
 export function initializeAnonUser(): void {
+  if (!hasAnalyticsConsent()) return;
   const anonId = getOrCreateAnonId();
   if (!anonId) return;
   _sessionStartTime = Date.now();
@@ -118,6 +120,7 @@ export function trackEvent(
   dealId?: string,
   metadata?: Record<string, unknown>
 ): void {
+  if (!hasAnalyticsConsent()) return;
   const anonId = getOrCreateAnonId();
   if (!anonId) return;
 
