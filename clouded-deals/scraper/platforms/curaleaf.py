@@ -480,10 +480,12 @@ class CuraleafScraper(BaseScraper):
                     except Exception:
                         pass
 
-                    for line in lines:
-                        if "$" in line:
-                            product["price"] = line
-                            break
+                    # Collect ALL price-containing lines so the parser
+                    # can see both original and sale prices when Curaleaf
+                    # renders them on separate lines (e.g. "$50.00\n$30.00").
+                    price_lines = [line for line in lines if "$" in line]
+                    if price_lines:
+                        product["price"] = " ".join(price_lines)
 
                     products.append(product)
                 except Exception:

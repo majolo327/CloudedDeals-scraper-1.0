@@ -47,8 +47,8 @@ CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
         "1": 45,          # gram — raised from flat $35
         "2": 75,          # 2g buckets
     },
-    "preroll": 10,        # single prerolls — relaxed from $6
-    "preroll_pack": 25,   # preroll multi-packs — relaxed from $20
+    "preroll": 15,        # single prerolls — raised from $10 for NJ/IL/AZ pricing
+    "preroll_pack": 30,   # preroll multi-packs — raised from $25 for expansion states
 }
 
 # Global hard-filter thresholds (apply to ALL categories)
@@ -114,6 +114,9 @@ BRAND_TIERS: dict[str, dict[str, Any]] = {
             # New Jersey-native popular brands
             "kind tree", "fernway", "ozone", "rythm",
             "garden greens", "the botanist", "clade9",
+            "terrascend", "good green", "later days",
+            "grön", "gron", "jams", "beboe", "avexia",
+            "level", "bits",
         },
         "points": 12,
     },
