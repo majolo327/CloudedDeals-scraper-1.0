@@ -47,8 +47,9 @@ CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
         "1": 45,          # gram — raised from flat $35
         "2": 75,          # 2g buckets
     },
-    "preroll": 15,        # single prerolls — raised from $10 for NJ/IL/AZ pricing
-    "preroll_pack": 30,   # preroll multi-packs — raised from $25 for expansion states
+    "preroll": 9,         # regular flower prerolls — tightened from $10 (should be $5-9)
+    "infused_preroll": 15, # infused prerolls are premium products
+    "preroll_pack": 25,   # preroll multi-packs — relaxed from $20
 }
 
 # Global hard-filter thresholds (apply to ALL categories)
@@ -58,6 +59,15 @@ HARD_FILTERS = {
     "max_price_absolute": 100,    # raised from $80 for oz flower + concentrates
     "max_discount_percent": 85,   # above 85% = fake/data error
     "require_original_price": True,
+}
+
+# Category-specific discount minimums — edibles and prerolls have real deals
+# at lower discount percentages (e.g. $8 edible marked down from $10 = 20%,
+# but a $9 edible from $10 = 10%).  These budget items are genuine deals
+# that consumers want to see, not data errors.
+CATEGORY_MIN_DISCOUNT: dict[str, float] = {
+    "edible": 10,
+    "preroll": 10,
 }
 
 # Maximum believable ORIGINAL price per category.  If the parsed original
@@ -153,9 +163,9 @@ TARGET_DEAL_COUNT = 200
 CATEGORY_TARGETS: dict[str, int] = {
     "flower": 60,
     "vape": 50,
-    "edible": 30,
+    "edible": 35,       # raised from 30 — more budget edible deals
     "concentrate": 30,
-    "preroll": 20,
+    "preroll": 25,      # raised from 20 — more budget preroll deals
     "other": 10,
 }
 
@@ -165,9 +175,9 @@ CATEGORY_TARGETS: dict[str, int] = {
 CATEGORY_MINIMUMS: dict[str, int] = {
     "flower": 15,
     "vape": 12,
-    "edible": 8,
+    "edible": 12,       # raised from 8 — guarantee more edibles in feed
     "concentrate": 8,
-    "preroll": 5,
+    "preroll": 8,       # raised from 5 — guarantee more prerolls in feed
     "other": 0,
 }
 
@@ -304,7 +314,8 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
         return _passes_price_cap(sale_price, category, weight_value)
 
     # --- Standard filters (non-Jane platforms) ---
-    if discount is None or discount < HARD_FILTERS["min_discount_percent"]:
+    min_disc = CATEGORY_MIN_DISCOUNT.get(category, HARD_FILTERS["min_discount_percent"])
+    if discount is None or discount < min_disc:
         return False
     if discount > HARD_FILTERS["max_discount_percent"]:
         return False  # fake discount / data error
@@ -319,6 +330,12 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
         return False
 
     # --- Category-specific price caps ---
+    # Preroll-specific: infused prerolls use a higher cap than regular flower
+    # prerolls.  Regular 1g flower prerolls should be $5-9 (never $10-12),
+    # but infused prerolls are premium products and legitimately cost more.
+    if category == "preroll" and subtype == "infused_preroll":
+        return sale_price <= CATEGORY_PRICE_CAPS.get("infused_preroll", 15)
+
     return _passes_price_cap(sale_price, category, weight_value)
 
 
@@ -428,9 +445,11 @@ def _score_unit_value(category: str, price: float, weight_value: float | None) -
         if price <= 4:
             return 15
         elif price <= 6:
-            return 10
+            return 12
         elif price <= 8:
-            return 5
+            return 8
+        elif price <= 9:
+            return 4
         return 0
 
     return 0
@@ -471,6 +490,7 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
       4. Unit value            — up to 15 pts
       5. Category boost        — up to 8 pts
       6. Price attractiveness  — up to 12 pts
+      7. Budget deal bonus     — up to 5 pts (prerolls/edibles ≤$11)
     """
     score = 0
     discount = product.get("discount_percent") or 0
@@ -535,6 +555,13 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
         score += 6
     elif 0 < sale_price < 5:
         score += 4
+
+    # 7. BUDGET DEAL BONUS (up to 5 points)
+    # Prerolls and edibles at $11 or less are accessible price points that
+    # consumers actively seek out.  Give them a scoring boost so more appear
+    # in the feed instead of being outscored by higher-priced categories.
+    if category in ("preroll", "edible") and sale_price <= 11:
+        score += 5
 
     return min(100, score)
 
