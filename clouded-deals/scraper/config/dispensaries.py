@@ -158,6 +158,7 @@ DISPENSARIES = [
         "slug": "medizin",
         "platform": "dutchie",
         "url": "https://planet13.com/stores/medizin-dispensary/specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/medizin-dispensary/specials",
         "is_active": True,
         "region": "southern-nv",
         "embed_type": "iframe",   # same as Planet 13
@@ -597,12 +598,14 @@ DISPENSARIES = [
         "region": "southern-nv",
     },
     {
-        # Euphoria's Carrot integration renders deals/specials on the main
-        # /menu page — /menu/category/specials is not a valid route.
+        # Euphoria Wellness uses iHeartJane (store #1173) via Jane Roots
+        # headless integration.  Primary URL is the Jane embed; fallback
+        # is their own /menu/category/specials page (JS-rendered).
         "name": "Euphoria Wellness",
         "slug": "euphoria-wellness",
-        "platform": "carrot",
-        "url": "https://euphoriawellnessnv.com/menu",
+        "platform": "jane",
+        "url": "https://www.iheartjane.com/embed/stores/1173/menu",
+        "fallback_url": "https://euphoriawellnessnv.com/menu/category/specials",
         "is_active": True,
         "region": "southern-nv",
     },

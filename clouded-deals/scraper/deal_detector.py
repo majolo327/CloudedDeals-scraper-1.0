@@ -54,7 +54,7 @@ CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
 
 # Global hard-filter thresholds (apply to ALL categories)
 HARD_FILTERS = {
-    "min_discount_percent": 15,   # relaxed from 20%
+    "min_discount_percent": 12,   # relaxed from 15% — captures more mid-tier deals
     "min_price": 3,               # below $3 = data error
     "max_price_absolute": 100,    # raised from $80 for oz flower + concentrates
     "max_discount_percent": 85,   # above 85% = fake/data error
@@ -130,6 +130,10 @@ BRAND_TIERS: dict[str, dict[str, Any]] = {
             "terrascend", "good green", "later days",
             "grön", "gron", "jams", "beboe", "avexia",
             "level", "bits",
+            # Nevada dispensary house brands (boost when detected)
+            "deep roots", "deep roots harvest",
+            "state flower", "cultivation labs",
+            "the sanctuary",
         },
         "points": 12,
     },
@@ -158,14 +162,14 @@ CATEGORY_BOOST: dict[str, int] = {
 # Phase 3: Top-200 selection parameters
 # =====================================================================
 
-TARGET_DEAL_COUNT = 200
+TARGET_DEAL_COUNT = 250
 
 CATEGORY_TARGETS: dict[str, int] = {
-    "flower": 60,
-    "vape": 50,
-    "edible": 35,       # raised from 30 — more budget edible deals
-    "concentrate": 30,
-    "preroll": 25,      # raised from 20 — more budget preroll deals
+    "flower": 75,       # raised from 60 — proportional to 250 target
+    "vape": 60,         # raised from 50
+    "edible": 40,       # raised from 35
+    "concentrate": 35,  # raised from 30
+    "preroll": 30,      # raised from 25
     "other": 10,
 }
 
@@ -182,19 +186,19 @@ CATEGORY_MINIMUMS: dict[str, int] = {
 }
 
 MAX_SAME_BRAND_TOTAL = 5          # was 8 — tighter cap so one brand can't dominate the feed
-MAX_SAME_DISPENSARY_TOTAL = 10
+MAX_SAME_DISPENSARY_TOTAL = 12
 MAX_CONSECUTIVE_SAME_CATEGORY = 3
 MAX_CONSECUTIVE_SAME_BRAND = 1        # no same-brand cards adjacent in the feed
 MAX_SAME_BRAND_PER_DISPENSARY = 2  # similarity dedup
 MAX_SAME_BRAND_PER_CATEGORY = 3    # cap per brand within a single category across all dispensaries
-MAX_UNKNOWN_BRAND_TOTAL = 8        # cap for unbranded products (more lenient since "unknown" covers many genuinely different brands)
+MAX_UNKNOWN_BRAND_TOTAL = 15       # raised from 8 — Jane stores often lack brand extraction, so more headroom needed
 
 # Backfill caps — used in round 2 when round 1 under-fills the target.
 # More generous than the primary caps so the feed can fill, but still
 # prevent a single brand/dispensary from taking over.
 _BACKFILL_BRAND_TOTAL = 10
 _BACKFILL_BRAND_PER_CATEGORY = 6
-_BACKFILL_DISPENSARY_TOTAL = 15
+_BACKFILL_DISPENSARY_TOTAL = 18
 _BACKFILL_UNKNOWN_BRAND_TOTAL = 15
 _BACKFILL_THRESHOLD = 0.85  # trigger backfill when round 1 fills < 85% of target
 
@@ -303,14 +307,13 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     # JANE LOOSE QUALIFICATION
     # Jane does NOT display original prices — only the deal/current
     # price.  We cannot calculate discount_percent, so we skip the
-    # discount and original-price checks.  Qualification is:
-    #   1. Price within category cap
-    #   2. Recognized brand (must be in BRAND_TIERS, not just any string)
+    # discount and original-price checks.  Qualification is price cap
+    # only.  Brand is NOT required here — many Jane sites (Deep Roots,
+    # Sanctuary, Beyond/Hello) have unreliable brand extraction.
+    # Products with recognized brands score higher in Phase 2;
+    # brandless products get a lower score but aren't excluded.
     # ------------------------------------------------------------------
     if source_platform == "jane":
-        brand = product.get("brand")
-        if not brand or _score_brand(brand) <= 5:
-            return False  # recognized brand required for Jane loose mode
         return _passes_price_cap(sale_price, category, weight_value)
 
     # --- Standard filters (non-Jane platforms) ---
@@ -370,7 +373,11 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
     # Reject deals with no detected brand — "UNKNOWN" brand cards are
     # confusing to users and indicate a parsing problem.  We have enough
     # volume that we can require a brand on every displayed deal.
-    if not brand:
+    # Exception: Jane products get a pass — Jane brand extraction is
+    # unreliable and we'd rather show a deal with a missing brand than
+    # exclude an entire dispensary.  The dispensary name gives context.
+    source_platform = product.get("source_platform", "")
+    if not brand and source_platform != "jane":
         return False
 
     # Reject strain-type-only product names
