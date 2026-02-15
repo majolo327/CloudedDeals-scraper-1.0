@@ -472,12 +472,20 @@ BRAND_VARIATIONS: dict[str, list[str]] = {
     "OLD PAL": ["Old Pal", "OLDPAL"],
     "Tyson 2.0": ["Tyson", "Mike Tyson"],
     "Khalifa Kush": ["KK", "Wiz Khalifa"],
+    "&Shine": ["& Shine", "And Shine"],
 }
 
 # Pre-compile a single pattern for speed (case-insensitive) with word boundaries
 # to prevent false positives like "Raw" matching inside "Strawberry".
+# Brands starting with non-word chars (like "&Shine") use (?:^|\s) instead of \b.
+def _brand_boundary(brand: str) -> str:
+    escaped = re.escape(brand)
+    if brand and not brand[0].isalnum() and brand[0] != '_':
+        return r'(?:^|\s)' + escaped + r'\b'
+    return r'\b' + escaped + r'\b'
+
 _RE_BRAND = re.compile(
-    "|".join(r'\b' + re.escape(b) + r'\b' for b in sorted(KNOWN_BRANDS, key=len, reverse=True)),
+    "|".join(_brand_boundary(b) for b in sorted(KNOWN_BRANDS, key=len, reverse=True)),
     re.IGNORECASE,
 )
 
@@ -489,7 +497,7 @@ for _canon, _variants in BRAND_VARIATIONS.items():
 
 _RE_VARIATION = re.compile(
     "|".join(
-        r'\b' + re.escape(v) + r'\b'
+        _brand_boundary(v)
         for v in sorted(_VARIATION_TO_CANONICAL.keys(), key=len, reverse=True)
     ),
     re.IGNORECASE,
@@ -509,7 +517,9 @@ def detect_brand(text: str) -> str | None:
     # Strategy 1: exact match against canonical brand names.
     m = _RE_BRAND.search(text)
     if m:
-        matched = m.group(0)
+        # Strip leading whitespace from (?:^|\s) groups used by
+        # non-word-char brands like "&Shine".
+        matched = m.group(0).strip()
         for brand in KNOWN_BRANDS:
             if brand.lower() == matched.lower():
                 return brand
@@ -519,7 +529,7 @@ def detect_brand(text: str) -> str | None:
     if _RE_VARIATION is not None:
         m = _RE_VARIATION.search(text)
         if m:
-            return _VARIATION_TO_CANONICAL[m.group(0).lower()]
+            return _VARIATION_TO_CANONICAL[m.group(0).strip().lower()]
 
     return None
 

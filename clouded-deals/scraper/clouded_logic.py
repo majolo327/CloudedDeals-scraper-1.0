@@ -230,10 +230,23 @@ _BRAND_VARIATION_MAP: dict[str, str] = {
     'indo cannabis': 'INDO',
     'sauce': 'Sauce Essentials',
     'vlasic': 'Vlasic Labs',
+    '& shine': '&Shine',
+    'and shine': '&Shine',
 }
 
+def _variation_pattern(var: str) -> re.Pattern:
+    """Compile a word-boundary pattern for a brand variation string.
+
+    Variations starting with non-word characters (like '& shine') use
+    ``(?:^|\\s)`` instead of ``\\b`` — same logic as ``_brand_pattern``.
+    """
+    escaped = re.escape(var)
+    if var and not var[0].isalnum() and var[0] != '_':
+        return re.compile(r'(?:^|\s)' + escaped + r'\b', re.IGNORECASE)
+    return re.compile(r'\b' + escaped + r'\b', re.IGNORECASE)
+
 _VARIATION_PATTERNS: list[tuple[re.Pattern, str]] = [
-    (re.compile(r'\b' + re.escape(var) + r'\b', re.IGNORECASE), canonical)
+    (_variation_pattern(var), canonical)
     for var, canonical in sorted(_BRAND_VARIATION_MAP.items(), key=lambda x: len(x[0]), reverse=True)
 ]
 

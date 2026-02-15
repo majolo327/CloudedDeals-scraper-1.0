@@ -816,6 +816,22 @@ class TestNewBrandsFromMenuAudit:
         """&Shine brand (ampersand prefix) should be detected."""
         assert logic.detect_brand("&Shine OG Kush 3.5g") == "&Shine"
 
+    def test_and_shine_mid_text(self, logic):
+        """&Shine detected when it appears mid-text (e.g. Curaleaf card)."""
+        assert logic.detect_brand("Sunset Sherbet All-In-One &Shine 0.3g") == "&Shine"
+
+    def test_and_shine_newline(self, logic):
+        """&Shine detected at start of line in multi-line text."""
+        assert logic.detect_brand("Sunset Sherbet\n&Shine\n0.3g") == "&Shine"
+
+    def test_and_shine_space_variation(self, logic):
+        """'& Shine' (with space) resolves to &Shine via variations."""
+        assert logic.detect_brand("& Shine Live Resin 1g") == "&Shine"
+
+    def test_and_shine_variation(self, logic):
+        """'and Shine' resolves to &Shine via variations."""
+        assert logic.detect_brand("and Shine Sunset Sherbet 0.3g") == "&Shine"
+
     def test_sip_elixirs_variation(self, logic):
         """'Sip Elixirs' should resolve to 'Sip' via variations."""
         assert logic.detect_brand("Sip Elixirs Watermelon 100mg") == "Sip"

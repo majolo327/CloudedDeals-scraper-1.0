@@ -266,6 +266,15 @@ class TestDetectBrand:
     def test_variation_old_pal(self):
         assert detect_brand("Old Pal Flower 3.5g") == "OLD PAL"
 
+    def test_and_shine_exact(self):
+        assert detect_brand("&Shine OG Kush 0.3g") == "&Shine"
+
+    def test_and_shine_mid_text(self):
+        assert detect_brand("Sunset Sherbet &Shine 0.3g") == "&Shine"
+
+    def test_and_shine_variation_space(self):
+        assert detect_brand("& Shine Live Resin 1g") == "&Shine"
+
     def test_no_brand(self):
         assert detect_brand("Random Unknown Product") is None
 
