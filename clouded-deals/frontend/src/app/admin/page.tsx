@@ -132,30 +132,30 @@ export default function AdminDashboard() {
       </div>
 
       {/* Recent scrape runs */}
-      <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-          <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+      <div className="rounded-xl border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             Recent Scrape Runs
           </h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-zinc-100 text-xs text-zinc-500 dark:border-zinc-800">
+            <thead className="border-b border-zinc-200 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
               <tr>
-                <th className="px-4 py-2 font-medium">Started</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Products</th>
-                <th className="px-4 py-2 font-medium">Deals</th>
-                <th className="px-4 py-2 font-medium">Sites OK</th>
-                <th className="px-4 py-2 font-medium">Failed</th>
-                <th className="px-4 py-2 font-medium">Duration</th>
+                <th className="px-4 py-2 font-semibold">Started</th>
+                <th className="px-4 py-2 font-semibold">Status</th>
+                <th className="px-4 py-2 font-semibold">Products</th>
+                <th className="px-4 py-2 font-semibold">Deals</th>
+                <th className="px-4 py-2 font-semibold">Sites OK</th>
+                <th className="px-4 py-2 font-semibold">Failed</th>
+                <th className="px-4 py-2 font-semibold">Duration</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {runs.map((run) => (
                 <tr
                   key={run.id}
-                  className="text-zinc-700 dark:text-zinc-300"
+                  className="text-zinc-800 dark:text-zinc-200"
                 >
                   <td className="whitespace-nowrap px-4 py-2">
                     {new Date(run.started_at).toLocaleString()}
@@ -186,7 +186,7 @@ export default function AdminDashboard() {
                 <tr>
                   <td
                     colSpan={7}
-                    className="px-4 py-8 text-center text-zinc-400"
+                    className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400"
                   >
                     No scrape runs yet.
                   </td>
@@ -214,12 +214,12 @@ function StatCard({
   accent?: string;
 }) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white px-4 py-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+    <div className="rounded-xl border border-zinc-300 bg-white px-4 py-4 dark:border-zinc-700 dark:bg-zinc-900">
+      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400">
         {label}
       </p>
       <p
-        className={`mt-1 text-2xl font-bold ${accent ?? "text-zinc-900 dark:text-zinc-100"}`}
+        className={`mt-1 text-2xl font-bold ${accent ?? "text-zinc-900 dark:text-white"}`}
       >
         {value}
       </p>
