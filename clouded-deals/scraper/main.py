@@ -1611,6 +1611,7 @@ async def run(slug_filter: str | None = None) -> None:
                 db,
                 all_top_deals,
                 run_id=run_id,
+                region=REGION,
                 total_products=total_products,
                 sites_scraped=len(sites_scraped),
                 sites_failed=len(sites_failed),

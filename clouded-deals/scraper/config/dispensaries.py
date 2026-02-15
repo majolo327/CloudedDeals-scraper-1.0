@@ -1,23 +1,31 @@
 """
-Dispensary configuration across 6 regions and 6 platforms.
+Dispensary configuration across 11 regions and 6 platforms.
 
 Regions:
-  - southern-nv: Las Vegas metro — 63 dispensaries (production)
-  - michigan:    MI data collection — 114 dispensaries (Dutchie-dominant)
-  - illinois:    IL data collection — 88 dispensaries (Rise/Curaleaf/Dutchie/Jane)
-  - arizona:     AZ data collection — 52 dispensaries (Dutchie-dominant)
-  - missouri:    MO data collection — 31 dispensaries (Dutchie-only)
-  - new-jersey:  NJ data collection — 34 dispensaries (Dutchie + Rise + Zen Leaf)
+  - southern-nv:   Las Vegas metro — 63 dispensaries (production)
+  - michigan:      MI data collection — 114 dispensaries (Dutchie-dominant)
+  - illinois:      IL data collection — 88 dispensaries (Rise/Curaleaf/Dutchie/Jane)
+  - arizona:       AZ data collection — 52 dispensaries (Dutchie-dominant)
+  - missouri:      MO data collection — 31 dispensaries (Dutchie-only)
+  - new-jersey:    NJ data collection — 34 dispensaries (Dutchie + Rise + Zen Leaf)
+  - ohio:          OH test batch — 20 dispensaries (Dutchie + Jane + Curaleaf + Rise)
+  - colorado:      CO test batch — 17 dispensaries (Dutchie + Jane)
+  - new-york:      NY test batch — 18 dispensaries (Dutchie + Jane + Curaleaf + Rise)
+  - massachusetts: MA test batch — 17 dispensaries (Dutchie + Jane + Curaleaf + Rise)
+  - pennsylvania:  PA test batch — 16 dispensaries (Dutchie + Rise)
 
-Platforms (382 total):
-  - dutchie: 270 — iframe-based menus (Dutchie/TD sites)
-  - jane:     48 — hybrid iframe/direct with "View More" pagination
-  - curaleaf: 34 — direct page loads (Curaleaf + Zen Leaf)
-  - rise:     21 — proprietary Next.js SPA (Rise/GTI + Cookies)
+Platforms (~470 total):
+  - dutchie: ~340 — iframe-based menus (Dutchie/TD sites)
+  - jane:     ~70 — hybrid iframe/direct with "View More" pagination
+  - curaleaf: ~40 — direct page loads (Curaleaf + Zen Leaf)
+  - rise:     ~35 — proprietary Next.js SPA (Rise/GTI + Cookies)
   - carrot:    6 — JS widget via getcarrot.io
   - aiq:       3 — Alpine IQ / Dispense React SPA
 
-Total active: 382 dispensaries (63 NV + 114 MI + 88 IL + 52 AZ + 31 MO + 34 NJ)
+Total active: ~470 dispensaries across 11 states
+  Original 6: 382 (63 NV + 114 MI + 88 IL + 52 AZ + 31 MO + 34 NJ)
+  Expansion 5:  88 test batch (20 OH + 17 CO + 18 NY + 17 MA + 16 PA)
+  Full pipeline: 401 additional dispensaries identified for expansion
 
 Sites marked ``is_active: False`` are known-broken (redirects, rebrands,
 etc.) and will be skipped by the orchestrator.  They remain in the config
@@ -1165,6 +1173,157 @@ DISPENSARIES = [
     {"name": "Zen Leaf Elizabeth NJ", "slug": "zen-leaf-nj-elizabeth", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/elizabeth/menu/recreational", "is_active": True, "region": "new-jersey"},
     {"name": "Zen Leaf Lawrence NJ", "slug": "zen-leaf-nj-lawrence", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/lawrence/menu/recreational", "is_active": True, "region": "new-jersey"},
     {"name": "Zen Leaf Neptune NJ", "slug": "zen-leaf-nj-neptune", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/neptune/menu/recreational", "is_active": True, "region": "new-jersey"},
+
+    # ==================================================================
+    #  OHIO  — Initial test batch (10 Dutchie + 4 Jane + 3 Curaleaf + 3 Rise = 20)
+    #  OH went recreational Aug 2024.  67 scrapable dispensaries identified.
+    #  Expand after confirming scraper success on these test URLs.
+    # ==================================================================
+
+    # ── DUTCHIE OH ──────────────────────────────────────────────────
+    {"name": "Terrasana Columbus", "slug": "terrasana-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/terrasana-cannabis-co", "is_active": True, "region": "ohio"},
+    {"name": "Terrasana Fremont", "slug": "terrasana-fremont", "platform": "dutchie", "url": "https://dutchie.com/dispensary/terrasana-cannabis-co-fremont", "is_active": True, "region": "ohio"},
+    {"name": "Ascend Cleveland", "slug": "ascend-oh-cleveland", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cleveland-ohio", "is_active": True, "region": "ohio"},
+    {"name": "Trulieve OH Columbus", "slug": "trulieve-oh-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trulieve-columbus", "is_active": True, "region": "ohio"},
+    {"name": "Trulieve OH Cincinnati", "slug": "trulieve-oh-cincinnati", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trulieve-cincinnati", "is_active": True, "region": "ohio"},
+    {"name": "Amplify Canton", "slug": "amplify-canton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/amplify-canton", "is_active": True, "region": "ohio"},
+    {"name": "Klutch Lorain", "slug": "klutch-lorain", "platform": "dutchie", "url": "https://dutchie.com/dispensary/klutch-lorain", "is_active": True, "region": "ohio"},
+    {"name": "Shangri-La Columbus", "slug": "shangri-la-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/shangri-la-dispensary-columbus", "is_active": True, "region": "ohio"},
+    {"name": "The Landing Kirkersville", "slug": "landing-kirkersville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-landing-dispensary-kirkersville", "is_active": True, "region": "ohio"},
+    {"name": "Firelands Scientific Huron", "slug": "firelands-huron", "platform": "dutchie", "url": "https://dutchie.com/dispensary/firelands-scientific-huron", "is_active": True, "region": "ohio"},
+
+    # ── JANE OH ─────────────────────────────────────────────────────
+    {"name": "Bloom Columbus", "slug": "bloom-oh-columbus", "platform": "jane", "url": "https://www.iheartjane.com/stores/2820/bloom-medicinals-columbus/menu", "is_active": True, "region": "ohio"},
+    {"name": "Bloom Akron", "slug": "bloom-oh-akron", "platform": "jane", "url": "https://www.iheartjane.com/stores/2817/bloom-medicinals-akron/menu", "is_active": True, "region": "ohio"},
+    {"name": "Verilife Cincinnati", "slug": "verilife-oh-cincinnati", "platform": "jane", "url": "https://www.iheartjane.com/stores/3004/verilife-cincinnati/menu", "is_active": True, "region": "ohio"},
+    {"name": "Pure Ohio Wellness Dayton", "slug": "pure-ohio-dayton", "platform": "jane", "url": "https://www.iheartjane.com/stores/2943/pure-ohio-wellness-dayton/menu", "is_active": True, "region": "ohio"},
+
+    # ── CURALEAF OH ─────────────────────────────────────────────────
+    {"name": "Curaleaf OH Cuyahoga Falls", "slug": "curaleaf-oh-cuyahoga", "platform": "curaleaf", "url": "https://oh.curaleaf.com/shop/cuyahoga-falls", "is_active": True, "region": "ohio"},
+    {"name": "Curaleaf OH Newark", "slug": "curaleaf-oh-newark", "platform": "curaleaf", "url": "https://oh.curaleaf.com/shop/newark", "is_active": True, "region": "ohio"},
+    {"name": "Curaleaf OH Lima", "slug": "curaleaf-oh-lima", "platform": "curaleaf", "url": "https://oh.curaleaf.com/shop/lima", "is_active": True, "region": "ohio"},
+
+    # ── RISE OH (GTI) ───────────────────────────────────────────────
+    {"name": "Rise OH Cleveland", "slug": "rise-oh-cleveland", "platform": "rise", "url": "https://oh.risecannabis.com/dispensaries/ohio/cleveland/recreational-menu/", "is_active": True, "region": "ohio"},
+    {"name": "Rise OH Lakewood", "slug": "rise-oh-lakewood", "platform": "rise", "url": "https://oh.risecannabis.com/dispensaries/ohio/lakewood-madison/recreational-menu/", "is_active": True, "region": "ohio"},
+    {"name": "Rise OH Toledo", "slug": "rise-oh-toledo", "platform": "rise", "url": "https://oh.risecannabis.com/dispensaries/ohio/toledo/recreational-menu/", "is_active": True, "region": "ohio"},
+
+    # ==================================================================
+    #  COLORADO  — Initial test batch (12 Dutchie + 5 Jane = 17)
+    #  Mature market since 2014.  97 scrapable store pages identified.
+    #  Dutchie dominates; no Curaleaf/Rise/Carrot/AIQ presence.
+    # ==================================================================
+
+    # ── DUTCHIE CO ──────────────────────────────────────────────────
+    {"name": "Native Roots West Denver", "slug": "native-roots-west-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/native-roots-west-denver", "is_active": True, "region": "colorado"},
+    {"name": "Native Roots Boulder", "slug": "native-roots-boulder", "platform": "dutchie", "url": "https://dutchie.com/dispensary/native-roots-boulder1", "is_active": True, "region": "colorado"},
+    {"name": "Lightshade Dayton Rec", "slug": "lightshade-dayton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/lightshade-dayton-rec-and-med-dispensary", "is_active": True, "region": "colorado"},
+    {"name": "The Green Solution Fort Collins", "slug": "tgs-fort-collins", "platform": "dutchie", "url": "https://dutchie.com/dispensary/tgs-fort-collins", "is_active": True, "region": "colorado"},
+    {"name": "L'Eagle Denver", "slug": "leagle-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/leagle-denver-dispensary", "is_active": True, "region": "colorado"},
+    {"name": "Oasis Cannabis NW Denver", "slug": "oasis-nw-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/oasis-cannabis-superstore-northwest", "is_active": True, "region": "colorado"},
+    {"name": "Medicine Man Denver", "slug": "medicine-man-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/medicine-man-denver", "is_active": True, "region": "colorado"},
+    {"name": "Colorado Harvest Broadway", "slug": "coharvest-broadway", "platform": "dutchie", "url": "https://dutchie.com/dispensary/colorado-harvest-company-broadway", "is_active": True, "region": "colorado"},
+    {"name": "Rocky Mountain High 6th", "slug": "rmh-6th-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/rocky-mountain-high-6th", "is_active": True, "region": "colorado"},
+    {"name": "Magnolia Road Boulder Rec", "slug": "magnolia-boulder-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/magnolia-road-cannabis-company-boulder", "is_active": True, "region": "colorado"},
+    {"name": "Green Dragon Breckenridge", "slug": "green-dragon-breck", "platform": "dutchie", "url": "https://dutchie.com/stores/green-dragon-breckenridge", "is_active": True, "region": "colorado"},
+    {"name": "The Spot 420 Pueblo", "slug": "spot420-pueblo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-spot-420-pueblo-central", "is_active": True, "region": "colorado"},
+
+    # ── JANE CO ─────────────────────────────────────────────────────
+    {"name": "Ascend Cannabis Denver Rec", "slug": "ascend-co-denver-rec", "platform": "jane", "url": "https://www.iheartjane.com/embed/stores/3019/menu", "is_active": True, "region": "colorado"},
+    {"name": "Silver Stem Bonnie Brae Rec", "slug": "silver-stem-bonnie-brae", "platform": "jane", "url": "https://www.iheartjane.com/embed/stores/5494/menu", "is_active": True, "region": "colorado"},
+    {"name": "Maggie's Farm N CO Springs", "slug": "maggies-farm-cos", "platform": "jane", "url": "https://www.iheartjane.com/stores/1229/maggie-s-farm-n-colorado-springs/menu", "is_active": True, "region": "colorado"},
+    {"name": "Fresh Baked Boulder", "slug": "fresh-baked-boulder", "platform": "jane", "url": "https://www.iheartjane.com/embed/stores/333/menu", "is_active": True, "region": "colorado"},
+    {"name": "Gardens Dispensary Yuma", "slug": "gardens-yuma", "platform": "jane", "url": "https://www.iheartjane.com/stores/17/gardens-dispensary-yuma/menu/featured", "is_active": True, "region": "colorado"},
+
+    # ==================================================================
+    #  NEW YORK  — Initial test batch (10 Dutchie + 4 Jane + 2 Curaleaf + 2 Rise = 18)
+    #  Rec market opened 2023.  68 scrapable dispensaries identified.
+    #  Curaleaf HQ'd in NYC.  Dutchie dominates CAURD licensees.
+    # ==================================================================
+
+    # ── DUTCHIE NY ──────────────────────────────────────────────────
+    {"name": "Housing Works Cannabis Broadway", "slug": "hwc-broadway", "platform": "dutchie", "url": "https://hwcannabis.co/menu/broadway/", "is_active": True, "region": "new-york"},
+    {"name": "Smacked Village Bleecker", "slug": "smacked-village", "platform": "dutchie", "url": "https://dutchie.com/dispensary/temeka-bleecker", "is_active": True, "region": "new-york"},
+    {"name": "Gotham Bowery", "slug": "gotham-bowery", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gotham-nyc-3rd-st", "is_active": True, "region": "new-york"},
+    {"name": "Gotham Chelsea", "slug": "gotham-chelsea", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gotham-chelsea", "is_active": True, "region": "new-york"},
+    {"name": "Silk Road Queens", "slug": "silk-road-queens", "platform": "dutchie", "url": "https://dutchie.com/dispensary/silk-road-nyc", "is_active": True, "region": "new-york"},
+    {"name": "Travel Agency Union Square", "slug": "travel-agency-usq", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-doe-store", "is_active": True, "region": "new-york"},
+    {"name": "Strain Stars Farmingdale", "slug": "strain-stars-farmingdale", "platform": "dutchie", "url": "https://dutchie.com/dispensary/strain-stars", "is_active": True, "region": "new-york"},
+    {"name": "FLUENT Manhattan Rec (Etain)", "slug": "fluent-manhattan-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/etain-new-york-rec", "is_active": True, "region": "new-york"},
+    {"name": "Royale Flower Albany", "slug": "royale-flower-albany", "platform": "dutchie", "url": "https://dutchie.com/dispensary/royale-flower-albany", "is_active": True, "region": "new-york"},
+    {"name": "Herbalwai Buffalo", "slug": "herbalwai-buffalo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/herbalwai", "is_active": True, "region": "new-york"},
+
+    # ── JANE NY ─────────────────────────────────────────────────────
+    {"name": "Rise Manhattan NYC", "slug": "rise-ny-manhattan-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1181/rise-dispensaries-manhattan-nyc/menu", "is_active": True, "region": "new-york"},
+    {"name": "Vireo Health Queens", "slug": "vireo-queens", "platform": "jane", "url": "https://www.iheartjane.com/stores/2065/vireo-health-queens/menu", "is_active": True, "region": "new-york"},
+    {"name": "The Botanist Farmingdale", "slug": "botanist-farmingdale", "platform": "jane", "url": "https://www.iheartjane.com/stores/1386/the-botanist-farmingdale", "is_active": True, "region": "new-york"},
+    {"name": "Verilife Bronx", "slug": "verilife-ny-bronx", "platform": "jane", "url": "https://www.iheartjane.com/stores/3003/verilife-bronx-ny", "is_active": True, "region": "new-york"},
+
+    # ── CURALEAF NY ─────────────────────────────────────────────────
+    {"name": "Curaleaf NY Queens AU", "slug": "curaleaf-ny-queens-au", "platform": "curaleaf", "url": "https://curaleaf.com/shop/new-york/curaleaf-ny-queens-au", "is_active": True, "region": "new-york"},
+    {"name": "Curaleaf NY Hudson Valley", "slug": "curaleaf-ny-hudson-valley", "platform": "curaleaf", "url": "https://curaleaf.com/shop/new-york/curaleaf-ny-hudson-valley", "is_active": True, "region": "new-york"},
+
+    # ── RISE NY (GTI) ───────────────────────────────────────────────
+    {"name": "Rise NY Henrietta", "slug": "rise-ny-henrietta", "platform": "rise", "url": "https://risecannabis.com/dispensaries/new-york/henrietta/5800/recreational-menu/", "is_active": True, "region": "new-york"},
+    {"name": "Rise NY East Syracuse", "slug": "rise-ny-east-syracuse", "platform": "rise", "url": "https://risecannabis.com/dispensaries/new-york/east-syracuse/6115/recreational-menu/", "is_active": True, "region": "new-york"},
+
+    # ==================================================================
+    #  MASSACHUSETTS  — Initial test batch (10 Dutchie + 3 Jane + 2 Curaleaf + 2 Rise = 17)
+    #  Rec since 2018.  83 scrapable dispensaries identified.
+    #  Dutchie dominant; Jane via Sunnyside/Cannabist.
+    # ==================================================================
+
+    # ── DUTCHIE MA ──────────────────────────────────────────────────
+    {"name": "NETA Northampton Rec", "slug": "neta-northampton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/neta-northampton", "is_active": True, "region": "massachusetts"},
+    {"name": "NETA Brookline Rec", "slug": "neta-brookline", "platform": "dutchie", "url": "https://dutchie.com/dispensary/neta-brookline", "is_active": True, "region": "massachusetts"},
+    {"name": "Theory Wellness Great Barrington", "slug": "theory-great-barrington", "platform": "dutchie", "url": "https://dutchie.com/dispensary/theory-wellness", "is_active": True, "region": "massachusetts"},
+    {"name": "Berkshire Roots East Boston", "slug": "berkshire-roots-eastie", "platform": "dutchie", "url": "https://dutchie.com/dispensary/berkshire-roots-east-boston", "is_active": True, "region": "massachusetts"},
+    {"name": "Ascend Boston Friend St", "slug": "ascend-ma-boston", "platform": "dutchie", "url": "https://dutchie.com/dispensary/boston-massachusetts", "is_active": True, "region": "massachusetts"},
+    {"name": "INSA Easthampton Rec", "slug": "insa-easthampton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/insa-easthampton-rec", "is_active": True, "region": "massachusetts"},
+    {"name": "Revolutionary Clinics Somerville", "slug": "rev-clinics-somerville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/revolutionary-clinics-somerville", "is_active": True, "region": "massachusetts"},
+    {"name": "Cookies Somerville", "slug": "cookies-ma-somerville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cookies-union-leaf", "is_active": True, "region": "massachusetts"},
+    {"name": "AYR Back Bay Boston", "slug": "ayr-ma-back-bay", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ayr-dispensary-back-bay", "is_active": True, "region": "massachusetts"},
+    {"name": "Harbor House Collective Chelsea", "slug": "harbor-house-chelsea", "platform": "dutchie", "url": "https://dutchie.com/dispensary/harbor-house-collective", "is_active": True, "region": "massachusetts"},
+
+    # ── JANE MA ─────────────────────────────────────────────────────
+    {"name": "Sunnyside Worcester MA", "slug": "sunnyside-ma-worcester", "platform": "jane", "url": "https://www.iheartjane.com/stores/5025/sunnyside-cannabis-dispensary-worcester/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Sunnyside Leicester MA", "slug": "sunnyside-ma-leicester", "platform": "jane", "url": "https://www.iheartjane.com/stores/5054/sunnyside-cannabis-dispensary-leicester/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Cannabist Lowell AU", "slug": "cannabist-ma-lowell-au", "platform": "jane", "url": "https://www.iheartjane.com/stores/734/cannabist-lowell-adult-use/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── CURALEAF MA ─────────────────────────────────────────────────
+    {"name": "Curaleaf MA Oxford AU", "slug": "curaleaf-ma-oxford", "platform": "curaleaf", "url": "https://curaleaf.com/shop/massachusetts/curaleaf-ma-oxford-adult-use", "is_active": True, "region": "massachusetts"},
+    {"name": "Curaleaf MA Ware AU", "slug": "curaleaf-ma-ware", "platform": "curaleaf", "url": "https://curaleaf.com/shop/massachusetts/curaleaf-ma-ware-adult-use", "is_active": True, "region": "massachusetts"},
+
+    # ── RISE MA (GTI) ───────────────────────────────────────────────
+    {"name": "Rise MA Chelsea Rec", "slug": "rise-ma-chelsea", "platform": "rise", "url": "https://risecannabis.com/dispensaries/massachusetts/chelsea/4636/recreational-menu/", "is_active": True, "region": "massachusetts"},
+    {"name": "Rise MA Dracut Rec", "slug": "rise-ma-dracut", "platform": "rise", "url": "https://risecannabis.com/dispensaries/massachusetts/dracut/4637/recreational-menu/", "is_active": True, "region": "massachusetts"},
+
+    # ==================================================================
+    #  PENNSYLVANIA  — Initial test batch (10 Dutchie + 6 Rise = 16)
+    #  Medical-only but top-5 US market by revenue.  86 scrapable found.
+    #  Rise has its LARGEST footprint here (19 locations).
+    #  PA Curaleaf menus are on Dutchie, not curaleaf.com.
+    # ==================================================================
+
+    # ── DUTCHIE PA ──────────────────────────────────────────────────
+    {"name": "Ethos NE Philadelphia", "slug": "ethos-pa-ne-philly", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ethos-northeast-philadelphia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Ethos Pleasant Hills PGH", "slug": "ethos-pa-pleasant-hills", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ethos-pleasant-hills", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA Philadelphia", "slug": "curaleaf-pa-philly", "platform": "dutchie", "url": "https://dutchie.com/dispensary/curaleaf-pa-philadelphia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA King of Prussia", "slug": "curaleaf-pa-kop", "platform": "dutchie", "url": "https://dutchie.com/dispensary/curaleaf-pa-king-of-prussia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Trulieve PA Center City", "slug": "trulieve-pa-center-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/harvest-of-city-center-philadelphia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Trulieve PA Squirrel Hill PGH", "slug": "trulieve-pa-squirrel-hill", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trulieve-squirrel-hill", "is_active": True, "region": "pennsylvania"},
+    {"name": "Liberty Philadelphia", "slug": "liberty-pa-philly", "platform": "dutchie", "url": "https://dutchie.com/dispensary/liberty-philadelphia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Liberty Pittsburgh", "slug": "liberty-pa-pgh", "platform": "dutchie", "url": "https://dutchie.com/dispensary/liberty-pittsburgh", "is_active": True, "region": "pennsylvania"},
+    {"name": "AYR Bryn Mawr", "slug": "ayr-pa-bryn-mawr", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ayr-wellness-bryn-mawr", "is_active": True, "region": "pennsylvania"},
+    {"name": "Ascend PA Scranton", "slug": "ascend-pa-scranton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/scranton-pennsylvania", "is_active": True, "region": "pennsylvania"},
+
+    # ── RISE PA (GTI — largest state footprint: 19 locations) ───────
+    {"name": "Rise PA Philadelphia", "slug": "rise-pa-philly", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/philadelphia/", "is_active": True, "region": "pennsylvania"},
+    {"name": "Rise PA King of Prussia", "slug": "rise-pa-kop", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/king-of-prussia/", "is_active": True, "region": "pennsylvania"},
+    {"name": "Rise PA Monroeville", "slug": "rise-pa-monroeville", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/monroeville/", "is_active": True, "region": "pennsylvania"},
+    {"name": "Rise PA Steelton", "slug": "rise-pa-steelton", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/steelton/", "is_active": True, "region": "pennsylvania"},
+    {"name": "Rise PA Erie Lake", "slug": "rise-pa-erie-lake", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/erie-lake/", "is_active": True, "region": "pennsylvania"},
+    {"name": "Rise PA York", "slug": "rise-pa-york", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/york/", "is_active": True, "region": "pennsylvania"},
 ]
 
 # ---------------------------------------------------------------------------
@@ -1329,7 +1488,9 @@ def get_dispensaries_by_group(group: str) -> list[dict]:
 def get_dispensaries_by_region(region: str) -> list[dict]:
     """Return active dispensaries belonging to a region/state.
 
-    Valid regions: 'southern-nv', 'michigan', 'illinois', 'arizona', 'all'.
+    Valid regions: 'southern-nv', 'michigan', 'illinois', 'arizona',
+    'missouri', 'new-jersey', 'ohio', 'colorado', 'new-york',
+    'massachusetts', 'pennsylvania', 'all'.
     """
     if region == "all":
         return get_active_dispensaries()
