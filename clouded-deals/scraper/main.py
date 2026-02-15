@@ -28,12 +28,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import random
 import re
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse as _urlparse
 
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -1386,12 +1388,40 @@ async def run(slug_filter: str | None = None) -> None:
             for plat, cap in _PLATFORM_CONCURRENCY.items()
         }
 
+        # Domain-level throttle: when many sites share the same domain
+        # (e.g. 111 Michigan sites on dutchie.com), insert a minimum delay
+        # between requests to the same domain to avoid triggering WAF /
+        # bot detection.  Each domain gets its own asyncio.Lock so only
+        # one request at a time negotiates the cooldown.
+        _DOMAIN_MIN_INTERVAL = 2.0  # seconds between requests to same domain
+        domain_locks: dict[str, asyncio.Lock] = {}
+        domain_last_request: dict[str, float] = {}
+
         async def _bounded_scrape(dispensary: dict[str, Any]) -> dict[str, Any]:
             """Scrape a single site, bounded by global + platform semaphores."""
             plat = dispensary["platform"]
             plat_sem = platform_semaphores.get(plat, global_semaphore)
+            domain = _urlparse(dispensary["url"]).netloc
+
+            # Ensure one lock per domain
+            if domain not in domain_locks:
+                domain_locks[domain] = asyncio.Lock()
+
             async with global_semaphore:
                 async with plat_sem:
+                    # Domain-level cooldown — serialize the timing check
+                    async with domain_locks[domain]:
+                        elapsed_since = time.time() - domain_last_request.get(domain, 0)
+                        if elapsed_since < _DOMAIN_MIN_INTERVAL:
+                            jitter = random.uniform(0, 1.0)
+                            wait = _DOMAIN_MIN_INTERVAL - elapsed_since + jitter
+                            logger.debug(
+                                "[%s] Domain throttle: waiting %.1fs for %s",
+                                dispensary["slug"], wait, domain,
+                            )
+                            await asyncio.sleep(wait)
+                        domain_last_request[domain] = time.time()
+
                     site_start = time.time()
                     logger.info("[START] %s (%s)", dispensary["name"], plat)
                     result = await scrape_site(
