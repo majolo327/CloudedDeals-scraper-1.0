@@ -44,6 +44,10 @@ JS_EMBED_CONTAINERS = [
     '[data-dutchie]',
     '.dutchie--embed',
     '#dutchie',
+    '[id*="dutchie"]',
+    '[class*="dutchie"]',
+    '[id*="dtche"]',
+    '[class*="dtche"]',
 ]
 
 # Product-card selectors to verify the JS embed has loaded real content.
@@ -303,10 +307,24 @@ async def find_dutchie_content(
     # --- Try iframe -------------------------------------------------------
     # Always try iframe in the cascade.  If a js_embed/direct hint failed
     # above, the site may have switched to iframe — don't skip it.
-    logger.info("Looking for Dutchie iframe (max %d ms) …", iframe_timeout_ms)
-    frame = await get_iframe(page, timeout_ms=iframe_timeout_ms)
+    # When hint is js_embed, use a SHORT iframe timeout (10s per selector)
+    # to avoid wasting ~270s on selectors that won't match — the embed may
+    # load during this phase and we need time left to re-check.
+    actual_iframe_ms = 10_000 if embed_type_hint == "js_embed" else iframe_timeout_ms
+    logger.info("Looking for Dutchie iframe (max %d ms) …", actual_iframe_ms)
+    frame = await get_iframe(page, timeout_ms=actual_iframe_ms)
     if frame is not None:
         return frame, "iframe"
+
+    # --- Re-check JS embed after iframe cascade ---------------------------
+    # When hint was js_embed, the embed might have loaded DURING the iframe
+    # detection phase (which takes 60-270s).  Always re-probe with a short
+    # timeout to catch late-loading embeds.
+    if embed_type_hint == "js_embed":
+        logger.info("Re-checking JS embed after iframe cascade (late-load catch)")
+        if await _probe_js_embed(page, timeout_sec=15):
+            logger.info("JS embed confirmed on re-check — using main page as scrape target")
+            return page, "js_embed"
 
     # --- Fall back to JS embed detection (strict two-phase check) --------
     if embed_type_hint != "js_embed":  # already tried above if hint was js_embed

@@ -89,8 +89,21 @@ _WAIT_FOR_DUTCHIE_JS = """
     if (document.querySelector('#dutchie--embed') ||
         document.querySelector('[data-dutchie]') ||
         document.querySelector('.dutchie--embed') ||
-        document.querySelector('#dutchie')) {
+        document.querySelector('#dutchie') ||
+        document.querySelector('[id*="dutchie"]') ||
+        document.querySelector('[class*="dutchie"]') ||
+        document.querySelector('[id*="dtche"]') ||
+        document.querySelector('[class*="dtche"]')) {
         return true;
+    }
+    // Dutchie embed script loaded?  The script tag appears before the
+    // container it creates — detecting it means the embed is initialising.
+    const scripts = document.querySelectorAll('script[src]');
+    for (const s of scripts) {
+        const src = s.getAttribute('src') || '';
+        if (src.includes('dutchie.com') || src.includes('dutchie')) {
+            return true;
+        }
     }
     // Direct product cards on page?
     if (document.querySelectorAll('[data-testid*="product"]').length >= 3 ||
@@ -181,6 +194,24 @@ class DutchieScraper(BaseScraper):
         if removed > 0:
             logger.info("[%s] Cleaned up %d lingering overlay(s) via JS", self.slug, removed)
 
+        # --- Remove agc_no_scroll class + scroll to trigger lazy embeds ---
+        # TD's age gate plugin adds `agc_no_scroll` to <html> which may
+        # prevent the Dutchie embed script from initialising (scroll-locked).
+        # Also scroll the viewport — Dutchie embeds on WordPress sites often
+        # lazy-load via IntersectionObserver and won't fire until the embed
+        # section enters the viewport.
+        await self.page.evaluate("""
+            () => {
+                document.documentElement.classList.remove('agc_no_scroll');
+                document.body.classList.remove('agc_no_scroll');
+                document.documentElement.style.overflow = 'auto';
+                document.body.style.overflow = 'auto';
+            }
+        """)
+        await self.page.evaluate("window.scrollTo(0, document.body.scrollHeight / 2)")
+        await asyncio.sleep(1)
+        await self.page.evaluate("window.scrollTo(0, 0)")
+
         # --- Smart-wait: poll DOM for Dutchie content (up to 60 s) --------
         # Instead of a fixed asyncio.sleep(20), this returns the MOMENT
         # any iframe / container / product cards appear in the DOM.
@@ -204,26 +235,31 @@ class DutchieScraper(BaseScraper):
         )
 
         if target is None:
-            # --- Fast-path: skip reload+retry when fallback URL exists ----
-            # The reload+retry cycle costs ~300s (navigation + smart-wait +
-            # full detection cascade).  When a fallback_url is configured,
-            # skip this expensive cycle and go directly to the fallback —
-            # this keeps the total scrape within the 600s timeout.
-            if fallback_url and fallback_url != self.url:
-                logger.warning(
-                    "[%s] No Dutchie content on primary — skipping to fallback: %s",
-                    self.slug, fallback_url,
-                )
-                await self.save_debug_info("no_dutchie_content_primary")
-                return await self._scrape_with_fallback(fallback_url, embed_hint)
-
-            # No fallback: reload page and retry the full click flow once
+            # Reload page and retry the full click flow once — the embed
+            # may need a second page load to initialise (especially on
+            # JS-heavy WordPress sites like TD where the Dutchie script
+            # loads lazily).  Do NOT skip to fallback here: the user
+            # confirmed the primary URL works in a real browser.
             logger.warning("[%s] No Dutchie content after click — trying reload + re-click", self.slug)
+            await self.save_debug_info("no_dutchie_content_primary")
             await self.page.evaluate(_AGE_GATE_COOKIE_JS)
             await self.page.reload(wait_until="load", timeout=120_000)
             await asyncio.sleep(3)
             await self.handle_age_gate(post_wait_sec=3)
             await force_remove_age_gate(self.page)
+
+            # Same lazy-load treatment on retry
+            await self.page.evaluate("""
+                () => {
+                    document.documentElement.classList.remove('agc_no_scroll');
+                    document.body.classList.remove('agc_no_scroll');
+                    document.documentElement.style.overflow = 'auto';
+                    document.body.style.overflow = 'auto';
+                }
+            """)
+            await self.page.evaluate("window.scrollTo(0, document.body.scrollHeight / 2)")
+            await asyncio.sleep(1)
+            await self.page.evaluate("window.scrollTo(0, 0)")
 
             # Smart-wait again after reload
             try:
@@ -234,11 +270,14 @@ class DutchieScraper(BaseScraper):
             except PlaywrightTimeout:
                 logger.warning("[%s] Smart-wait (retry): still nothing after 60s", self.slug)
 
-            # On retry, don't use the hint — try the full cascade
+            # On retry, keep the embed hint — it reduces iframe detection
+            # from 270s to 60s for js_embed sites, which is critical for
+            # fitting the full retry within the 600s timeout budget.
             target, embed_type = await find_dutchie_content(
                 self.page,
                 iframe_timeout_ms=45_000,
                 js_embed_timeout_sec=60,
+                embed_type_hint=embed_hint,
             )
 
         if target is None:
