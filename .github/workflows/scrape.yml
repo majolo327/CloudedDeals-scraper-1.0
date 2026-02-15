@@ -1,5 +1,24 @@
 name: Daily Scraper
 
+# Dynamic run name so each state is identifiable at a glance in the Actions UI.
+run-name: >-
+  Scrape — ${{
+    github.event_name == 'workflow_dispatch'
+      && (github.event.inputs.region || 'all')
+    || github.event.schedule == '0 11 * * *'  && 'pennsylvania'
+    || github.event.schedule == '30 11 * * *' && 'massachusetts'
+    || github.event.schedule == '0 12 * * *'  && 'new-york'
+    || github.event.schedule == '30 12 * * *' && 'new-jersey'
+    || github.event.schedule == '0 13 * * *'  && 'ohio'
+    || github.event.schedule == '30 13 * * *' && 'michigan'
+    || github.event.schedule == '30 14 * * *' && 'arizona'
+    || github.event.schedule == '0 15 * * *'  && 'illinois'
+    || github.event.schedule == '30 15 * * *' && 'colorado'
+    || github.event.schedule == '5 16 * * *'  && 'southern-nv'
+    || github.event.schedule == '0 17 * * *'  && 'missouri'
+    || 'unknown'
+  }}
+
 on:
   schedule:
     # Optimized cron schedule — all 11 states.
@@ -12,7 +31,7 @@ on:
     - cron: "30 11 * * *"   # massachusetts  — 6:30 AM EST  (17 sites, ~15 min)
     - cron: "0 12 * * *"    # new-york       — 7:00 AM EST  (18 sites, ~15 min)
     - cron: "30 12 * * *"   # new-jersey     — 7:30 AM EST  (34 sites, ~25 min)
-    - cron: "0 13 * * *"    # ohio           — 8:00 AM EST  (20 sites, ~15 min)
+    - cron: "0 13 * * *"    # ohio           — 8:00 AM EST  (22 sites, ~15 min)
     #
     # ── Midwest / Great Lakes ───────────────────────────────────────
     - cron: "30 13 * * *"   # michigan       — 8:30 AM EST  (114 sites, ~50 min)
