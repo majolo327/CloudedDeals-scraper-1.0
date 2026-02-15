@@ -1,14 +1,17 @@
 /**
  * Formats a qualified deal into a 280-character tweet.
  *
- * Template (example):
+ * Template (auto-post example):
  *   🔥 STIIIZY Pod 1g
  *   💰 $45 → $27 (40% OFF)
  *   🏪 Curaleaf - Western Ave
+ *
+ *   More deals at cloudeddeals.com
  *   #LasVegasDeals #Cannabis #STIIIZY
  */
 
 import { Deal, CATEGORY_LABELS, Category } from "./types";
+import { AutoPostCandidate } from "./auto-post-selector";
 
 const MAX_TWEET_LENGTH = 280;
 
@@ -20,7 +23,9 @@ const CATEGORY_HASHTAGS: Record<string, string> = {
   concentrate: "#Concentrates",
 };
 
-const BASE_HASHTAGS = ["#LasVegasDeals", "#Cannabis", "#Vegas420"];
+const BASE_HASHTAGS = ["#LasVegasDeals", "#Cannabis"];
+
+const SITE_CTA = "More deals at cloudeddeals.com";
 
 export function formatDealTweet(deal: Deal): string {
   const product = deal.product;
@@ -65,8 +70,10 @@ export function formatDealTweet(deal: Deal): string {
     `🔥 ${name}`,
     `💰 ${priceLine}`,
     dispensaryLine ? `🏪 ${dispensaryLine}` : "",
+    "",
+    SITE_CTA,
     hashtagLine,
-  ].filter(Boolean);
+  ].filter((line, i) => line !== "" || i === 3); // Keep the blank spacer line
 
   let tweet = lines.join("\n");
 
@@ -80,6 +87,64 @@ export function formatDealTweet(deal: Deal): string {
   }
 
   // Final safety trim.
+  if (tweet.length > MAX_TWEET_LENGTH) {
+    tweet = tweet.slice(0, MAX_TWEET_LENGTH - 1) + "…";
+  }
+
+  return tweet;
+}
+
+/**
+ * Format a tweet from an AutoPostCandidate (used by auto-post route).
+ * Same template as formatDealTweet but works with the flat candidate shape.
+ */
+export function formatCandidateTweet(candidate: AutoPostCandidate): string {
+  const name = candidate.product_name;
+
+  // Price line
+  const salePart =
+    candidate.sale_price !== null ? `$${candidate.sale_price}` : "";
+  const originalPart =
+    candidate.original_price !== null &&
+    candidate.original_price !== candidate.sale_price
+      ? `$${candidate.original_price} → `
+      : "";
+  const discountPart =
+    candidate.discount_percent !== null
+      ? ` (${Math.round(candidate.discount_percent)}% OFF)`
+      : "";
+  const priceLine = `${originalPart}${salePart}${discountPart}`;
+
+  // Hashtags
+  const tags = [...BASE_HASHTAGS];
+  if (candidate.category && CATEGORY_HASHTAGS[candidate.category]) {
+    tags.push(CATEGORY_HASHTAGS[candidate.category]);
+  }
+  if (candidate.brand) {
+    const brandTag = `#${candidate.brand.replace(/[^a-zA-Z0-9]/g, "")}`;
+    if (!tags.includes(brandTag)) tags.push(brandTag);
+  }
+  const hashtagLine = tags.join(" ");
+
+  const lines = [
+    `🔥 ${name}`,
+    `💰 ${priceLine}`,
+    candidate.dispensary_name ? `🏪 ${candidate.dispensary_name}` : "",
+    "",
+    SITE_CTA,
+    hashtagLine,
+  ].filter((line, i) => line !== "" || i === 3);
+
+  let tweet = lines.join("\n");
+
+  if (tweet.length > MAX_TWEET_LENGTH) {
+    const overhead = tweet.length - MAX_TWEET_LENGTH;
+    const shortenedName =
+      name.slice(0, Math.max(name.length - overhead - 3, 10)) + "...";
+    lines[0] = `🔥 ${shortenedName}`;
+    tweet = lines.join("\n");
+  }
+
   if (tweet.length > MAX_TWEET_LENGTH) {
     tweet = tweet.slice(0, MAX_TWEET_LENGTH - 1) + "…";
   }
