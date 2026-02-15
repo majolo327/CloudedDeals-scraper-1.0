@@ -164,6 +164,7 @@ CATEGORY_MINIMUMS: dict[str, int] = {
 
 MAX_SAME_BRAND_TOTAL = 5          # was 8 — tighter cap so one brand can't dominate the feed
 MAX_SAME_DISPENSARY_TOTAL = 10
+MIN_DEALS_PER_DISPENSARY = 1   # every scraped dispensary gets at least 1 deal shown
 MAX_CONSECUTIVE_SAME_CATEGORY = 3
 MAX_CONSECUTIVE_SAME_BRAND = 1        # no same-brand cards adjacent in the feed
 MAX_SAME_BRAND_PER_DISPENSARY = 2  # similarity dedup
@@ -1011,6 +1012,44 @@ def select_top_deals(
                 if len(result) >= target:
                     break
             break
+
+    # ------------------------------------------------------------------
+    # Step 3b: Per-dispensary minimum guarantee
+    # ------------------------------------------------------------------
+    # Every dispensary that was scraped and has qualifying deals should get
+    # at least MIN_DEALS_PER_DISPENSARY deal(s) in the final selection.
+    # This is critical when total deals are low (30-40) — every store
+    # that contributed products should be represented.
+    result_disps = {d.get("dispensary_id") or "" for d in result}
+    all_scored_disps: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for deal in scored_deals:
+        disp_id = deal.get("dispensary_id") or ""
+        if disp_id:
+            all_scored_disps[disp_id].append(deal)
+
+    result_keys = {
+        (d.get("name", ""), d.get("sale_price"), d.get("dispensary_id"))
+        for d in result
+    }
+    injected = 0
+    for disp_id, disp_deals in all_scored_disps.items():
+        if disp_id in result_disps:
+            continue  # already represented
+        # Find the best-scoring deal from this dispensary not already picked
+        disp_deals.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+        for deal in disp_deals:
+            key = (deal.get("name", ""), deal.get("sale_price"), deal.get("dispensary_id"))
+            if key not in result_keys:
+                result.append(deal)
+                result_disps.add(disp_id)
+                result_keys.add(key)
+                injected += 1
+                break
+    if injected > 0:
+        logger.info(
+            "Dispensary minimum guarantee: injected %d deals for unrepresented dispensaries",
+            injected,
+        )
 
     # ------------------------------------------------------------------
     # Step 4: Dispensary cap enforcement (uses backfill cap if active)

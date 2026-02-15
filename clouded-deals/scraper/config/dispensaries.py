@@ -70,7 +70,7 @@ PLATFORM_DEFAULTS = {
         "pagination": "aria-label",       # paginate via aria-label buttons
         "between_pages_sec": 5,
         "embed_type": "iframe",
-        "wait_until": "load",             # scripts must fully execute to create iframe
+        "wait_until": "domcontentloaded", # match proven V142 scraper — don't block on slow resources
     },
     "curaleaf": {
         "wait_after_age_gate_sec": 30,
@@ -121,7 +121,7 @@ DISPENSARIES = [
         "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-henderson/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "js_embed",
+        "embed_type": "iframe",
     },
     {
         "name": "The Dispensary - Eastern",
@@ -131,7 +131,7 @@ DISPENSARIES = [
         "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-eastern-express/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "js_embed",
+        "embed_type": "iframe",
     },
     {
         "name": "The Dispensary - Decatur",
@@ -141,7 +141,7 @@ DISPENSARIES = [
         "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-las-vegas/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "js_embed",
+        "embed_type": "iframe",
     },
     {
         # Planet 13's site uses geolocation-based store selection that blocks

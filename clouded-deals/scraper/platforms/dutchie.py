@@ -182,8 +182,10 @@ class DutchieScraper(BaseScraper):
         # The Dutchie embed script only injects the menu iframe AFTER the
         # button-click callback fires — force-removing the overlay via JS
         # does NOT trigger it.  Click first, then smart-wait.
-        # NOTE: post_wait_sec=3 (minimal) — the real wait is the smart poll below.
-        clicked = await self.handle_age_gate(post_wait_sec=3)
+        # NOTE: post_wait_sec=6 — matches the proven V142 scraper timing.
+        # The Dutchie embed script needs ~6s after age gate click to inject
+        # the iframe into the DOM.
+        clicked = await self.handle_age_gate(post_wait_sec=6)
         if clicked:
             logger.info("[%s] Age gate clicked — smart-waiting for Dutchie content", self.slug)
         else:
@@ -243,9 +245,9 @@ class DutchieScraper(BaseScraper):
             logger.warning("[%s] No Dutchie content after click — trying reload + re-click", self.slug)
             await self.save_debug_info("no_dutchie_content_primary")
             await self.page.evaluate(_AGE_GATE_COOKIE_JS)
-            await self.page.reload(wait_until="load", timeout=120_000)
+            await self.page.reload(wait_until="domcontentloaded", timeout=120_000)
             await asyncio.sleep(3)
-            await self.handle_age_gate(post_wait_sec=3)
+            await self.handle_age_gate(post_wait_sec=6)
             await force_remove_age_gate(self.page)
 
             # Same lazy-load treatment on retry
@@ -467,7 +469,7 @@ class DutchieScraper(BaseScraper):
             return []
 
         await self.page.evaluate(_AGE_GATE_COOKIE_JS)
-        await self.handle_age_gate(post_wait_sec=3)
+        await self.handle_age_gate(post_wait_sec=6)
         await force_remove_age_gate(self.page)
 
         try:
