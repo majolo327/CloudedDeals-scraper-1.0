@@ -907,3 +907,109 @@ Multi-state expansion groundwork is complete and ready when Phase C begins:
 | `docs/research-michigan-illinois.md` | MI (1,000+ dispensaries, 55-65% platform overlap, 35-40 new brands) + IL (230 dispensaries, 65-75% overlap, 30-40 new brands). Platform audit of 20+ chains per state, brand ecosystem by category, state-specific price caps, technical feasibility, data model changes, rollout order |
 | `docs/research-batch2-markets.md` | Scored 8 candidates → selected AZ (43/50), MO (38/50), NJ (38/50). Per-market: dispensary lists, platform audits, brand maps, scrapeability. Combined platform coverage matrix across all 5 new states |
 | `docs/research-cross-market-synthesis.md` | 130-160 net-new brands with aliases + strain blockers. Master platform coverage (1,823 licensed dispensaries → ~1,280 scrapeable). Data normalization challenges for ML. Multi-state schema migration plan. LLM training data opportunities |
+
+---
+
+## Documentation Index
+
+All project documentation lives in the repo. Here's the single source of truth for where everything is:
+
+### Operations & Engineering
+
+| Document | Path | Contents |
+|----------|------|----------|
+| **Operations Guide** (this file) | `OPERATIONS.md` | Scraper architecture, coverage, scheduling, platform details, scaling plan |
+| **QA Audit Report** | `QA-AUDIT-REPORT.md` | Comprehensive QA audit — data quality, parsing accuracy, edge cases (Feb 8, 2026) |
+| **Scrape Data Review** | `SCRAPE-REVIEW-2026-02-12.md` | Daily scrape metrics, category breakdowns, P0/P1 issues, site failure analysis |
+| **Power User Search Audit** | `clouded-deals/docs/power-user-search-audit.md` | Search functionality audit — query patterns, edge cases, relevance tuning |
+| **Feature Plan: Bundle Fix** | `PLAN.md` | Brand contamination fix — name-first brand detection for bundle text |
+
+### Beta & Launch Readiness
+
+| Document | Path | Contents |
+|----------|------|----------|
+| **Beta Launch Readiness** | `BETA_LAUNCH_READINESS.md` | Full multi-perspective audit (engineering, legal, cannabis compliance, marketing, operations). Prioritized checklist of blockers + high/medium/low items for beta and public launch |
+| **Beta Audit Report** | `BETA_AUDIT_REPORT.md` | Earlier beta readiness audit — foundational findings |
+
+### SEO & Marketing
+
+| Document | Path | Contents |
+|----------|------|----------|
+| **SEO Strategy Plan** | `SEO-STRATEGY-PLAN.md` | 7-phase SEO roadmap — technical SEO, content strategy, keyword targets, KPIs |
+
+### Market Research
+
+| Document | Path | Contents |
+|----------|------|----------|
+| **MI + IL Research** | `docs/research-michigan-illinois.md` | Platform audits, brand ecosystems, price caps, rollout plans |
+| **Batch 2 Markets** | `docs/research-batch2-markets.md` | AZ, MO, NJ — dispensary lists, platform coverage, scrapeability |
+| **Cross-Market Synthesis** | `docs/research-cross-market-synthesis.md` | Brand normalization, master coverage matrix, ML data opportunities |
+
+### Infrastructure
+
+| Document | Path | Contents |
+|----------|------|----------|
+| **Setup Guide** | `clouded-deals/docs/README.md` | Dev environment setup — Python venv, npm install, .env configuration |
+| **CI/CD Workflows** | `.github/workflows/` | `scrape.yml` (daily crons), `ci.yml` (PR tests), `site-diagnostics.yml`, `recon.yml`, `debug.yml` |
+| **Database Migrations** | `clouded-deals/supabase/migrations/` | 34 versioned SQL migrations (001-033) — schema, RLS, indexes, retention |
+
+---
+
+## Beta Launch Status (Feb 2026)
+
+### Current Blockers — Resolved
+
+| Item | Status | Commit |
+|------|--------|--------|
+| Terms of Service says 18+ (must be 21+) | Fixed | `01a53fa` |
+| No cannabis-specific legal disclaimers | Fixed | `01a53fa` |
+| No security headers (CSP, HSTS, X-Frame) | Fixed | `01a53fa` |
+| No server-side rate limiting on admin PIN | Fixed | `01a53fa` |
+| No custom 404 page | Fixed | `01a53fa` |
+
+### Current Blockers — In Progress
+
+| Item | Owner | Notes |
+|------|-------|-------|
+| Deal diversity caps too strict (136/200) | Eng | Dynamic caps: relax brand limit when supply is low |
+| Product name pollution (THC%, promo text) | Eng | Post-parse cleanup to strip noise from display names |
+| Contact email inconsistency | Eng | Standardize to `hello@cloudeddeals.com` everywhere |
+| No beta tester onboarding page | Eng | `/beta` route with shareable URL for testers |
+| No email capture for NV users | Eng | Non-intrusive capture on main feed |
+
+### Monitoring Gaps (Require External Accounts)
+
+| Service | Purpose | Action Required |
+|---------|---------|-----------------|
+| **Sentry** (free tier) | Frontend error monitoring — catch JS errors from beta testers | Create account, add DSN to env, install `@sentry/nextjs` |
+| **UptimeRobot** (free tier) | Uptime monitoring on `/api/health` — alerts when site/DB is down | Create account, add HTTPS monitor for `cloudeddeals.com/api/health` |
+| **GitHub Actions alerts** | Scrape failure notifications — know when morning scrape breaks | Already have `sites_failed` in DB; add Slack/email webhook in workflow |
+
+### Operational Runbook
+
+**Scrape didn't run this morning:**
+1. Check GitHub Actions > Daily Scraper — is the run queued, running, or failed?
+2. If failed: check the error log. Common causes: Playwright timeout, Supabase connection limit, GitHub Actions outage.
+3. Manual fix: Go to Actions > Daily Scraper > Run workflow > select `southern-nv` region > Run.
+4. If Actions itself is down: run locally with `cd clouded-deals/scraper && python main.py --region southern-nv`.
+
+**Deals look stale (same as yesterday):**
+1. Check `/api/health` — look at `pipeline.run_date`. If it's not today, scrape didn't write.
+2. Check `scrape_runs` table in Supabase — look for today's run, check `status` and `sites_failed`.
+3. If scrape ran but deals are identical: the dispensaries haven't updated their specials yet (common on weekdays).
+
+**Site is down / 500 errors:**
+1. Check Netlify deploys — was there a recent deploy that broke the build?
+2. Check Supabase dashboard — is the project paused (free tier auto-pauses after 1 week of inactivity)?
+3. If Supabase is paused: click "Restore" in dashboard. Takes 1-2 minutes.
+
+**A specific dispensary is missing from deals:**
+1. Check `config/dispensaries.py` — is the site `is_active: True`?
+2. Check `scrape_runs.sites_failed` — did it fail with a specific error?
+3. Common failures: Cloudflare Turnstile (Rise), iframe not detected (missing `embed_type` hint), age gate timeout.
+4. Debug: Actions > Debug Scraper > Run workflow > enter the site slug.
+
+**Admin PIN locked out:**
+1. Server-side rate limit: 5 failed attempts per IP, 15-minute lockout.
+2. Wait 15 minutes, or redeploy (resets in-memory state).
+3. If PIN is lost: update `ADMIN_PIN` in Netlify environment variables > redeploy.

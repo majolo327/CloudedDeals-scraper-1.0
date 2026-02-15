@@ -15,6 +15,7 @@ import { AboutPage } from '@/components/AboutPage';
 import { TermsPage } from '@/components/TermsPage';
 import { PrivacyPage } from '@/components/PrivacyPage';
 import { SmsWaitlist } from '@/components/SmsWaitlist';
+import { BetaEmailCapture } from '@/components/BetaEmailCapture';
 import { FeedbackWidget } from '@/components/FeedbackWidget';
 import { LocationSelector } from '@/components/LocationSelector';
 import { DealModal } from '@/components/modals';
@@ -402,17 +403,23 @@ export default function Home() {
               </p>
             </div>
           ) : (
-            <DealsPage
-              deals={todaysDeals}
-              expiredDeals={isShowingExpired ? [] : expiredDeals}
-              savedDeals={savedDeals}
-              usedDeals={usedDeals}
-              toggleSavedDeal={handleToggleSave}
-              setSelectedDeal={setSelectedDeal}
-              savedCount={savedCount}
-              isExpired={isShowingExpired}
-              onShareSaves={handleShareSaves}
-            />
+            <>
+              <DealsPage
+                deals={todaysDeals}
+                expiredDeals={isShowingExpired ? [] : expiredDeals}
+                savedDeals={savedDeals}
+                usedDeals={usedDeals}
+                toggleSavedDeal={handleToggleSave}
+                setSelectedDeal={setSelectedDeal}
+                savedCount={savedCount}
+                isExpired={isShowingExpired}
+                onShareSaves={handleShareSaves}
+              />
+              {/* Inline beta email capture — appears at natural scroll depth after deals */}
+              <div className="mt-6 mb-8">
+                <BetaEmailCapture addToast={addToast} />
+              </div>
+            </>
           )
         )}
 

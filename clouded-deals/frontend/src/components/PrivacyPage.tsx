@@ -83,7 +83,7 @@ export function PrivacyPage({ onBack }: PrivacyPageProps) {
 
         <h2 style={{ fontSize: 19, color: '#000', fontFamily: 'Arial', fontWeight: 'bold', marginTop: 32, marginBottom: 12 }}>9. HOW CAN YOU CONTACT US ABOUT THIS POLICY?</h2>
         <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 8 }}>
-          If you have questions or comments about this policy, you may email us at <a href="mailto:help@onclouded.com" style={{ color: '#3030F1' }}>help@onclouded.com</a> or by post to:
+          If you have questions or comments about this policy, you may email us at <a href="mailto:hello@cloudeddeals.com" style={{ color: '#3030F1' }}>hello@cloudeddeals.com</a> or by post to:
         </p>
         <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>
           <strong>Clouded Inc.</strong><br />
@@ -95,7 +95,7 @@ export function PrivacyPage({ onBack }: PrivacyPageProps) {
 
         <h2 style={{ fontSize: 19, color: '#000', fontFamily: 'Arial', fontWeight: 'bold', marginTop: 32, marginBottom: 12 }}>10. HOW CAN YOU REVIEW, UPDATE, OR DELETE THE DATA WE COLLECT FROM YOU?</h2>
         <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>
-          Based on the applicable laws of your country or state of residence in the US, you may have the right to request access to the personal information we collect from you, details about how we have processed it, correct inaccuracies, or delete your personal information. To request to review, update, or delete your personal information, please email us at <a href="mailto:help@onclouded.com" style={{ color: '#3030F1' }}>help@onclouded.com</a>.
+          Based on the applicable laws of your country or state of residence in the US, you may have the right to request access to the personal information we collect from you, details about how we have processed it, correct inaccuracies, or delete your personal information. To request to review, update, or delete your personal information, please email us at <a href="mailto:hello@cloudeddeals.com" style={{ color: '#3030F1' }}>hello@cloudeddeals.com</a>.
         </p>
       </div>
     </div>

@@ -1046,7 +1046,7 @@ class CloudedLogic:
     # ────────────────────────────────────────────────────────────────
 
     def clean_product_name(self, text, brand=None):
-        """Clean product name for display in tweets. Remove brand prefix duplication."""
+        """Clean product name for display. Strip THC/CBD, promo text, brand dups."""
         if not text:
             return ''
         product = text
@@ -1054,6 +1054,24 @@ class CloudedLogic:
         # Remove brand name from start if duplicated
         if brand:
             product = re.sub(rf'^{re.escape(brand)}\s*[-:]?\s*', '', product, flags=re.IGNORECASE)
+
+        # ── THC / CBD percentage noise ──
+        # "Wedding Cake 27.5% THC" → "Wedding Cake"
+        # "Blue Dream THC: 24.5% CBD: 0.1%" → "Blue Dream"
+        product = re.sub(r'\b(?:THC|CBD|CBN|CBG)\s*:?\s*\d+\.?\d*\s*%?', '', product, flags=re.IGNORECASE)
+        product = re.sub(r'\b\d+\.?\d*\s*%\s*(?:THC|CBD|CBN|CBG)\b', '', product, flags=re.IGNORECASE)
+        # Bare percentage at end: "Gorilla Glue 28.3%" → "Gorilla Glue"
+        product = re.sub(r'\s+\d+\.?\d*\s*%\s*$', '', product)
+
+        # ── Promo / deal text ──
+        product = re.sub(r'\bBOGO\b', '', product, flags=re.IGNORECASE)
+        product = re.sub(r'\b\d+\s*(?:for|\/)\s*\$?\d+\b', '', product, flags=re.IGNORECASE)
+        product = re.sub(r'\$\d+\.?\d*\s*(?:off|each)?\b', '', product, flags=re.IGNORECASE)
+        product = re.sub(r'\b(?:sale|special|promo|limited\s+time|while\s+supplies\s+last|today\s+only)\b', '', product, flags=re.IGNORECASE)
+
+        # ── Weight noise when already captured in structured data ──
+        # "Blue Dream 3.5g" → "Blue Dream" (weight is in weight_value field)
+        product = re.sub(r'\b\d+\.?\d*\s*(?:mg|g|oz|gram|grams)\b', '', product, flags=re.IGNORECASE)
 
         # Remove trailing junk
         product = re.sub(r'(Indica|Sativa|Hybrid|Add to cart|Add to bag)', '', product, flags=re.IGNORECASE)

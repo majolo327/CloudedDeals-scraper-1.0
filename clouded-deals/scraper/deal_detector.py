@@ -162,13 +162,39 @@ CATEGORY_MINIMUMS: dict[str, int] = {
     "other": 0,
 }
 
-MAX_SAME_BRAND_TOTAL = 5          # was 8 — tighter cap so one brand can't dominate the feed
+# Base diversity caps — used when supply is abundant (>= TARGET_DEAL_COUNT
+# qualifying deals).  When supply is scarce these are dynamically relaxed
+# by ``_dynamic_brand_cap()`` so the feed can fill without empty slots.
+_BASE_BRAND_TOTAL = 5
+MAX_SAME_BRAND_TOTAL = _BASE_BRAND_TOTAL  # alias for tests / external imports
 MAX_SAME_DISPENSARY_TOTAL = 10
 MAX_CONSECUTIVE_SAME_CATEGORY = 3
 MAX_CONSECUTIVE_SAME_BRAND = 1        # no same-brand cards adjacent in the feed
 MAX_SAME_BRAND_PER_DISPENSARY = 2  # similarity dedup
-MAX_SAME_BRAND_PER_CATEGORY = 3    # cap per brand within a single category across all dispensaries
+_BASE_BRAND_PER_CATEGORY = 3
+MAX_SAME_BRAND_PER_CATEGORY = _BASE_BRAND_PER_CATEGORY  # alias for tests / external imports
 MAX_UNKNOWN_BRAND_TOTAL = 8        # cap for unbranded products (more lenient since "unknown" covers many genuinely different brands)
+
+
+def _dynamic_brand_cap(total_qualifying: int, target: int = TARGET_DEAL_COUNT) -> tuple[int, int]:
+    """Return (brand_total_cap, brand_per_category_cap) scaled to supply.
+
+    When the pool of qualifying deals is smaller than the target, strict
+    brand caps prevent the feed from filling.  This relaxes the caps
+    proportionally so high-volume brands (STIIIZY, Cookies, etc.) can
+    contribute more when supply is tight, while keeping the feed diverse
+    when supply is abundant.
+
+    Returns the base caps unchanged when supply >= target.
+    """
+    if total_qualifying >= target:
+        return _BASE_BRAND_TOTAL, _BASE_BRAND_PER_CATEGORY
+
+    # Scale: at 50% supply → caps double; floor at base, ceiling at backfill caps
+    ratio = max(total_qualifying / target, 0.3)  # clamp so caps don't explode
+    brand_total = min(round(_BASE_BRAND_TOTAL / ratio), _BACKFILL_BRAND_TOTAL)
+    brand_per_cat = min(round(_BASE_BRAND_PER_CATEGORY / ratio), _BACKFILL_BRAND_PER_CATEGORY)
+    return brand_total, brand_per_cat
 
 # Backfill caps — used in round 2 when round 1 under-fills the target.
 # More generous than the primary caps so the feed can fill, but still
@@ -883,8 +909,14 @@ def select_top_deals(
                     break
 
     # ------------------------------------------------------------------
-    # Step 2a: Round 1 — tight diversity caps
+    # Step 2a: Round 1 — diversity caps (dynamically scaled to supply)
     # ------------------------------------------------------------------
+    brand_cap, brand_cat_cap = _dynamic_brand_cap(total_available, target)
+    logger.info(
+        "Dynamic brand caps: total=%d, per_category=%d (supply=%d, target=%d)",
+        brand_cap, brand_cat_cap, total_available, target,
+    )
+
     brand_counts: dict[str, int] = defaultdict(int)
     brand_cat_counts: dict[str, int] = defaultdict(int)
     dispensary_counts: dict[str, int] = defaultdict(int)
@@ -892,8 +924,8 @@ def select_top_deals(
 
     category_picks = _pick_from_pools(
         buckets, category_slots,
-        brand_cap=MAX_SAME_BRAND_TOTAL,
-        brand_cat_cap=MAX_SAME_BRAND_PER_CATEGORY,
+        brand_cap=brand_cap,
+        brand_cat_cap=brand_cat_cap,
         dispensary_cap=MAX_SAME_DISPENSARY_TOTAL,
         unknown_cap=MAX_UNKNOWN_BRAND_TOTAL,
         already_picked=already_picked,
