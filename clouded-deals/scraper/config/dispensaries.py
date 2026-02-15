@@ -1175,8 +1175,9 @@ DISPENSARIES = [
     {"name": "Zen Leaf Neptune NJ", "slug": "zen-leaf-nj-neptune", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/neptune/menu/recreational", "is_active": True, "region": "new-jersey"},
 
     # ==================================================================
-    #  OHIO  — Initial test batch (10 Dutchie + 4 Jane + 3 Curaleaf + 3 Rise = 20)
+    #  OHIO  — Initial test batch (10 Dutchie + 4 Jane + 3 Curaleaf + 5 Rise = 22)
     #  OH went recreational Aug 2024.  67 scrapable dispensaries identified.
+    #  Rise URLs fixed with store IDs (all 5 OH locations included).
     #  Expand after confirming scraper success on these test URLs.
     # ==================================================================
 
@@ -1204,9 +1205,11 @@ DISPENSARIES = [
     {"name": "Curaleaf OH Lima", "slug": "curaleaf-oh-lima", "platform": "curaleaf", "url": "https://oh.curaleaf.com/shop/lima", "is_active": True, "region": "ohio"},
 
     # ── RISE OH (GTI) ───────────────────────────────────────────────
-    {"name": "Rise OH Cleveland", "slug": "rise-oh-cleveland", "platform": "rise", "url": "https://oh.risecannabis.com/dispensaries/ohio/cleveland/recreational-menu/", "is_active": True, "region": "ohio"},
-    {"name": "Rise OH Lakewood", "slug": "rise-oh-lakewood", "platform": "rise", "url": "https://oh.risecannabis.com/dispensaries/ohio/lakewood-madison/recreational-menu/", "is_active": True, "region": "ohio"},
-    {"name": "Rise OH Toledo", "slug": "rise-oh-toledo", "platform": "rise", "url": "https://oh.risecannabis.com/dispensaries/ohio/toledo/recreational-menu/", "is_active": True, "region": "ohio"},
+    {"name": "Rise OH Cleveland", "slug": "rise-oh-cleveland", "platform": "rise", "url": "https://oh.risecannabis.com/dispensaries/ohio/cleveland/6015/recreational-menu/", "is_active": True, "region": "ohio"},
+    {"name": "Rise OH Lakewood Madison", "slug": "rise-oh-lakewood-madison", "platform": "rise", "url": "https://oh.risecannabis.com/dispensaries/ohio/lakewood-madison/6014/recreational-menu/", "is_active": True, "region": "ohio"},
+    {"name": "Rise OH Lakewood Detroit", "slug": "rise-oh-lakewood-detroit", "platform": "rise", "url": "https://oh.risecannabis.com/dispensaries/ohio/lakewood-detroit/6013/recreational-menu/", "is_active": True, "region": "ohio"},
+    {"name": "Rise OH Toledo", "slug": "rise-oh-toledo", "platform": "rise", "url": "https://oh.risecannabis.com/dispensaries/ohio/toledo/6011/recreational-menu/", "is_active": True, "region": "ohio"},
+    {"name": "Rise OH Lorain", "slug": "rise-oh-lorain", "platform": "rise", "url": "https://oh.risecannabis.com/dispensaries/ohio/lorain/6012/recreational-menu/", "is_active": True, "region": "ohio"},
 
     # ==================================================================
     #  COLORADO  — Initial test batch (12 Dutchie + 5 Jane = 17)
