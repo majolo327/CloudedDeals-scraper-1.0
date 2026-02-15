@@ -215,8 +215,12 @@ class TestDutchieEmbedTypeMismatch:
 class TestDutchieDomainConcentration:
     """All Michigan dutchie sites hit the same domain (dutchie.com).
 
-    FIX applied: main.py now has domain-level throttling via per-domain
-    asyncio.Lock + minimum inter-request delay (_DOMAIN_MIN_INTERVAL).
+    FIXES applied:
+    - Domain-level throttling (_DOMAIN_MIN_INTERVAL + per-domain locks)
+    - Chain-level circuit breaker (_CHAIN_FAIL_THRESHOLD)
+    - Shuffled scrape order (interleaves chains to avoid clustering)
+    - Reduced timeouts for dutchie.com direct pages (30s vs 60s)
+    - Skip reload+retry for dutchie.com direct pages with no content
     """
 
     def test_all_michigan_dutchie_same_domain(self):
@@ -237,6 +241,47 @@ class TestDutchieDomainConcentration:
         )
         assert "domain_locks" in source, (
             "main.py should use per-domain asyncio.Lock for throttling"
+        )
+
+    def test_chain_circuit_breaker_exists(self):
+        """Verify main.py has chain-level circuit breaker logic."""
+        main_path = Path(__file__).resolve().parent.parent / "main.py"
+        source = main_path.read_text()
+        assert "_CHAIN_FAIL_THRESHOLD" in source, (
+            "main.py should define _CHAIN_FAIL_THRESHOLD for chain circuit breaker"
+        )
+        assert "chain_tripped" in source, (
+            "main.py should track tripped chains via chain_tripped set"
+        )
+        assert "_extract_chain" in source, (
+            "main.py should have _extract_chain helper for slug→chain mapping"
+        )
+
+    def test_scrape_order_is_shuffled(self):
+        """Verify main.py shuffles dispensary order before scraping."""
+        main_path = Path(__file__).resolve().parent.parent / "main.py"
+        source = main_path.read_text()
+        assert "random.shuffle" in source, (
+            "main.py should shuffle dispensary list to interleave chains"
+        )
+
+    def test_direct_page_uses_shorter_timeout(self):
+        """Verify dutchie.py uses shorter timeouts for dutchie.com pages."""
+        dutchie_path = Path(__file__).resolve().parent.parent / "platforms" / "dutchie.py"
+        source = dutchie_path.read_text()
+        assert "is_direct_host" in source, (
+            "dutchie.py should detect dutchie.com as direct host"
+        )
+        assert "30_000" in source, (
+            "dutchie.py should use 30s smart-wait for direct pages"
+        )
+
+    def test_direct_page_skips_reload_retry(self):
+        """Verify dutchie.py skips reload+retry for dutchie.com direct pages."""
+        dutchie_path = Path(__file__).resolve().parent.parent / "platforms" / "dutchie.py"
+        source = dutchie_path.read_text()
+        assert "no_dutchie_content_direct" in source, (
+            "dutchie.py should have fast-exit path for direct pages with no content"
         )
 
 

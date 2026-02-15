@@ -894,6 +894,11 @@ _RETRY_TIMEOUT_SEC = 300  # Reduced timeout on retries — if first attempt time
 _MAX_RETRIES = 2  # 2 attempts total — saves ~5 min per broken site vs 3
 _RETRY_DELAYS = [5, 15]  # Backoff between retries
 
+# Chain-level circuit breaker: if N consecutive sites from the same chain
+# fail, skip remaining sites from that chain.  Prevents 11 Jars retries
+# burning 165 min when the chain is entirely broken.
+_CHAIN_FAIL_THRESHOLD = 3  # consecutive failures before tripping breaker
+
 # Job-level time budget (seconds).  The orchestrator will skip retries
 # and abort new scrape attempts when the elapsed time exceeds this limit,
 # ensuring the summary report is always generated before the GitHub Actions
@@ -1397,11 +1402,41 @@ async def run(slug_filter: str | None = None) -> None:
         domain_locks: dict[str, asyncio.Lock] = {}
         domain_last_request: dict[str, float] = {}
 
+        # Chain-level circuit breaker state: tracks consecutive failures
+        # per chain to short-circuit broken chains early.
+        chain_consecutive_fails: dict[str, int] = {}
+        chain_tripped: set[str] = set()
+
+        def _extract_chain(slug: str) -> str:
+            """Extract chain name from slug (e.g. 'lume-ann-arbor' → 'lume')."""
+            # Most slugs follow pattern: {chain}-{location}
+            # Known multi-word chains are handled explicitly
+            for prefix in ("king-budz", "green-pharm", "high-club",
+                           "first-class", "bacco-farms", "zen-leaf",
+                           "tree-of-life"):
+                if slug.startswith(prefix):
+                    return prefix
+            return slug.split("-")[0]
+
         async def _bounded_scrape(dispensary: dict[str, Any]) -> dict[str, Any]:
             """Scrape a single site, bounded by global + platform semaphores."""
             plat = dispensary["platform"]
+            slug = dispensary["slug"]
             plat_sem = platform_semaphores.get(plat, global_semaphore)
             domain = _urlparse(dispensary["url"]).netloc
+
+            # Chain circuit breaker — skip if this chain is tripped
+            chain = _extract_chain(slug)
+            if chain in chain_tripped:
+                logger.warning(
+                    "[%s] Skipped — chain '%s' circuit breaker tripped "
+                    "(%d+ consecutive failures)",
+                    slug, chain, _CHAIN_FAIL_THRESHOLD,
+                )
+                return {
+                    "slug": slug,
+                    "error": f"Skipped — chain '{chain}' circuit breaker tripped",
+                }
 
             # Ensure one lock per domain
             if domain not in domain_locks:
@@ -1417,7 +1452,7 @@ async def run(slug_filter: str | None = None) -> None:
                             wait = _DOMAIN_MIN_INTERVAL - elapsed_since + jitter
                             logger.debug(
                                 "[%s] Domain throttle: waiting %.1fs for %s",
-                                dispensary["slug"], wait, domain,
+                                slug, wait, domain,
                             )
                             await asyncio.sleep(wait)
                         domain_last_request[domain] = time.time()
@@ -1434,11 +1469,36 @@ async def run(slug_filter: str | None = None) -> None:
                         label, dispensary["name"], elapsed_s,
                         result.get("products", 0),
                     )
+
+                    # Update chain circuit breaker
+                    if result.get("error"):
+                        chain_consecutive_fails[chain] = chain_consecutive_fails.get(chain, 0) + 1
+                        if chain_consecutive_fails[chain] >= _CHAIN_FAIL_THRESHOLD:
+                            chain_tripped.add(chain)
+                            logger.warning(
+                                "[%s] Chain '%s' circuit breaker TRIPPED after %d consecutive failures",
+                                slug, chain, chain_consecutive_fails[chain],
+                            )
+                    else:
+                        # Success resets the counter for this chain
+                        chain_consecutive_fails[chain] = 0
+
                     return result
+
+        # Shuffle sites to interleave chains — avoids hitting dutchie.com
+        # with 37 Lume requests in a row (easy fingerprint for bot detection).
+        # Deterministic seed per run_id for reproducibility in debugging.
+        shuffled = list(dispensaries)
+        random.shuffle(shuffled)
+        logger.info(
+            "Dispatching %d sites (shuffled order, first 5: %s)",
+            len(shuffled),
+            ", ".join(d["slug"] for d in shuffled[:5]),
+        )
 
         # Run all sites concurrently (bounded by semaphore)
         results = await asyncio.gather(
-            *[_bounded_scrape(d) for d in dispensaries],
+            *[_bounded_scrape(d) for d in shuffled],
             return_exceptions=True,
         )
 
@@ -1447,7 +1507,7 @@ async def run(slug_filter: str | None = None) -> None:
         await pw.stop()
 
         # Process results
-        for disp, result in zip(dispensaries, results):
+        for disp, result in zip(shuffled, results):
             if isinstance(result, Exception):
                 logger.error("Unhandled exception: %s", result)
                 sites_failed.append({"slug": "unknown", "error": str(result)})

@@ -184,16 +184,24 @@ class DutchieScraper(BaseScraper):
         if removed > 0:
             logger.info("[%s] Cleaned up %d lingering overlay(s) via JS", self.slug, removed)
 
-        # --- Smart-wait: poll DOM for Dutchie content (up to 60 s) --------
+        # --- Smart-wait: poll DOM for Dutchie content -----------------------
         # Instead of a fixed asyncio.sleep(20), this returns the MOMENT
         # any iframe / container / product cards appear in the DOM.
+        # For direct pages (dutchie.com/dispensary/*), use shorter timeout:
+        # these are React SPAs — if they don't render in 30s, they won't.
+        is_direct_host = url_host in ("dutchie.com", "www.dutchie.com")
+        smart_wait_ms = 30_000 if is_direct_host else 60_000
+        probe_timeout_sec = 15 if is_direct_host else 60
         try:
             await self.page.wait_for_function(
-                _WAIT_FOR_DUTCHIE_JS, timeout=60_000,
+                _WAIT_FOR_DUTCHIE_JS, timeout=smart_wait_ms,
             )
             logger.info("[%s] Smart-wait: Dutchie content detected in DOM", self.slug)
         except PlaywrightTimeout:
-            logger.warning("[%s] Smart-wait: no Dutchie content after 60s — will try detection anyway", self.slug)
+            logger.warning(
+                "[%s] Smart-wait: no Dutchie content after %ds — will try detection anyway",
+                self.slug, smart_wait_ms // 1000,
+            )
 
         # --- Detect Dutchie content using embed_type hint -----------------
         # When we know the embed type (e.g. TD = js_embed), skip the
@@ -202,7 +210,7 @@ class DutchieScraper(BaseScraper):
         target, embed_type = await find_dutchie_content(
             self.page,
             iframe_timeout_ms=45_000,
-            js_embed_timeout_sec=60,
+            js_embed_timeout_sec=probe_timeout_sec,
             embed_type_hint=embed_hint,
         )
 
@@ -220,6 +228,17 @@ class DutchieScraper(BaseScraper):
                 await self.save_debug_info("no_dutchie_content_primary")
                 return await self._scrape_with_fallback(fallback_url, embed_hint)
 
+            # For dutchie.com direct pages, skip the expensive reload+retry
+            # cycle — if the SPA didn't render on first load, reloading
+            # the same Cloudflare-degraded page won't help.
+            if is_direct_host:
+                logger.warning(
+                    "[%s] No content on dutchie.com direct page — skipping reload retry",
+                    self.slug,
+                )
+                await self.save_debug_info("no_dutchie_content_direct")
+                return []
+
             # No fallback: reload page and retry the full click flow once
             logger.warning("[%s] No Dutchie content after click — trying reload + re-click", self.slug)
             await self.page.evaluate(_AGE_GATE_COOKIE_JS)
@@ -231,17 +250,17 @@ class DutchieScraper(BaseScraper):
             # Smart-wait again after reload
             try:
                 await self.page.wait_for_function(
-                    _WAIT_FOR_DUTCHIE_JS, timeout=60_000,
+                    _WAIT_FOR_DUTCHIE_JS, timeout=smart_wait_ms,
                 )
                 logger.info("[%s] Smart-wait (retry): Dutchie content detected", self.slug)
             except PlaywrightTimeout:
-                logger.warning("[%s] Smart-wait (retry): still nothing after 60s", self.slug)
+                logger.warning("[%s] Smart-wait (retry): still nothing after %ds", self.slug, smart_wait_ms // 1000)
 
             # On retry, don't use the hint — try the full cascade
             target, embed_type = await find_dutchie_content(
                 self.page,
                 iframe_timeout_ms=45_000,
-                js_embed_timeout_sec=60,
+                js_embed_timeout_sec=probe_timeout_sec,
             )
 
         if target is None:
