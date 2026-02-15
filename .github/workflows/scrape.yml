@@ -2,23 +2,31 @@ name: Daily Scraper
 
 on:
   schedule:
-    # Staggered crons per region — spaced by LOCAL time zone.
-    # GitHub Actions cron typically runs 15-30 min late.
+    # Optimized cron schedule — all 11 states.
+    # East Coast expansion runs first (6-8 AM EST), then Midwest/West,
+    # then NV anchor at 8:05 AM PST so Vegas has fresh data at open.
+    # GHA crons typically run 15-30 min late — account for that.
     #
-    # ── Original 6 states ───────────────────────────────────────────
-    - cron: "0 16 * * *"   # southern-nv    — 8:00 AM PST  (Pacific UTC-8)
-    - cron: "0 18 * * *"   # arizona        — 11:00 AM MST (Arizona UTC-7, no DST)
-    - cron: "30 19 * * *"  # illinois       — 1:30 PM CST  (Central UTC-6)
-    - cron: "0 21 * * *"   # missouri       — 3:00 PM CST  (Central UTC-6)
-    - cron: "0 22 * * *"   # michigan       — 5:00 PM EST  (Eastern UTC-5)
-    - cron: "0 23 * * *"   # new-jersey     — 6:00 PM EST  (Eastern UTC-5)
+    # ── East Coast (6-8 AM EST) ─────────────────────────────────────
+    - cron: "0 11 * * *"    # pennsylvania   — 6:00 AM EST  (16 sites, ~15 min)
+    - cron: "30 11 * * *"   # massachusetts  — 6:30 AM EST  (17 sites, ~15 min)
+    - cron: "0 12 * * *"    # new-york       — 7:00 AM EST  (18 sites, ~15 min)
+    - cron: "30 12 * * *"   # new-jersey     — 7:30 AM EST  (34 sites, ~25 min)
+    - cron: "0 13 * * *"    # ohio           — 8:00 AM EST  (20 sites, ~15 min)
     #
-    # ── Expansion 5 states (overnight UTC — staggered 90 min apart) ─
-    - cron: "0 1 * * *"    # ohio           — 8:00 PM EST  (Eastern UTC-5)
-    - cron: "30 2 * * *"   # colorado       — 7:30 PM MST  (Mountain UTC-7)
-    - cron: "0 4 * * *"    # new-york       — 11:00 PM EST (Eastern UTC-5)
-    - cron: "30 5 * * *"   # massachusetts  — 12:30 AM EST (Eastern UTC-5)
-    - cron: "0 7 * * *"    # pennsylvania   — 2:00 AM EST  (Eastern UTC-5)
+    # ── Midwest / Great Lakes ───────────────────────────────────────
+    - cron: "30 13 * * *"   # michigan       — 8:30 AM EST  (114 sites, ~50 min)
+    - cron: "0 15 * * *"    # illinois       — 9:00 AM CST  (88 sites, ~40 min)
+    #
+    # ── Mountain / West ─────────────────────────────────────────────
+    - cron: "30 14 * * *"   # arizona        — 7:30 AM MST  (52 sites, ~30 min)
+    - cron: "30 15 * * *"   # colorado       — 8:30 AM MST  (17 sites, ~15 min)
+    #
+    # ── NV anchor — fresh data by Vegas open ────────────────────────
+    - cron: "5 16 * * *"    # southern-nv    — 8:05 AM PST  (63 sites, ~35 min) ★
+    #
+    # ── Tail ────────────────────────────────────────────────────────
+    - cron: "0 17 * * *"    # missouri       — 11:00 AM CST (31 sites, ~20 min)
   workflow_dispatch:
     inputs:
       platform_group:
@@ -86,26 +94,26 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "value=${{ github.event.inputs.region || 'all' }}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 18 * * *" ]; then
-            echo "value=arizona" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "30 19 * * *" ]; then
-            echo "value=illinois" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 21 * * *" ]; then
-            echo "value=missouri" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 22 * * *" ]; then
-            echo "value=michigan" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 23 * * *" ]; then
-            echo "value=new-jersey" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 1 * * *" ]; then
-            echo "value=ohio" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "30 2 * * *" ]; then
-            echo "value=colorado" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 4 * * *" ]; then
-            echo "value=new-york" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "30 5 * * *" ]; then
-            echo "value=massachusetts" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 7 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "0 11 * * *" ]; then
             echo "value=pennsylvania" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "30 11 * * *" ]; then
+            echo "value=massachusetts" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 12 * * *" ]; then
+            echo "value=new-york" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "30 12 * * *" ]; then
+            echo "value=new-jersey" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 13 * * *" ]; then
+            echo "value=ohio" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "30 13 * * *" ]; then
+            echo "value=michigan" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "30 14 * * *" ]; then
+            echo "value=arizona" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 15 * * *" ]; then
+            echo "value=illinois" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "30 15 * * *" ]; then
+            echo "value=colorado" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 17 * * *" ]; then
+            echo "value=missouri" >> $GITHUB_OUTPUT
           else
             echo "value=southern-nv" >> $GITHUB_OUTPUT
           fi
