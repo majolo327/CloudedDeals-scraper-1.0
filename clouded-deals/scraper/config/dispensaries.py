@@ -1828,7 +1828,7 @@ DISPENSARIES = [
     {"name": "Curaleaf PA Philadelphia Passyunk", "slug": "curaleaf-pa-philly-passyunk", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-philadelphia", "is_active": True, "region": "pennsylvania"},
     {"name": "Curaleaf PA Morton", "slug": "curaleaf-pa-morton", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-morton", "is_active": True, "region": "pennsylvania"},
     {"name": "Curaleaf PA Wayne", "slug": "curaleaf-pa-wayne", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-wayne", "is_active": True, "region": "pennsylvania"},
-    {"name": "Curaleaf PA Philadelphia City Ave", "slug": "curaleaf-pa-philly-city-ave", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-philadelphia-city-ave", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA Philadelphia City Ave", "slug": "curaleaf-pa-philly-city-ave", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-city-avenue", "is_active": True, "region": "pennsylvania"},
     {"name": "Curaleaf PA Lancaster", "slug": "curaleaf-pa-lancaster", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-lancaster", "is_active": True, "region": "pennsylvania"},
     {"name": "Curaleaf PA Allentown", "slug": "curaleaf-pa-allentown", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-allentown", "is_active": True, "region": "pennsylvania"},
     {"name": "Curaleaf PA State College", "slug": "curaleaf-pa-state-college", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-state-college", "is_active": True, "region": "pennsylvania"},
@@ -1860,15 +1860,15 @@ DISPENSARIES = [
     # ==================================================================
 
     # ── CURALEAF ARIZONA — 4 missing stores ─────────────────────────
-    {"name": "Curaleaf AZ Bell", "slug": "curaleaf-az-bell", "platform": "curaleaf", "url": "https://curaleaf.com/shop/arizona/curaleaf-az-bell", "is_active": True, "region": "arizona"},
-    {"name": "Curaleaf AZ Glendale West", "slug": "curaleaf-az-glendale-west", "platform": "curaleaf", "url": "https://curaleaf.com/shop/arizona/curaleaf-az-glendale", "is_active": True, "region": "arizona"},
-    {"name": "Curaleaf AZ Peoria", "slug": "curaleaf-az-peoria", "platform": "curaleaf", "url": "https://curaleaf.com/shop/arizona/curaleaf-az-peoria", "is_active": True, "region": "arizona"},
+    {"name": "Curaleaf AZ Bell", "slug": "curaleaf-az-bell", "platform": "curaleaf", "url": "https://curaleaf.com/shop/arizona/curaleaf-dispensary-bell", "is_active": True, "region": "arizona"},
+    {"name": "Curaleaf AZ Glendale West", "slug": "curaleaf-az-glendale-west", "platform": "curaleaf", "url": "https://curaleaf.com/shop/arizona/curaleaf-dispensary-glendale-west", "is_active": True, "region": "arizona"},
+    {"name": "Curaleaf AZ Peoria", "slug": "curaleaf-az-peoria", "platform": "curaleaf", "url": "https://curaleaf.com/shop/arizona/curaleaf-dispensary-peoria", "is_active": True, "region": "arizona"},
     {"name": "Curaleaf AZ Sedona", "slug": "curaleaf-az-sedona", "platform": "curaleaf", "url": "https://curaleaf.com/shop/arizona/curaleaf-dispensary-sedona", "is_active": True, "region": "arizona"},
 
     # ── CURALEAF NEW YORK — 3 missing stores ────────────────────────
     {"name": "Curaleaf NY Plattsburgh", "slug": "curaleaf-ny-plattsburgh", "platform": "curaleaf", "url": "https://curaleaf.com/shop/new-york/curaleaf-ny-plattsburgh", "is_active": True, "region": "new-york"},
-    {"name": "Curaleaf NY Rochester", "slug": "curaleaf-ny-rochester", "platform": "curaleaf", "url": "https://curaleaf.com/shop/new-york/curaleaf-ny-rochester", "is_active": True, "region": "new-york"},
-    {"name": "Curaleaf NY Syracuse", "slug": "curaleaf-ny-syracuse", "platform": "curaleaf", "url": "https://curaleaf.com/shop/new-york/curaleaf-ny-syracuse", "is_active": True, "region": "new-york"},
+    {"name": "Curaleaf NY Rochester", "slug": "curaleaf-ny-rochester", "platform": "curaleaf", "url": "https://curaleaf.com/shop/new-york/curaleaf-dispensary-rochester", "is_active": True, "region": "new-york"},
+    {"name": "Curaleaf NY Syracuse", "slug": "curaleaf-ny-syracuse", "platform": "curaleaf", "url": "https://curaleaf.com/shop/new-york/curaleaf-dispensary-syracuse", "is_active": True, "region": "new-york"},
 
     # ── CURALEAF PENNSYLVANIA — 9 missing stores ────────────────────
     {"name": "Curaleaf PA Altoona", "slug": "curaleaf-pa-altoona", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-altoona", "is_active": True, "region": "pennsylvania"},
@@ -1882,8 +1882,8 @@ DISPENSARIES = [
     {"name": "Curaleaf PA Horsham", "slug": "curaleaf-pa-horsham", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-horsham", "is_active": True, "region": "pennsylvania"},
 
     # ── ZEN LEAF NEVADA — 5 new stores (entirely absent before) ─────
-    {"name": "Zen Leaf Las Vegas Fort Apache NV", "slug": "zen-leaf-nv-fort-apache", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/las-vegas-fort-apache/menu/recreational", "is_active": True, "region": "southern-nv"},
-    {"name": "Zen Leaf Las Vegas Flamingo NV", "slug": "zen-leaf-nv-flamingo", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/las-vegas-flamingo/menu/recreational", "is_active": True, "region": "southern-nv"},
+    {"name": "Zen Leaf Las Vegas Fort Apache NV", "slug": "zen-leaf-nv-fort-apache", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/las-vegas/menu/recreational", "is_active": True, "region": "southern-nv"},
+    {"name": "Zen Leaf Las Vegas Flamingo NV", "slug": "zen-leaf-nv-flamingo", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/flamingo/menu/recreational", "is_active": True, "region": "southern-nv"},
     {"name": "Zen Leaf North Las Vegas NV", "slug": "zen-leaf-nv-north-lv", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/north-las-vegas/menu/recreational", "is_active": True, "region": "southern-nv"},
     {"name": "Zen Leaf Reno NV", "slug": "zen-leaf-nv-reno", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/reno/menu/recreational", "is_active": True, "region": "southern-nv"},
     {"name": "Zen Leaf Carson City NV", "slug": "zen-leaf-nv-carson-city", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/carson-city/menu/recreational", "is_active": True, "region": "southern-nv"},
@@ -1892,13 +1892,13 @@ DISPENSARIES = [
     {"name": "Zen Leaf Chicago Rogers Park IL", "slug": "zen-leaf-il-rogers-park", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/chicago-rogers-park/menu/recreational", "is_active": True, "region": "illinois"},
 
     # ── ZEN LEAF ARIZONA — 4 missing stores ─────────────────────────
-    {"name": "Zen Leaf Phoenix Arcadia AZ", "slug": "zen-leaf-az-arcadia", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/phoenix-arcadia/menu/recreational", "is_active": True, "region": "arizona"},
+    {"name": "Zen Leaf Phoenix Arcadia AZ", "slug": "zen-leaf-az-arcadia", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/arcadia/menu/recreational", "is_active": True, "region": "arizona"},
     {"name": "Zen Leaf Phoenix W Dunlap AZ", "slug": "zen-leaf-az-w-dunlap", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/phoenix-w-dunlap/menu/recreational", "is_active": True, "region": "arizona"},
     {"name": "Zen Leaf Mesa AZ", "slug": "zen-leaf-az-mesa", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/mesa/menu/recreational", "is_active": True, "region": "arizona"},
     {"name": "Zen Leaf Tempe AZ", "slug": "zen-leaf-az-tempe", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/tempe/menu/recreational", "is_active": True, "region": "arizona"},
 
     # ── ZEN LEAF NEW JERSEY — 1 missing store ───────────────────────
-    {"name": "Zen Leaf Mt Holly NJ", "slug": "zen-leaf-nj-mt-holly", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/mount-holly/menu/recreational", "is_active": True, "region": "new-jersey"},
+    {"name": "Zen Leaf Mt Holly NJ", "slug": "zen-leaf-nj-mt-holly", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/mt-holly/menu/recreational", "is_active": True, "region": "new-jersey"},
 
     # ── ZEN LEAF MASSACHUSETTS — 2 new stores (entirely absent before)
     {"name": "Zen Leaf Sharon MA", "slug": "zen-leaf-ma-sharon", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/sharon/menu/recreational", "is_active": True, "region": "massachusetts"},
@@ -1908,7 +1908,7 @@ DISPENSARIES = [
     {"name": "Zen Leaf Abington PA", "slug": "zen-leaf-pa-abington", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/abington/medical-menu", "is_active": True, "region": "pennsylvania"},
     {"name": "Zen Leaf Altoona PA", "slug": "zen-leaf-pa-altoona", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/altoona/medical-menu", "is_active": True, "region": "pennsylvania"},
     {"name": "Zen Leaf Clifton Heights PA", "slug": "zen-leaf-pa-clifton-heights", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/clifton-heights/medical-menu", "is_active": True, "region": "pennsylvania"},
-    {"name": "Zen Leaf Cranberry Twp PA", "slug": "zen-leaf-pa-cranberry", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/cranberry-township/medical-menu", "is_active": True, "region": "pennsylvania"},
+    {"name": "Zen Leaf Cranberry Twp PA", "slug": "zen-leaf-pa-cranberry", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/cranberry/medical-menu", "is_active": True, "region": "pennsylvania"},
     {"name": "Zen Leaf Fairless Hills PA", "slug": "zen-leaf-pa-fairless-hills", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/fairless-hills/medical-menu", "is_active": True, "region": "pennsylvania"},
     {"name": "Zen Leaf Monroeville PA", "slug": "zen-leaf-pa-monroeville", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/monroeville/medical-menu", "is_active": True, "region": "pennsylvania"},
     {"name": "Zen Leaf New Kensington PA", "slug": "zen-leaf-pa-new-kensington", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/new-kensington/medical-menu", "is_active": True, "region": "pennsylvania"},
