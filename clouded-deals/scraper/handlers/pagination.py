@@ -124,6 +124,13 @@ async def navigate_dutchie_page(
         f'a[aria-label="Go to page {page_number}"]',
         f'[aria-label="go to page {page_number}"]',
         f'[aria-label="Go to page {page_number}"]',
+        # Fallback: "Next" / arrow buttons (some Dutchie embeds use these)
+        'button[aria-label="Next"]',
+        'button[aria-label="next"]',
+        'button[aria-label="Next page"]',
+        'a[aria-label="Next"]',
+        'button:has-text("Next")',
+        '[aria-label="next page"]',
     ]
 
     for attempt in range(1, _DUTCHIE_NAV_MAX_RETRIES + 1):
@@ -238,7 +245,7 @@ async def navigate_curaleaf_page(
 # Jane sites
 # ------------------------------------------------------------------
 
-_JANE_MAX_LOAD_MORE = 15
+_JANE_MAX_LOAD_MORE = 30
 _JANE_LOAD_MORE_SETTLE_SEC = 2.0  # Settle time after each View More click
 _JANE_VIEW_MORE_TIMEOUT_MS = 12_000  # 12 s — Jane pages render slowly
 

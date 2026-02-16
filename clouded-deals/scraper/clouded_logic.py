@@ -62,8 +62,9 @@ SMART_STOP_CONFIG = {
 
 # Consecutive empty = resilience logic from v102
 # DO NOT use break on first nav failure - use continue!
-# Allow 3 consecutive failures before stopping
-CONSECUTIVE_EMPTY_MAX = 3
+# Allow 5 consecutive failures before stopping (raised from 3 to avoid
+# premature exits when Dutchie/Curaleaf DOMs render slowly between pages)
+CONSECUTIVE_EMPTY_MAX = 5
 
 # ============================================================================
 # CATEGORY ABBREVIATIONS (for tweets)
