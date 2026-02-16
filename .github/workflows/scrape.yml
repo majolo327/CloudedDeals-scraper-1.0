@@ -8,27 +8,27 @@ run-name: >-
     github.event_name == 'workflow_dispatch'
       && format('{0}{1}', github.event.inputs.region || 'all',
            github.event.inputs.dry_run == 'true' && ' (dry-run)' || '')
-    || contains(github.event.schedule || '', '0 11') && 'pennsylvania'
     || contains(github.event.schedule || '', '20 11') && 'massachusetts (1/2)'
     || contains(github.event.schedule || '', '22 11') && 'massachusetts (2/2)'
     || contains(github.event.schedule || '', '45 11') && 'new-york (1/2)'
     || contains(github.event.schedule || '', '47 11') && 'new-york (2/2)'
-    || contains(github.event.schedule || '', '0 12') && 'new-jersey (1/2)'
-    || contains(github.event.schedule || '', '2 12') && 'new-jersey (2/2)'
+    || contains(github.event.schedule || '', '0 11') && 'pennsylvania'
     || contains(github.event.schedule || '', '30 12') && 'ohio (1/2)'
     || contains(github.event.schedule || '', '32 12') && 'ohio (2/2)'
+    || contains(github.event.schedule || '', '0 12') && 'new-jersey (1/2)'
+    || contains(github.event.schedule || '', '2 12') && 'new-jersey (2/2)'
+    || contains(github.event.schedule || '', '30 13') && 'illinois (1/3)'
+    || contains(github.event.schedule || '', '32 13') && 'illinois (2/3)'
+    || contains(github.event.schedule || '', '34 13') && 'illinois (3/3)'
     || contains(github.event.schedule || '', '0 13') && 'michigan (1/4)'
     || contains(github.event.schedule || '', '2 13') && 'michigan (2/4)'
     || contains(github.event.schedule || '', '4 13') && 'michigan (3/4)'
     || contains(github.event.schedule || '', '6 13') && 'michigan (4/4)'
-    || contains(github.event.schedule || '', '30 13') && 'illinois (1/3)'
-    || contains(github.event.schedule || '', '32 13') && 'illinois (2/3)'
-    || contains(github.event.schedule || '', '34 13') && 'illinois (3/3)'
-    || contains(github.event.schedule || '', '0 14') && 'arizona (1/2)'
-    || contains(github.event.schedule || '', '2 14') && 'arizona (2/2)'
     || contains(github.event.schedule || '', '30 14') && 'colorado (1/3)'
     || contains(github.event.schedule || '', '32 14') && 'colorado (2/3)'
     || contains(github.event.schedule || '', '34 14') && 'colorado (3/3)'
+    || contains(github.event.schedule || '', '0 14') && 'arizona (1/2)'
+    || contains(github.event.schedule || '', '2 14') && 'arizona (2/2)'
     || contains(github.event.schedule || '', '0 15') && 'missouri (1/2)'
     || contains(github.event.schedule || '', '2 15') && 'missouri (2/2)'
     || contains(github.event.schedule || '', '0 16') && 'southern-nv'
@@ -37,7 +37,7 @@ run-name: >-
 
 on:
   schedule:
-    # 26 cron jobs across 11 states.  States with 60+ sites are sharded
+    # 24 cron jobs across 11 states.  States with 60+ sites are sharded
     # into parallel jobs of ≤50 sites each via round-robin in main.py.
     # East Coast runs first (6 AM EST), then Midwest, Mountain, Central,
     # and NV anchor at 8:00 AM PST.  GHA crons run 5-30 min late — account for that.
