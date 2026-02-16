@@ -215,13 +215,25 @@ class DutchieScraper(BaseScraper):
         # --- Smart-wait: poll DOM for Dutchie content (up to 60 s) --------
         # Instead of a fixed asyncio.sleep(20), this returns the MOMENT
         # any iframe / container / product cards appear in the DOM.
+        smart_wait_ok = False
         try:
             await self.page.wait_for_function(
                 _WAIT_FOR_DUTCHIE_JS, timeout=60_000,
             )
             logger.info("[%s] Smart-wait: Dutchie content detected in DOM", self.slug)
+            smart_wait_ok = True
         except PlaywrightTimeout:
             logger.warning("[%s] Smart-wait: no Dutchie content after 60s — will try detection anyway", self.slug)
+            # Re-check Cloudflare after smart-wait timeout — the page may
+            # have been intermittently blocked (not detected on initial load
+            # but Cloudflare challenge appeared during JS execution).  Bail
+            # early to avoid burning 200+ s in the content detection cascade.
+            if await self.detect_cloudflare_challenge():
+                if fallback_url and fallback_url != self.url:
+                    logger.warning("[%s] Cloudflare appeared during smart-wait — trying fallback", self.slug)
+                    return await self._scrape_with_fallback(fallback_url, embed_hint)
+                logger.error("[%s] Cloudflare appeared during smart-wait — aborting", self.slug)
+                return []
 
         # --- Detect Dutchie content using embed_type hint -----------------
         # When we know the embed type (e.g. TD = js_embed), skip the
@@ -253,6 +265,13 @@ class DutchieScraper(BaseScraper):
             await self.page.evaluate(_AGE_GATE_COOKIE_JS)
             await self.page.reload(wait_until="load", timeout=120_000)
             await asyncio.sleep(3)
+
+            # Check Cloudflare after reload — if blocked now, bail immediately
+            # instead of burning 120+ s in another detection cascade
+            if await self.detect_cloudflare_challenge():
+                logger.error("[%s] Cloudflare blocked after reload — aborting", self.slug)
+                return []
+
             await self.handle_age_gate(post_wait_sec=3)
             await force_remove_age_gate(self.page)
 

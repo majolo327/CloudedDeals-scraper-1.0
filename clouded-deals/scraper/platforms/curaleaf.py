@@ -367,10 +367,15 @@ class CuraleafScraper(BaseScraper):
                 continue
 
         # Wait for redirect back to store page.
-        # Curaleaf uses two URL patterns: /stores/ (NV, AZ) and /shop/ (MI, IL).
+        # Curaleaf uses multiple URL patterns:
+        #   /stores/  (NV, AZ)
+        #   /shop/    (MI, IL)
+        #   /dispensary/ (legacy format, some AZ/MI stores)
         # Check which pattern matches the original URL and wait for that.
         if "/shop/" in self.url:
             redirect_pattern = "**/shop/**"
+        elif "/dispensary/" in self.url:
+            redirect_pattern = "**/dispensary/**"
         else:
             redirect_pattern = "**/stores/**"
         try:
