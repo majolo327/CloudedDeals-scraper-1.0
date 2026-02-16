@@ -18,7 +18,7 @@
   --border-glow: rgba(139, 92, 246, 0.15);
   --border-amber: rgba(251, 191, 36, 0.18);
   --text-primary: #f5f5f5;
-  --text-secondary: #9ca3af;
+  --text-secondary: #b0b8c4;
   --accent-green: #4ade80;
 }
 
@@ -27,6 +27,8 @@ html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 /* Headlines: tightened letter spacing per brand guidelines */
@@ -40,6 +42,7 @@ body {
   background-color: var(--surface-0);
   color: var(--text-primary);
   line-height: 1.5;
+  text-rendering: optimizeLegibility;
 }
 
 ::selection {

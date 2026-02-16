@@ -3,8 +3,6 @@
 import { supabase } from './supabase';
 import { getOrCreateAnonId } from './analytics';
 
-const AUTH_PROMPT_DISMISSED_KEY = 'clouded_auth_prompt_dismissed';
-
 /**
  * Send a magic link email via Supabase Auth.
  */
@@ -100,18 +98,3 @@ export async function mergeAnonData(userId: string): Promise<void> {
   }
 }
 
-/**
- * Check if the auth prompt has been dismissed this session.
- */
-export function isAuthPromptDismissed(): boolean {
-  if (typeof window === 'undefined') return true;
-  return sessionStorage.getItem(AUTH_PROMPT_DISMISSED_KEY) === 'true';
-}
-
-/**
- * Mark the auth prompt as dismissed for this session.
- */
-export function dismissAuthPrompt(): void {
-  if (typeof window === 'undefined') return;
-  sessionStorage.setItem(AUTH_PROMPT_DISMISSED_KEY, 'true');
-}

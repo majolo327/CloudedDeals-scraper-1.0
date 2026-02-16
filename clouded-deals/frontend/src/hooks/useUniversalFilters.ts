@@ -76,8 +76,18 @@ export function useUniversalFilters() {
 
   const [userCoords, setUserCoords] = useState<ZipCoords | null>(null);
 
-  // Load user coordinates from stored zip (distance is informational, not default sort)
+  // Load user coordinates — prefer geolocation coords (more accurate), fall back to zip
   useEffect(() => {
+    try {
+      const coordsRaw = typeof window !== 'undefined' ? localStorage.getItem('clouded_user_coords') : null;
+      if (coordsRaw) {
+        const { lat, lng } = JSON.parse(coordsRaw);
+        if (typeof lat === 'number' && typeof lng === 'number') {
+          setUserCoords({ lat, lng });
+          return;
+        }
+      }
+    } catch { /* ignore */ }
     const zip = getStoredZip();
     if (zip) {
       const coords = getZipCoordinates(zip);
@@ -85,9 +95,18 @@ export function useUniversalFilters() {
     }
   }, []);
 
-  // Listen for zip changes (user enters a new zip)
+  // Listen for location changes (zip or geolocation coords)
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'clouded_user_coords' && e.newValue) {
+        try {
+          const { lat, lng } = JSON.parse(e.newValue);
+          if (typeof lat === 'number' && typeof lng === 'number') {
+            setUserCoords({ lat, lng });
+            return;
+          }
+        } catch { /* ignore */ }
+      }
       if (e.key === 'clouded_zip' && e.newValue) {
         const coords = getZipCoordinates(e.newValue);
         setUserCoords(coords);
@@ -135,6 +154,25 @@ export function useUniversalFilters() {
   }, [userCoords]);
 
   // Apply quick filter presets
+  // Re-read coordinates from localStorage (called after FilterSheet sets location)
+  const refreshLocation = useCallback(() => {
+    try {
+      const coordsRaw = typeof window !== 'undefined' ? localStorage.getItem('clouded_user_coords') : null;
+      if (coordsRaw) {
+        const { lat, lng } = JSON.parse(coordsRaw);
+        if (typeof lat === 'number' && typeof lng === 'number') {
+          setUserCoords({ lat, lng });
+          return;
+        }
+      }
+    } catch { /* ignore */ }
+    const zip = getStoredZip();
+    if (zip) {
+      const coords = getZipCoordinates(zip);
+      setUserCoords(coords);
+    }
+  }, []);
+
   const applyQuickFilter = useCallback((qf: QuickFilter) => {
     if (qf === filters.quickFilter) {
       // Toggle off
@@ -158,8 +196,17 @@ export function useUniversalFilters() {
     }
   }, [filters.quickFilter]);
 
-  // Filter and sort deals
-  const filterAndSortDeals = useCallback((deals: Deal[]): Deal[] => {
+  // Filter and sort deals — pre-computes distances once per call to avoid
+  // redundant getDistance() calls during both filtering and sorting.
+  const filterAndSortDeals = useCallback((deals: Deal[]): { filtered: Deal[]; distanceMap: Map<string, number | null> } => {
+    // Pre-compute distances once for all deals
+    const distanceMap = new Map<string, number | null>();
+    for (const d of deals) {
+      if (!distanceMap.has(d.id)) {
+        distanceMap.set(d.id, getDistance(d.dispensary.latitude, d.dispensary.longitude));
+      }
+    }
+
     let result = [...deals];
 
     // Category filter
@@ -193,27 +240,24 @@ export function useUniversalFilters() {
       result = result.filter(d => weightsMatch(d.weight, filters.weightFilter));
     }
 
-    // Distance range
+    // Distance range — cumulative (within X miles, not exclusive bands)
     if (filters.distanceRange !== 'all' && userCoords) {
       const maxMiles = filters.distanceRange === 'near' ? DISTANCE_THRESHOLDS.near
         : filters.distanceRange === 'nearby' ? DISTANCE_THRESHOLDS.nearby
         : DISTANCE_THRESHOLDS.across_town;
-      const minMiles = filters.distanceRange === 'near' ? 0
-        : filters.distanceRange === 'nearby' ? DISTANCE_THRESHOLDS.near
-        : DISTANCE_THRESHOLDS.nearby;
 
       result = result.filter(d => {
-        const dist = getDistance(d.dispensary.latitude, d.dispensary.longitude);
+        const dist = distanceMap.get(d.id) ?? null;
         if (dist === null) return true; // Keep deals without coordinates
-        return dist >= minMiles && dist < maxMiles;
+        return dist < maxMiles;
       });
     }
 
     // Sort
     if (filters.sortBy === 'distance' && userCoords) {
       result.sort((a, b) => {
-        const distA = getDistance(a.dispensary.latitude, a.dispensary.longitude) ?? 999;
-        const distB = getDistance(b.dispensary.latitude, b.dispensary.longitude) ?? 999;
+        const distA = distanceMap.get(a.id) ?? 999;
+        const distB = distanceMap.get(b.id) ?? 999;
         return distA - distB;
       });
     } else if (filters.sortBy === 'price_asc') {
@@ -229,7 +273,7 @@ export function useUniversalFilters() {
     }
     // 'deal_score' keeps the original order (already sorted by score from API)
 
-    return result;
+    return { filtered: result, distanceMap };
   }, [filters, userCoords, getDistance]);
 
   return {
@@ -242,6 +286,7 @@ export function useUniversalFilters() {
     getDistanceLabel,
     formatDistance,
     applyQuickFilter,
+    refreshLocation,
     filterAndSortDeals,
   };
 }

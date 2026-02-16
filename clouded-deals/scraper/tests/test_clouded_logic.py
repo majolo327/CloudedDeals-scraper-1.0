@@ -115,6 +115,11 @@ class TestDetectCategory:
         "STIIIZY Pod 0.5g",
         "Disposable Pen 0.3g",
         "Select Essentials Pod 0.5g",
+        "STIIIZY All In One Live Resin 0.5g",
+        "Strawberry AIO Pen 1g",
+        "Ready To Use Vape Pen 0.5g",
+        "Ready-To-Use Live Resin 0.5g",
+        "All-In-One Disposable 0.3g",
     ])
     def test_vape(self, logic, text):
         assert logic.detect_category(text) == "vape"
@@ -404,6 +409,58 @@ class TestDetectBrand:
         """'Cookies' at the start IS the Cookies brand."""
         assert logic.detect_brand("Cookies Gary Payton 3.5g") == "Cookies"
 
+    # ---- Expanded cookie-strain blocker coverage ----
+    # GSC is one of the most-crossed parents in cannabis; these strains
+    # should NEVER be tagged as Cookies brand.
+
+    @pytest.mark.parametrize("text", [
+        "Lilac Cookies Badder 1g",
+        "Pink Cookies 3.5g",
+        "Monster Cookies Flower 7g",
+        "Samoa Cookies 3.5g",
+        "Space Cookies 1g Cart",
+        "Key Lime Cookies 3.5g",
+        "Mint Cookies Flower 3.5g",
+        "Banana Cookies Live Resin 1g",
+        "Royal Cookies 3.5g",
+        "Tangerine Cookies 3.5g",
+        "Mac Cookies Flower 3.5g",
+        "Golden Cookies 3.5g",
+        "Frosted Cookies 3.5g",
+        "Peach Cookies 3.5g",
+        "Papaya Cookies 1g",
+        "Mochi Cookies 3.5g",
+        "Diesel Cookies Flower 3.5g",
+        "Gorilla Cookies 3.5g",
+        "Dosi Cookies 3.5g",
+        "Wedding Cookies 3.5g",
+        "GMO Cookies 3.5g",
+        "Cream Cookies 3.5g",
+        "Funky Cookies 3.5g",
+        "Snow Cookies 3.5g",
+        "Moon Cookies 3.5g",
+        "Dirty Cookies 3.5g",
+        "Sour Cookies 3.5g",
+        "Butter Cookies 3.5g",
+        "Honey Cookies 3.5g",
+        "Rainbow Cookies 3.5g",
+        "Red Velvet Cookies 3.5g",
+        "Ice Cream Cookies 3.5g",
+        "Exotic Cookies 3.5g",
+        "Cosmic Cookies 3.5g",
+    ])
+    def test_cookie_cross_strains_not_cookies_brand(self, logic, text):
+        """Common GSC-cross strains must NOT be detected as Cookies brand."""
+        assert logic.detect_brand(text) is None
+
+    def test_cookies_and_cream_strain_not_brand(self, logic):
+        """'Cookies and Cream' is a strain (Starfighter x GSC), not Cookies brand."""
+        assert logic.detect_brand("Cookies and Cream 3.5g") is None
+
+    def test_cookies_n_cream_strain_not_brand(self, logic):
+        """'Cookies N Cream' variant spelling is also a strain."""
+        assert logic.detect_brand("Cookies N Cream 3.5g") is None
+
     def test_brand_with_another_brand_in_strain(self, logic):
         """When a real brand is present alongside a strain-embedded brand word,
         the real brand should win. E.g., '&shine Ghost Train Haze' → not Haze."""
@@ -419,6 +476,53 @@ class TestDetectBrand:
     def test_lava_cake_not_cake_brand(self, logic):
         """Lava Cake is a strain, NOT the Cake brand."""
         assert logic.detect_brand("Lava Cake Indica 3.5g") is None
+
+    # ---- PACKS brand false positive protection ----
+
+    def test_ice_packs_not_packs_brand(self, logic):
+        """'Infused Ice Packs' is a product form, NOT the PACKS brand."""
+        assert logic.detect_brand("Peaches & Cream - Infused Ice Packs") != "PACKS"
+
+    def test_variety_packs_not_packs_brand(self, logic):
+        """'Variety Pack' is a product form, NOT the PACKS brand."""
+        assert logic.detect_brand("Variety Pack Gummies 100mg") != "PACKS"
+
+    def test_packs_brand_standalone(self, logic):
+        """'PACKS' at start of text IS the PACKS brand."""
+        assert logic.detect_brand("PACKS Premium Pre-Roll 1g") == "PACKS"
+
+
+# =====================================================================
+# Category detection — concentrate with fractional oz weight
+# =====================================================================
+
+
+class TestConcentrateWithOzWeight:
+    """Concentrates listed with fractional oz should still be detected."""
+
+    def test_concentrate_with_one_eighth_oz(self, logic):
+        """Live Resin listed as 1/8oz should detect as concentrate."""
+        assert logic.detect_category("AMA Live Resin 1/8oz") == "concentrate"
+
+    def test_concentrate_with_one_eighth_oz_no_space(self, logic):
+        assert logic.detect_category("Shatter 1/8oz") == "concentrate"
+
+
+# =====================================================================
+# Weight validation — oz-based inputs
+# =====================================================================
+
+
+class TestWeightValidationOz:
+    """Fractional oz weights should be properly converted and validated."""
+
+    def test_frac_oz_flower_weight(self, logic):
+        """'3.5g' (from 1/8oz conversion) is valid flower weight."""
+        assert logic.validate_weight("3.5g", "flower") == "3.5g"
+
+    def test_frac_oz_concentrate_weight(self, logic):
+        """'1g' concentrate weight from oz conversion."""
+        assert logic.validate_weight("1g", "concentrate") == "1g"
 
 
 # =====================================================================

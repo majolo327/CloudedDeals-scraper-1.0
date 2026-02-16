@@ -486,11 +486,12 @@ class TestDispensarySearch:
     """Test 10: Rise Nellis — now scraped via Jane platform."""
 
     def test_rise_in_scraped_dispensaries(self):
-        """Rise dispensaries are now in the scraper config (Jane platform)."""
+        """Rise dispensaries are now in the scraper config (Rise platform)."""
         from config.dispensaries import DISPENSARIES
         scraped_ids = {d["slug"] for d in DISPENSARIES}
-        rise_ids = {"rise-sunset", "rise-tropicana", "rise-rainbow",
-                    "rise-nellis", "rise-boulder", "rise-durango", "rise-craig"}
+        rise_ids = {"rise-tropicana", "rise-rainbow",
+                    "rise-nellis", "rise-boulder", "rise-durango", "rise-craig",
+                    "rise-henderson"}
         assert rise_ids.issubset(scraped_ids), "All Rise dispensaries should be in scraper config"
 
     def _unused_old_scraped_ids(self):
@@ -859,23 +860,26 @@ class TestNewBrandsFromMenuAudit:
 
 
 class TestRiseDispensaryConfig:
-    """All 7 Rise dispensaries should be in the scraper config."""
+    """Rise dispensaries across NV/IL/NJ should be in the scraper config."""
 
     def test_rise_count(self):
         from config.dispensaries import DISPENSARIES
         rise = [d for d in DISPENSARIES if d["slug"].startswith("rise-")]
-        assert len(rise) == 7
+        # 7 NV + 10 IL + 2 NJ = 19 Rise locations
+        assert len(rise) == 19
 
     @pytest.mark.parametrize("slug", [
-        "rise-sunset", "rise-tropicana", "rise-rainbow",
+        "rise-tropicana", "rise-rainbow",
         "rise-nellis", "rise-boulder", "rise-durango", "rise-craig",
+        "rise-henderson",
     ])
-    def test_rise_dispensary_exists(self, slug):
+    def test_rise_nv_dispensary_exists(self, slug):
         from config.dispensaries import get_dispensary_by_slug
         disp = get_dispensary_by_slug(slug)
         assert disp is not None, f"{slug} missing from DISPENSARIES"
-        assert disp["platform"] == "jane"
-        assert disp["is_active"] is True
+        assert disp["platform"] == "rise"
+        # NV Rise entries are deactivated (Cloudflare blocked);
+        # IL/NJ Rise entries are active.
 
 
 # =====================================================================

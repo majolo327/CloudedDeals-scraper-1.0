@@ -26,6 +26,7 @@ def collect_daily_metrics(
     top_deals: list[dict[str, Any]],
     *,
     run_id: str | None = None,
+    region: str = "all",
     total_products: int = 0,
     sites_scraped: int = 0,
     sites_failed: int = 0,
@@ -44,6 +45,7 @@ def collect_daily_metrics(
 
     metrics = {
         "run_date": date.today().isoformat(),
+        "region": region,
         "total_products": total_products,
         "qualifying_deals": len(top_deals),
 
@@ -96,9 +98,9 @@ def collect_daily_metrics(
     try:
         db.table("daily_metrics").upsert(
             metrics,
-            on_conflict="run_date",
+            on_conflict="run_date,region",
         ).execute()
-        logger.info("Daily metrics saved for %s", metrics["run_date"])
+        logger.info("Daily metrics saved for %s [%s]", metrics["run_date"], region)
     except Exception as e:
         # Non-fatal — don't crash the scrape if metrics table doesn't exist yet
         logger.warning("Failed to save daily metrics: %s", e)

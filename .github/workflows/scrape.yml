@@ -1,11 +1,46 @@
 name: Daily Scraper
 
+# Dynamic run name so each state is identifiable at a glance in the Actions UI.
+run-name: >-
+  Scrape — ${{
+    github.event_name == 'workflow_dispatch'
+      && (github.event.inputs.region || 'all')
+    || github.event.schedule == '0 16 * * *' && 'nevada'
+    || github.event.schedule == '0 18 * * *' && 'arizona'
+    || github.event.schedule == '30 19 * * *' && 'illinois'
+    || github.event.schedule == '0 21 * * *' && 'missouri'
+    || github.event.schedule == '0 22 * * *' && 'michigan'
+    || github.event.schedule == '0 23 * * *' && 'new-jersey'
+    || 'unknown'
+  }}
+
 on:
   schedule:
-    # Cron targets 7:00 AM PST / 8:00 AM PDT (15:00 UTC). GitHub Actions
-    # cron typically runs 15-30 min late, so actual start lands ~7:15-7:30
-    # AM PST (winter) or ~8:15-8:30 AM PDT (summer).
-    - cron: "0 15 * * *"
+    # Optimized cron schedule — all 11 states.
+    # East Coast expansion runs first (6-8 AM EST), then Midwest/West,
+    # then NV anchor at 8:05 AM PST so Vegas has fresh data at open.
+    # GHA crons typically run 15-30 min late — account for that.
+    #
+    # ── East Coast (6-8 AM EST) ─────────────────────────────────────
+    - cron: "0 11 * * *"    # pennsylvania   — 6:00 AM EST  (16 sites, ~15 min)
+    - cron: "30 11 * * *"   # massachusetts  — 6:30 AM EST  (17 sites, ~15 min)
+    - cron: "0 12 * * *"    # new-york       — 7:00 AM EST  (18 sites, ~15 min)
+    - cron: "30 12 * * *"   # new-jersey     — 7:30 AM EST  (34 sites, ~25 min)
+    - cron: "0 13 * * *"    # ohio           — 8:00 AM EST  (22 sites, ~15 min)
+    #
+    # ── Midwest / Great Lakes ───────────────────────────────────────
+    - cron: "30 13 * * *"   # michigan       — 8:30 AM EST  (114 sites, ~50 min)
+    - cron: "0 15 * * *"    # illinois       — 9:00 AM CST  (88 sites, ~40 min)
+    #
+    # ── Mountain / West ─────────────────────────────────────────────
+    - cron: "30 14 * * *"   # arizona        — 7:30 AM MST  (52 sites, ~30 min)
+    - cron: "30 15 * * *"   # colorado       — 8:30 AM MST  (17 sites, ~15 min)
+    #
+    # ── NV anchor — fresh data by Vegas open ────────────────────────
+    - cron: "5 16 * * *"    # southern-nv    — 8:05 AM PST  (63 sites, ~35 min) ★
+    #
+    # ── Tail ────────────────────────────────────────────────────────
+    - cron: "0 17 * * *"    # missouri       — 11:00 AM CST (31 sites, ~20 min)
   workflow_dispatch:
     inputs:
       platform_group:
@@ -16,6 +51,24 @@ on:
           - all
           - stable
           - new
+        default: "all"
+      region:
+        description: "Region/state to scrape"
+        required: false
+        type: choice
+        options:
+          - all
+          - southern-nv
+          - michigan
+          - illinois
+          - arizona
+          - missouri
+          - new-jersey
+          - ohio
+          - colorado
+          - new-york
+          - massachusetts
+          - pennsylvania
         default: "all"
       dry_run:
         description: "Dry run (scrape but don't write to DB)"
@@ -33,22 +86,51 @@ on:
         type: string
         default: ""
 
-# Concurrency is scoped by platform group so "stable" and "new" can
-# run in parallel without cancelling each other.
+# Concurrency is scoped per-region so each state runs independently.
+# Scheduled runs key off the cron expression; manual runs key off region input.
 concurrency:
-  group: scraper-${{ github.event.inputs.platform_group || 'stable' }}
+  group: scraper-${{ github.event.schedule || github.event.inputs.region || 'default' }}
   cancel-in-progress: false
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Determine region
+        id: region
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ github.event.inputs.region || 'all' }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 11 * * *" ]; then
+            echo "value=pennsylvania" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "30 11 * * *" ]; then
+            echo "value=massachusetts" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 12 * * *" ]; then
+            echo "value=new-york" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "30 12 * * *" ]; then
+            echo "value=new-jersey" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 13 * * *" ]; then
+            echo "value=ohio" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "30 13 * * *" ]; then
+            echo "value=michigan" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "30 14 * * *" ]; then
+            echo "value=arizona" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 15 * * *" ]; then
+            echo "value=illinois" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "30 15 * * *" ]; then
+            echo "value=colorado" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 17 * * *" ]; then
+            echo "value=missouri" >> $GITHUB_OUTPUT
+          else
+            echo "value=southern-nv" >> $GITHUB_OUTPUT
+          fi
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -85,12 +167,15 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
           LIMIT_DISPENSARIES: ${{ github.event.inputs.limit_dispensaries || 'false' }}
           SINGLE_SITE: ${{ github.event.inputs.single_site || '' }}
-          FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
-          # Cron runs "stable" only; manual dispatch uses the selected group.
+          # Force run for manual dispatch and non-NV scheduled regions
+          # (idempotency check doesn't track per-region yet).
+          FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.region.outputs.value != 'southern-nv' && 'true' || 'false' }}
           PLATFORM_GROUP: ${{ github.event.inputs.platform_group || 'stable' }}
+          REGION: ${{ steps.region.outputs.value }}
         run: |
           echo "=== Scraper Configuration ==="
           echo "Group:      $PLATFORM_GROUP"
+          echo "Region:     $REGION"
           echo "Dry run:    $DRY_RUN"
           echo "Limited:    $LIMIT_DISPENSARIES"
           echo "Single:     $SINGLE_SITE"
@@ -103,21 +188,47 @@ jobs:
             python main.py
           fi
 
+      - name: Show scrape summary
+        if: always()
+        working-directory: clouded-deals/scraper
+        run: |
+          if [ -f scrape_summary.txt ]; then
+            echo "### Scrape Summary" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat scrape_summary.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo ""
+            echo "=== Scrape Summary ==="
+            cat scrape_summary.txt
+          else
+            echo "No scrape_summary.txt found (scraper may have crashed before report)"
+          fi
+
       - name: Upload debug screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: debug-screenshots-${{ github.event.inputs.platform_group || 'stable' }}-${{ github.run_id }}
+          name: debug-screenshots-${{ steps.region.outputs.value }}-${{ github.run_id }}
           path: |
             clouded-deals/scraper/debug_screenshots/
           retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload scrape summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrape-summary-${{ github.event.inputs.platform_group || 'stable' }}-${{ github.run_id }}
+          path: |
+            clouded-deals/scraper/scrape_summary.txt
+          retention-days: 30
           if-no-files-found: ignore
 
       - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: scraper-logs-${{ github.event.inputs.platform_group || 'stable' }}-${{ github.run_id }}
+          name: scraper-logs-${{ steps.region.outputs.value }}-${{ github.run_id }}
           path: |
             clouded-deals/scraper/*.log
           retention-days: 7

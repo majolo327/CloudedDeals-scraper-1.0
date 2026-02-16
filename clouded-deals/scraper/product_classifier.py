@@ -172,12 +172,27 @@ def classify_product(
     _EDIBLE_INDICATORS = ("edible", "gummy", "gummies", "chocolate", "candy",
                           "brownie", "chew", "lozenge", "mint", "cookie",
                           "beverage", "drink", "bar", "caramel", "tincture",
-                          "capsule", "tablet", "tea", "honey", "butter")
+                          "capsule", "tablet", "tea", "honey", "butter",
+                          "multipack", "pieces", "softgel", "melatonin")
+    # Non-cannabis accessories that should never be reclassified as prerolls
+    _ACCESSORY_INDICATORS = ("screen", "screens", "papers", "rolling paper",
+                             "tips", "filter", "grinder", "lighter", "tray",
+                             "stash", "storage", "pipe", "bong", "rig",
+                             "torch", "dab tool", "nail")
+    # Empty cones (RAW, Pop Cones, etc.) are rolling papers, not prerolls
+    _CONE_ACCESSORY_BRANDS = ("raw", "pop cones", "elements", "ocb", "zig zag",
+                              "zig-zag")
     is_edible_context = (
         cat in ("edible",)
         or any(kw in name_lower for kw in _EDIBLE_INDICATORS)
     )
-    if not is_infused and not is_edible_context:
+    is_accessory = (
+        any(kw in name_lower for kw in _ACCESSORY_INDICATORS)
+        or (any(b in name_lower for b in _CONE_ACCESSORY_BRANDS)
+            and "cone" in name_lower)
+    )
+    is_concentrate_context = cat in ("concentrate", "vape")
+    if not is_infused and not is_edible_context and not is_accessory and not is_concentrate_context:
         is_pack = any(p.search(name_lower) for p in _PACK_INDICATORS)
         is_pack_brand = brand_lower in _PACK_BRANDS
 
@@ -194,6 +209,19 @@ def classify_product(
         vape_sub = _classify_vape_subtype(name_lower, brand_lower)
         if vape_sub:
             subtype = vape_sub
+
+    # --- Safety net: disposable vape indicators override wrong category ---
+    # Products with "all in one", "AIO", "disposable", "ready to use" in the
+    # name are vapes even if detect_category got it wrong (e.g. "flower"
+    # because the mg weight or keyword wasn't matched correctly).
+    if cat not in ("vape",) and subtype is None:
+        if any(p.search(name_lower) for p in _VAPE_DISPOSABLE_INDICATORS):
+            corrected_category = "vape"
+            subtype = "disposable"
+            logger.info(
+                "[CLASSIFY] %r recategorized: %s → vape (disposable indicator)",
+                name[:60], cat,
+            )
 
     return {
         "is_infused": is_infused,

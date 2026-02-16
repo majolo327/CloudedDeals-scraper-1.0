@@ -120,7 +120,7 @@ export function SmsWaitlist({ addToast }: SmsWaitlistProps) {
               </button>
               <button
                 onClick={handleDismissBar}
-                className="p-1.5 min-w-[36px] min-h-[36px] text-slate-600 hover:text-slate-400 transition-colors flex items-center justify-center"
+                className="p-2 min-w-[44px] min-h-[44px] text-slate-600 hover:text-slate-400 transition-colors flex items-center justify-center"
                 aria-label="Dismiss"
               >
                 <X className="w-4 h-4" />
@@ -218,7 +218,7 @@ export function SmsWaitlist({ addToast }: SmsWaitlistProps) {
                       )}
                     </button>
 
-                    <p className="text-[11px] text-slate-600 text-center leading-relaxed">
+                    <p className="text-xs text-slate-500 text-center leading-relaxed">
                       1-2 texts/day when we launch. Reply STOP anytime. No spam ever.
                     </p>
 

@@ -6,57 +6,114 @@
 
 ## What This Is
 
-A web scraper that visits 61 cannabis dispensary websites across Southern Nevada every morning, extracts their menus and pricing, detects deals worth showing users, scores them, and pushes the top 200 to our Supabase database. The frontend reads from that database.
+A web scraper that visits cannabis dispensary websites every morning, extracts their menus and pricing, detects deals worth showing users, scores them, and pushes the top 200 to our Supabase database. The frontend reads from that database.
 
-It runs as a GitHub Actions cron job. No servers to maintain.
+It runs as GitHub Actions cron jobs. No servers to maintain.
+
+**Multi-state data collection (Feb 2026):** We now scrape across 4 states — Nevada (production/consumer-facing), plus Michigan, Illinois, and Arizona for data collection and ML training purposes. New-state data is collected but NOT displayed on the consumer frontend. This gives us millions of data points for B2B value, brand intelligence, and ML model training before we ever launch in those markets.
 
 ---
 
 ## Coverage
 
-**61 active dispensaries** across 6 menu platforms:
+**382 active dispensaries** across 6 states and 6 menu platforms:
+
+### Nevada (Production — Consumer-Facing) — 63 dispensaries
 
 | Platform | Sites | Status | Examples |
 |----------|-------|--------|----------|
 | **Dutchie** | 16 | Stable (daily cron) | Planet 13, Medizin, TD, Greenlight, The Grove, Mint, Jade, Sahara, Treehouse, SLV |
-| **Curaleaf** | 6 | Stable (daily cron) | Curaleaf Western/Strip/NLV/Reef, Zen Leaf Flamingo/NLV |
+| **Curaleaf** | 4 | Stable (daily cron) | Curaleaf Western/Strip/NLV/Reef |
 | **Jane** | 19 | Stable (daily cron) | Oasis, Deep Roots, Cultivate, Thrive, Beyond/Hello, Exhale, Tree of Life, Sanctuary, The Source |
-| **Rise** | 9 | New (manual trigger) | Rise x6, Cookies Strip, Cookies Flamingo, Rise Henderson |
-| **Carrot** | 6 | New (manual trigger) | Wallflower, Inyo, Jenny's, Euphoria, Silver Sage, ShowGrow |
-| **AIQ** | 5 | New (manual trigger) | Green NV, Pisos, Jardin, Nevada Made Casino Dr/Charleston |
+| **Rise** | 9 | **Disabled** (Cloudflare Turnstile) | Rise x6, Cookies Strip, Cookies Flamingo, Rise Henderson |
+| **Carrot** | 6 | Stable (daily cron) | Wallflower, Inyo, Jenny's, Euphoria, Silver Sage, ShowGrow |
+| **AIQ** | 5 | Stable (daily cron) | Green NV, Pisos, Jardin, Nevada Made Casino Dr/Charleston |
 
 Plus 2 inactive AIQ sites (Nevada Made Henderson/Warm Springs — returning 403s).
 
 **Not covered:** Top Notch (Weedmaps — different ecosystem entirely).
 
+### Michigan (Data Collection — NOT Consumer-Facing) — 114 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Dutchie** | 111 | Lume (37), Skymint (11), JARS (12), Cloud Cannabis (8), Joyology (9), High Profile (6), Pinnacle (5), Pleasantrees (5), Herbana (3), Detroit independents (11), Lansing/Flint (4) |
+| **Curaleaf** | 3 | Curaleaf MI (2), Zen Leaf Buchanan (1) |
+
+### Illinois (Data Collection — NOT Consumer-Facing) — 88 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Rise** | 10 | Rise Mundelein, Niles, Naperville, Lake in the Hills, Effingham, Canton, Quincy, Joliet, Charleston, Joliet Rock Creek |
+| **Curaleaf** | 14 | Curaleaf IL (5), Zen Leaf IL (9) |
+| **Dutchie** | 35 | Ascend (10), Windy City (5), Thrive IL (5), Mission (3), Maribis (2), Curaleaf-Dutchie (5), Planet 13 IL, Village (2), Lux Leaf, Share |
+| **Jane** | 29 | Beyond/Hello (5), Verilife (8), Consume (6), nuEra (5), EarthMed (3), Hatch (2) |
+
+### Arizona (Data Collection — NOT Consumer-Facing) — 52 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Dutchie** | 44 | Trulieve/Harvest (12), Sol Flower (6), The Mint (4), Nature's Medicines (3), Nirvana (4), Ponderosa (7), Cookies, TruMed, Noble Herb, Earth's Healing, Tucson Saints, Story AZ, Curaleaf-Dutchie (2) |
+| **Curaleaf** | 8 | Curaleaf AZ (4), Zen Leaf AZ (4) |
+
+### Missouri (Data Collection — NOT Consumer-Facing) — 31 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Dutchie** | 31 | Key Missouri (9), Greenlight (10), From The Earth (3), Green Releaf (3), Terrabis (1), Bloc MO (2), Star Buds, Nature Med, Rock Port |
+
+**Market context:** $1.53B in 2025 sales (5th largest adult-use market nationally). 214 licensed dispensaries. Top brands: Illicit, Flora Farms, Vivid, Sinse, Proper, Clovr, Good Day Farm.
+
+### New Jersey (Data Collection — NOT Consumer-Facing) — 34 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Dutchie** | 29 | Ascend (3), Curaleaf NJ (5, migrated to Dutchie!), AYR/GSD (3), MPX NJ (4), Sweetspot (3), Bloc NJ (3), Cookies Harrison, independents (7) |
+| **Rise** | 2 | Rise Bloomfield, Rise Paterson |
+| **Curaleaf** | 3 | Zen Leaf Elizabeth, Lawrence, Neptune |
+
+**Market context:** $1B+ in 2024 sales. 190+ licensed dispensaries. NYC metro 20M+ pop. Key insight: Curaleaf NJ migrated to Dutchie — scrapes via dutchie.py. Top brands: Rythm (GTI), Kind Tree (TerrAscend), Verano, Ozone (Ascend), Cookies, Fernway.
+
 ---
 
 ## How It Runs
 
-### Daily Automatic (Stable Group)
-- **When:** 8:00 AM Pacific, every day
-- **What runs:** Dutchie + Curaleaf + Jane = 41 dispensaries
-- **Duration:** ~30-60 min depending on site response times
-- **Where:** GitHub Actions (`.github/workflows/scrape.yml`)
-- **Cost:** Free tier GitHub Actions minutes
+### Daily Automatic (Staggered by Region)
+Each region runs on its own cron schedule, spaced by **local time zone**:
 
-### Manual Trigger (New Platforms or Full Run)
+| Region | Cron (UTC) | Local Time | Timezone | Dispensaries |
+|--------|-----------|------------|----------|--------------|
+| **southern-nv** | 16:00 | 8:00 AM PST | Pacific (UTC-8) | 63 |
+| **arizona** | 18:00 | 11:00 AM MST | Arizona (UTC-7, no DST) | 52 |
+| **illinois** | 19:30 | 1:30 PM CST | Central (UTC-6) | 88 |
+| **missouri** | 21:00 | 3:00 PM CST | Central (UTC-6) | 31 |
+| **michigan** | 22:00 | 5:00 PM EST | Eastern (UTC-5) | 114 |
+| **new-jersey** | 23:00 | 6:00 PM EST | Eastern (UTC-5) | 34 |
+
+- **Where:** GitHub Actions (`.github/workflows/scrape.yml`)
+- **Duration:** ~30-60 min per region
+- **Isolation:** Each region runs independently — failures don't affect other states
+- **Concurrency:** Each region has its own concurrency group so runs never queue behind other states
+
+### Manual Trigger
 Go to GitHub repo > **Actions** tab > **Daily Scraper** > **Run workflow**:
 
 | Input | Options | What it does |
 |-------|---------|--------------|
-| **Platform group** | `all` / `stable` / `new` | Which dispensaries to scrape |
+| **Platform group** | `all` / `stable` / `new` | Which platforms to scrape |
+| **Region** | `all` / `southern-nv` / `michigan` / `illinois` / `arizona` / `missouri` / `new-jersey` | Which state to scrape |
 | **Dry run** | true/false | Scrape but don't write to DB (for testing) |
 | **Limited** | true/false | Only 1 site per platform (quick smoke test) |
 | **Single site** | slug like `td-gibson` | Scrape just one site |
 
-**Key rule:** Stable and New groups don't interfere with each other. Running "stable" won't delete yesterday's "new" data. They can even run simultaneously.
-
-### Typical Morning Workflow
-1. 8 AM — Stable cron fires automatically (Dutchie/Curaleaf/Jane)
-2. ~9 AM — Check if it succeeded (Actions tab, green check)
-3. When ready — Manually trigger "new" group (Rise/Carrot/AIQ)
-4. Both groups' data coexists in the DB
+### Typical Daily Workflow
+1. 8:00 AM PST — Nevada production cron fires (63 dispensaries)
+2. 11:00 AM MST — Arizona cron fires (52 dispensaries)
+3. 1:30 PM CST — Illinois cron fires (88 dispensaries)
+4. 3:00 PM CST — Missouri cron fires (31 dispensaries)
+5. 5:00 PM EST — Michigan cron fires (114 dispensaries)
+6. 6:00 PM EST — New Jersey cron fires (34 dispensaries)
+7. ~7 PM EST / ~4 PM PST — All 6 regions complete, check Actions tab for green checks
 
 ---
 
@@ -123,7 +180,7 @@ Stratified by category to ensure variety:
 
 | Table | Purpose | Key fields |
 |-------|---------|------------|
-| `dispensaries` | All 63 sites (61 active) | slug, name, url, platform, is_active |
+| `dispensaries` | All 382 sites across 6 states | slug, name, url, platform, region, is_active |
 | `products` | Every scraped product | dispensary_id, name, brand, category, sale_price, original_price, discount_percent, deal_score, is_active, scraped_at |
 | `deals` | Top 200 qualifying deals | product_id, dispensary_id, deal_score |
 | `scrape_runs` | Audit trail per run | status, platform_group, total_products, qualifying_deals, runtime_seconds |
@@ -141,10 +198,10 @@ clouded-deals/scraper/
   deal_detector.py           # Deal scoring & top-200 selection
   product_classifier.py      # Infused/pack detection
   parser.py                  # Price/weight/THC extraction
-  config/dispensaries.py     # All 61 site configs + platform groups
+  config/dispensaries.py     # All 382 site configs + platform groups
   platforms/
     dutchie.py               # Dutchie scraper (iframe/JS embed)
-    curaleaf.py              # Curaleaf + Zen Leaf scraper
+    curaleaf.py              # Curaleaf scraper
     jane.py                  # Jane scraper (hybrid iframe/direct)
     rise.py                  # Rise/GTI scraper (Next.js SPA)
     carrot.py                # Carrot scraper (JS widget)
@@ -173,6 +230,17 @@ Set as GitHub Actions secrets:
 | `SUPABASE_SERVICE_KEY` | Service role key (full DB access) |
 
 These are the only two secrets. Everything else is configured in code.
+
+**Environment variables (set in workflow, not secrets):**
+
+| Variable | Options | What it does |
+|----------|---------|--------------|
+| `PLATFORM_GROUP` | `all` / `stable` / `new` | Which platforms to include |
+| `REGION` | `all` / `southern-nv` / `michigan` / `illinois` / `arizona` | Which state to scrape |
+| `DRY_RUN` | `true` / `false` | Skip DB writes |
+| `FORCE_RUN` | `true` / `false` | Skip idempotency check |
+| `LIMIT_DISPENSARIES` | `true` / `false` | 1 site per platform |
+| `SINGLE_SITE` | slug | Scrape just one site |
 
 ---
 
@@ -237,6 +305,7 @@ This takes screenshots and detects what platform the site uses.
 
 ## Known Limitations & Edge Cases
 
+- **Rise (Green Thumb Industries) — disabled Feb 12, 2026.** GTI deployed Cloudflare Turnstile bot protection on their menu domain (`cdn-bong.risecannabis.com`), blocking headless browser access. All 9 Rise sites were disabled in `dispensaries.py:464-467`. Before Cloudflare, our `rise.py` scraper worked reliably — it handled the Next.js SPA hydration, extracted ~500-700 products per location, and was contributing ~4,500+ products per run. **Proven working strategies** before the block: Playwright `wait_until: "networkidle"` for SPA hydration, `networkidle` polling for dynamic content, JS-based product card extraction from hydrated React DOM. **Plan:** Revisit Rise after PMF + traction (2-3 months). Options at that point include residential proxy rotation, browser fingerprint evasion, or direct API integration if GTI opens one.
 - **SLV** has a double age gate and runs on Treez (not Dutchie) — classified as Dutchie direct as a best-effort. May need its own scraper if it breaks.
 - **Nevada Made Henderson/Warm Springs** return HTTP 403 (bot-blocked). Marked inactive.
 - **Top Notch** uses Weedmaps — completely different ecosystem, not implemented.
@@ -324,6 +393,77 @@ Coach marks use `data-coach` attributes on elements for targeting. State stored 
 
 ## Changelog
 
+### Feb 14, 2026 — UX Audit, Deal Reporting, Operational Cleanup
+
+**Three-pass audit of the entire frontend codebase — declutter, accessibility, and deal accuracy tooling.**
+
+1. **UI Declutter Pass**
+   - ChallengeBar collapsed from full-width card to slim inline progress bar (~1/3 vertical space)
+   - StickyStatsBar reduced from h-12 to h-11, tighter chip spacing
+   - Filter button restyled from blocky bg-slate-800 to rounded-full chip matching category pills
+   - DealsPage header/deck progress compacted to slim inline rows
+   - Browse page: tap brand goes directly to filtered deals (was expand → dropdown → second tap)
+   - Browse page: dispensary buttons (Menu, Deals) shown inline (was hidden behind expand/collapse)
+   - Removed Premium/Local/Established tier tags from BrowsePage and SearchPage
+
+2. **Deal Reporting Feature** (`ReportDealModal.tsx`, migration `029_deal_reports.sql`)
+   - Users and founder can flag deals with specific issue types: wrong_price, deal_gone, wrong_product, other
+   - Optional message field for details (e.g. "actual price is $25")
+   - Writes to `deal_reports` table in Supabase with spam prevention (unique per user/deal/type/day)
+   - Admin summary view `deal_report_summary` groups reports by deal for daily review
+   - Flag button added to DealModal action row
+   - `onAccuracyFeedback` callback wired up in page.tsx (was previously disconnected)
+   - Toast notification on successful report
+
+3. **Accessibility & Touch Target Pass**
+   - All interactive elements across 8+ components now meet 44px minimum touch targets (Apple HIG / WCAG)
+   - Added aria-labels to all buttons missing them (save, dismiss, share, flag, location, feedback)
+   - Removed dead code: unused ShareModal import/state/render in DealCard
+
+4. **Centralized localStorage Keys** (`lib/storageKeys.ts`)
+   - All 12 localStorage keys moved to constants file to prevent typos and enable audit
+
+---
+
+### Feb 12, 2026 — NOT_BRANDS Filter, Jane Loose Qualification, Enhanced Scrape Report
+
+**Improvements to brand detection, category inference, Jane deal handling, and operator visibility.**
+
+1. **NOT_BRANDS exclusion filter** (`parser.py`)
+   - Added 30-word blocklist (colours, product types, strain types, promo terms) that are silently rejected from brand matching
+   - Prevents false positives if generic words ever slip into KNOWN_BRANDS or fuzzy-match via variations
+
+2. **Category keyword expansion** (`parser.py`)
+   - Added `buds`, `popcorn` to flower; `pen` to vape
+   - Added `infer_category_from_weight()` fallback when no keyword matches: mg→edible, g≥3.5→flower, g<3.5→concentrate, no weight→vape
+
+3. **Jane loose deal qualification** (`deal_detector.py`, `jane.py`, `main.py`)
+   - Jane sites do NOT display original prices — only the current/deal price
+   - Standard hard filters (require 15% discount + original price) were rejecting ALL Jane products
+   - Fix: Jane products now use loose qualification — price cap + known brand only, skipping discount checks
+   - Jane deals get a flat 15-point scoring baseline (in lieu of discount depth) so they compete fairly
+   - `source_platform` field now propagated through the full scrape pipeline
+
+4. **Deep Roots hybrid_strategy flag** (`config/dispensaries.py`)
+   - All 4 Deep Roots locations marked with `hybrid_strategy: True` for DOM-specific handling
+
+5. **STRIP_DISPENSARIES constant** (`config/dispensaries.py`)
+   - 11 Strip-area dispensary slugs tracked with `is_strip_dispensary()` helper — ready for frontend tourist/local filtering
+
+6. **Age gate selector expansion** (`handlers/age_verification.py`)
+   - Added `"I'm over 21"` variant for both button and link elements
+
+7. **Enhanced scrape summary report** (`main.py`)
+   - New `_log_scrape_summary()` prints a comprehensive plain-language report at end of each run
+   - Per-dispensary breakdown: top deal per category, product count, deal count, zero-deal reasons
+   - Brand leaderboard: which brands produced the most deals
+   - Category distribution with slot fill rates
+   - Top 5 cut deals that almost made it (helps tune scoring)
+   - Sites with zero deals get explicit reasons (e.g., "0 products scraped", "all failed hard filters", "no brand detected")
+   - Report piped to `$GITHUB_STEP_SUMMARY` in GitHub Actions for at-a-glance review
+
+---
+
 ### Feb 10, 2026 — Concentrate Detection Overhaul + Major Platform Expansion
 
 **Problem:** Morning scrape surfaced only 1 concentrate deal in the main feed, despite many being available in search. Concentrates were being misclassified or filtered out before reaching users.
@@ -359,6 +499,155 @@ Coach marks use `data-coach` attributes on elements for targeting. State stored 
 
 ---
 
+## Daily Deal Review — Founder Workflow
+
+Flag deals from the app (tap any deal → Flag button). Reports go to the `deal_reports` table. Review them daily.
+
+### Check flagged deals (Supabase SQL Editor)
+
+```sql
+-- Today's reports — what got flagged today
+SELECT product_name, dispensary_name, brand_name, deal_price,
+       report_type, report_message, created_at
+FROM deal_reports
+WHERE report_date = CURRENT_DATE
+ORDER BY created_at DESC;
+```
+
+```sql
+-- Summary view — unreviewed reports grouped by deal (highest report count first)
+SELECT * FROM deal_report_summary;
+```
+
+```sql
+-- All unreviewed reports with full detail
+SELECT product_name, dispensary_name, brand_name, deal_price,
+       report_type, report_message, anon_id, created_at
+FROM deal_reports
+WHERE reviewed = FALSE
+ORDER BY created_at DESC;
+```
+
+### Mark reports as reviewed
+
+```sql
+-- Mark all reports for a specific deal as reviewed
+UPDATE deal_reports
+SET reviewed = TRUE, reviewed_at = NOW()
+WHERE deal_id = 'INSERT-DEAL-UUID-HERE';
+```
+
+```sql
+-- Mark ALL unreviewed reports as reviewed (daily clear)
+UPDATE deal_reports
+SET reviewed = TRUE, reviewed_at = NOW()
+WHERE reviewed = FALSE;
+```
+
+### What to learn from flagged deals
+
+When you see recurring flags, ask Claude to investigate. Paste the flagged deals and ask:
+
+> "Here are today's flagged deals from CloudedDeals. For each one, tell me:
+> 1. Is this a scraper bug (wrong price extraction, wrong category, stale data)?
+> 2. Is this a scoring bug (deal shouldn't have qualified)?
+> 3. Is this a site issue (deal expired between scrape and user visit)?
+> 4. What specific scraper/scoring change would prevent this in the future?"
+
+**Common patterns and what they mean:**
+
+| Flag pattern | Likely cause | Fix |
+|---|---|---|
+| `wrong_price` on one dispensary | Price selector changed on their site | Debug that platform scraper, check extraction selectors |
+| `deal_gone` across many dispensaries | Scrape ran too early, deals changed mid-day | Consider running scraper closer to dispensary open time |
+| `deal_gone` on one dispensary only | That dispensary updates menu frequently | Mark as volatile, scrape 2x/day if needed |
+| `wrong_product` — wrong category | Category inference missed a keyword | Add keyword to `clouded_logic.py` category detection |
+| `wrong_product` — wrong brand | Brand name extracted from promo text | Check `parser.py` brand extraction order |
+| `wrong_price` + message "actual price is $X" | Original price vs sale price confusion | Check platform scraper's price field mapping |
+
+### Improving deal accuracy over time
+
+1. **Weekly:** Review `deal_report_summary` — are any dispensaries or brands repeatedly flagged?
+2. **Monthly:** Run the scraper in dry-run mode (`limited: true`) and spot-check 10 deals against live dispensary sites
+3. **After fixing a scraper bug:** Re-run the affected dispensary with `single_site` dispatch and verify the fix
+
+---
+
+## Engineering Priorities — Operational Readiness
+
+These are the tactical engineering tasks that make the product production-grade. They sit alongside the strategic roadmap below. Do them as you go — most are 1-2 day efforts, not multi-week projects.
+
+### 1. Deal Accuracy Feedback Loop ✅ SHIPPED (Feb 14, 2026)
+- [x] `ReportDealModal` — users flag wrong_price, deal_gone, wrong_product, other
+- [x] `deal_reports` Supabase table with RLS + spam prevention (unique per user/deal/type/day)
+- [x] `deal_report_summary` admin view — groups by deal_id for daily review
+- [x] Flag button in DealModal, toast confirmation on submit
+- [ ] **TODO:** Run migration `029_deal_reports.sql` on production Supabase
+- [ ] **TODO:** Add deal_reports widget to admin dashboard (`/admin`) — table of today's reports with resolve button
+- [ ] **TODO:** Auto-suppress deals with 3+ reports (add `is_flagged` column to deals, check in frontend query)
+- [ ] **TODO:** Daily Slack/email digest of flagged deals (Supabase Edge Function or cron)
+
+### 2. Analytics Dashboard Audit
+- [x] Admin dashboard exists and is functional — pulls from Supabase `analytics_events`, `user_sessions`, `user_events`
+- [x] 30+ event types tracked, session tracking, retention cohorts all operational
+- [ ] **TODO:** Add funnel visualization: landing → FTUE complete → first save → return visit → share
+- [ ] **TODO:** Add deal report metrics to admin dashboard (reports/day, top reported deals, resolution rate)
+- [ ] **TODO:** Track "Get This Deal" click-through → dispensary website as conversion event
+- [ ] **TODO:** Add per-dispensary engagement breakdown (which dispensaries generate most saves/clicks)
+
+### 3. Error Monitoring
+- [ ] Add Sentry (or Highlight.io) to Next.js frontend — catch unhandled errors, slow renders, failed API calls
+- [ ] Add Sentry to scraper Python codebase — catch parse errors, timeout patterns, new site layouts
+- [ ] Set up Slack alerts for: scraper run failures, zero-product sites, error rate spikes
+- [ ] Goal: know about problems before users report them
+
+### 4. Performance / Lighthouse Pass
+- [ ] Run Lighthouse CI on every deploy — target 90+ on Performance, Accessibility, SEO
+- [ ] Audit bundle size — tree-shake unused lucide icons, lazy-load modals (DealModal, ShareModal, ReportDealModal)
+- [ ] Add `loading="lazy"` to any images if/when product images are added
+- [ ] Verify Core Web Vitals (LCP, FID, CLS) are green in Search Console
+- [ ] Consider ISR (Incremental Static Regeneration) for deal pages if traffic justifies it
+
+### 5. SEO Pages
+- [ ] `/dispensary/[slug]` — individual dispensary page with today's deals, address, hours, map
+- [ ] `/brand/[slug]` — brand page with current deals across all dispensaries
+- [ ] `/deals/[category]` — category landing pages (flower deals, vape deals, etc.)
+- [ ] Proper `<title>`, `<meta description>`, structured data (Product schema) on all pages
+- [ ] Sitemap.xml generated from active dispensaries + brands
+- [ ] Goal: organic traffic from "las vegas dispensary deals", "[brand] deals near me"
+
+### 6. SMS / Push Notification Pipeline
+- [x] SMS waitlist banner exists and collects phone numbers
+- [ ] **TODO:** Build daily deal digest — top 5 deals summary via SMS (Twilio or similar)
+- [ ] **TODO:** Price drop alerts — "STIIIZY cart you saved dropped to $25 at Medizin"
+- [ ] **TODO:** PWA push notifications as alternative to SMS (free, no per-message cost)
+- [ ] **TODO:** Frequency control — users choose daily, 3x/week, or deal-triggered only
+
+### 7. Auth & Persistence
+- [ ] Currently: all user data (saves, dismissals, preferences) lives in localStorage — lost on device change or clear
+- [ ] Add optional Supabase Auth (magic link or Google OAuth) — zero-friction, no password
+- [ ] Sync saves, preferences, and streak data to server when logged in
+- [ ] Merge anonymous session data into account on first login
+- [ ] Unlock cross-device experience and long-term retention tracking
+- [ ] Don't gate any features behind auth — it's purely an enhancement
+
+### 8. PWA (Progressive Web App)
+- [ ] Add `manifest.json` with app name, icons, theme colors
+- [ ] Add service worker for offline shell + cache-first for static assets
+- [ ] "Add to Home Screen" prompt after 2nd visit (browser-native, not custom modal)
+- [ ] Offline fallback page: "You're offline — here are your saved deals"
+- [ ] Goal: feel like a native app without App Store friction
+
+### 9. Technical Debt Tracker
+- [ ] `storageKeys.ts` created but not yet adopted everywhere — migrate remaining hardcoded key strings
+- [ ] `lib/socialProof.ts` fully built but never called — wire up when DAU justifies it (50+ DAU)
+- [ ] `price_history` table accumulating data silently — surface in frontend when 30-60 days of data exists
+- [ ] Rise scraper disabled (Cloudflare Turnstile) — revisit after PMF + traction
+- [ ] SLV double age gate may break if Treez changes — monitor
+- [ ] Gamification features (streaks, challenges, milestones) may need tuning based on user feedback
+
+---
+
 ## What's Next — Full Roadmap
 
 Everything below is sequenced deliberately. Each phase depends on the one before it. Don't skip ahead.
@@ -370,8 +659,9 @@ Everything below is sequenced deliberately. Each phase depends on the one before
 This is the only thing that matters right now. Multi-state expansion, B2B, and ML work all mean nothing if Vegas users don't come back daily.
 
 #### A1. Stabilize all 63 dispensaries on daily cron
-- [ ] Run "new" group (Rise/Carrot/AIQ) manually for 1-2 weeks, check data quality
-- [ ] Monitor Rise (9 sites), Carrot (6 sites), AIQ (5 sites) for failures
+- [ ] Run "new" group (Carrot/AIQ) manually for 1-2 weeks, check data quality
+- [x] Rise (9 sites) — **disabled Feb 12, 2026** due to Cloudflare Turnstile. Revisit after PMF + traction (2-3 months)
+- [ ] Monitor Carrot (6 sites), AIQ (5 sites) for failures
 - [ ] Promote to stable once reliable — move platform names into `PLATFORM_GROUPS["stable"]`
 - [ ] Investigate SLV — may need Treez-specific scraper if Dutchie fallback fails
 - [ ] Nevada Made Henderson/Warm Springs — retry periodically, may come back online
@@ -394,6 +684,25 @@ More coverage in Vegas = better product = better retention. This is the cheapest
 - [x] Add `og:image` for social share previews (shipped Feb 10)
 
 **Phase A exit criteria:** 15+ active testers, 30%+ D7 retention, users sharing the app organically.
+
+#### A5. Post-Beta Feature Releases (April — after hundreds of testers + data)
+These features are fully built in the backend and ready to surface. Hold for post-PMF marketing push — release as "new features" once we have traction and are actively growing.
+
+**Price History / Price Trends (Backend 100% / Frontend 0%)**
+- Migration 025 creates `price_history` with daily price snapshots per product per dispensary
+- Scraper already writes to it every run — data is accumulating silently
+- Frontend has zero queries to this table today
+- **When to release:** Once we have 30-60 days of price data and active users who would benefit from trend context
+- **What to build:** "Price dropped" badges on deal cards, historical price chart in DealModal, "lowest we've seen" indicators, price trend arrows
+- `lib/socialProof.ts` already has badge functions like `getSocialProofBadges()` scaffolded but never called — wire them up when ready
+
+**Social Proof / Save Counts (Backend 100% / Frontend ~10%)**
+- API already fetches `deal_save_counts` and maps them to `deal.save_count` on every page load
+- `lib/socialProof.ts` has a complete system built: `getSaveCountText()`, `formatSaveCount()`, badges like "25 shoppers grabbed this", "trending" indicators
+- None of it is rendered — the data is fetched, the functions exist, but no component calls them
+- DealCard and DealModal both ignore `save_count`
+- **When to release:** Once we have enough daily active users that save counts are meaningful (50+ DAU). Showing "2 people saved this" is worse than showing nothing — wait until numbers create real FOMO
+- **What to build:** Social proof badges on DealCard (hot deal / trending), save count in DealModal, possibly "X people saved this today" as a feed-level signal
 
 ---
 
@@ -431,7 +740,7 @@ Only start once Vegas retention is solid (30%+ D7, growing user base, organic sh
 - [ ] Add ~35-40 Michigan-native brands to brand DB (Platinum Vape, MKX, Lume, Skymint, Element, Michigrown, Redbud Roots, etc.)
 - [ ] Wave 1: Detroit metro Dutchie sites (Lume, Skymint, JARS, Cloud Cannabis) — ~80 locations with existing `dutchie.py`
 - [ ] Wave 2: Herbana, Joyology, High Profile, Pleasantrees, Pinnacle — ~30 locations
-- [ ] Wave 3: Curaleaf MI + Zen Leaf MI — ~8 locations with existing `curaleaf.py`
+- [ ] Wave 3: Curaleaf MI — with existing `curaleaf.py`
 - [ ] Wave 4: Jane independents (Nirvana Center, etc.) — ~50+ locations
 - [ ] Target: ~170 MI dispensaries scraped with zero new scraper development
 
@@ -442,7 +751,7 @@ Why Michigan first: lowest US prices = deal-obsessed consumers, Dutchie dominant
 - [ ] Add ~30-40 IL brands (Revolution, Aeriz, Bedford Grow, Cresco sub-brands: High Supply, Mindy's, Good News)
 - [ ] Map MSO brand families: Cresco→High Supply/Mindy's/Good News, GTI→Rhythm/Dogwalkers/Beboe, Verano→Encore/Avexia, Ascend→Ozone/Simply Herb
 - [ ] Wave 1: Rise IL (10-12 locations) — existing `rise.py` works
-- [ ] Wave 2: Zen Leaf IL + Curaleaf IL — ~14 locations with existing scrapers
+- [ ] Wave 2: Curaleaf IL — with existing scrapers
 - [ ] Wave 3: Ascend, Nature's Care, EarthMed, Cannabist (Dutchie) — ~20 locations
 - [ ] Wave 4: Beyond/Hello, Verilife, Consume, Thrive IL (Jane) — ~15 locations
 - [ ] Wave 5: Remaining Dutchie + Jane independents — ~30+ locations

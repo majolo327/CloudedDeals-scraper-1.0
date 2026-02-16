@@ -398,6 +398,5 @@ export const BRANDS: Brand[] = [
   b('Yellowstone', 'local', ['flower']),
 
   // Z
-  b('Zen Leaf', 'established', ['flower', 'vape']),
   b('Zing', 'value', ['edible']),
 ];

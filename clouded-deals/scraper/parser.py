@@ -25,6 +25,14 @@ _RE_WAS_NOW = re.compile(
     re.IGNORECASE,
 )
 
+# "was $15 now $7 off" — the "now" amount is a discount, not a sale price.
+_RE_WAS_NOW_OFF = re.compile(
+    r"was\s+\$\s*(?P<original>[\d]+(?:\.[\d]{1,2})?)"
+    r"\s+now\s+\$\s*(?P<discount>[\d]+(?:\.[\d]{1,2})?)"
+    r"\s*(?:off|save|discount)\b",
+    re.IGNORECASE,
+)
+
 # Any standalone "$XX.XX" token.
 _RE_DOLLAR = re.compile(r"\$\s*(?P<amt>[\d]+(?:\.[\d]{1,2})?)")
 
@@ -66,7 +74,19 @@ def extract_prices(text: str) -> dict[str, Any]:
         "discount_percent": None,
     }
 
-    # Strategy 1 — explicit "was / now" wording.
+    # Strategy 1a — "was $15 now $7 off" (discount amount, NOT sale price).
+    m = _RE_WAS_NOW_OFF.search(text)
+    if m:
+        orig = float(m.group("original"))
+        disc_amt = float(m.group("discount"))
+        inferred_sale = round(orig - disc_amt, 2)
+        if inferred_sale > 3:
+            result["original_price"] = orig
+            result["sale_price"] = inferred_sale
+            result["discount_percent"] = _calc_discount(orig, inferred_sale)
+            return result
+
+    # Strategy 1b — explicit "was / now" wording.
     m = _RE_WAS_NOW.search(text)
     if m:
         result["original_price"] = float(m.group("original"))
@@ -135,6 +155,12 @@ def extract_prices(text: str) -> dict[str, Any]:
     discount_label_spans = [
         (m.start(), m.end()) for m in _RE_DISCOUNT_LABEL.finditer(text)
     ]
+    # Capture discount amounts from labels (e.g. "$7 off" → 7.0)
+    discount_label_amounts = [
+        float(dm.group("amt"))
+        for dm in _RE_DOLLAR.finditer(text)
+        if any(start <= dm.start() < end for start, end in discount_label_spans)
+    ]
     amounts = []
     for m in _RE_DOLLAR.finditer(text):
         # Skip this dollar amount if it falls inside a discount label
@@ -151,6 +177,17 @@ def extract_prices(text: str) -> dict[str, Any]:
         result["original_price"] = original
         result["sale_price"] = sale
         result["discount_percent"] = _calc_discount(original, sale)
+    elif len(amounts) == 1 and discount_label_amounts:
+        # Single price + "$X off" label: compute sale = price - discount
+        price = amounts[0]
+        disc_amt = discount_label_amounts[0]
+        inferred_sale = round(price - disc_amt, 2)
+        if inferred_sale > 3:
+            result["original_price"] = price
+            result["sale_price"] = inferred_sale
+            result["discount_percent"] = _calc_discount(price, inferred_sale)
+        else:
+            result["sale_price"] = price
     elif len(amounts) == 1:
         result["sale_price"] = amounts[0]
 
@@ -166,9 +203,9 @@ def _calc_discount(original: float, sale: float) -> float | None:
 def validate_prices(parsed: dict[str, Any]) -> dict[str, Any]:
     """Post-parse price sanity checks. Fixes common scraping errors.
 
+    - Detects discount amounts misread as sale prices (FIRST)
     - Swaps original/sale when inverted
-    - Detects discount amounts misread as sale prices
-    - Flags suspiciously low prices
+    - Clears fake discounts where prices are equal
     """
     sale = parsed.get("sale_price")
     original = parsed.get("original_price")
@@ -176,25 +213,28 @@ def validate_prices(parsed: dict[str, Any]) -> dict[str, Any]:
     if not sale or sale <= 0:
         return parsed
 
-    # Rule 1: If sale_price > original_price, they're swapped
+    # Rule 1 (was Rule 3): Detect discount amounts misread as sale prices.
+    # Must run BEFORE swap logic so "$X off" values aren't reinterpreted.
+    # Heuristic: sale < $10 and sale < 25% of original → likely a discount
+    # amount (e.g. "$7 off" parsed as "$7").
+    if original and original > sale and sale < 10 and sale / original < 0.25:
+        inferred_sale = original - sale
+        if inferred_sale > 3:
+            parsed["sale_price"] = inferred_sale
+            sale = inferred_sale
+            parsed["discount_percent"] = _calc_discount(original, inferred_sale)
+
+    # Rule 2: If sale_price > original_price, they're swapped
     if original and original < sale:
         parsed["original_price"] = sale
         parsed["sale_price"] = original
         sale, original = original, sale
         parsed["discount_percent"] = _calc_discount(original, sale)
 
-    # Rule 2: If original == sale, no real discount
+    # Rule 3: If original == sale, no real discount
     if original and original == sale:
         parsed["original_price"] = None
         parsed["discount_percent"] = None
-
-    # Rule 3: If sale_price < $3 and we have an original, this might be
-    # a discount amount that slipped through (e.g., "$3 off" parsed as "$3")
-    if sale < 3 and original and original > sale:
-        inferred_sale = original - sale
-        if inferred_sale > 3:
-            parsed["sale_price"] = inferred_sale
-            parsed["discount_percent"] = _calc_discount(original, inferred_sale)
 
     return parsed
 
@@ -219,7 +259,16 @@ _WEIGHT_ALIASES: dict[str, float] = {
     "half":    14.0,
 }
 
-_RE_FRACTION = re.compile(r"\b1/8\b")
+# Fractional-oz patterns: "1/8", "1/8oz", "1/4oz", "1/2oz" (optional space
+# before "oz").  MUST be checked BEFORE _RE_WEIGHT_METRIC because that regex
+# would incorrectly match the denominator alone (e.g. "8oz" from "1/8oz").
+_RE_FRAC_OZ = re.compile(r"\b(1/[248])\s*(?:oz)?\b", re.IGNORECASE)
+
+_FRAC_TO_GRAMS: dict[str, float] = {
+    "1/8": 3.5,
+    "1/4": 7.0,
+    "1/2": 14.0,
+}
 
 
 def extract_weight(text: str) -> dict[str, Any]:
@@ -229,14 +278,33 @@ def extract_weight(text: str) -> dict[str, Any]:
     {'weight_value': 3.5, 'weight_unit': 'g'}
     >>> extract_weight("Premium Eighth")
     {'weight_value': 3.5, 'weight_unit': 'g'}
+    >>> extract_weight("Rove 1/8oz")
+    {'weight_value': 3.5, 'weight_unit': 'g'}
     """
     result: dict[str, Any] = {"weight_value": None, "weight_unit": None}
+
+    # Fractional-oz patterns FIRST: "1/8", "1/8oz", "1/4oz", "1/2oz".
+    # MUST check before _RE_WEIGHT_METRIC which incorrectly matches the
+    # denominator as a standalone number (e.g. "8oz" from "1/8oz").
+    frac_m = _RE_FRAC_OZ.search(text)
+    if frac_m:
+        frac = frac_m.group(1)
+        grams = _FRAC_TO_GRAMS.get(frac)
+        if grams is not None:
+            result["weight_value"] = grams
+            result["weight_unit"] = "g"
+            return result
 
     # Explicit numeric weight (3.5g, 100mg, 1oz).
     m = _RE_WEIGHT_METRIC.search(text)
     if m:
         value = float(m.group("qty"))
         unit = m.group("unit").lower()
+
+        # Convert oz to grams (e.g. "1oz" → 28g)
+        if unit == "oz":
+            value = round(value * 28, 1)
+            unit = "g"
 
         # Sanity check: vapes/carts should not exceed 2 g. A value like
         # 5.0 g is almost certainly 0.5 g with a misplaced decimal.
@@ -252,17 +320,11 @@ def extract_weight(text: str) -> dict[str, Any]:
         result["weight_unit"] = unit
         return result
 
-    # Fractional "1/8".
-    if _RE_FRACTION.search(text):
-        result["weight_value"] = 3.5
-        result["weight_unit"] = "g"
-        return result
-
-    # Named aliases.
+    # Named aliases ("eighth", "quarter", "half").
     lower = text.lower()
     for alias, grams in _WEIGHT_ALIASES.items():
         if alias == "1/8":
-            continue  # already handled above
+            continue  # already handled by _RE_FRAC_OZ above
         if re.search(rf"\b{alias}\b", lower):
             result["weight_value"] = grams
             result["weight_unit"] = "g"
@@ -340,7 +402,6 @@ KNOWN_BRANDS: list[str] = [
     "Cultivate",
     "Essence",
     "Thrive",
-    "Zen Leaf",
     "NuLeaf",
     "Oasis",
     # -- Additional well-known brands --
@@ -367,6 +428,7 @@ KNOWN_BRANDS: list[str] = [
     "Grön",
     "Lost Farm",
     "MÜV",
+    "MUV",
     "Phat Panda",
     "Punch Edibles",
     "Robhots",
@@ -378,26 +440,18 @@ KNOWN_BRANDS: list[str] = [
     "Stone Road",
     "WYLD CBD",
     "Fig Farms",
-    "Gelato",
     "Lemonnade",
     "Grandiflora",
-    "Blaze",
-    "Bouquet",
     "Cannalean",
     "Cheeba Chews",
-    "Chews",
     "Curaleaf",
     "GTI",
-    "Harvest",
-    "Holistic",
     "IGO",
     "Leaf & Vine",
     "Local Cannabis",
     "Medizin",
     "MedMen",
-    "MM",
     "Nuvaria",
-    "Roots",
     "Shango",
     "Terra",
     "Trulieve",
@@ -422,8 +476,6 @@ KNOWN_BRANDS: list[str] = [
     "Highlights",
     "Hijinks",
     "Houseplant",
-    "Incredibles",
-    "INDO",
     "JAMS",
     "Just Edibles",
     "Keef",
@@ -437,7 +489,6 @@ KNOWN_BRANDS: list[str] = [
     "Prime",
     "Provisions",
     "Redwood",
-    "Remedy",
     "Reserve",
     "RNBW",
     "RYTHM",
@@ -445,7 +496,6 @@ KNOWN_BRANDS: list[str] = [
     "SeCHe",
     "Sip",
     "Smyle Labs",
-    "Srene",
     "Superior",
     "THC Design",
     "The Lab",
@@ -454,7 +504,18 @@ KNOWN_BRANDS: list[str] = [
     "Vapure",
     "Verano",
     "Voon",
-    "Wana",
+    # -- Added from Gibson brand audit (2026-02-11) --
+    "Ballers",
+    "Bits",
+    "Blink",
+    "Bohemian Brothers",
+    "Flower One",
+    "GLP",
+    "HSH",
+    "INDO",
+    "Kanji",
+    "LEVEL",
+    "LIT",
 ]
 
 # Brand name variations for fuzzy matching — maps variant spellings
@@ -509,7 +570,9 @@ def detect_brand(text: str) -> str | None:
     """Return the first known brand found in *text*, or ``None``.
 
     Checks exact brand names first, then falls back to known
-    brand-name variations (fuzzy matching).
+    brand-name variations (fuzzy matching).  Matches against
+    ``NOT_BRANDS`` are silently discarded to prevent generic words
+    (colours, product types, promo terms) from being treated as brands.
 
     >>> detect_brand("STIIIZY Premium Pod 1g")
     'STIIIZY'
@@ -538,13 +601,21 @@ def detect_brand(text: str) -> str | None:
 # =====================================================================
 # 4. Category detection
 # =====================================================================
+# DEPRECATED: These functions are NOT used in production.
+# The canonical category detection system is CloudedLogic.detect_category()
+# in clouded_logic.py (10-step hierarchical detection with vape/concentrate
+# disambiguation and weight-based inference).
+#
+# These simpler keyword-based functions remain only for test_parser.py
+# backwards compatibility.  Do NOT use them in new code.
+# =====================================================================
 
 CATEGORY_KEYWORDS: dict[str, list[str]] = {
     "skip":        ["rso", "tincture", "topical", "capsule", "cbd only",
                     "merch", "balm", "salve", "ointment", "lotion",
                     "transdermal", "patch", "roll-on", "suppository"],
-    "flower":      ["flower", "bud", "eighth", "quarter", "half oz",
-                    "nug", "smalls", "shake"],
+    "flower":      ["flower", "bud", "buds", "eighth", "quarter", "half oz",
+                    "nug", "smalls", "shake", "popcorn"],
     "preroll":     ["pre-roll", "pre roll", "preroll", "joint", "blunt",
                     "infused roll", "pr's", "prs"],
     "concentrate": ["wax", "shatter", "live resin", "live rosin", "rosin",
@@ -552,7 +623,7 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
                     "diamond", "sugar", "concentrate", "dab", "hash",
                     "kief"],
     "vape":        ["cart", "cartridge", "pod", "disposable", "vape",
-                    "510"],
+                    "510", "pen"],
     "edible":      ["gummy", "gummies", "chocolate", "beverage", "drink",
                     "edible", "chew", "lozenge", "mint", "cookie",
                     "brownie", "candy"],
@@ -580,6 +651,30 @@ def detect_category(text: str) -> str | None:
     for category, pattern in _CATEGORY_PATTERNS.items():
         if pattern.search(text):
             return category
+    return None
+
+
+def infer_category_from_weight(
+    weight_value: float | None,
+    weight_unit: str | None,
+) -> str | None:
+    """Fallback category inference when no keyword match is found.
+
+    Uses the weight value and unit as a heuristic:
+      - mg → edible (100mg gummies, etc.)
+      - g ≥ 3.5 → flower (eighths and up)
+      - g < 3.5 → concentrate (0.5g–1g dabs/wax)
+      - no weight → vape (carts often omit weight in text)
+
+    Returns ``None`` when there is insufficient data to guess.
+    """
+    if weight_unit == "mg":
+        return "edible"
+    if weight_unit == "g" and weight_value is not None:
+        return "flower" if weight_value >= 3.5 else "concentrate"
+    # No weight info at all — most likely a vape cart / pod
+    if weight_value is None and weight_unit is None:
+        return "vape"
     return None
 
 
@@ -643,6 +738,14 @@ def parse_product(raw: dict[str, Any]) -> dict[str, Any]:
     parsed.update(extract_weight(text))
     parsed.update(extract_cannabinoids(text))
     parsed["brand"] = detect_brand(text)
-    parsed["category"] = detect_category(text)
+
+    # Category: keyword match first, weight-based fallback if no match.
+    category = detect_category(text)
+    if category is None:
+        category = infer_category_from_weight(
+            parsed.get("weight_value"),
+            parsed.get("weight_unit"),
+        )
+    parsed["category"] = category
 
     return parsed

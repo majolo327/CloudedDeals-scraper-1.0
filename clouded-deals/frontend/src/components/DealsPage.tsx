@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { LayoutGrid, Layers } from 'lucide-react';
+import { Clock, ChevronDown } from 'lucide-react';
 import type { Deal } from '@/types';
 import { DealCard } from './cards';
 import { SwipeOverlay } from './SwipeOverlay';
@@ -10,7 +10,7 @@ import { ExpiredDealsBanner } from './ExpiredDealsBanner';
 import { FilterSheet } from './FilterSheet';
 import { StickyStatsBar } from './layout';
 import { DealCardSkeleton } from './Skeleton';
-import { formatUpdateTime, getTimeUntilMidnight } from '@/utils';
+import { getTimeUntilMidnight } from '@/utils';
 import { useDeck } from '@/hooks/useDeck';
 import { useUniversalFilters, formatDistance } from '@/hooks/useUniversalFilters';
 
@@ -18,12 +18,12 @@ type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'prer
 
 interface DealsPageProps {
   deals: Deal[];
+  expiredDeals?: Deal[];
   savedDeals: Set<string>;
   usedDeals: Map<string, number>;
   toggleSavedDeal: (id: string) => void;
   setSelectedDeal: (deal: Deal | null) => void;
   savedCount: number;
-  streak: number;
   isExpired?: boolean;
   onDismissDeal?: () => void;
   onShareSaves?: () => void;
@@ -31,12 +31,12 @@ interface DealsPageProps {
 
 export function DealsPage({
   deals,
+  expiredDeals = [],
   savedDeals,
   usedDeals,
   toggleSavedDeal,
   setSelectedDeal,
   savedCount,
-  streak,
   isExpired = false,
   onDismissDeal,
   onShareSaves,
@@ -45,6 +45,7 @@ export function DealsPage({
   const [isLoading, setIsLoading] = useState(true);
   const [countdown, setCountdown] = useState(() => getTimeUntilMidnight());
   const [swipeOpen, setSwipeOpen] = useState(false);
+  const [pastDealsExpanded, setPastDealsExpanded] = useState(false);
 
   const {
     filters,
@@ -52,9 +53,14 @@ export function DealsPage({
     resetFilters,
     activeFilterCount,
     userCoords,
-    getDistance,
+    refreshLocation,
     filterAndSortDeals,
   } = useUniversalFilters();
+
+  const handleLocationSet = useCallback(() => {
+    refreshLocation();
+    setFilters({ ...filters, sortBy: 'distance' });
+  }, [refreshLocation, setFilters, filters]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -73,13 +79,15 @@ export function DealsPage({
     filters.priceRange !== 'all' || filters.minDiscount > 0 || filters.distanceRange !== 'all' ||
     filters.weightFilter !== 'all';
 
-  // Apply category tab first, then universal filters
-  const filteredDeals = useMemo(() => {
-    let result = deals.filter(
+  // Apply category tab first, then universal filters.
+  // distanceMap is pre-computed once inside filterAndSortDeals so we
+  // don't recalculate getDistance() per-deal on every render.
+  const { filteredDeals, distanceMap } = useMemo(() => {
+    const catResult = deals.filter(
       (d) => activeCategory === 'all' || d.category.toLowerCase() === activeCategory
     );
-    result = filterAndSortDeals(result);
-    return result;
+    const { filtered, distanceMap } = filterAndSortDeals(catResult);
+    return { filteredDeals: filtered, distanceMap };
   }, [deals, activeCategory, filterAndSortDeals]);
 
   // Deck is always active — users interact with 12 cards at a time, never infinite scroll.
@@ -100,8 +108,6 @@ export function DealsPage({
   return (
     <>
       <StickyStatsBar
-        savedCount={savedCount}
-        streak={streak}
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
       >
@@ -112,6 +118,7 @@ export function DealsPage({
           hasLocation={!!userCoords}
           onReset={resetFilters}
           activeFilterCount={activeFilterCount}
+          onLocationSet={handleLocationSet}
         />
       </StickyStatsBar>
 
@@ -120,81 +127,23 @@ export function DealsPage({
           {/* Expired deals banner */}
           {isExpired && <ExpiredDealsBanner expiredCount={deals.length} />}
 
-          {/* Header row */}
-          <div className="flex items-center justify-between mb-4 gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <h2 className="text-sm font-medium text-slate-300 shrink-0">
-                {isExpired ? "Yesterday's deals" : "Today's deals"}{deals.length > 0 ? ` (${deals.length})` : ''}
-              </h2>
-              {deals.length > 0 && !isExpired && (
-                <span className="text-xs text-slate-500 font-normal truncate">{formatUpdateTime(deals)}</span>
-              )}
-              {isExpired && (
-                <span className="text-xs text-amber-500/70 font-normal truncate">prices may have changed</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {/* View mode toggle — swipe button opens fullscreen overlay */}
-              <div
-                data-coach="view-toggle"
-                className="flex items-center bg-slate-800/60 rounded-lg p-0.5 border border-slate-700/50"
-                role="group"
-                aria-label="View mode"
-              >
-                <button
-                  aria-label="Grid view"
-                  className="p-1.5 rounded-md transition-all bg-purple-500/20 text-purple-400"
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  aria-label="Open swipe mode"
-                  onClick={() => setSwipeOpen(true)}
-                  className="p-1.5 rounded-md transition-all text-slate-500 hover:text-slate-300"
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <span className="text-[11px] text-slate-600">
-                {countdown}
-              </span>
-            </div>
-          </div>
-
-          {/* Deck progress bar — after first dismiss */}
-          {deck.totalDeals > 0 && deck.dismissedCount > 0 && (
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] text-slate-500">
-                  {deck.seenCount} of {deck.totalDeals} deals seen
-                </span>
-                <span className="text-[11px] text-slate-600">
-                  {deck.totalDeals - deck.seenCount} remaining
-                </span>
-              </div>
-              <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${(deck.seenCount / deck.totalDeals) * 100}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Active filter indicator */}
-          {hasActiveFilters && (
-            <div className="flex items-center justify-between mb-3 px-1">
-              <span className="text-xs text-slate-400 font-medium">
-                {filteredDeals.length} deal{filteredDeals.length !== 1 ? 's' : ''}
-              </span>
+          {/* Header row — clean and minimal */}
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-medium text-slate-300">
+              {isExpired ? "Yesterday's deals" : "Today's deals"}{deals.length > 0 ? ` (${deals.length})` : ''}
+            </h2>
+            {isExpired && (
+              <span className="text-xs text-amber-400/80">prices may have changed</span>
+            )}
+            {hasActiveFilters && (
               <button
                 onClick={resetFilters}
                 className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
               >
                 Clear filters
               </button>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Deal content — always grid mode */}
           {isLoading ? (
@@ -212,7 +161,7 @@ export function DealsPage({
               <p className="text-sm text-slate-500 mb-1">
                 New deals drop every morning at 8 AM.
               </p>
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-slate-500">
                 Refreshes in {countdown}
               </p>
             </div>
@@ -221,7 +170,7 @@ export function DealsPage({
               <p className="text-slate-400 text-sm mb-2">
                 Nothing matches right now
               </p>
-              <p className="text-slate-600 text-xs mb-4">
+              <p className="text-slate-500 text-xs mb-4">
                 Deals refresh every morning &mdash; or try loosening your filters.
               </p>
               <button
@@ -247,7 +196,7 @@ export function DealsPage({
               {deck.visible.map((deal, index) => {
                 const isDismissing = deck.dismissingId === deal.id;
                 const isAppearing = deck.appearingId === deal.id;
-                const distance = getDistance(deal.dispensary.latitude, deal.dispensary.longitude);
+                const distance = distanceMap.get(deal.id) ?? null;
 
                 const isJackpotReveal =
                   isAppearing &&
@@ -291,6 +240,51 @@ export function DealsPage({
             </div>
           )}
         </div>
+
+        {/* Past Deals section — shown below active deals */}
+        {expiredDeals.length > 0 && !isExpired && (
+          <div className="mt-8 border-t border-slate-800/60 pt-6">
+            <button
+              onClick={() => setPastDealsExpanded(!pastDealsExpanded)}
+              className="w-full flex items-center justify-between mb-4 group"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-slate-800/60 flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-slate-500" />
+                </div>
+                <div className="text-left">
+                  <h3 className="text-sm font-medium text-slate-400">
+                    Past Deals
+                    <span className="text-slate-500 font-normal ml-1.5">({expiredDeals.length})</span>
+                  </h3>
+                  <p className="text-xs text-slate-500">Yesterday&apos;s deals — prices may have changed</p>
+                </div>
+              </div>
+              <ChevronDown
+                className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${
+                  pastDealsExpanded ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            {pastDealsExpanded && (
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                {expiredDeals.map((deal) => (
+                  <div key={deal.id}>
+                    <DealCard
+                      deal={deal}
+                      isSaved={savedDeals.has(deal.id)}
+                      isUsed={usedDeals.has(deal.id)}
+                      isExpired={true}
+                      onSave={() => toggleSavedDeal(deal.id)}
+                      onClick={() => setSelectedDeal(deal)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Fullscreen swipe overlay — portal-based, covers everything */}

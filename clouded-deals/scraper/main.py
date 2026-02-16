@@ -16,6 +16,11 @@ Environment variables (for CI):
     PLATFORM_GROUP=stable     # scrape only stable platforms (dutchie/curaleaf/jane)
     PLATFORM_GROUP=new        # scrape only new platforms (rise/carrot/aiq)
     PLATFORM_GROUP=all        # scrape everything (default)
+    REGION=southern-nv        # scrape only one region/state
+    REGION=michigan           # scrape only Michigan dispensaries
+    REGION=illinois           # scrape only Illinois dispensaries
+    REGION=arizona            # scrape only Arizona dispensaries
+    REGION=all                # scrape all regions (default)
 """
 
 from __future__ import annotations
@@ -23,11 +28,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import random
 import re
 import sys
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse as _urlparse
 
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -37,15 +45,33 @@ from playwright.async_api import async_playwright
 from config.dispensaries import (
     BROWSER_ARGS, DISPENSARIES, SITE_TIMEOUT_SEC,
     get_platforms_for_group, get_dispensaries_by_group,
+    get_dispensaries_by_region,
 )
-from clouded_logic import CloudedLogic
+from clouded_logic import CloudedLogic, BRANDS_LOWER
 from deal_detector import detect_deals, get_last_report_data
 from metrics_collector import collect_daily_metrics
 from product_classifier import classify_product
 from platforms import AIQScraper, CarrotScraper, CuraleafScraper, DutchieScraper, JaneScraper, RiseScraper
 
-# Concurrency limit for parallel scraping (4 browser contexts at once)
-SCRAPE_CONCURRENCY = int(os.getenv("SCRAPE_CONCURRENCY", "4"))
+# Concurrency limit for parallel scraping.
+# SCRAPE_CONCURRENCY controls total browser contexts at once (default 6).
+# Dutchie sites are the heaviest (JS embeds, age gates, iframes, pagination)
+# so they get a tighter sub-limit to prevent resource contention that causes
+# transient timeouts on slower sites (Planet 13, TD Decatur, etc.).
+SCRAPE_CONCURRENCY = int(os.getenv("SCRAPE_CONCURRENCY", "6"))
+
+# Per-platform concurrency caps — prevents heavy platforms from starving
+# lighter ones.  Dutchie sites use the most memory/CPU (full JS execution,
+# iframe rendering, multi-page pagination), so capping them leaves headroom
+# for Jane/Curaleaf/AIQ sites to run without contention.
+_PLATFORM_CONCURRENCY = {
+    "dutchie": int(os.getenv("DUTCHIE_CONCURRENCY", "3")),
+    "jane": int(os.getenv("JANE_CONCURRENCY", "4")),
+    "curaleaf": int(os.getenv("CURALEAF_CONCURRENCY", "4")),
+    "aiq": int(os.getenv("AIQ_CONCURRENCY", "3")),
+    "carrot": int(os.getenv("CARROT_CONCURRENCY", "3")),
+    "rise": int(os.getenv("RISE_CONCURRENCY", "2")),
+}
 
 load_dotenv()
 
@@ -70,6 +96,10 @@ FORCE_RUN = os.getenv("FORCE_RUN", "false").lower() == "true"
 # When set, only dispensaries from that group are scraped and only
 # their stale products are deactivated — other groups are untouched.
 PLATFORM_GROUP = os.getenv("PLATFORM_GROUP", "all").lower()
+
+# Region filter: "southern-nv", "michigan", "illinois", "arizona", or "all".
+# When set, only dispensaries from that region are scraped.
+REGION = os.getenv("REGION", "all").lower()
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     logger.error("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set")
@@ -101,10 +131,10 @@ def _create_run() -> str:
     if DRY_RUN:
         logger.info("[DRY RUN] Would create scrape_runs entry")
         return "dry-run"
-    payload: dict[str, Any] = {"status": "running"}
+    payload: dict[str, Any] = {"status": "running", "region": REGION, "platform_group": PLATFORM_GROUP}
     row = db.table("scrape_runs").insert(payload).execute()
     run_id: str = row.data[0]["id"]
-    logger.info("Scrape run started: %s (group=%s)", run_id, PLATFORM_GROUP)
+    logger.info("Scrape run started: %s (region=%s, group=%s)", run_id, REGION, PLATFORM_GROUP)
     return run_id
 
 
@@ -186,6 +216,29 @@ def _deactivate_old_deals(group_slugs: list[str] | None = None) -> None:
     if count > 0:
         scope = f"group={PLATFORM_GROUP}" if group_slugs else "all"
         logger.info("Deactivated %d old products (%s)", count, scope)
+
+    # Also deactivate stale products from INACTIVE dispensaries.
+    # When a site is deactivated in config (is_active=False), its old
+    # products remain is_active=True in the DB because the site is no
+    # longer included in group_slugs.  This cleanup catches those orphans.
+    inactive_slugs = [
+        d["slug"] for d in DISPENSARIES
+        if not d.get("is_active", True)
+    ]
+    if inactive_slugs:
+        inactive_result = (
+            db.table("products")
+            .update({"is_active": False, "deal_score": 0})
+            .eq("is_active", True)
+            .in_("dispensary_id", inactive_slugs)
+            .execute()
+        )
+        inactive_count = len(inactive_result.data) if inactive_result.data else 0
+        if inactive_count > 0:
+            logger.info(
+                "Deactivated %d orphan products from %d inactive dispensaries",
+                inactive_count, len(inactive_slugs),
+            )
 
 
 _UPSERT_CHUNK_SIZE = 500  # max rows per Supabase upsert call
@@ -332,8 +385,12 @@ _SALE_COPY_PATTERNS = [
 ]
 
 
-# Names that are strain types / classifications, NOT real product names.
-_STRAIN_ONLY_NAMES = {"indica", "sativa", "hybrid", "cbd", "thc", "unknown"}
+# Names that are strain types, classifications, or category labels — NOT real product names.
+_STRAIN_ONLY_NAMES = {
+    "indica", "sativa", "hybrid", "cbd", "thc", "unknown",
+    "flower", "vape", "edible", "concentrate", "preroll", "pre-roll",
+    "cartridge", "cart", "badder", "shatter", "wax", "gummy", "gummies",
+}
 
 # ── Offer/bundle text isolation for brand detection ──────────────────
 # When Dutchie product cards include "Special Offers" sections, those
@@ -348,7 +405,16 @@ _RE_OFFER_SECTION = re.compile(
     r"|(?:\bOffer\b.*\bShop\b.*$)"             # variant "Offer … Shop"
     r"|(?:\bselect\s+\$\d+.*$)"               # "select $20 eighths 2/$30 …" promo
     r"|(?:^\d+\s*\([^)]+\)\s+\w+.*-\s*\$\d+.*$)"  # "2 (.5g) Disposables - $60"
-    r"|(?:^.{0,40}\+\s*.{3,40}-\s*\$\d+.*$)",  # "Brand X + Brand Y - $40" bundle
+    r"|(?:^.{0,40}\+\s*.{3,40}-\s*\$\d+.*$)"  # "Brand X + Brand Y - $40" bundle
+    r"|(?:\bIncluded?\s+(?:in|with)\b.*$)"     # "Included in: 2/$40 Concentrates…"
+    r"|(?:\bPart\s+of\b.*$)"                   # "Part of: Mix & Match…"
+    r"|(?:\bMix\s*(?:&|and|n)\s*Match\b.*$)"   # "Mix & Match 2/$40…"
+    r"|(?:\d+\s+for\s+\$\d+.*$)"              # "2 for $40 Rove, AMA…"
+    r"|(?:\bBOGO\b.*$)"                        # "BOGO on select brands…"
+    r"|(?:\bBundle\b.*$)"                       # "Bundle deal: …"
+    r"|(?:\bDeal\s*:.*$)"                       # "Deal: 2/$60 …"
+    r"|(?:\bPromo\s*:.*$)"                      # "Promo: …"
+    r"|(?:\bAlso\s+(?:included?|available)\b.*$)",  # "Also included: Rove, Reserve…"
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -364,6 +430,37 @@ def _strip_offer_text(raw_text: str) -> str:
     if not raw_text:
         return ""
     return _RE_OFFER_SECTION.sub("", raw_text).strip()
+
+
+# ── URL-based brand extraction ─────────────────────────────────────────
+# Product URLs often contain the brand slug (e.g. "/brands/rove/...",
+# "/rove-featured-farms-1g", "brand=rove").  This is a high-confidence
+# signal that avoids false positives from product name parsing.
+
+def _extract_brand_from_url(url: str) -> str | None:
+    """Return canonical brand name if found in the product URL."""
+    if not url:
+        return None
+    # Normalize: lowercase, replace hyphens/underscores with spaces for matching
+    url_lower = url.lower()
+    url_normalized = url_lower.replace("-", " ").replace("_", " ")
+
+    # Check each known brand against the URL (longest brands first to avoid
+    # partial matches — e.g. "raw garden" before "raw")
+    for brand_lower, canonical in sorted(
+        BRANDS_LOWER.items(), key=lambda x: len(x[0]), reverse=True
+    ):
+        # Match brand as a path segment or query param value
+        if (
+            f"/{brand_lower}/" in url_lower
+            or f"/{brand_lower}?" in url_lower
+            or f"brand={brand_lower}" in url_lower
+            or f"/{brand_lower.replace(' ', '-')}/" in url_lower
+            or f"/{brand_lower.replace(' ', '-')}-" in url_lower
+            or f"-{brand_lower.replace(' ', '-')}-" in url_lower
+        ):
+            return canonical
+    return None
 
 
 # Leading strain-type prefix (e.g. "Indica OG Kush" → "OG Kush")
@@ -429,6 +526,28 @@ def _clean_product_name(name: str) -> str:
 
     # Strip "Prepack", "Whole Flower", "Flower Prepack"
     cleaned = _RE_PREPACK.sub("", cleaned)
+
+    # Strip inline cannabinoid content that leaks from Dutchie product cards
+    # e.g. "THC: 101.52 mg", "CBD: 25.0 mg", "CBN: 5 mg"
+    cleaned = re.sub(r"\b(?:THC|CBD|CBN|CBG|CBC)\s*:\s*[\d.]+\s*(?:mg|%)", "", cleaned, flags=re.IGNORECASE)
+
+    # Fix "mgmg" doubling artifact — "100mgmg" → "100mg"
+    cleaned = re.sub(r"(\d+\s*mg)\s*mg\b", r"\1", cleaned, flags=re.IGNORECASE)
+
+    # Strip standalone "mg" that remains after cannabinoid cleanup
+    # e.g. "Sativamg" → "Sativa", "Hybridmg" → "Hybrid"
+    cleaned = re.sub(r"(Indica|Sativa|Hybrid)\s*mg\b", r"\1", cleaned, flags=re.IGNORECASE)
+
+    # Strip promotional taglines that leak from Dutchie product badges/ribbons
+    cleaned = re.sub(r"\bLocal Love!?", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bNew Arrival!?", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bLimited Time!?", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bStaff Pick!?", "", cleaned, flags=re.IGNORECASE)
+    # Day-of-week promo labels: "Remedy Wednesday", "Mojo Monday"
+    cleaned = re.sub(r"\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b", "", cleaned, flags=re.IGNORECASE)
+
+    # Strip parenthetical strain codes: "(SH)", "(I)", "(S)", "(H)", "(IH)", "(SH)"
+    cleaned = re.sub(r"\s*\(\s*(?:SH?|IH?|H)\s*\)", "", cleaned, flags=re.IGNORECASE)
 
     # Strip inline price/deal text fragments that slip into product names
     # e.g. "$99 $45 1/2 OZ" or "1/2 OZ" at end of name
@@ -742,7 +861,6 @@ def _log_deal_history(
                 "last_seen_at": datetime.now(timezone.utc).isoformat(),
                 "last_seen_date": datetime.now(timezone.utc).date().isoformat(),
                 "is_active": True,
-                "times_seen": 1,  # Will be incremented by SQL on conflict
             }
         )
 
@@ -750,16 +868,14 @@ def _log_deal_history(
         return
 
     try:
-        # Upsert: on conflict (product_id, dispensary_id), update last_seen
-        # and increment times_seen.  Supabase/PostgREST upsert overwrites,
-        # so we handle the increment via a follow-up RPC or accept the
-        # simpler overwrite for now (times_seen = 1 is reset each time).
-        # TODO: Use a Postgres function for atomic increment when RPC is set up.
+        # Use RPC for atomic upsert — increments times_seen on conflict
+        # instead of resetting to 1 (see 027_upsert_deal_observation.sql).
+        # Pass the list directly — the Supabase client serializes it to a
+        # JSONB array.  json.dumps() would double-encode it into a string
+        # scalar, causing "cannot extract elements from a scalar" errors.
         for i in range(0, len(history_rows), _UPSERT_CHUNK_SIZE):
             chunk = history_rows[i : i + _UPSERT_CHUNK_SIZE]
-            db.table("deal_history").upsert(
-                chunk, on_conflict="product_id,dispensary_id"
-            ).execute()
+            db.rpc("upsert_deal_observations", {"observations": chunk}).execute()
         logger.info(
             "[%s] Logged %d deal observations to deal_history",
             dispensary_id, len(history_rows),
@@ -801,8 +917,15 @@ def _expire_stale_deal_history(group_slugs: list[str] | None = None) -> None:
 
 
 _SITE_TIMEOUT_SEC = SITE_TIMEOUT_SEC  # 600 s (from config)
-_MAX_RETRIES = 2
-_RETRY_DELAY_SEC = 5
+_RETRY_TIMEOUT_SEC = 300  # Reduced timeout on retries — if first attempt timed out at 600s, a shorter window avoids wasting another 600s
+_MAX_RETRIES = 2  # 2 attempts total — saves ~5 min per broken site vs 3
+_RETRY_DELAYS = [5, 15]  # Backoff between retries
+
+# Job-level time budget (seconds).  The orchestrator will skip retries
+# and abort new scrape attempts when the elapsed time exceeds this limit,
+# ensuring the summary report is always generated before the GitHub Actions
+# hard timeout kills the process.  Set 5 min below the GHA timeout-minutes.
+_JOB_BUDGET_SEC = int(os.getenv("JOB_BUDGET_SEC", "6900"))  # 115 min
 
 
 def _split_weight(weight_str: str | None) -> tuple[float | None, str | None]:
@@ -846,6 +969,11 @@ async def _scrape_site_inner(
     parsed: list[dict[str, Any]] = []
 
     for rp in raw_products:
+        # Ensure source_platform is always set (Jane scraper sets it;
+        # other scrapers rely on the dispensary config).
+        if "source_platform" not in rp:
+            rp["source_platform"] = platform
+
         # Clean raw inputs before CloudedLogic parsing
         raw_name = _clean_product_name(rp.get("name", ""))
         raw_text = rp.get("raw_text", "")
@@ -861,24 +989,42 @@ async def _scrape_site_inner(
         stripped_raw = _strip_offer_text(raw_text)
         clean_text = f"{raw_name} {stripped_raw}"
 
-        # Brand: try product name first, then stripped text
-        brand = logic.detect_brand(raw_name)
+        # Brand priority: scraped element > URL > product name > clean text
+        # Some scrapers (Dutchie) extract brand from a dedicated card element
+        # (e.g. "ROVE" label above the product title) — highest confidence.
+        scraped_brand = rp.get("scraped_brand", "")
+        brand = logic.detect_brand(scraped_brand) if scraped_brand else None
+        if not brand:
+            product_url = rp.get("product_url", "")
+            brand = _extract_brand_from_url(product_url)
+        if not brand:
+            brand = logic.detect_brand(raw_name)
         if not brand:
             brand = logic.detect_brand(clean_text)
 
         # Category: detect from clean text (no offer keyword pollution)
         category = logic.detect_category(clean_text)
 
-        # Concentrate correction: if clean_text caused "vape" because the
-        # surrounding page text contains "vape", but the PRODUCT NAME
-        # itself has concentrate format keywords (badder, wax, live resin…)
-        # and no vape keywords (cart, pod…), it's actually a concentrate.
-        if category == "vape" and raw_name:
+        # Concentrate correction: if category landed on "vape" but the
+        # product text has concentrate format keywords (badder, wax, live
+        # resin…) and no vape keywords (cart, pod…), it's a concentrate.
+        # Check both raw_name and clean_text so surrounding scraped text
+        # with concentrate keywords also triggers reclassification.
+        if category == "vape":
+            check_text = clean_text or raw_name or ""
             if (
-                _CONCENTRATE_NAME_KEYWORDS.search(raw_name)
-                and not _VAPE_NAME_KEYWORDS.search(raw_name)
+                _CONCENTRATE_NAME_KEYWORDS.search(check_text)
+                and not _VAPE_NAME_KEYWORDS.search(check_text)
             ):
                 category = "concentrate"
+            # If the product name itself has NO vape keywords, the "vape"
+            # classification likely came from page-context text (navigation,
+            # other products on the page, etc.).  Re-detect category from
+            # just the product name for a more accurate result.
+            elif not _VAPE_NAME_KEYWORDS.search(raw_name):
+                name_category = logic.detect_category(raw_name)
+                if name_category not in ("other", "vape"):
+                    category = name_category
 
 
         # Parse full combined text for price, weight, THC
@@ -1068,32 +1214,64 @@ async def scrape_site(
     dispensary: dict[str, Any],
     *,
     browser: Any = None,
+    deadline: float = 0,
 ) -> dict[str, Any]:
-    """Scrape a single dispensary with timeout and retry."""
+    """Scrape a single dispensary with timeout and retry.
+
+    Uses escalating backoff between retries and a reduced timeout on
+    retry attempts (if the first 600 s attempt timed out, spending
+    another 600 s on the same site is unlikely to help — 300 s is
+    enough for a warm retry where caches/DNS are primed).
+
+    When *deadline* is set (epoch timestamp), retries are skipped if
+    the job is running low on time and per-attempt timeouts are capped
+    to the remaining budget so individual sites can't overrun the job.
+    """
     slug = dispensary["slug"]
 
     for attempt in range(1, _MAX_RETRIES + 1):
+        # ── Job deadline gate ──────────────────────────────────────
+        if deadline:
+            remaining = deadline - time.time()
+            if remaining <= 30:
+                logger.warning(
+                    "[%s] Skipping attempt %d — only %.0fs left in job budget",
+                    slug, attempt, remaining,
+                )
+                return {"slug": slug, "error": "Skipped — job deadline reached"}
+
+        # First attempt gets full timeout; retries get reduced timeout
+        timeout = _SITE_TIMEOUT_SEC if attempt == 1 else _RETRY_TIMEOUT_SEC
+
+        # Cap timeout to remaining job budget (leave 15s for cleanup)
+        if deadline:
+            timeout = min(timeout, int(deadline - time.time()) - 15)
+            if timeout <= 0:
+                return {"slug": slug, "error": "Skipped — insufficient time remaining"}
+
         logger.info(
-            "[%s] Starting scrape (%s) — attempt %d/%d",
-            slug, dispensary["platform"], attempt, _MAX_RETRIES,
+            "[%s] Starting scrape (%s) — attempt %d/%d (timeout=%ds)",
+            slug, dispensary["platform"], attempt, _MAX_RETRIES, timeout,
         )
         try:
             result = await asyncio.wait_for(
                 _scrape_site_inner(dispensary, browser=browser),
-                timeout=_SITE_TIMEOUT_SEC,
+                timeout=timeout,
             )
             # Success — return immediately
             return result
         except asyncio.TimeoutError:
-            logger.error("[%s] Timed out after %ds (attempt %d)", slug, _SITE_TIMEOUT_SEC, attempt)
+            logger.error("[%s] Timed out after %ds (attempt %d)", slug, timeout, attempt)
             if attempt < _MAX_RETRIES:
-                logger.info("[%s] Retrying in %ds...", slug, _RETRY_DELAY_SEC)
-                await asyncio.sleep(_RETRY_DELAY_SEC)
+                delay = _RETRY_DELAYS[min(attempt - 1, len(_RETRY_DELAYS) - 1)]
+                logger.info("[%s] Retrying in %ds...", slug, delay)
+                await asyncio.sleep(delay)
         except Exception as exc:
             logger.error("[%s] Failed (attempt %d): %s", slug, attempt, exc, exc_info=True)
             if attempt < _MAX_RETRIES:
-                logger.info("[%s] Retrying in %ds...", slug, _RETRY_DELAY_SEC)
-                await asyncio.sleep(_RETRY_DELAY_SEC)
+                delay = _RETRY_DELAYS[min(attempt - 1, len(_RETRY_DELAYS) - 1)]
+                logger.info("[%s] Retrying in %ds...", slug, delay)
+                await asyncio.sleep(delay)
 
     # All attempts exhausted
     return {"slug": slug, "error": f"Failed after {_MAX_RETRIES} attempts"}
@@ -1116,6 +1294,14 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
 
     # Filter by is_active from config first
     active = [d for d in DISPENSARIES if d.get("is_active", True)]
+
+    # Apply region filter
+    if REGION != "all":
+        active = [d for d in active if d.get("region", "southern-nv") == REGION]
+        logger.info(
+            "Region '%s': %d dispensaries",
+            REGION, len(active),
+        )
 
     # Apply platform group filter
     if PLATFORM_GROUP != "all":
@@ -1185,6 +1371,7 @@ def _already_scraped_today() -> bool:
         db.table("scrape_runs")
         .select("id")
         .eq("status", "completed")
+        .eq("platform_group", PLATFORM_GROUP)
         .gte("started_at", today_start)
     )
     query = query.limit(1)
@@ -1203,16 +1390,52 @@ async def run(slug_filter: str | None = None) -> None:
 
     logger.info("=" * 60)
     logger.info("CloudedDeals Scraper Starting")
-    logger.info("  DRY_RUN:    %s", DRY_RUN)
-    logger.info("  LIMITED:    %s", LIMIT_DISPENSARIES)
-    logger.info("  FORCE_RUN:  %s", FORCE_RUN)
-    logger.info("  GROUP:      %s", PLATFORM_GROUP)
-    logger.info("  SINGLE:     %s", slug_filter or "(all)")
+    logger.info("  DRY_RUN:      %s", DRY_RUN)
+    logger.info("  LIMITED:      %s", LIMIT_DISPENSARIES)
+    logger.info("  FORCE_RUN:    %s", FORCE_RUN)
+    logger.info("  GROUP:        %s", PLATFORM_GROUP)
+    logger.info("  REGION:       %s", REGION)
+    logger.info("  SINGLE:       %s", slug_filter or "(all)")
+    logger.info("  CONCURRENCY:  %d global, dutchie=%d jane=%d curaleaf=%d aiq=%d",
+                SCRAPE_CONCURRENCY,
+                _PLATFORM_CONCURRENCY.get("dutchie", SCRAPE_CONCURRENCY),
+                _PLATFORM_CONCURRENCY.get("jane", SCRAPE_CONCURRENCY),
+                _PLATFORM_CONCURRENCY.get("curaleaf", SCRAPE_CONCURRENCY),
+                _PLATFORM_CONCURRENCY.get("aiq", SCRAPE_CONCURRENCY))
+    logger.info("  RETRIES:      %d (backoff: %s)", _MAX_RETRIES, _RETRY_DELAYS)
     logger.info("=" * 60)
 
     _seed_dispensaries()
 
     dispensaries = _get_active_dispensaries(slug_filter)
+
+    # ── Platform interleaving ──────────────────────────────────────────
+    # Without this, dispensaries are processed in config order (all Dutchie
+    # first, then Curaleaf, then Jane).  When the job deadline hits, the
+    # last-listed platform gets zero coverage (Illinois Jane: 0/29).
+    # Round-robin by platform ensures every platform gets fair time.
+    if len(dispensaries) > 1 and not slug_filter:
+        by_plat: dict[str, list[dict]] = {}
+        for d in dispensaries:
+            by_plat.setdefault(d["platform"], []).append(d)
+        for sites in by_plat.values():
+            random.shuffle(sites)
+        # Round-robin: take one from each platform in turn
+        interleaved: list[dict] = []
+        iterators = [iter(sites) for sites in by_plat.values()]
+        while iterators:
+            next_round = []
+            for it in iterators:
+                site = next(it, None)
+                if site is not None:
+                    interleaved.append(site)
+                    next_round.append(it)
+            iterators = next_round
+        dispensaries = interleaved
+        logger.info(
+            "Interleaved %d dispensaries across %d platforms",
+            len(dispensaries), len(by_plat),
+        )
 
     # Deactivate previous day's deals — scoped to this group's dispensaries
     # so a "stable" run doesn't wipe yesterday's "new" products.
@@ -1225,124 +1448,279 @@ async def run(slug_filter: str | None = None) -> None:
 
     concurrency = SCRAPE_CONCURRENCY
     logger.info(
-        "Scraping %d dispensaries (concurrency=%d)",
+        "Scraping %d dispensaries (global_concurrency=%d, platform_caps=%s)",
         len(dispensaries), concurrency,
+        {k: v for k, v in _PLATFORM_CONCURRENCY.items()
+         if any(d["platform"] == k for d in dispensaries)},
     )
     run_id = _create_run()
+    deadline = start + _JOB_BUDGET_SEC
+    logger.info("  DEADLINE:     %.0f min from now", _JOB_BUDGET_SEC / 60)
 
+    # Initialize ALL result trackers upfront so the finally block can
+    # always generate a summary — even if the pipeline crashes mid-scrape.
     sites_scraped: list[str] = []
     sites_failed: list[dict[str, str]] = []
     total_products = 0
     total_deals = 0
-
-    # Launch ONE shared browser for all concurrent scrapers
-    pw = await async_playwright().start()
-    browser = await pw.chromium.launch(
-        headless=True,
-        args=BROWSER_ARGS + [
-            "--disable-gpu",
-            "--disable-extensions",
-            "--disable-background-timer-throttling",
-        ],
-    )
-    logger.info("Shared browser launched — dispatching %d sites", len(dispensaries))
-
-    semaphore = asyncio.Semaphore(concurrency)
-
-    async def _bounded_scrape(dispensary: dict[str, Any]) -> dict[str, Any]:
-        """Scrape a single site, bounded by the semaphore."""
-        async with semaphore:
-            site_start = time.time()
-            logger.info("[START] %s (%s)", dispensary["name"], dispensary["platform"])
-            result = await scrape_site(dispensary, browser=browser)
-            elapsed_s = time.time() - site_start
-            label = "DONE" if not result.get("error") else "FAIL"
-            logger.info(
-                "[%s]  %s — %.1fs — %d products",
-                label, dispensary["name"], elapsed_s,
-                result.get("products", 0),
-            )
-            return result
-
-    # Run all sites concurrently (bounded by semaphore)
-    results = await asyncio.gather(
-        *[_bounded_scrape(d) for d in dispensaries],
-        return_exceptions=True,
-    )
-
-    # Close shared browser
-    await browser.close()
-    await pw.stop()
-
-    # Process results
     all_top_deals: list[dict[str, Any]] = []
     all_cut_deals: list[dict[str, Any]] = []
+    site_reports: list[dict[str, Any]] = []
+    status = "failed"
 
-    for result in results:
-        if isinstance(result, Exception):
-            logger.error("Unhandled exception: %s", result)
-            sites_failed.append({"slug": "unknown", "error": str(result)})
-            continue
-        if result.get("error"):
-            sites_failed.append(
-                {"slug": result["slug"], "error": result["error"]}
-            )
-        else:
-            sites_scraped.append(result["slug"])
-            total_products += result.get("products", 0)
-            total_deals += result.get("deals", 0)
-            # Collect report data
+    try:
+        # Launch ONE shared browser for all concurrent scrapers
+        pw = await async_playwright().start()
+        browser = await pw.chromium.launch(
+            headless=True,
+            args=BROWSER_ARGS + [
+                "--disable-gpu",
+                "--disable-extensions",
+                "--disable-background-timer-throttling",
+            ],
+        )
+        logger.info("Shared browser launched — dispatching %d sites", len(dispensaries))
+
+        # Dual-semaphore approach: a global cap prevents too many total browser
+        # contexts, and per-platform caps prevent heavy platforms (Dutchie) from
+        # monopolising all slots and starving lighter scrapers.
+        global_semaphore = asyncio.Semaphore(concurrency)
+        platform_semaphores: dict[str, asyncio.Semaphore] = {
+            plat: asyncio.Semaphore(cap)
+            for plat, cap in _PLATFORM_CONCURRENCY.items()
+        }
+
+        # Domain-level throttle: when many sites share the same domain
+        # (e.g. 111 Michigan sites on dutchie.com), insert a minimum delay
+        # between requests to the same domain to avoid triggering WAF /
+        # bot detection.  Each domain gets its own asyncio.Lock so only
+        # one request at a time negotiates the cooldown.
+        _DOMAIN_MIN_INTERVAL = 2.0  # seconds between requests to same domain
+        domain_locks: dict[str, asyncio.Lock] = {}
+        domain_last_request: dict[str, float] = {}
+
+        async def _bounded_scrape(dispensary: dict[str, Any]) -> dict[str, Any]:
+            """Scrape a single site, bounded by global + platform semaphores."""
+            plat = dispensary["platform"]
+            plat_sem = platform_semaphores.get(plat, global_semaphore)
+            domain = _urlparse(dispensary["url"]).netloc
+
+            # Ensure one lock per domain
+            if domain not in domain_locks:
+                domain_locks[domain] = asyncio.Lock()
+
+            async with global_semaphore:
+                async with plat_sem:
+                    # Domain-level cooldown — serialize the timing check
+                    async with domain_locks[domain]:
+                        elapsed_since = time.time() - domain_last_request.get(domain, 0)
+                        if elapsed_since < _DOMAIN_MIN_INTERVAL:
+                            jitter = random.uniform(0, 1.0)
+                            wait = _DOMAIN_MIN_INTERVAL - elapsed_since + jitter
+                            logger.debug(
+                                "[%s] Domain throttle: waiting %.1fs for %s",
+                                dispensary["slug"], wait, domain,
+                            )
+                            await asyncio.sleep(wait)
+                        domain_last_request[domain] = time.time()
+
+                    site_start = time.time()
+                    logger.info("[START] %s (%s)", dispensary["name"], plat)
+                    result = await scrape_site(
+                        dispensary, browser=browser, deadline=deadline,
+                    )
+                    elapsed_s = time.time() - site_start
+                    label = "DONE" if not result.get("error") else "FAIL"
+                    logger.info(
+                        "[%s]  %s — %.1fs — %d products",
+                        label, dispensary["name"], elapsed_s,
+                        result.get("products", 0),
+                    )
+                    return result
+
+        # Run all sites concurrently (bounded by semaphore)
+        results = await asyncio.gather(
+            *[_bounded_scrape(d) for d in dispensaries],
+            return_exceptions=True,
+        )
+
+        # Close shared browser
+        await browser.close()
+        await pw.stop()
+
+        # Process results
+        for disp, result in zip(dispensaries, results):
+            if isinstance(result, Exception):
+                logger.error("Unhandled exception: %s", result)
+                sites_failed.append({"slug": "unknown", "error": str(result)})
+                site_reports.append({
+                    "slug": disp["slug"],
+                    "name": disp["name"],
+                    "platform": disp["platform"],
+                    "error": str(result),
+                    "products": 0,
+                    "deals": 0,
+                    "_report_data": {},
+                })
+                continue
+            slug = result.get("slug", disp["slug"])
             rd = result.get("_report_data", {})
-            all_top_deals.extend(rd.get("top_deals", []))
-            all_cut_deals.extend(rd.get("cut_deals", []))
+            if result.get("error"):
+                sites_failed.append(
+                    {"slug": slug, "error": result["error"]}
+                )
+            else:
+                sites_scraped.append(slug)
+                total_products += result.get("products", 0)
+                total_deals += result.get("deals", 0)
+                all_top_deals.extend(rd.get("top_deals", []))
+                all_cut_deals.extend(rd.get("cut_deals", []))
+            site_reports.append({
+                "slug": slug,
+                "name": disp["name"],
+                "platform": disp["platform"],
+                "error": result.get("error"),
+                "products": result.get("products", 0),
+                "deals": result.get("deals", 0),
+                "_report_data": rd,
+            })
 
-    # Determine final status
-    if not sites_failed:
-        status = "completed"
-    elif sites_scraped:
-        status = "completed_with_errors"
-    else:
-        status = "failed"
+        # Determine final status
+        if not sites_failed:
+            status = "completed"
+        elif sites_scraped:
+            status = "completed_with_errors"
+        # else status remains "failed"
 
-    elapsed = time.time() - start
+    except Exception as exc:
+        logger.error("FATAL: Scrape pipeline crashed: %s", exc, exc_info=True)
+        sites_failed.append({"slug": "pipeline", "error": str(exc)})
 
-    _complete_run(
-        run_id,
-        status=status,
-        total_products=total_products,
-        qualifying_deals=total_deals,
-        sites_scraped=sites_scraped,
-        sites_failed=sites_failed,
-        runtime_seconds=int(elapsed),
-    )
+    finally:
+        # ── CRASH-PROOF REPORTING ──────────────────────────────────
+        # Everything below runs even if the pipeline crashes or the
+        # job deadline is reached, ensuring operators always get a
+        # summary to diagnose issues.
+        elapsed = time.time() - start
 
-    logger.info("=" * 60)
-    logger.info("SCRAPE COMPLETE")
-    logger.info("  Status:     %s", status)
-    logger.info("  Products:   %d", total_products)
-    logger.info("  Deals:      %d", total_deals)
-    logger.info("  Sites OK:   %d/%d", len(sites_scraped), len(dispensaries))
-    logger.info("  Duration:   %.1f min", elapsed / 60)
-    if sites_failed:
-        logger.info("  Failed:")
-        for f in sites_failed:
-            logger.info("    - %s: %s", f["slug"], f["error"])
-    logger.info("=" * 60)
+        try:
+            _complete_run(
+                run_id,
+                status=status,
+                total_products=total_products,
+                qualifying_deals=total_deals,
+                sites_scraped=sites_scraped,
+                sites_failed=sites_failed,
+                runtime_seconds=int(elapsed),
+            )
+        except Exception as exc:
+            logger.warning("Failed to complete run in DB: %s", exc)
 
-    # ─── Daily Metrics (pipeline quality tracking) ───────────────
-    collect_daily_metrics(
-        db,
-        all_top_deals,
-        run_id=run_id,
-        total_products=total_products,
-        sites_scraped=len(sites_scraped),
-        sites_failed=len(sites_failed),
-        runtime_seconds=int(elapsed),
-        dry_run=DRY_RUN,
-    )
+        # ─── Human-readable scrape summary ──────────────────────────
+        logger.info("")
+        logger.info("=" * 64)
+        logger.info("  SCRAPE SUMMARY — %s", REGION.upper())
+        logger.info("=" * 64)
+        logger.info("  Status:      %s", status)
+        logger.info("  Region:      %s", REGION)
+        logger.info("  Products:    %d", total_products)
+        logger.info("  Deals:       %d", total_deals)
+        logger.info("  Sites OK:    %d / %d", len(sites_scraped), len(dispensaries))
+        logger.info("  Sites FAIL:  %d", len(sites_failed))
+        logger.info("  Duration:    %.1f min", elapsed / 60)
 
-    # ─── Detailed Deal Report ─────────────────────────────────────
-    _log_deal_report(all_top_deals, all_cut_deals)
+        # Per-platform breakdown
+        from collections import Counter
+        platform_ok: Counter[str] = Counter()
+        platform_products: Counter[str] = Counter()
+        for d in dispensaries:
+            slug = d["slug"]
+            plat = d.get("platform", "unknown")
+            if slug in sites_scraped:
+                platform_ok[plat] += 1
+        for d in dispensaries:
+            plat = d.get("platform", "unknown")
+            if d["slug"] in sites_scraped:
+                platform_products[plat] += 1
+        platform_total: Counter[str] = Counter(d.get("platform", "unknown") for d in dispensaries)
+
+        logger.info("  ┌─────────────────────────────────────────────┐")
+        logger.info("  │  Platform        OK / Total    Status       │")
+        logger.info("  ├─────────────────────────────────────────────┤")
+        for plat in sorted(platform_total.keys()):
+            ok = platform_ok[plat]
+            tot = platform_total[plat]
+            pct = round(ok / tot * 100) if tot > 0 else 0
+            bar = "OK" if pct == 100 else f"{pct}%"
+            icon = "✓" if pct == 100 else ("!" if pct > 0 else "✗")
+            logger.info("  │  %-14s  %3d / %-3d      %s %-5s      │", plat, ok, tot, icon, bar)
+        logger.info("  └─────────────────────────────────────────────┘")
+
+        if sites_failed:
+            logger.info("")
+            logger.info("  Failed sites:")
+            for f in sites_failed:
+                err_short = f["error"][:60] + "..." if len(f["error"]) > 60 else f["error"]
+                logger.info("    ✗ %-30s %s", f["slug"], err_short)
+
+        logger.info("")
+        logger.info("=" * 64)
+
+        logger.info("=" * 60)
+        logger.info("SCRAPE COMPLETE")
+        logger.info("  Status:     %s", status)
+        logger.info("  Products:   %d", total_products)
+        logger.info("  Deals:      %d", total_deals)
+        logger.info("  Sites OK:   %d/%d", len(sites_scraped), len(dispensaries))
+        logger.info("  Duration:   %.1f min", elapsed / 60)
+        if sites_failed:
+            logger.info("  Failed:")
+            for f in sites_failed:
+                logger.info("    - %s: %s", f["slug"], f["error"])
+        logger.info("=" * 60)
+
+        # ─── Daily Metrics (pipeline quality tracking) ───────────────
+        try:
+            collect_daily_metrics(
+                db,
+                all_top_deals,
+                run_id=run_id,
+                region=REGION,
+                total_products=total_products,
+                sites_scraped=len(sites_scraped),
+                sites_failed=len(sites_failed),
+                runtime_seconds=int(elapsed),
+                dry_run=DRY_RUN,
+            )
+        except Exception as exc:
+            logger.warning("Failed to collect daily metrics: %s", exc)
+
+        # ─── Refresh materialized view ────────────────────────────────
+        try:
+            db.rpc("refresh_deal_save_counts", {}).execute()
+            logger.info("Refreshed deal_save_counts materialized view")
+        except Exception as exc:
+            logger.warning("Failed to refresh deal_save_counts: %s", exc)
+
+        # ─── Detailed Deal Report ─────────────────────────────────────
+        try:
+            _log_deal_report(all_top_deals, all_cut_deals)
+        except Exception as exc:
+            logger.warning("Failed to log deal report: %s", exc)
+
+        # ─── Enhanced Scrape Summary (GitHub Actions readable) ─────
+        try:
+            _log_scrape_summary(
+                site_reports,
+                all_top_deals,
+                all_cut_deals,
+                sites_failed=sites_failed,
+                total_products=total_products,
+                total_deals=total_deals,
+                elapsed_sec=elapsed,
+            )
+        except Exception as exc:
+            logger.warning("Failed to write scrape summary: %s", exc)
 
 
 def _log_deal_report(
@@ -1410,6 +1788,263 @@ def _log_deal_report(
 
     logger.info("")
     logger.info("=" * 60)
+
+
+def _log_scrape_summary(
+    site_reports: list[dict[str, Any]],
+    all_top_deals: list[dict[str, Any]],
+    all_cut_deals: list[dict[str, Any]],
+    *,
+    sites_failed: list[dict[str, str]],
+    total_products: int,
+    total_deals: int,
+    elapsed_sec: float,
+) -> None:
+    """Write a comprehensive, plain-language scrape summary.
+
+    Designed so an operator can glance at GitHub Actions output and
+    immediately know:
+      - Which sites worked, which didn't, and why
+      - What deals were selected per store
+      - Which brands dominated, which categories are under/over-filled
+      - What good deals were cut (and why they were cut)
+    """
+    from collections import Counter, defaultdict
+
+    lines: list[str] = []
+
+    def _w(text: str = "") -> None:
+        lines.append(text)
+
+    _w("=" * 80)
+    _w("SCRAPE SUMMARY")
+    _w("=" * 80)
+    _w(f"  Sites scraped: {sum(1 for s in site_reports if not s.get('error'))}/{len(site_reports)}")
+    _w(f"  Total products: {total_products}")
+    _w(f"  Deals selected: {total_deals}")
+    _w(f"  Runtime: {elapsed_sec / 60:.1f} min")
+    _w()
+
+    # ── 1. FAILED SITES ──────────────────────────────────────────────
+    if sites_failed:
+        _w("-" * 80)
+        _w("FAILED SITES")
+        _w("-" * 80)
+        for f in sites_failed:
+            _w(f"  {f['slug']}: {f['error']}")
+        _w()
+
+    # ── 2. PER-DISPENSARY BREAKDOWN ───────────────────────────────────
+    _w("-" * 80)
+    _w("DEALS BY DISPENSARY")
+    _w("-" * 80)
+
+    # Build a lookup: dispensary_slug → list of selected deals
+    deals_by_disp: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for d in all_top_deals:
+        disp_id = d.get("dispensary_id") or "unknown"
+        deals_by_disp[disp_id].append(d)
+
+    # Also build cut-deals lookup for per-site "best deal that didn't make it"
+    cut_by_disp: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for d in all_cut_deals:
+        disp_id = d.get("dispensary_id") or "unknown"
+        cut_by_disp[disp_id].append(d)
+
+    cat_order = ["flower", "vape", "edible", "concentrate", "preroll"]
+
+    for sr in sorted(site_reports, key=lambda s: s["name"]):
+        slug = sr["slug"]
+        name = sr["name"]
+        platform = sr["platform"]
+        error = sr.get("error")
+        products = sr.get("products", 0)
+        rd = sr.get("_report_data", {})
+        selected_count = len(deals_by_disp.get(slug, []))
+        passed_hard = rd.get("passed_hard_filter", 0)
+        total_prods = rd.get("total_products", products)
+
+        # Header line
+        if error:
+            _w(f"  {name} ({platform}) — ERROR: {error}")
+            _w()
+            continue
+
+        if selected_count == 0 and products == 0:
+            _w(f"  {name} ({platform}) — 0 products scraped (site may be down or blocked)")
+            _w()
+            continue
+
+        if selected_count == 0:
+            # Explain WHY zero deals were selected
+            reason = _explain_zero_deals(rd, products)
+            _w(f"  {name} ({platform}) — {products} products, 0 deals ({reason})")
+            # Show best cut deal if one exists
+            site_cuts = sorted(
+                cut_by_disp.get(slug, []),
+                key=lambda x: x.get("deal_score", 0),
+                reverse=True,
+            )
+            if site_cuts:
+                best = site_cuts[0]
+                _w(f"    Best cut: ${best.get('sale_price', 0):.0f} "
+                   f"{best.get('brand', '?')} {best.get('name', '?')[:40]} "
+                   f"[{best.get('category', '?')}] score={best.get('deal_score', 0)}")
+            _w()
+            continue
+
+        _w(f"  {name} ({platform}) — {products} products, {selected_count} deals:")
+        # Group this dispensary's deals by category, show top deal per cat
+        site_deals = deals_by_disp[slug]
+        by_cat: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for d in site_deals:
+            by_cat[d.get("category", "other")].append(d)
+
+        for cat in cat_order:
+            cat_deals = by_cat.get(cat)
+            if not cat_deals:
+                continue
+            cat_deals.sort(key=lambda x: x.get("deal_score", 0), reverse=True)
+            top = cat_deals[0]
+            brand = top.get("brand") or "?"
+            price = top.get("sale_price") or 0
+            weight = top.get("weight_value") or ""
+            wunit = top.get("weight_unit") or ""
+            weight_str = f" {weight}{wunit}" if weight else ""
+            pct = top.get("discount_percent") or 0
+            source = top.get("source_platform", "")
+            pct_str = f" ({pct:.0f}% off)" if pct else (" (Deal)" if source == "jane" else "")
+            extra = f" +{len(cat_deals) - 1} more" if len(cat_deals) > 1 else ""
+            _w(f"    {cat:12s}: ${price:<6.2f} {brand} {weight_str}{pct_str}{extra}")
+
+        # Show best cut deal for this site
+        site_cuts = sorted(
+            cut_by_disp.get(slug, []),
+            key=lambda x: x.get("deal_score", 0),
+            reverse=True,
+        )
+        if site_cuts:
+            best = site_cuts[0]
+            _w(f"    (best cut): ${best.get('sale_price', 0):.0f} "
+               f"{best.get('brand', '?')} [{best.get('category', '?')}] "
+               f"score={best.get('deal_score', 0)}")
+
+        _w()
+
+    # ── 3. BRAND LEADERBOARD ──────────────────────────────────────────
+    _w("-" * 80)
+    _w("BRAND LEADERBOARD (top 15 by selected deals)")
+    _w("-" * 80)
+    brand_counter: Counter[str] = Counter()
+    brand_disps: dict[str, set[str]] = defaultdict(set)
+    for d in all_top_deals:
+        brand = d.get("brand") or "Unknown"
+        brand_counter[brand] += 1
+        brand_disps[brand].add(d.get("dispensary_id") or "?")
+
+    for brand, count in brand_counter.most_common(15):
+        disp_count = len(brand_disps[brand])
+        _w(f"  {brand:25s}  {count:3d} deals across {disp_count} stores")
+    _w()
+
+    # ── 4. CATEGORY DISTRIBUTION ──────────────────────────────────────
+    from deal_detector import CATEGORY_TARGETS, CATEGORY_MINIMUMS
+
+    _w("-" * 80)
+    _w("CATEGORY DISTRIBUTION (selected vs target)")
+    _w("-" * 80)
+    cat_counter: Counter[str] = Counter()
+    for d in all_top_deals:
+        cat_counter[d.get("category", "other")] += 1
+
+    for cat in cat_order:
+        actual = cat_counter.get(cat, 0)
+        target = CATEGORY_TARGETS.get(cat, 0)
+        minimum = CATEGORY_MINIMUMS.get(cat, 0)
+        bar = "#" * min(actual, 60)
+        flag = " !! UNDER MIN" if actual < minimum else ""
+        _w(f"  {cat:12s}: {actual:3d}/{target:3d} target  (min {minimum}){flag}  {bar}")
+    other = cat_counter.get("other", 0)
+    if other:
+        _w(f"  {'other':12s}: {other:3d}")
+    _w()
+
+    # ── 5. TOP CUT DEALS (almost made it) ─────────────────────────────
+    if all_cut_deals:
+        all_cut_sorted = sorted(all_cut_deals, key=lambda x: x.get("deal_score", 0), reverse=True)
+        _w("-" * 80)
+        _w(f"TOP CUT DEALS ({len(all_cut_deals)} total scored but not shown)")
+        _w("-" * 80)
+        for i, d in enumerate(all_cut_sorted[:10], 1):
+            name = d.get("name", "?")[:45]
+            brand = d.get("brand") or "?"
+            price = d.get("sale_price") or 0
+            score = d.get("deal_score", 0)
+            cat = d.get("category", "?")
+            disp = d.get("dispensary_id") or "?"
+            pct = d.get("discount_percent") or 0
+            pct_str = f" {pct:.0f}% off" if pct else ""
+            _w(f"  {i:2d}. [{score:2d} pts] ${price:.0f}{pct_str} {brand} — {name} [{cat}] @ {disp}")
+        _w()
+
+    # ── 6. PLATFORM SUMMARY ───────────────────────────────────────────
+    _w("-" * 80)
+    _w("PLATFORM SUMMARY")
+    _w("-" * 80)
+    platform_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"sites": 0, "ok": 0, "products": 0, "deals": 0})
+    for sr in site_reports:
+        p = sr["platform"]
+        platform_stats[p]["sites"] += 1
+        if not sr.get("error"):
+            platform_stats[p]["ok"] += 1
+            platform_stats[p]["products"] += sr.get("products", 0)
+            platform_stats[p]["deals"] += sr.get("deals", 0)
+    for p, stats in sorted(platform_stats.items()):
+        _w(f"  {p:10s}: {stats['ok']}/{stats['sites']} sites OK, "
+           f"{stats['products']} products, {stats['deals']} deals")
+    _w()
+    _w("=" * 80)
+
+    # Log to Python logger
+    for line in lines:
+        logger.info(line)
+
+    # Write to file for GitHub Actions step summary ($GITHUB_STEP_SUMMARY)
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        try:
+            with open(summary_path, "a") as f:
+                f.write("\n```\n")
+                f.write("\n".join(lines))
+                f.write("\n```\n")
+            logger.info("Scrape summary written to $GITHUB_STEP_SUMMARY")
+        except Exception as exc:
+            logger.warning("Failed to write step summary: %s", exc)
+
+    # Also write to a standalone file in case GITHUB_STEP_SUMMARY isn't set
+    try:
+        summary_file = Path("scrape_summary.txt")
+        summary_file.write_text("\n".join(lines), encoding="utf-8")
+        logger.info("Scrape summary written to %s", summary_file)
+    except Exception as exc:
+        logger.warning("Failed to write scrape_summary.txt: %s", exc)
+
+
+def _explain_zero_deals(report_data: dict[str, Any], products: int) -> str:
+    """Return a short plain-language reason why a site produced zero deals."""
+    if products == 0:
+        return "0 products scraped"
+
+    total = report_data.get("total_products", products)
+    passed = report_data.get("passed_hard_filter", 0)
+    scored = report_data.get("scored", 0)
+
+    if passed == 0:
+        return f"all {total} failed hard filters (price/discount/brand)"
+    if scored == 0:
+        return f"{passed} passed filters but all failed quality gate"
+    # Deals existed but were all deduped or cut during selection
+    return f"{scored} scored but all cut during selection/dedup"
 
 
 if __name__ == "__main__":

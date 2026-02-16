@@ -25,10 +25,12 @@ logger = logging.getLogger(__name__)
 # Selectors tried in order — the first match wins.
 # 'embedded-menu' and 'dutchie.com' cover The Grove and similar sites
 # whose iframe src is e.g. https://dutchie.com/embedded-menu/the-grove-las-vegas/specials
+# 'goshango.com' covers SLV (Dutchie-powered menu served via goshango iframe).
 IFRAME_SELECTORS = [
     'iframe[src*="dutchie.com"]',
     'iframe[src*="dutchie"]',
     'iframe[src*="embedded-menu"]',
+    'iframe[src*="goshango.com"]',
     'iframe[src*="menu"]',
     'iframe[src*="embed"]',
 ]
@@ -298,12 +300,13 @@ async def find_dutchie_content(
             return page, "direct"
         logger.info("Direct hint didn't match — falling through to full cascade")
 
-    # --- Try iframe (skip if hint already told us it's not iframe) -------
-    if embed_type_hint not in ("js_embed", "direct"):
-        logger.info("Looking for Dutchie iframe (max %d ms) …", iframe_timeout_ms)
-        frame = await get_iframe(page, timeout_ms=iframe_timeout_ms)
-        if frame is not None:
-            return frame, "iframe"
+    # --- Try iframe -------------------------------------------------------
+    # Always try iframe in the cascade.  If a js_embed/direct hint failed
+    # above, the site may have switched to iframe — don't skip it.
+    logger.info("Looking for Dutchie iframe (max %d ms) …", iframe_timeout_ms)
+    frame = await get_iframe(page, timeout_ms=iframe_timeout_ms)
+    if frame is not None:
+        return frame, "iframe"
 
     # --- Fall back to JS embed detection (strict two-phase check) --------
     if embed_type_hint != "js_embed":  # already tried above if hint was js_embed

@@ -8,6 +8,7 @@ import { AdminPinGate, isAdminVerified, clearAdminVerification } from "@/compone
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: "grid" },
+  { href: "/admin/expansion", label: "Expansion", icon: "globe" },
   { href: "/admin/analytics", label: "Analytics", icon: "chart" },
   { href: "/admin/contacts", label: "Contacts", icon: "users" },
   { href: "/admin/scraper", label: "Scraper", icon: "terminal" },
@@ -22,6 +23,8 @@ const ICONS: Record<string, string> = {
     "M5.5 7.5 9 11l-3.5 3.5M12 17h6",
   sliders:
     "M12 3v4m0 14v-4m-7-5H3m4 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm14 0h-2m-4 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0ZM8 17H3m4 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm14 0h-7",
+  globe:
+    "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.6 9h16.8M3.6 15h16.8M12 3a15.3 15.3 0 0 1 4 9 15.3 15.3 0 0 1-4 9 15.3 15.3 0 0 1-4-9 15.3 15.3 0 0 1 4-9Z",
 };
 
 export default function AdminLayout({
@@ -117,7 +120,7 @@ export default function AdminLayout({
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <aside className="flex w-56 flex-col border-r border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
+      <aside className="flex w-56 flex-col border-r border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
         <div className="border-b border-zinc-200 px-4 py-4 dark:border-zinc-800">
           <Link
             href="/admin"
@@ -176,8 +179,8 @@ export default function AdminLayout({
       {/* Main area */}
       <div className="flex flex-1 flex-col">
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-3 dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+        <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-3 dark:border-zinc-700 dark:bg-zinc-900">
+          <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             {NAV_ITEMS.find(
               (n) =>
                 n.href === "/admin"
@@ -202,13 +205,13 @@ export default function AdminLayout({
 
         {/* Auth status */}
         {noSession && (
-          <div className="border-b border-zinc-200 bg-zinc-50 px-6 py-2 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/30 dark:text-zinc-400">
+          <div className="border-b border-zinc-200 bg-zinc-50 px-6 py-2 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-400">
             PIN verified. Supabase session inactive — data queries use service role.
           </div>
         )}
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto bg-white p-6 dark:bg-zinc-950">{children}</main>
       </div>
     </div>
   );

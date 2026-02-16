@@ -45,16 +45,6 @@ const dispensaries = [
     state: "NV",
     is_active: true,
   },
-  {
-    name: "Zen Leaf Las Vegas",
-    slug: "zen-leaf-las-vegas",
-    url: "https://zenleafdispensaries.com/locations/nevada/las-vegas",
-    platform: "jane",
-    address: "9120 W Post Rd",
-    city: "Las Vegas",
-    state: "NV",
-    is_active: true,
-  },
 ];
 
 const categories = ["flower", "preroll", "vape", "edible", "concentrate"] as const;

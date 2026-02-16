@@ -435,11 +435,13 @@ export async function fetchDispensaries(region?: string): Promise<FetchDispensar
   const activeRegion = region ?? getRegion() ?? DEFAULT_REGION;
 
   try {
-    // Fetch ALL dispensaries in the region (not just is_active)
+    // Only show active dispensaries — inactive ones (e.g. Rise, blocked
+    // by Cloudflare) should not appear in the browse UI.
     const { data, error } = await supabase
       .from('dispensaries')
       .select('id, name, address, city, platform, url, is_active, region')
       .eq('region', activeRegion)
+      .eq('is_active', true)
       .order('name', { ascending: true });
 
     if (error) throw error;
@@ -524,10 +526,10 @@ export async function searchExtendedDeals(
       )
       .eq('is_active', true)
       .eq('dispensaries.region', activeRegion)
-      .gt('discount_percent', 0)
       .gt('sale_price', 0)
+      .or('discount_percent.gt.0,discount_percent.is.null')
       .or(`name.ilike.${pattern},brand.ilike.${pattern},category.ilike.${pattern},product_subtype.ilike.${pattern},strain_type.ilike.${pattern}`)
-      .order('discount_percent', { ascending: false })
+      .order('deal_score', { ascending: false })
       .limit(200);
 
     if (error) throw error;
