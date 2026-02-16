@@ -11,9 +11,9 @@ interface ValuePropSplashProps {
 
 export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSplashProps) {
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col overflow-y-auto">
+    <div className="fixed inset-0 z-[100] flex flex-col overflow-y-auto" style={{ backgroundColor: 'var(--surface-0)' }}>
       {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-purple-950/25 via-slate-950 to-slate-950 pointer-events-none" />
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(88, 28, 135, 0.18) 0%, transparent 60%)' }} />
 
       {/* Skip */}
       <div className="relative z-10 flex justify-end p-4">

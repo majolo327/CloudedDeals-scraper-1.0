@@ -55,9 +55,9 @@ export function BrowsePage({ deals = [], onSelectBrand, onSelectDispensary }: Br
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen text-white" style={{ backgroundColor: 'var(--surface-0)' }}>
       {/* Tab bar */}
-      <div className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-xl border-b border-purple-500/10">
+      <div className="sticky top-0 z-40 backdrop-blur-2xl border-b border-purple-500/10" style={{ backgroundColor: 'rgba(10, 12, 28, 0.95)' }}>
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex gap-6 h-12">
             <button

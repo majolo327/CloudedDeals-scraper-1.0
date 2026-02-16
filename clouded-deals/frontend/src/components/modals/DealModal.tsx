@@ -109,7 +109,7 @@ export function DealModal({
     >
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-soft-reveal" />
       <div
-        className="relative w-full sm:max-w-lg glass-strong frost rounded-t-2xl sm:rounded-2xl max-h-[85vh] overflow-y-auto animate-soft-reveal"
+        className="relative w-full sm:max-w-lg glass-strong frost rounded-t-3xl sm:rounded-3xl max-h-[85vh] overflow-y-auto animate-soft-reveal"
         onClick={(e) => e.stopPropagation()}
         style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}
       >
@@ -168,9 +168,9 @@ export function DealModal({
           </div>
 
           {/* Price card */}
-          <div className="glass-subtle frost rounded-xl p-4 sm:p-5 mb-6">
+          <div className="glass-subtle frost rounded-2xl p-4 sm:p-5 mb-6">
             <div className="flex items-baseline gap-2 sm:gap-3 mb-2 flex-wrap">
-              <span className="text-3xl sm:text-4xl font-bold text-purple-400">${deal.deal_price}</span>
+              <span className="text-3xl sm:text-4xl font-bold text-purple-400" style={{ textShadow: '0 0 20px rgba(168, 85, 247, 0.2)' }}>${deal.deal_price}</span>
               {deal.original_price && (
                 <span className="text-lg sm:text-xl text-slate-500 line-through">${deal.original_price}</span>
               )}
@@ -186,7 +186,7 @@ export function DealModal({
           </div>
 
           {/* Dispensary card */}
-          <div className="glass-subtle frost rounded-xl p-4 mb-6">
+          <div className="glass-subtle frost rounded-2xl p-4 mb-6">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center shrink-0">
                 <MapPin className="w-5 h-5 text-slate-400" />
@@ -217,7 +217,7 @@ export function DealModal({
             <div className="flex gap-2 sm:gap-3">
               <button
                 onClick={handleShare}
-                className="py-3 sm:py-3.5 px-3 sm:px-4 min-h-[48px] min-w-[48px] rounded-xl font-semibold transition-all flex items-center justify-center gap-2 bg-white/5 text-white hover:bg-white/10"
+                className="py-3 sm:py-3.5 px-3 sm:px-4 min-h-[48px] min-w-[48px] rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 bg-white/5 text-white hover:bg-white/10"
                 aria-label="Share this deal"
               >
                 <Share className="w-5 h-5" />
@@ -225,14 +225,14 @@ export function DealModal({
               </button>
               <button
                 onClick={() => setShowReportModal(true)}
-                className="py-3 sm:py-3.5 px-3 sm:px-4 min-h-[48px] min-w-[48px] rounded-xl font-semibold transition-all flex items-center justify-center gap-2 bg-white/5 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                className="py-3 sm:py-3.5 px-3 sm:px-4 min-h-[48px] min-w-[48px] rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 bg-white/5 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
                 aria-label="Flag this deal"
               >
                 <Flag className="w-4 h-4" />
               </button>
               <button
                 onClick={onToggleSave}
-                className={`flex-1 py-3 sm:py-3.5 min-h-[48px] rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+                className={`flex-1 py-3 sm:py-3.5 min-h-[48px] rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 ${
                   isSaved
                     ? 'bg-purple-500/15 text-purple-400 border border-purple-500/20'
                     : 'bg-white/5 text-white hover:bg-white/10'
@@ -246,7 +246,8 @@ export function DealModal({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => trackGetDealClick(deal.id, deal.dispensary?.name || '', deal.product_url || deal.dispensary?.menu_url || '')}
-                className="flex-1 py-3 sm:py-3.5 min-h-[48px] bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-purple-500/20 flex items-center justify-center gap-2"
+                className="flex-1 py-3.5 sm:py-4 min-h-[48px] bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white font-semibold rounded-2xl transition-all shadow-lg shadow-purple-500/25 flex items-center justify-center gap-2"
+                style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12), 0 4px 16px rgba(139, 92, 246, 0.25)' }}
               >
                 <span className="text-sm sm:text-base">Get This Deal</span>
                 <ExternalLink className="w-4 h-4" />
@@ -257,7 +258,7 @@ export function DealModal({
               <button
                 onClick={handleMarkUsed}
                 disabled={isUsed}
-                className={`w-full py-3 sm:py-3.5 min-h-[48px] rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+                className={`w-full py-3 sm:py-3.5 min-h-[48px] rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 ${
                   isUsed
                     ? 'bg-green-500/15 text-green-400 border border-green-500/20 cursor-default'
                     : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
