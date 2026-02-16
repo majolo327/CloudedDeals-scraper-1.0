@@ -1438,18 +1438,19 @@ def get_chain_id(dispensary_slug: str) -> str:
 # "stable"  — scrapers that run on the daily 8 AM PT cron.
 # "new"     — recently built scrapers; triggered manually until proven.
 #
-# As of Feb 2026 all 6 platforms are promoted to stable (63 dispensaries).
-# Rise/Carrot/AIQ were promoted after initial manual testing period.
-# Note: Rise (risecannabis.com) may hit Cloudflare challenges — monitor
-# scrape_runs for 0-product failures and check debug artifacts if so.
+# As of Feb 2026 Dutchie/Curaleaf/Jane/Carrot/AIQ are stable.
+# Rise demoted 2026-02-16: Cloudflare Turnstile blocks all Rise sites
+# (0 products across every state). Moved to "disabled" until resolved.
+# Re-add to "stable" once Cloudflare bypass is implemented.
 #
 # Each group deactivates *only its own* stale products so runs don't
 # wipe each other's data.
 # ---------------------------------------------------------------------------
 
 PLATFORM_GROUPS: dict[str, list[str]] = {
-    "stable": ["dutchie", "curaleaf", "jane", "carrot", "aiq", "rise"],
+    "stable": ["dutchie", "curaleaf", "jane", "carrot", "aiq"],
     "new": [],
+    "disabled": ["rise"],
 }
 
 # Reverse lookup: platform → group name
