@@ -61,6 +61,8 @@ _VAPE_DISPOSABLE_INDICATORS = [
     re.compile(r"\bdisposable\b", re.IGNORECASE),
     re.compile(r"\ball[- ]?in[- ]?one\b", re.IGNORECASE),
     re.compile(r"\baio\b", re.IGNORECASE),
+    re.compile(r"\bready[- ]?to[- ]?use\b", re.IGNORECASE),
+    re.compile(r"\brtu\b", re.IGNORECASE),
 ]
 
 _VAPE_CARTRIDGE_INDICATORS = [
@@ -72,8 +74,8 @@ _VAPE_POD_INDICATORS = [
     re.compile(r"\bpod\b", re.IGNORECASE),
 ]
 
-# Brands whose vapes are ALWAYS pods (proprietary systems)
-_POD_BRANDS = {"stiiizy", "pax", "plug play"}
+# Brands whose vapes are ALWAYS pods (proprietary non-510 systems)
+_POD_BRANDS = {"stiiizy", "pax", "plug play", "airo"}
 
 # Brands whose vapes are ALWAYS cartridges (510 thread)
 _CART_BRANDS = {"rove", "select", "kingpen", "brass knuckles", "raw garden"}
@@ -100,7 +102,9 @@ def _classify_vape_subtype(name_lower: str, brand_lower: str) -> str | None:
     if re.search(r"\bpen\b", name_lower):
         return "disposable"
 
-    return None
+    # Default: 510-thread cartridge is the most common vape format.
+    # If no disposable/pod indicator was found, assume standard cart.
+    return "cartridge"
 
 
 # =====================================================================

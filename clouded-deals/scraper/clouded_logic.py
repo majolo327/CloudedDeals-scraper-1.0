@@ -672,7 +672,7 @@ class CloudedLogic:
             'terp sauce', 'thca', 'crystals', 'isolate', 'live resin',
             'cured resin', 'lr', 'cr',
         ]
-        vape_keywords_re = re.compile(r'\b(cart|cartridge|pod|disposable|vape|pen|all-in-one)\b')
+        vape_keywords_re = re.compile(r'\b(cart|cartridge|pod|disposable|vape|pen|all-in-one|ready[- ]?to[- ]?use|rtu)\b')
         has_concentrate = any(kw in t for kw in concentrate_keywords)
         has_concentrate_weight = any(w in t for w in ['.5g', '1g', '1.0g', '2g', '0.5g'])
         has_vape_keyword = bool(vape_keywords_re.search(t))
@@ -695,7 +695,7 @@ class CloudedLogic:
         edible_keywords = ['gummies', 'gummy', 'chocolate', 'candy', 'brownie',
                           'chews', 'chew', 'taffy', 'lozenge', 'lozenges',
                           'drops', 'tarts', 'bites', 'pieces', 'mints']
-        if re.search(r'\b(cart|cartridge|pod|disposable|vape|pen|all-in-one)\b', t):
+        if re.search(r'\b(cart|cartridge|pod|disposable|vape|pen|all-in-one|ready[- ]?to[- ]?use|rtu)\b', t):
             if not any(w in t for w in edible_keywords):
                 return 'vape'
 

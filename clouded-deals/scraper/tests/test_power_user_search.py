@@ -981,3 +981,30 @@ class TestOfferTextStripping:
         """Clean product text should be unaffected."""
         text = "Vapure .5g Disposable - Blue Dream $50"
         assert strip(text) == text
+
+
+# =====================================================================
+# 18) Vape Category Detection ("ready to use" / "RTU")
+# =====================================================================
+
+
+class TestVapeCategoryDetection:
+    """'Ready to use' and 'RTU' should be detected as vape, not other."""
+
+    @pytest.fixture
+    def logic(self):
+        from clouded_logic import CloudedLogic
+        return CloudedLogic()
+
+    def test_ready_to_use_is_vape(self, logic):
+        assert logic.detect_category("OG Kush Ready To Use 1g $30") == "vape"
+
+    def test_ready_to_use_hyphenated(self, logic):
+        assert logic.detect_category("Blue Dream Ready-To-Use 0.5g $25") == "vape"
+
+    def test_rtu_is_vape(self, logic):
+        assert logic.detect_category("Live Resin RTU 1g $40") == "vape"
+
+    def test_rtu_not_concentrate(self, logic):
+        """RTU with live resin keyword should still be vape, not concentrate."""
+        assert logic.detect_category("Live Resin RTU 0.5g $30") == "vape"

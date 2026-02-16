@@ -246,9 +246,12 @@ _RE_BUNDLE_QTY = re.compile(
 # Strain type anywhere in name (not just trailing)
 _RE_STRAIN_TYPE = re.compile(r"\b(?:Indica|Sativa|Hybrid)\b", re.IGNORECASE)
 
-# Redundant vape category words in display name
+# Redundant vape category words in display name.
+# Also strips compound terms: "All-In-One", "Ready To Use", "AIO", "RTU".
 _RE_VAPE_WORDS = re.compile(
-    r"\b(?:Cartridges?|Carts?|Distillate|Disposable|Pod|Vape)\b",
+    r"\bAll[- ]?In[- ]?One\b"
+    r"|\bReady[- ]?To[- ]?Use\b"
+    r"|\b(?:Cartridges?|Carts?|Distillate|Disposable|Pods?|Vape|AIO|RTU)\b",
     re.IGNORECASE,
 )
 
@@ -272,7 +275,7 @@ _CONCENTRATE_NAME_KEYWORDS = re.compile(
     re.IGNORECASE,
 )
 _VAPE_NAME_KEYWORDS = re.compile(
-    r"\b(?:cart|cartridge|pod|disposable|vape|pen|all-in-one)\b",
+    r"\b(?:cart|cartridge|pod|disposable|vape|pen|all-in-one|ready[- ]?to[- ]?use|rtu)\b",
     re.IGNORECASE,
 )
 
@@ -936,6 +939,14 @@ async def _scrape_site_inner(
                 rf'\b{re.escape(brand)}\b\s*[-:|]?\s*',
                 '', display_name, flags=re.IGNORECASE,
             ).strip()
+            # Also strip the brand without apostrophes/special chars
+            # (e.g. "Locals Only" when brand is "Local's Only")
+            simplified = re.sub(r"[''`]", "", brand)
+            if simplified != brand:
+                display_name = re.sub(
+                    rf'\b{re.escape(simplified)}\b\s*[-:|]?\s*',
+                    '', display_name, flags=re.IGNORECASE,
+                ).strip()
             # Also strip known abbreviations for this brand
             for abbr in _BRAND_ABBREVIATIONS.get(brand, []):
                 display_name = re.sub(

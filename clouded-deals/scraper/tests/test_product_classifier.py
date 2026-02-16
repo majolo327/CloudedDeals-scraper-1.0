@@ -74,6 +74,66 @@ class TestPackDetection:
         assert r["product_subtype"] is None
 
 
+class TestVapeSubtype:
+
+    def test_disposable_keyword(self):
+        r = classify_product("Blue Dream Disposable 0.5g", brand=None, category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_all_in_one_is_disposable(self):
+        r = classify_product("OG Kush All-In-One 0.3g", brand=None, category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_aio_is_disposable(self):
+        r = classify_product("Sunset Sherbet AIO 0.5g", brand=None, category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_ready_to_use_is_disposable(self):
+        r = classify_product("OG Kush Ready To Use 1g", brand=None, category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_ready_to_use_hyphenated(self):
+        r = classify_product("Blue Dream Ready-To-Use 0.5g", brand=None, category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_rtu_is_disposable(self):
+        r = classify_product("Live Resin RTU 1g", brand=None, category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_pen_is_disposable(self):
+        r = classify_product("Blue Dream Pen 0.3g", brand=None, category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_cart_is_cartridge(self):
+        r = classify_product("OG Kush Cart 0.5g", brand=None, category="vape")
+        assert r["product_subtype"] == "cartridge"
+
+    def test_pod_keyword(self):
+        r = classify_product("Live Resin Pod 1g", brand=None, category="vape")
+        assert r["product_subtype"] == "pod"
+
+    def test_stiiizy_is_pod(self):
+        r = classify_product("OG Kush 1g", brand="STIIIZY", category="vape")
+        assert r["product_subtype"] == "pod"
+
+    def test_airo_is_pod(self):
+        r = classify_product("Blue Dream Live Resin 0.5g", brand="Airo", category="vape")
+        assert r["product_subtype"] == "pod"
+
+    def test_rove_is_cartridge(self):
+        r = classify_product("Tangie 0.5g", brand="Rove", category="vape")
+        assert r["product_subtype"] == "cartridge"
+
+    def test_default_is_cartridge(self):
+        """Vapes with no subtype indicators default to 510 cartridge."""
+        r = classify_product("Blue Dream 1g", brand="Unknown", category="vape")
+        assert r["product_subtype"] == "cartridge"
+
+    def test_no_keyword_no_brand_defaults_cartridge(self):
+        r = classify_product("Live Resin 0.5g", brand=None, category="vape")
+        assert r["product_subtype"] == "cartridge"
+
+
 class TestNoFlags:
 
     def test_regular_flower(self):
