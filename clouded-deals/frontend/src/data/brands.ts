@@ -26,6 +26,9 @@ export const BRANDS: Brand[] = [
   // (=Hustler's Ambition), Uncle Arnies (=Uncle Arnie's)
   // ===================================================================
 
+  // &
+  b('&Shine', 'established', ['vape', 'concentrate']),
+
   // A
   b('Advanced Vapor Devices', 'value', []),
   b('Airo', 'established', ['vape']),

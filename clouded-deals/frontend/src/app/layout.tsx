@@ -18,9 +18,9 @@ const geistMono = localFont({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  themeColor: "#0a0a0a",
+  maximumScale: 5,
+  viewportFit: "cover",
+  themeColor: "#0a0b14",
 };
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://cloudeddeals.com";

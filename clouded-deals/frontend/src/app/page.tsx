@@ -42,6 +42,7 @@ export default function Home() {
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [highlightSaved] = useState(false);
   const [searchInitialQuery, setSearchInitialQuery] = useState('');
+  const [swipeOpen, setSwipeOpen] = useState(false);
   const [showFTUE, setShowFTUE] = useState(() => {
     if (typeof window === 'undefined') return false;
     return !isFTUECompleted();
@@ -296,11 +297,13 @@ export default function Home() {
 
   return (
     <div className="min-h-screen text-white" style={{ backgroundColor: 'var(--surface-0)' }}>
-      {/* Ambient gradient */}
-      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-950/15 via-transparent to-transparent pointer-events-none" />
+      {/* Ambient gradient — Roku-style light source from above.
+           Desktop: tighter ellipse + secondary accent for depth on wide viewports. */}
+      <div className="fixed inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -5%, rgba(88, 28, 135, 0.18) 0%, rgba(88, 28, 135, 0.06) 40%, transparent 70%)' }} />
+      <div className="fixed inset-0 pointer-events-none hidden sm:block" style={{ background: 'radial-gradient(ellipse 50% 35% at 50% -2%, rgba(139, 92, 246, 0.08) 0%, transparent 60%), radial-gradient(ellipse 30% 20% at 50% 0%, rgba(168, 85, 247, 0.05) 0%, transparent 50%)' }} />
 
       {/* Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl border-b" style={{ backgroundColor: 'rgba(10, 14, 26, 0.92)', borderColor: 'var(--border-subtle)' }}>
+      <header className="sticky top-0 z-50 header-border-glow" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderBottom: '1px solid rgba(120, 100, 200, 0.08)', WebkitBackdropFilter: 'blur(40px) saturate(1.3)', backdropFilter: 'blur(40px) saturate(1.3)' }}>
         <div className="max-w-6xl mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button onClick={() => setActivePage('home')} className="focus:outline-none">
@@ -368,7 +371,7 @@ export default function Home() {
           loading ? (
             <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
               <TopPickSkeleton />
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 xl:gap-5">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <DealCardSkeleton key={i} />
                 ))}
@@ -412,6 +415,8 @@ export default function Home() {
               savedCount={savedCount}
               isExpired={isShowingExpired}
               onShareSaves={handleShareSaves}
+              swipeOpen={swipeOpen}
+              onSwipeOpenChange={setSwipeOpen}
             />
           )
         )}
@@ -454,6 +459,10 @@ export default function Home() {
             addToast={addToast}
             history={dealHistory.history}
             onClearHistory={dealHistory.clearHistory}
+            onOpenSwipeMode={() => {
+              setActivePage('home');
+              setSwipeOpen(true);
+            }}
           />
         )}
 
@@ -513,7 +522,7 @@ export default function Home() {
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       {/* Mobile bottom nav bar */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-xl border-t" style={{ backgroundColor: 'rgba(10, 14, 26, 0.95)', borderColor: 'var(--border-subtle)' }} aria-label="Main navigation">
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 border-t" style={{ backgroundColor: 'rgba(10, 12, 26, 0.95)', borderColor: 'rgba(120, 100, 200, 0.08)', WebkitBackdropFilter: 'blur(40px) saturate(1.3)', backdropFilter: 'blur(40px) saturate(1.3)' }} aria-label="Main navigation">
         <div className="flex items-center justify-around px-2 pb-[env(safe-area-inset-bottom)]" role="tablist">
           {[
             { id: 'home' as const, label: 'Deals', icon: Star },
@@ -527,13 +536,13 @@ export default function Home() {
               aria-selected={activePage === tab.id}
               aria-label={tab.label}
               onClick={() => setActivePage(tab.id)}
-              className={`flex flex-col items-center gap-0.5 px-3 py-2 min-w-[56px] min-h-[48px] text-[11px] font-medium transition-colors ${
+              className={`flex flex-col items-center gap-0.5 px-3 py-2 min-w-[56px] min-h-[48px] text-[11px] font-medium transition-all duration-200 ${
                 activePage === tab.id
-                  ? 'text-purple-400'
+                  ? 'text-purple-400 nav-glow-active scale-105'
                   : 'text-slate-500 active:text-slate-300'
               }`}
             >
-              <tab.icon className="w-5 h-5" />
+              <tab.icon className={`w-5 h-5 transition-transform duration-200 ${activePage === tab.id ? 'drop-shadow-[0_0_6px_rgba(168,85,247,0.4)]' : ''}`} />
               {tab.label}
             </button>
           ))}

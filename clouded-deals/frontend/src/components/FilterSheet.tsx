@@ -249,15 +249,30 @@ export function FilterSheet({
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
-  // Swipe-to-close on mobile
+  // Swipe-to-close on mobile — only from the drag handle area at top of sheet.
+  // Prevents accidental dismissal when scrolling through filter options.
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
+    // Only track swipe if it started in the drag handle zone (top 48px of sheet)
+    // or if the scrollable content is already scrolled to the top
+    const sheetTop = sheetRef.current?.getBoundingClientRect().top ?? 0;
+    const touchY = e.touches[0].clientY;
+    const relativeY = touchY - sheetTop;
+    const scrollTop = scrollRef.current?.scrollTop ?? 0;
+
+    if (relativeY < 48 || scrollTop === 0) {
+      touchStartY.current = touchY;
+    } else {
+      touchStartY.current = null;
+    }
   }, []);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (touchStartY.current === null) return;
     const deltaY = e.changedTouches[0].clientY - touchStartY.current;
-    if (deltaY > 80) setIsOpen(false);
+    // Require 120px+ swipe down (was 80px, too sensitive)
+    if (deltaY > 120) setIsOpen(false);
     touchStartY.current = null;
   }, []);
 
@@ -282,14 +297,16 @@ export function FilterSheet({
         <div className="fixed inset-0 z-[60]">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+            className="absolute inset-0 bg-black/60 animate-in fade-in duration-200"
+            style={{ WebkitBackdropFilter: 'blur(8px) saturate(1.2)', backdropFilter: 'blur(8px) saturate(1.2)' }}
             onClick={() => setIsOpen(false)}
           />
 
           {/* Sheet */}
           <div
             ref={sheetRef}
-            className="absolute bottom-0 left-0 right-0 sm:left-auto sm:top-0 sm:bottom-0 sm:w-[380px] max-h-[80vh] sm:max-h-none sm:h-full bg-slate-900 border-t sm:border-t-0 sm:border-l border-slate-800 rounded-t-2xl sm:rounded-none flex flex-col"
+            className="absolute bottom-0 left-0 right-0 sm:left-auto sm:top-0 sm:bottom-0 sm:w-[380px] max-h-[80vh] sm:max-h-none sm:h-full border-t sm:border-t-0 sm:border-l rounded-t-3xl sm:rounded-none flex flex-col"
+            style={{ backgroundColor: 'rgba(12, 14, 28, 0.98)', borderColor: 'rgba(120, 100, 200, 0.1)', WebkitBackdropFilter: 'blur(32px) saturate(1.3)', backdropFilter: 'blur(32px) saturate(1.3)' }}
             onClick={(e) => e.stopPropagation()}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
@@ -300,7 +317,7 @@ export function FilterSheet({
             </div>
 
             {/* Header */}
-            <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b border-slate-800">
+            <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: 'rgba(120, 100, 200, 0.08)' }}>
               <h2 className="text-lg font-semibold text-white">Filters</h2>
               <div className="flex items-center gap-2">
                 {activeFilterCount > 0 && (
@@ -386,7 +403,7 @@ export function FilterSheet({
             )}
 
             {/* Scrollable content */}
-            <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain">
+            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain">
               {/* Sort By (collapsible at top) */}
               <section>
                 <button
@@ -685,14 +702,15 @@ export function FilterSheet({
             </div>
 
             {/* Footer */}
-            <div className="flex-shrink-0 p-4 bg-slate-900/95 border-t border-slate-800 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="flex-shrink-0 p-4 border-t pb-[max(1rem,env(safe-area-inset-bottom))]" style={{ backgroundColor: 'rgba(12, 14, 28, 0.95)', borderColor: 'rgba(120, 100, 200, 0.08)' }}>
               <button
                 onClick={() => setIsOpen(false)}
-                className={`w-full py-3 min-h-[48px] font-semibold rounded-xl transition-colors text-sm ${
+                className={`w-full py-3.5 min-h-[48px] font-semibold rounded-2xl transition-colors text-sm ${
                   filteredCount === 0
                     ? 'bg-slate-700 text-slate-400'
-                    : 'bg-purple-500 hover:bg-purple-400 text-white'
+                    : 'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white shadow-lg shadow-purple-500/20'
                 }`}
+                style={filteredCount > 0 ? { boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 16px rgba(139, 92, 246, 0.2)' } : undefined}
               >
                 {filteredCount === 0 ? 'No deals match' : `Show ${filteredCount} deal${filteredCount !== 1 ? 's' : ''}`}
               </button>

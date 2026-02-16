@@ -1,23 +1,31 @@
 """
-Dispensary configuration across 6 regions and 6 platforms.
+Dispensary configuration across 11 regions and 6 platforms.
 
 Regions:
-  - southern-nv: Las Vegas metro — 63 dispensaries (production)
-  - michigan:    MI data collection — 114 dispensaries (Dutchie-dominant)
-  - illinois:    IL data collection — 88 dispensaries (Rise/Curaleaf/Dutchie/Jane)
-  - arizona:     AZ data collection — 52 dispensaries (Dutchie-dominant)
-  - missouri:    MO data collection — 31 dispensaries (Dutchie-only)
-  - new-jersey:  NJ data collection — 34 dispensaries (Dutchie + Rise + Zen Leaf)
+  - southern-nv:   Las Vegas metro — 61 dispensaries (production)
+  - michigan:      MI data collection — 198 dispensaries (Dutchie-dominant)
+  - illinois:      IL data collection — 150 dispensaries (Rise/Curaleaf/Dutchie/Jane)
+  - arizona:       AZ data collection — 82 dispensaries (Dutchie-dominant)
+  - missouri:      MO data collection — 89 dispensaries (Dutchie-dominant)
+  - new-jersey:    NJ data collection — 65 dispensaries (Dutchie + Rise + Zen Leaf)
+  - ohio:          OH test batch — 20 dispensaries (Dutchie + Jane + Curaleaf + Rise)
+  - colorado:      CO test batch — 17 dispensaries (Dutchie + Jane)
+  - new-york:      NY test batch — 18 dispensaries (Dutchie + Jane + Curaleaf + Rise)
+  - massachusetts: MA test batch — 17 dispensaries (Dutchie + Jane + Curaleaf + Rise)
+  - pennsylvania:  PA test batch — 16 dispensaries (Dutchie + Rise)
 
-Platforms (382 total):
-  - dutchie: 270 — iframe-based menus (Dutchie/TD sites)
-  - jane:     48 — hybrid iframe/direct with "View More" pagination
-  - curaleaf: 34 — direct page loads (Curaleaf + Zen Leaf)
-  - rise:     21 — proprietary Next.js SPA (Rise/GTI + Cookies)
+Platforms (~733 total):
+  - dutchie: ~510 — iframe-based menus (Dutchie/TD sites)
+  - jane:     ~70 — hybrid iframe/direct with "View More" pagination
+  - curaleaf: ~40 — direct page loads (Curaleaf + Zen Leaf)
+  - rise:     ~35 — proprietary Next.js SPA (Rise/GTI + Cookies)
   - carrot:    6 — JS widget via getcarrot.io
   - aiq:       3 — Alpine IQ / Dispense React SPA
 
-Total active: 382 dispensaries (63 NV + 114 MI + 88 IL + 52 AZ + 31 MO + 34 NJ)
+Total: 733 dispensaries across 11 states
+  Original 6: 645 (61 NV + 198 MI + 150 IL + 82 AZ + 89 MO + 65 NJ)
+  Expansion 5:  88 test batch (20 OH + 17 CO + 18 NY + 17 MA + 16 PA)
+Active: 656 (some deactivated — known-broken sites kept for history)
 
 Sites marked ``is_active: False`` are known-broken (redirects, rebrands,
 etc.) and will be skipped by the orchestrator.  They remain in the config
@@ -28,22 +36,92 @@ The ``REGION`` env var in main.py controls which state is scraped.
 """
 
 # ---------------------------------------------------------------------------
-# Browser / Playwright defaults
+# Browser / Playwright defaults — stealth configuration
 # ---------------------------------------------------------------------------
+
+import random as _random
 
 BROWSER_ARGS = [
     "--no-sandbox",
     "--disable-blink-features=AutomationControlled",
     "--disable-dev-shm-usage",
+    "--disable-infobars",
+    "--disable-features=AutomationControlled",
 ]
 
+# Pool of realistic Chrome User-Agents — rotated per browser context so
+# each scraper session presents a different fingerprint.
+_USER_AGENT_POOL = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+]
+
+# Default (backwards-compat import target); callers should prefer get_user_agent()
+USER_AGENT = _USER_AGENT_POOL[0]
+
+
+def get_user_agent() -> str:
+    """Return a randomly selected realistic Chrome User-Agent."""
+    return _random.choice(_USER_AGENT_POOL)
+
+
+# Common desktop resolutions with small random offsets to avoid
+# fingerprint-matching on exact viewport dimensions.
+_VIEWPORT_BASES = [
+    (1920, 1080),
+    (1366, 768),
+    (1440, 900),
+    (1536, 864),
+]
+
+# Default (backwards-compat import target); callers should prefer get_viewport()
 VIEWPORT = {"width": 1920, "height": 1080}
 
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/131.0.0.0 Safari/537.36"
-)
+
+def get_viewport() -> dict[str, int]:
+    """Return a slightly randomized viewport to avoid fingerprinting."""
+    w, h = _random.choice(_VIEWPORT_BASES)
+    return {
+        "width": w + _random.randint(-16, 16),
+        "height": h + _random.randint(-8, 8),
+    }
+
+
+# JavaScript injected into every browser context on creation to mask
+# Playwright/Chromium automation signals.  Industry-standard technique
+# used by all major scraping frameworks.
+STEALTH_INIT_SCRIPT = """
+// 1. Mask navigator.webdriver (primary bot signal)
+Object.defineProperty(navigator, 'webdriver', {
+    get: () => undefined,
+});
+
+// 2. Override navigator.plugins to look like a real browser
+Object.defineProperty(navigator, 'plugins', {
+    get: () => [1, 2, 3, 4, 5],
+});
+
+// 3. Override navigator.languages to match User-Agent
+Object.defineProperty(navigator, 'languages', {
+    get: () => ['en-US', 'en'],
+});
+
+// 4. Mask chrome.runtime (present in real Chrome, absent in headless)
+if (!window.chrome) { window.chrome = {}; }
+if (!window.chrome.runtime) { window.chrome.runtime = {}; }
+
+// 5. Override permissions API (Notification permission query leaks headless)
+const _origQuery = window.navigator.permissions.query.bind(navigator.permissions);
+window.navigator.permissions.query = (params) =>
+    params.name === 'notifications'
+        ? Promise.resolve({ state: Notification.permission })
+        : _origQuery(params);
+"""
 
 # Use 'domcontentloaded' — NOT 'networkidle' — to avoid hanging on
 # long-polling analytics and chat widgets that never finish loading.
@@ -158,6 +236,7 @@ DISPENSARIES = [
         "slug": "medizin",
         "platform": "dutchie",
         "url": "https://planet13.com/stores/medizin-dispensary/specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/medizin-dispensary/specials",
         "is_active": True,
         "region": "southern-nv",
         "embed_type": "iframe",   # same as Planet 13
@@ -194,7 +273,7 @@ DISPENSARIES = [
         "name": "Mint Paradise",
         "slug": "mint-paradise",
         "platform": "dutchie",
-        "url": "https://mintdeals.com/paradise-lv/menu/?dtche%5Bpath%5D=specials",
+        "url": "https://mintdeals.com/paradise-lv/deals/?dtche%5Bpath%5D=specials",
         "fallback_url": "https://dutchie.com/embedded-menu/the-mint-paradise/specials",
         "is_active": True,
         "region": "southern-nv",
@@ -204,7 +283,7 @@ DISPENSARIES = [
         "name": "Mint Rainbow",
         "slug": "mint-rainbow",
         "platform": "dutchie",
-        "url": "https://mintdeals.com/rainbow-lv/menu/?dtche%5Bpath%5D=specials",
+        "url": "https://mintdeals.com/rainbow-lv/deals/?dtche%5Bpath%5D=specials",
         "fallback_url": "https://dutchie.com/embedded-menu/the-mint-spring-valley/specials",
         "is_active": True,
         "region": "southern-nv",
@@ -597,12 +676,14 @@ DISPENSARIES = [
         "region": "southern-nv",
     },
     {
-        # Euphoria's Carrot integration renders deals/specials on the main
-        # /menu page — /menu/category/specials is not a valid route.
+        # Euphoria Wellness uses iHeartJane (store #1173) via Jane Roots
+        # headless integration.  Primary URL is the Jane embed; fallback
+        # is their own /menu/category/specials page (JS-rendered).
         "name": "Euphoria Wellness",
         "slug": "euphoria-wellness",
-        "platform": "carrot",
-        "url": "https://euphoriawellnessnv.com/menu",
+        "platform": "jane",
+        "url": "https://www.iheartjane.com/embed/stores/1173/menu",
+        "fallback_url": "https://euphoriawellnessnv.com/menu/category/specials",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -660,12 +741,12 @@ DISPENSARIES = [
     },
     {
         # Switched from AIQ to Dutchie — specials page with embedded menu.
-        # No embed_type hint — auto-detect via full cascade, same as the
-        # working Charleston/Henderson/Warm Springs siblings.
+        # Added fallback URL so we go direct to Dutchie if primary fails.
         "name": "Nevada Made Laughlin",
         "slug": "nevada-made-casino-dr",
         "platform": "dutchie",
         "url": "https://nevadamademarijuana.com/stores/nevada-made-marijuana-laughlin/specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/nevada-made-marijuana-laughlin/specials",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -698,7 +779,7 @@ DISPENSARIES = [
     },
 
     # ==================================================================
-    # MICHIGAN — Data collection. Dutchie-dominant market (350-400 on
+    # MICHIGAN — 198 dispensaries. Dutchie-dominant market (350-400 on
     # Dutchie alone). Organized by region: Detroit Metro → Ann Arbor →
     # Grand Rapids/West MI → Kalamazoo → Lansing → Flint/Saginaw →
     # Northern MI → Upper Peninsula → Southwest MI border.
@@ -837,6 +918,116 @@ DISPENSARIES = [
     {"name": "Bacco Farms Flint", "slug": "bacco-farms-flint", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bacco-farms-flint", "is_active": True, "region": "michigan"},
     {"name": "Smok Flint", "slug": "smok-flint", "platform": "dutchie", "url": "https://dutchie.com/dispensary/smok-flint-michigan", "is_active": True, "region": "michigan"},
 
+    # ── GAGE / COOKIES MICHIGAN (Gage rebranded to Cookies, Dutchie) ─
+    {"name": "Gage Ferndale MI", "slug": "gage-ferndale", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gage-ferndale", "is_active": True, "region": "michigan"},
+    {"name": "Gage Kalamazoo MI", "slug": "gage-kalamazoo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gage-cannabis-co-kalamazoo", "is_active": True, "region": "michigan"},
+    {"name": "Gage Traverse City MI", "slug": "gage-traverse-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gage-traverse-city", "is_active": True, "region": "michigan"},
+    {"name": "Gage Adrian MI", "slug": "gage-adrian", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gage-adrian", "is_active": True, "region": "michigan"},
+    {"name": "Gage Bay City MI", "slug": "gage-bay-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gage-bay-city", "is_active": True, "region": "michigan"},
+    {"name": "Gage Battle Creek MI", "slug": "gage-battle-creek", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gage-cannabis-co-battle-creek", "is_active": True, "region": "michigan"},
+    {"name": "Gage Lansing MI", "slug": "gage-lansing", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gage-cannabis-co-lansing", "is_active": True, "region": "michigan"},
+    {"name": "Gage Burton MI", "slug": "gage-burton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gage-cannabis-co-burton", "is_active": True, "region": "michigan"},
+    {"name": "Cookies Ann Arbor MI", "slug": "cookies-ann-arbor-mi", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cookies-ann-arbor", "is_active": True, "region": "michigan"},
+    {"name": "Cookies Detroit MI", "slug": "cookies-detroit-mi", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cookies-detroit", "is_active": True, "region": "michigan"},
+    {"name": "Cookies Kalamazoo MI", "slug": "cookies-kalamazoo-mi", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cookies-kalamazoo", "is_active": True, "region": "michigan"},
+    {"name": "Cookies Jackson MI", "slug": "cookies-jackson-mi", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cookies-jackson", "is_active": True, "region": "michigan"},
+    {"name": "Cookies Grand Rapids MI", "slug": "cookies-gr-mi", "platform": "dutchie", "url": "https://dutchie.com/dispensary/noxx-ann-st", "is_active": True, "region": "michigan"},
+
+    # ── HOUSE OF DANK (Detroit metro, 15+ locations, Dutchie) ─────────
+    {"name": "House of Dank Center Line MI", "slug": "hod-center-line", "platform": "dutchie", "url": "https://dutchie.com/dispensary/centerlinerec", "is_active": True, "region": "michigan"},
+    {"name": "House of Dank Ypsilanti MI", "slug": "hod-ypsilanti", "platform": "dutchie", "url": "https://dutchie.com/dispensary/house-of-dank-ypsilanti", "is_active": True, "region": "michigan"},
+    {"name": "House of Dank Fort Gratiot MI", "slug": "hod-fort-gratiot", "platform": "dutchie", "url": "https://dutchie.com/dispensary/house-of-dank-fort-gratiot", "is_active": True, "region": "michigan"},
+    {"name": "House of Dank Monroe MI", "slug": "hod-monroe", "platform": "dutchie", "url": "https://dutchie.com/dispensary/house-of-dank-monroe-laplaisance", "is_active": True, "region": "michigan"},
+    {"name": "House of Dank Inkster MI", "slug": "hod-inkster", "platform": "dutchie", "url": "https://dutchie.com/dispensary/house-of-dank-inkster", "is_active": True, "region": "michigan"},
+    {"name": "House of Dank 8 Mile MI", "slug": "hod-8mile-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/house-of-dank-recreational-cannabis-8-mile", "is_active": True, "region": "michigan"},
+    {"name": "House of Dank Ann Arbor MI", "slug": "hod-ann-arbor", "platform": "dutchie", "url": "https://dutchie.com/dispensary/house-of-dank-ann-arbor-rec", "is_active": True, "region": "michigan"},
+    {"name": "House of Dank Grand Rapids MI", "slug": "hod-grand-rapids", "platform": "dutchie", "url": "https://dutchie.com/dispensary/house-of-dank-grand-rapids", "is_active": True, "region": "michigan"},
+    {"name": "House of Dank Lansing MI", "slug": "hod-lansing", "platform": "dutchie", "url": "https://dutchie.com/dispensary/house-of-dank-cannabis-company", "is_active": True, "region": "michigan"},
+    {"name": "House of Dank Garden City MI", "slug": "hod-garden-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/house-of-dank-garden-city", "is_active": True, "region": "michigan"},
+    {"name": "House of Dank Kalamazoo MI", "slug": "hod-kalamazoo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/house-of-dank-kalamazoo-rec", "is_active": True, "region": "michigan"},
+    {"name": "House of Dank Saginaw MI", "slug": "hod-saginaw", "platform": "dutchie", "url": "https://dutchie.com/dispensary/house-of-dank-saginaw", "is_active": True, "region": "michigan"},
+    {"name": "House of Dank Traverse City MI", "slug": "hod-traverse-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/house-of-dank-traverse-city-rec", "is_active": True, "region": "michigan"},
+    {"name": "House of Dank Lapeer MI", "slug": "hod-lapeer", "platform": "dutchie", "url": "https://dutchie.com/dispensary/house-of-dank-lapeer", "is_active": True, "region": "michigan"},
+    {"name": "House of Dank New Buffalo MI", "slug": "hod-new-buffalo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/house-of-dank-new-buffalo", "is_active": True, "region": "michigan"},
+
+    # ── EXCLUSIVE CANNABIS (8 locations, Dutchie) ─────────────────────
+    {"name": "Exclusive Ann Arbor MI", "slug": "exclusive-ann-arbor", "platform": "dutchie", "url": "https://dutchie.com/dispensary/exclusive-ann-arbor", "is_active": True, "region": "michigan"},
+    {"name": "Exclusive Kalamazoo MI", "slug": "exclusive-kalamazoo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/exclusive-kalamazoo", "is_active": True, "region": "michigan"},
+    {"name": "Exclusive Coldwater MI", "slug": "exclusive-coldwater", "platform": "dutchie", "url": "https://dutchie.com/dispensary/exclusive-cold-water", "is_active": True, "region": "michigan"},
+    {"name": "Exclusive Gaylord MI", "slug": "exclusive-gaylord", "platform": "dutchie", "url": "https://dutchie.com/dispensary/exclusive-gaylord-rec", "is_active": True, "region": "michigan"},
+    {"name": "Exclusive Grand Rapids MI", "slug": "exclusive-grand-rapids", "platform": "dutchie", "url": "https://dutchie.com/dispensary/exclusive-grand-rapids", "is_active": True, "region": "michigan"},
+    {"name": "Exclusive Lowell MI", "slug": "exclusive-lowell", "platform": "dutchie", "url": "https://dutchie.com/dispensary/exclusive-lowell", "is_active": True, "region": "michigan"},
+    {"name": "Exclusive Monroe MI", "slug": "exclusive-monroe", "platform": "dutchie", "url": "https://dutchie.com/dispensary/heads-monroe", "is_active": True, "region": "michigan"},
+    {"name": "Exclusive Muskegon MI", "slug": "exclusive-muskegon", "platform": "dutchie", "url": "https://dutchie.com/dispensary/exclusive-muskegon", "is_active": True, "region": "michigan"},
+
+    # ── PUFF CANNABIS (13 locations, Dutchie) ─────────────────────────
+    {"name": "Puff Cannabis Traverse City MI", "slug": "puff-traverse-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/puff-traverse-city-med", "is_active": True, "region": "michigan"},
+    {"name": "Puff Cannabis Hamtramck MI", "slug": "puff-hamtramck", "platform": "dutchie", "url": "https://dutchie.com/dispensary/puff-canna-co-hamtramck-rec", "is_active": True, "region": "michigan"},
+    {"name": "Puff Cannabis Bay City MI", "slug": "puff-bay-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/puff-bay-city-rec", "is_active": True, "region": "michigan"},
+    {"name": "Puff Cannabis Kalamazoo MI", "slug": "puff-kalamazoo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/puff-kalamazoo-rec", "is_active": True, "region": "michigan"},
+    {"name": "Puff Cannabis Monroe MI", "slug": "puff-monroe", "platform": "dutchie", "url": "https://dutchie.com/dispensary/puff-monroe-rec", "is_active": True, "region": "michigan"},
+    {"name": "Puff Cannabis River Rouge MI", "slug": "puff-river-rouge", "platform": "dutchie", "url": "https://dutchie.com/dispensary/puff-river-rouge", "is_active": True, "region": "michigan"},
+    {"name": "Puff Cannabis Sturgis MI", "slug": "puff-sturgis", "platform": "dutchie", "url": "https://dutchie.com/dispensary/puff-canna-co-sturgis-rec", "is_active": True, "region": "michigan"},
+    {"name": "Puff Cannabis Utica MI", "slug": "puff-utica", "platform": "dutchie", "url": "https://dutchie.com/dispensary/puff-cannabis-utica", "is_active": True, "region": "michigan"},
+    {"name": "Puff Cannabis Center Line MI", "slug": "puff-center-line", "platform": "dutchie", "url": "https://dutchie.com/dispensary/puff-centerline", "is_active": True, "region": "michigan"},
+    {"name": "Puff Cannabis New Buffalo MI", "slug": "puff-new-buffalo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/puff-new-buffalo", "is_active": True, "region": "michigan"},
+    {"name": "Puff Cannabis Madison Hts MI", "slug": "puff-madison-hts", "platform": "dutchie", "url": "https://dutchie.com/dispensary/puff-cannabis-co-madison-heights-rec", "is_active": True, "region": "michigan"},
+    {"name": "Puff Cannabis Oscoda MI", "slug": "puff-oscoda", "platform": "dutchie", "url": "https://dutchie.com/dispensary/puff-oscoda-rec", "is_active": True, "region": "michigan"},
+
+    # ── NOXX CANNABIS (verified locations, Dutchie) ───────────────────
+    {"name": "NOXX 28th St Grand Rapids MI", "slug": "noxx-28th-st", "platform": "dutchie", "url": "https://dutchie.com/dispensary/noxx-28th-st", "is_active": True, "region": "michigan"},
+    {"name": "NOXX Plainfield Grand Rapids MI", "slug": "noxx-plainfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/noxx-plainfield-ave", "is_active": True, "region": "michigan"},
+    {"name": "NOXX Woodward MI", "slug": "noxx-woodward", "platform": "dutchie", "url": "https://dutchie.com/dispensary/noxx-woodward", "is_active": True, "region": "michigan"},
+
+    # ── CONSUME CANNABIS MI (verified locations, Dutchie) ─────────────
+    {"name": "Consume Quincy MI", "slug": "consume-mi-quincy", "platform": "dutchie", "url": "https://dutchie.com/dispensary/consume-quincy-rec", "is_active": True, "region": "michigan"},
+    {"name": "Consume Adrian MI", "slug": "consume-mi-adrian", "platform": "dutchie", "url": "https://dutchie.com/dispensary/consume-cannabis-adrian", "is_active": True, "region": "michigan"},
+    {"name": "Consume Ionia MI", "slug": "consume-mi-ionia", "platform": "dutchie", "url": "https://dutchie.com/dispensary/consume-ionia-rec", "is_active": True, "region": "michigan"},
+    {"name": "Consume Alma MI", "slug": "consume-mi-alma", "platform": "dutchie", "url": "https://dutchie.com/dispensary/consume-alma-rec", "is_active": True, "region": "michigan"},
+    {"name": "Consume Lapeer MI", "slug": "consume-mi-lapeer", "platform": "dutchie", "url": "https://dutchie.com/dispensary/consume-lapeer-rec", "is_active": True, "region": "michigan"},
+    {"name": "Consume Harrisville MI", "slug": "consume-mi-harrisville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/consume-cannabis-harrisville", "is_active": True, "region": "michigan"},
+
+    # ── DUNEGRASS CO. (7 verified locations, Dutchie) ────────────────
+    {"name": "Dunegrass Manistee MI", "slug": "dunegrass-manistee", "platform": "dutchie", "url": "https://dutchie.com/dispensary/dunegrass-co", "is_active": True, "region": "michigan"},
+    {"name": "Dunegrass Cadillac MI", "slug": "dunegrass-cadillac", "platform": "dutchie", "url": "https://dutchie.com/dispensary/dunegrass-co-cadillac", "is_active": True, "region": "michigan"},
+    {"name": "Dunegrass Marquette MI", "slug": "dunegrass-marquette", "platform": "dutchie", "url": "https://dutchie.com/dispensary/dunegrass-co-marquette", "is_active": True, "region": "michigan"},
+    {"name": "Dunegrass TC West MI", "slug": "dunegrass-tc-west", "platform": "dutchie", "url": "https://dutchie.com/dispensary/dunegrass-tc-west", "is_active": True, "region": "michigan"},
+    {"name": "Dunegrass TC Downtown MI", "slug": "dunegrass-tc-downtown", "platform": "dutchie", "url": "https://dutchie.com/dispensary/dunegrass-tc-downtown", "is_active": True, "region": "michigan"},
+    {"name": "Dunegrass Beulah MI", "slug": "dunegrass-beulah", "platform": "dutchie", "url": "https://dutchie.com/dispensary/dunegrass-co-beulah", "is_active": True, "region": "michigan"},
+    {"name": "Dunegrass Gaylord MI", "slug": "dunegrass-gaylord", "platform": "dutchie", "url": "https://dutchie.com/dispensary/dunegrass-co-gaylord", "is_active": True, "region": "michigan"},
+
+    # ── INFORMATION ENTROPY (Ann Arbor, Dutchie) ─────────────────────
+    {"name": "Information Entropy Broadway MI", "slug": "info-entropy-broadway", "platform": "dutchie", "url": "https://dutchie.com/dispensary/informatiomn-entropy", "is_active": True, "region": "michigan"},
+    {"name": "Information Entropy Downtown MI", "slug": "info-entropy-downtown", "platform": "dutchie", "url": "https://dutchie.com/dispensary/information-entropy-miller", "is_active": True, "region": "michigan"},
+
+    # ── LAKE EFFECT MI (SW MI, Dutchie) ───────────────────────────────
+    {"name": "Lake Effect Kalamazoo MI", "slug": "lake-effect-kalamazoo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/lake-effect-kalamazoo-rec", "is_active": True, "region": "michigan"},
+
+    # ── PURE OPTIONS MI (Lansing area, Dutchie) ──────────────────────
+    {"name": "Pure Options Lansing MI", "slug": "pure-options-lansing", "platform": "dutchie", "url": "https://dutchie.com/dispensary/pure-options-lansing", "is_active": True, "region": "michigan"},
+    {"name": "Pure Options Frandor MI", "slug": "pure-options-frandor", "platform": "dutchie", "url": "https://dutchie.com/dispensary/pure-options-frandor", "is_active": True, "region": "michigan"},
+    {"name": "Pure Options Mt Pleasant MI", "slug": "pure-options-mt-pleasant", "platform": "dutchie", "url": "https://dutchie.com/dispensary/pure-options-mt-pleasant", "is_active": True, "region": "michigan"},
+
+    # ── FIRE STATION CANNABIS (UP, Dutchie) ──────────────────────────
+    {"name": "Fire Station Marquette MI", "slug": "fire-station-marquette", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-fire-station-marquette", "is_active": True, "region": "michigan"},
+    {"name": "Fire Station Negaunee MI", "slug": "fire-station-negaunee", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-fire-station-negaunee", "is_active": True, "region": "michigan"},
+    {"name": "Fire Station Hannahville MI", "slug": "fire-station-hannahville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-fire-station-hannahville", "is_active": True, "region": "michigan"},
+
+    # ── MICHIGAN SUPPLY & PROVISIONS (Dutchie) ─────────────────────────
+    {"name": "Michigan Supply Ann Arbor", "slug": "mi-supply-ann-arbor", "platform": "dutchie", "url": "https://dutchie.com/dispensary/michigan-supply-and-provisions-ann-arbor", "is_active": True, "region": "michigan"},
+    {"name": "Michigan Supply Morenci MI", "slug": "mi-supply-morenci", "platform": "dutchie", "url": "https://dutchie.com/dispensary/michigan-supply-and-provisions-morenci", "is_active": True, "region": "michigan"},
+    {"name": "Michigan Supply Grand River MI", "slug": "mi-supply-grand-river", "platform": "dutchie", "url": "https://dutchie.com/dispensary/michigan-supply-and-provisions-grand-river", "is_active": True, "region": "michigan"},
+
+    # ── MICHIGAN ADDITIONAL INDEPENDENTS (Dutchie) ───────────────────
+    {"name": "Kai Cannabis Adrian MI", "slug": "kai-adrian", "platform": "dutchie", "url": "https://dutchie.com/dispensary/kai-cannabis-co", "is_active": True, "region": "michigan"},
+    {"name": "Endo Cannabis Kalamazoo MI", "slug": "endo-kalamazoo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/endo-kalamazoo", "is_active": True, "region": "michigan"},
+    {"name": "GLH Flint MI", "slug": "glh-flint", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-labs-flint", "is_active": True, "region": "michigan"},
+    {"name": "Nirvana Center Coldwater MI", "slug": "nirvana-coldwater-mi", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nirvana-center-coldwater", "is_active": True, "region": "michigan"},
+    {"name": "Dispo Battle Creek MI", "slug": "dispo-battle-creek", "platform": "dutchie", "url": "https://dutchie.com/dispensary/dispo-battle-creek", "is_active": True, "region": "michigan"},
+    {"name": "The Refinery Kalamazoo MI", "slug": "refinery-kalamazoo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-refinery-kalamazoo", "is_active": True, "region": "michigan"},
+    {"name": "Sunset Coast Provisions MI", "slug": "sunset-coast-mi", "platform": "dutchie", "url": "https://dutchie.com/dispensary/sunset-coast-provisions", "is_active": True, "region": "michigan"},
+    {"name": "Lit Provisioning Evart MI", "slug": "lit-evart", "platform": "dutchie", "url": "https://dutchie.com/dispensary/lit-provisioning-evart", "is_active": True, "region": "michigan"},
+
     # ── CURALEAF MICHIGAN (Curaleaf platform) ───────────────────────
     {"name": "Curaleaf MI Kalamazoo", "slug": "curaleaf-mi-kalamazoo", "platform": "curaleaf", "url": "https://curaleaf.com/shop/michigan/curaleaf-mi-kalamazoo", "is_active": True, "region": "michigan"},
     {"name": "Curaleaf MI Bangor", "slug": "curaleaf-mi-bangor", "platform": "curaleaf", "url": "https://curaleaf.com/shop/michigan/curaleaf-mi-bangor", "is_active": True, "region": "michigan"},
@@ -845,10 +1036,12 @@ DISPENSARIES = [
     {"name": "Zen Leaf Buchanan MI", "slug": "zen-leaf-buchanan", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/buchanan/menu/recreational", "is_active": True, "region": "michigan"},
 
     # ==================================================================
-    # ILLINOIS — 88 dispensaries. MSO-dominated: Rise (GTI), Curaleaf,
+    # ILLINOIS — 150 dispensaries. MSO-dominated: Rise (GTI), Curaleaf,
     # Zen Leaf (Verano). Dutchie chains: Ascend, Windy City, Thrive IL,
-    # Mission, Maribis, Planet 13. Jane chains: Beyond/Hello, Verilife,
-    # Consume, nuEra, EarthMed, Hatch.
+    # Mission, Maribis, Planet 13, Greenhouse, Ivy Hall (10), MOCA,
+    # Dispensary33, BLOC (5), Dutchess (5), Nature's Treatment (2).
+    # Jane chains: Beyond/Hello, Verilife, Consume, nuEra,
+    # EarthMed, Hatch, Sunnyside/Cresco, 3C, Mapleglen.
     # ==================================================================
 
     # ── RISE ILLINOIS (GTI — 11 locations, Rise platform) ──────────
@@ -971,11 +1164,104 @@ DISPENSARIES = [
     {"name": "Hatch Addison IL", "slug": "hatch-addison-rec", "platform": "jane", "url": "https://gohatch.com/dispensaries/addison-recreational/", "is_active": True, "region": "illinois"},
     {"name": "Hatch Wheeling IL", "slug": "hatch-wheeling-rec", "platform": "jane", "url": "https://gohatch.com/", "is_active": True, "region": "illinois"},
 
+    # ── SUNNYSIDE IL (Cresco Labs — 10+ locations, Jane/iHeartJane) ──
+    {"name": "Sunnyside Champaign IL", "slug": "sunnyside-champaign", "platform": "jane", "url": "https://www.sunnyside.shop/dispensary/champaign", "is_active": True, "region": "illinois"},
+    {"name": "Sunnyside Danville IL", "slug": "sunnyside-danville", "platform": "jane", "url": "https://www.sunnyside.shop/dispensary/danville", "is_active": True, "region": "illinois"},
+    {"name": "Sunnyside Lakeview IL", "slug": "sunnyside-lakeview", "platform": "jane", "url": "https://www.sunnyside.shop/dispensary/chicago-lakeview", "is_active": True, "region": "illinois"},
+    {"name": "Sunnyside South Beloit IL", "slug": "sunnyside-south-beloit", "platform": "jane", "url": "https://www.sunnyside.shop/dispensary/south-beloit", "is_active": True, "region": "illinois"},
+    {"name": "Sunnyside Rockford IL", "slug": "sunnyside-rockford", "platform": "jane", "url": "https://www.sunnyside.shop/dispensary/rockford", "is_active": True, "region": "illinois"},
+    {"name": "Sunnyside Schaumburg IL", "slug": "sunnyside-schaumburg", "platform": "jane", "url": "https://www.sunnyside.shop/dispensary/schaumburg", "is_active": True, "region": "illinois"},
+    {"name": "Sunnyside Buffalo Grove IL", "slug": "sunnyside-buffalo-grove", "platform": "jane", "url": "https://www.sunnyside.shop/dispensary/buffalo-grove", "is_active": True, "region": "illinois"},
+    {"name": "Sunnyside Naperville IL", "slug": "sunnyside-naperville", "platform": "jane", "url": "https://www.sunnyside.shop/dispensary/naperville", "is_active": True, "region": "illinois"},
+    {"name": "Sunnyside Elmwood Park IL", "slug": "sunnyside-elmwood-park", "platform": "jane", "url": "https://www.sunnyside.shop/dispensary/elmwood-park", "is_active": True, "region": "illinois"},
+    {"name": "Sunnyside River North IL", "slug": "sunnyside-river-north", "platform": "jane", "url": "https://www.sunnyside.shop/dispensary/chicago-river-north", "is_active": True, "region": "illinois"},
+
+    # ── NATURE'S CARE IL (Dutchie — 3 locations) ────────────────────
+    {"name": "Nature's Care Rolling Meadows IL", "slug": "natures-care-rolling-meadows", "platform": "dutchie", "url": "https://dutchie.com/dispensary/natures-care-rolling-meadows", "is_active": True, "region": "illinois"},
+    {"name": "Nature's Care Joliet IL", "slug": "natures-care-joliet", "platform": "dutchie", "url": "https://dutchie.com/dispensary/natures-care-joliet", "is_active": True, "region": "illinois"},
+
+    # ── GREENHOUSE GROUP IL (Dutchie — 5 locations) ─────────────────
+    {"name": "Greenhouse Deerfield IL", "slug": "greenhouse-deerfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenhouse-deerfield", "is_active": True, "region": "illinois"},
+    {"name": "Greenhouse Northbrook IL", "slug": "greenhouse-northbrook", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenhouse-northbrook", "is_active": True, "region": "illinois"},
+    {"name": "Greenhouse Morris IL", "slug": "greenhouse-morris", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenhouse-morris", "is_active": True, "region": "illinois"},
+
+    # ── IVY HALL IL (Dutchie — 10 locations) ────────────────────────
+    {"name": "Ivy Hall Glendale Heights IL", "slug": "ivy-hall-glendale-hts", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ivy-hall-glendale-heights", "is_active": True, "region": "illinois"},
+    {"name": "Ivy Hall Bucktown IL", "slug": "ivy-hall-bucktown", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ivy-hall-bucktown", "is_active": True, "region": "illinois"},
+    {"name": "Ivy Hall Wrigleyville IL", "slug": "ivy-hall-wrigleyville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ivy-hall-wrigleyville", "is_active": True, "region": "illinois"},
+    {"name": "Ivy Hall Bolingbrook IL", "slug": "ivy-hall-bolingbrook", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ivy-hall-bolingbrook", "is_active": True, "region": "illinois"},
+    {"name": "Ivy Hall Crystal Lake IL", "slug": "ivy-hall-crystal-lake", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ivy-hall-crystal-lake", "is_active": True, "region": "illinois"},
+    {"name": "Ivy Hall Montgomery IL", "slug": "ivy-hall-montgomery", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ivy-hall-montgomery", "is_active": True, "region": "illinois"},
+    {"name": "Ivy Hall Waukegan IL", "slug": "ivy-hall-waukegan", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ivy-hall-waukegan", "is_active": True, "region": "illinois"},
+    {"name": "Ivy Hall Logan Square IL", "slug": "ivy-hall-logan-square", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ivy-hall-logan-square", "is_active": True, "region": "illinois"},
+    {"name": "Ivy Hall Peoria IL", "slug": "ivy-hall-peoria", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ivy-hall-peoria", "is_active": True, "region": "illinois"},
+    {"name": "Ivy Hall Streamwood IL", "slug": "ivy-hall-streamwood", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ivy-hall-streamwood", "is_active": True, "region": "illinois"},
+
+    # ── DISPENSARY33 IL (Dutchie — Chicago) ─────────────────────────
+    {"name": "Dispensary33 Andersonville IL", "slug": "d33-andersonville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/dispensary33-andersonville", "is_active": True, "region": "illinois"},
+    {"name": "Dispensary33 West Loop IL", "slug": "d33-west-loop", "platform": "dutchie", "url": "https://dutchie.com/dispensary/dispensary33-west-loop", "is_active": True, "region": "illinois"},
+
+    # ── MOCA MODERN CANNABIS IL (Dutchie — Chicago) ─────────────────
+    {"name": "MOCA Chicago Logan Square IL", "slug": "moca-logan-square", "platform": "dutchie", "url": "https://dutchie.com/dispensary/moca-logan-square", "is_active": True, "region": "illinois"},
+    {"name": "MOCA Chicago River North IL", "slug": "moca-river-north", "platform": "dutchie", "url": "https://dutchie.com/dispensary/moca-river-north", "is_active": True, "region": "illinois"},
+
+    # ── COLUMBIA CARE / CANNABIST IL (Dutchie) ─────────────────────
+    {"name": "Cannabist Villa Park IL", "slug": "cannabist-il-villa-park", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cannabist-villa-park", "is_active": True, "region": "illinois"},
+    {"name": "Cannabist Chicago IL", "slug": "cannabist-il-chicago", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cannabist-chicago", "is_active": True, "region": "illinois"},
+
+    # ── 3C COMPASSIONATE CARE IL (Jane — Naperville/Joliet) ─────────
+    {"name": "3C Naperville IL", "slug": "3c-naperville", "platform": "jane", "url": "https://www.3ccannabis.com/naperville-menu", "is_active": True, "region": "illinois"},
+    {"name": "3C Joliet IL", "slug": "3c-joliet", "platform": "jane", "url": "https://www.3ccannabis.com/joliet-menu", "is_active": True, "region": "illinois"},
+
+    # ── MAPLEGLEN CARE CENTER IL (Jane) ─────────────────────────────
+    {"name": "Mapleglen Rockford IL", "slug": "mapleglen-rockford", "platform": "jane", "url": "https://mapleglencannabis.com/rockford-rec", "is_active": True, "region": "illinois"},
+
+    # ── OTHER IL DUTCHIE/JANE ADDITIONS ─────────────────────────────
+    {"name": "MedMen Oak Park IL", "slug": "medmen-oak-park", "platform": "dutchie", "url": "https://dutchie.com/dispensary/medmen-oak-park", "is_active": False, "region": "illinois"},  # closed — now Dutchess Cannabis
+    {"name": "MedMen Evanston IL", "slug": "medmen-evanston", "platform": "dutchie", "url": "https://dutchie.com/dispensary/medmen-evanston", "is_active": False, "region": "illinois"},  # closed
+    {"name": "Trinity Peoria Med IL", "slug": "trinity-peoria", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trinity-compassionate-care", "is_active": True, "region": "illinois"},
+    {"name": "Trinity Peoria Rec IL", "slug": "trinity-peoria-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trinity-compassionate-care-rec", "is_active": True, "region": "illinois"},
+    {"name": "Green Gate Chicago IL", "slug": "green-gate-chicago", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-gate-chicago", "is_active": False, "region": "illinois"},  # closed — now Zen Leaf Rogers Park
+    {"name": "Revolution Cannabis Maryville IL", "slug": "revolution-maryville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/revolution-maryville", "is_active": True, "region": "illinois"},
+
+    # ── BLOC DISPENSARY IL (5 locations, Dutchie — social equity) ──
+    {"name": "BLOC Kedzie Chicago IL", "slug": "bloc-il-kedzie", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloc-illinois-kedzie", "is_active": True, "region": "illinois"},
+    {"name": "BLOC Berwyn IL", "slug": "bloc-il-berwyn", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloc-dispensary-berwyn", "is_active": True, "region": "illinois"},
+    {"name": "BLOC Forest Park IL", "slug": "bloc-il-forest-park", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloc-dispensary-forest-park", "is_active": True, "region": "illinois"},
+    {"name": "BLOC Metropolis IL", "slug": "bloc-il-metropolis", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloc-dispensary-metropolis", "is_active": True, "region": "illinois"},
+    {"name": "BLOC Northfield IL", "slug": "bloc-il-northfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloc-dispensary-northfield", "is_active": True, "region": "illinois"},
+
+    # ── DUTCHESS CANNABIS IL (5 locations, Dutchie — women-owned) ──
+    {"name": "Dutchess Oak Park IL", "slug": "dutchess-oak-park", "platform": "dutchie", "url": "https://dutchie.com/dispensary/oak-park-illinois", "is_active": True, "region": "illinois"},
+    {"name": "Dutchess Morton Grove IL", "slug": "dutchess-morton-grove", "platform": "dutchie", "url": "https://dutchie.com/dispensary/morton-grove-illinois", "is_active": True, "region": "illinois"},
+    {"name": "Dutchess Lynwood IL", "slug": "dutchess-lynwood", "platform": "dutchie", "url": "https://dutchie.com/dispensary/lynwood-illinois", "is_active": True, "region": "illinois"},
+    {"name": "Dutchess North Riverside IL", "slug": "dutchess-north-riverside", "platform": "dutchie", "url": "https://dutchie.com/dispensary/north-riverside-illinois", "is_active": True, "region": "illinois"},
+    {"name": "Dutchess Markham IL", "slug": "dutchess-markham", "platform": "dutchie", "url": "https://dutchie.com/stores/markham-illinois", "is_active": True, "region": "illinois"},
+
+    # ── NATURE'S TREATMENT IL (2 locations, Dutchie) ──────────────
+    {"name": "Nature's Treatment Milan IL", "slug": "nti-milan", "platform": "dutchie", "url": "https://dutchie.com/dispensary/natures-treatment-of-illinois-milan", "is_active": True, "region": "illinois"},
+    {"name": "Nature's Treatment Galesburg IL", "slug": "nti-galesburg", "platform": "dutchie", "url": "https://dutchie.com/dispensary/natures-treatment-galesburg", "is_active": True, "region": "illinois"},
+
+    # ── GREEN RELEAF IL (2 locations, Dutchie) ────────────────────
+    {"name": "Green Releaf Villa Park IL", "slug": "green-releaf-il-villa-park", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-releaf-villa-park", "is_active": True, "region": "illinois"},
+    {"name": "Green Releaf Bourbonnais IL", "slug": "green-releaf-il-bourbonnais", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-releaf-bourbonnais", "is_active": True, "region": "illinois"},
+
+    # ── OTHER NEW IL DUTCHIE ──────────────────────────────────────
+    {"name": "NOBO Lakemoor IL", "slug": "nobo-lakemoor", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nobo-lakemoor", "is_active": True, "region": "illinois"},
+    {"name": "Star Buds Riverside IL", "slug": "star-buds-riverside-il", "platform": "dutchie", "url": "https://dutchie.com/dispensary/star-buds-riverside", "is_active": True, "region": "illinois"},
+    {"name": "Greenlight Park City IL", "slug": "greenlight-park-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenlight-park-city", "is_active": True, "region": "illinois"},
+    {"name": "Parkway Forest Park IL", "slug": "parkway-forest-park", "platform": "dutchie", "url": "https://dutchie.com/dispensary/parkway-dispensary-forest-park", "is_active": True, "region": "illinois"},
+    {"name": "Ash & Ivy Benton IL", "slug": "ash-ivy-benton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ash-and-ivy-dispensary", "is_active": True, "region": "illinois"},
+    {"name": "Green Temple Troy IL", "slug": "green-temple-troy", "platform": "dutchie", "url": "https://dutchie.com/dispensary/shopgreentemple", "is_active": True, "region": "illinois"},
+    {"name": "High Haven Normal IL", "slug": "high-haven-normal", "platform": "dutchie", "url": "https://dutchie.com/dispensary/high-haven-normal", "is_active": True, "region": "illinois"},
+    {"name": "Greenhouse Litchfield IL", "slug": "greenhouse-litchfield", "platform": "dutchie", "url": "https://dutchie.com/stores/greenhouse-litchfield", "is_active": True, "region": "illinois"},
+
     # ==================================================================
-    # ARIZONA — 52 dispensaries. Dutchie-dominant market:
+    # ARIZONA — 82 dispensaries. Dutchie-dominant market:
     # Trulieve/Harvest (12), Sol Flower (6), The Mint (4),
     # Nature's Medicines (3), Nirvana (4), Ponderosa (7),
-    # Cookies (1), TruMed (1), other singles (6).
+    # Jars (4), Oasis (3), Bloom (3), Territory (3), Debbie's (3),
+    # Sunday Goods (2), other singles (15).
     # Plus Curaleaf (6) + Zen Leaf (4) on native platforms.
     # ==================================================================
 
@@ -1049,11 +1335,54 @@ DISPENSARIES = [
     {"name": "Zen Leaf Gilbert AZ", "slug": "zen-leaf-gilbert", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/gilbert/menu/recreational", "is_active": True, "region": "arizona"},
     {"name": "Zen Leaf Prescott AZ", "slug": "zen-leaf-prescott", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/prescott/menu/recreational", "is_active": True, "region": "arizona"},
 
+    # ── JARS CANNABIS AZ (11 verified locations, Dutchie) ─────────────
+    {"name": "Jars East Tucson AZ", "slug": "jars-az-east-tucson", "platform": "dutchie", "url": "https://dutchie.com/dispensary/jars-east-tucson-green-med-wellness", "is_active": True, "region": "arizona"},
+    {"name": "Jars North Phoenix AZ", "slug": "jars-az-n-phoenix", "platform": "dutchie", "url": "https://dutchie.com/dispensary/jars-north-phoenix-mohave-cannabis-club-3-rec", "is_active": True, "region": "arizona"},
+    {"name": "Jars Metrocenter AZ", "slug": "jars-az-metrocenter", "platform": "dutchie", "url": "https://dutchie.com/dispensary/jars-metrocenter-desert-medical-campus-rec", "is_active": True, "region": "arizona"},
+    {"name": "Jars Phoenix Airport AZ", "slug": "jars-az-24th-st", "platform": "dutchie", "url": "https://dutchie.com/dispensary/jars-24th-street-dreem-green-rec", "is_active": True, "region": "arizona"},
+    {"name": "Jars Mesa AZ", "slug": "jars-az-mesa", "platform": "dutchie", "url": "https://dutchie.com/dispensary/jars-mesa-mohave-cannabis-club-1-rec", "is_active": True, "region": "arizona"},
+    {"name": "Jars Prescott Valley AZ", "slug": "jars-az-prescott", "platform": "dutchie", "url": "https://dutchie.com/dispensary/jars-prescott-valley", "is_active": True, "region": "arizona"},
+    {"name": "Jars Kingman AZ", "slug": "jars-az-kingman", "platform": "dutchie", "url": "https://dutchie.com/dispensary/jars-kingman-mccse214-rec", "is_active": True, "region": "arizona"},
+    {"name": "Jars Cave Creek AZ", "slug": "jars-az-cave-creek", "platform": "dutchie", "url": "https://dutchie.com/dispensary/wickenburg-alternative-medicine-llc", "is_active": True, "region": "arizona"},
+    {"name": "Jars Payson AZ", "slug": "jars-az-payson", "platform": "dutchie", "url": "https://dutchie.com/dispensary/jars-payson-gila-dreams-x-rec", "is_active": True, "region": "arizona"},
+    {"name": "Jars Tolleson AZ", "slug": "jars-az-tolleson", "platform": "dutchie", "url": "https://dutchie.com/dispensary/jars-tolleson", "is_active": True, "region": "arizona"},
+    {"name": "Jars Peoria AZ", "slug": "jars-az-peoria", "platform": "dutchie", "url": "https://dutchie.com/dispensary/jars-peoria-mohave-cannabis-club-2-rec", "is_active": True, "region": "arizona"},
+
+    # ── STORY CANNABIS AZ (fka Oasis, verified Dutchie) ─────────────
+    {"name": "Story N Chandler AZ", "slug": "story-az-n-chandler", "platform": "dutchie", "url": "https://dutchie.com/dispensary/oasis-cannabis-north", "is_active": True, "region": "arizona"},
+    {"name": "Story S Chandler AZ", "slug": "story-az-s-chandler", "platform": "dutchie", "url": "https://dutchie.com/dispensary/oasis-cannabis-south", "is_active": True, "region": "arizona"},
+    {"name": "Story Lake Havasu AZ", "slug": "story-az-lake-havasu", "platform": "dutchie", "url": "https://dutchie.com/dispensary/story-of-arizona-lake-havasu", "is_active": True, "region": "arizona"},
+
+    # ── THE MINT AZ ADDITIONAL (verified Dutchie) ───────────────────
+    {"name": "The Mint Mesa AZ", "slug": "mint-az-mesa", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-mint-dispensary-mesa", "is_active": True, "region": "arizona"},
+    {"name": "The Mint Scottsdale AZ", "slug": "mint-az-scottsdale", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-mint-scottsdale", "is_active": True, "region": "arizona"},
+
+    # ── D2 / GREEN HALO TUCSON (verified 6 menus, Dutchie) ─────────
+    {"name": "D2 Oracle Rd Rec AZ", "slug": "d2-oracle-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-green-halo-medical-and-recreational", "is_active": True, "region": "arizona"},
+    {"name": "D2 Oracle Rd Med AZ", "slug": "d2-oracle-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-green-halo-medical", "is_active": True, "region": "arizona"},
+    {"name": "D2 Downtown Rec AZ", "slug": "d2-downtown-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-downtown-dispensary", "is_active": True, "region": "arizona"},
+    {"name": "D2 Downtown Med AZ", "slug": "d2-downtown-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-downtown-dispensary-med", "is_active": True, "region": "arizona"},
+    {"name": "D2 Eastside Rec AZ", "slug": "d2-eastside-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/d2-dispensary", "is_active": True, "region": "arizona"},
+    {"name": "D2 Eastside Med AZ", "slug": "d2-eastside-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/d2-dispensary-medical", "is_active": True, "region": "arizona"},
+
+    # ── SUNDAY GOODS AZ (verified Dutchie) ─────────────────────────
+    {"name": "Sunday Goods Tempe AZ", "slug": "sunday-goods-tempe", "platform": "dutchie", "url": "https://dutchie.com/dispensary/sunday-goods-tempe", "is_active": True, "region": "arizona"},
+    {"name": "Sunday Goods Phoenix AZ", "slug": "sunday-goods-phoenix", "platform": "dutchie", "url": "https://dutchie.com/dispensary/sunday-goods-phoenix", "is_active": True, "region": "arizona"},
+    {"name": "Sunday Goods Surprise AZ", "slug": "sunday-goods-surprise", "platform": "dutchie", "url": "https://dutchie.com/dispensary/sunday-goods-surprise", "is_active": True, "region": "arizona"},
+
+    # ── OTHER AZ VERIFIED ADDITIONS ───────────────────────────────
+    {"name": "Sticky Saguaro Chandler AZ", "slug": "sticky-saguaro", "platform": "dutchie", "url": "https://dutchie.com/dispensary/border-health-inc-sticky-saguaro", "is_active": True, "region": "arizona"},
+    {"name": "Arizona Organix Glendale AZ", "slug": "az-organix-glendale", "platform": "dutchie", "url": "https://dutchie.com/dispensary/arizona-organix", "is_active": True, "region": "arizona"},
+    {"name": "Desert Bloom Tucson AZ", "slug": "desert-bloom-tucson", "platform": "dutchie", "url": "https://dutchie.com/dispensary/desert-bloom-re-leaf-center-dispensary", "is_active": True, "region": "arizona"},
+    {"name": "The Local Joint Scottsdale AZ", "slug": "local-joint-scottsdale", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-local-joint", "is_active": True, "region": "arizona"},
+    {"name": "Prime Leaf Tucson AZ", "slug": "prime-leaf-tucson", "platform": "dutchie", "url": "https://dutchie.com/dispensary/prime-leaf-tucson", "is_active": True, "region": "arizona"},
+
     # ==================================================================
-    # MISSOURI — Data collection. 5th largest adult-use market nationally.
+    # MISSOURI — 89 dispensaries. 5th largest adult-use market nationally.
     # $1.53B in 2025 sales. 214 licensed dispensaries. Dutchie-dominant.
-    # Key chains: Key Missouri (9), Greenlight (10), From The Earth (3),
-    # Green Releaf (3), Terrabis, Bloc, Star Buds, Nature Med.
+    # Key chains: Key Missouri (9), Greenlight (10), Good Day Farm (11),
+    # Proper (9), N'Bliss (5), Swade (5), From The Earth (3),
+    # Green Releaf (3), 3Fifteen Primo (4), Shangri-La (3), + others.
     # Population: 6.2M. Major metros: KC (516K), StL (280K),
     # Springfield (171K), Columbia (131K).
     # ==================================================================
@@ -1070,7 +1399,7 @@ DISPENSARIES = [
     {"name": "Key Missouri Nixa", "slug": "key-mo-nixa", "platform": "dutchie", "url": "https://dutchie.com/dispensary/key-missouri-nixa", "is_active": True, "region": "missouri"},
 
     # ── GREENLIGHT DISPENSARY MO (10 locations, Dutchie) ──────────
-    {"name": "Greenlight Columbia MO", "slug": "greenlight-mo-columbia", "platform": "dutchie", "url": "https://dutchie.com/dispensary/3fifteen-primo-columbia", "is_active": True, "region": "missouri"},
+    {"name": "3Fifteen Primo Columbia MO", "slug": "3fifteen-columbia", "platform": "dutchie", "url": "https://dutchie.com/dispensary/3fifteen-primo-columbia", "is_active": True, "region": "missouri"},
     {"name": "Greenlight Hayti MO", "slug": "greenlight-mo-hayti", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenlight-dispensary-hayti", "is_active": True, "region": "missouri"},
     {"name": "Greenlight Stateline KCMO", "slug": "greenlight-mo-stateline", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenlight-dispensary-prospect", "is_active": True, "region": "missouri"},
     {"name": "Greenlight Joplin MO", "slug": "greenlight-mo-joplin", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenlight-dispensary-joplin", "is_active": True, "region": "missouri"},
@@ -1103,13 +1432,97 @@ DISPENSARIES = [
     {"name": "Nature Med Independence MO", "slug": "nature-med-independence", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nature-med-independence", "is_active": True, "region": "missouri"},
     {"name": "Greenlight Rock Port MO", "slug": "greenlight-mo-rock-port", "platform": "dutchie", "url": "https://dutchie.com/dispensary/rock-port", "is_active": True, "region": "missouri"},
 
+    # ── PROPER CANNABIS MO (9 locations, Dutchie — KC/STL) ──────────
+    {"name": "Proper Cannabis Chouteau MO", "slug": "proper-mo-chouteau", "platform": "dutchie", "url": "https://dutchie.com/dispensary/proper-cannabis-chouteau", "is_active": True, "region": "missouri"},
+    {"name": "Proper Cannabis Pleasant Hill MO", "slug": "proper-mo-pleasant-hill", "platform": "dutchie", "url": "https://dutchie.com/dispensary/proper-cannabis-pleasant-hill", "is_active": True, "region": "missouri"},
+    {"name": "Proper Cannabis Warrenton MO", "slug": "proper-mo-warrenton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/proper-cannabis-warrenton", "is_active": True, "region": "missouri"},
+    {"name": "Proper Cannabis Kansas City MO", "slug": "proper-mo-kc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/Proper-Cannabis-Downtown-Kansas-City", "is_active": True, "region": "missouri"},
+    {"name": "Proper Cannabis Bridgeton MO", "slug": "proper-mo-bridgeton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/proper-wellness-bridgeton", "is_active": True, "region": "missouri"},
+    {"name": "Proper Cannabis Crestwood MO", "slug": "proper-mo-crestwood", "platform": "dutchie", "url": "https://dutchie.com/dispensary/proper-cannabis-sappington", "is_active": True, "region": "missouri"},
+    {"name": "Proper Cannabis South County MO", "slug": "proper-mo-south-county", "platform": "dutchie", "url": "https://dutchie.com/dispensary/proper-cannabis-lindberg", "is_active": True, "region": "missouri"},
+    {"name": "Proper Cannabis House Springs MO", "slug": "proper-mo-house-springs", "platform": "dutchie", "url": "https://dutchie.com/stores/nbliss-iii-house-springs", "is_active": True, "region": "missouri"},
+    {"name": "Proper Cannabis Festus West MO", "slug": "proper-mo-festus-west", "platform": "dutchie", "url": "https://dutchie.com/stores/nbliss-i-festus", "is_active": True, "region": "missouri"},
+
+    # ── N'BLISS CANNABIS MO (5 locations, Dutchie — STL area) ───────
+    {"name": "N'Bliss Ellisville MO", "slug": "nbliss-ellisville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nbliss-iv-ellisville", "is_active": True, "region": "missouri"},
+    {"name": "N'Bliss Manchester MO", "slug": "nbliss-manchester", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nbliss-ii-manchester", "is_active": True, "region": "missouri"},
+    {"name": "N'Bliss Crestwood MO", "slug": "nbliss-crestwood", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nbliss-crestwood", "is_active": True, "region": "missouri"},
+    {"name": "N'Bliss Wentzville MO", "slug": "nbliss-wentzville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nbliss-wentzville", "is_active": True, "region": "missouri"},
+    {"name": "N'Bliss Cottleville MO", "slug": "nbliss-cottleville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nbliss-cottleville", "is_active": True, "region": "missouri"},
+
+    # ── SWADE CANNABIS MO (5 locations, Dutchie — STL area) ────────
+    {"name": "Swade St Peters MO", "slug": "swade-st-peters", "platform": "dutchie", "url": "https://dutchie.com/dispensary/swade-st-peters", "is_active": True, "region": "missouri"},
+    {"name": "Swade South Grand MO", "slug": "swade-south-grand", "platform": "dutchie", "url": "https://dutchie.com/dispensary/swade-south-grand", "is_active": True, "region": "missouri"},
+    {"name": "Swade Delmar MO", "slug": "swade-delmar", "platform": "dutchie", "url": "https://dutchie.com/dispensary/swade-delmar", "is_active": True, "region": "missouri"},
+    {"name": "Swade Ellisville MO", "slug": "swade-ellisville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/swade-cannabis-dispensary-ellisville", "is_active": True, "region": "missouri"},
+    {"name": "Swade South City STL MO", "slug": "swade-south-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/swade-cannabis-dispensary-south-city", "is_active": True, "region": "missouri"},
+
+    # ── GOOD DAY FARM MO (11 locations, Dutchie — statewide) ───────
+    {"name": "Good Day Farm KC MO", "slug": "gdf-mo-kc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/liberty-kansas-city", "is_active": True, "region": "missouri"},
+    {"name": "Good Day Farm STL MO", "slug": "gdf-mo-stl", "platform": "dutchie", "url": "https://dutchie.com/dispensary/liberty-st-louis", "is_active": True, "region": "missouri"},
+    {"name": "Good Day Farm Springfield MO", "slug": "gdf-mo-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/good-day-farm-springfield", "is_active": True, "region": "missouri"},
+    {"name": "Good Day Farm Cape Girardeau MO", "slug": "gdf-mo-cape", "platform": "dutchie", "url": "https://dutchie.com/dispensary/good-day-farms", "is_active": True, "region": "missouri"},
+    {"name": "Good Day Farm Caruthersville MO", "slug": "gdf-mo-caruthersville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/good-day-farm-caruthersville", "is_active": True, "region": "missouri"},
+    {"name": "Good Day Farm Eagleville MO", "slug": "gdf-mo-eagleville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gdf-eagleville-new", "is_active": True, "region": "missouri"},
+    {"name": "Good Day Farm Ellisville MO", "slug": "gdf-mo-ellisville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gdf-ellisville-new", "is_active": True, "region": "missouri"},
+    {"name": "Good Day Farm Columbia Vandiver MO", "slug": "gdf-mo-columbia-vandiver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gdf-columbia-vandiver-dr", "is_active": True, "region": "missouri"},
+    {"name": "Good Day Farm Columbia Forum MO", "slug": "gdf-mo-columbia-forum", "platform": "dutchie", "url": "https://dutchie.com/dispensary/liberty-columbia", "is_active": True, "region": "missouri"},
+    {"name": "Good Day Farm Joplin MO", "slug": "gdf-mo-joplin", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gdf-joplin-20th-st", "is_active": True, "region": "missouri"},
+    {"name": "Good Day Farm STL Broadway MO", "slug": "gdf-mo-stl-broadway", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gdf-st-louis-broadway-st", "is_active": True, "region": "missouri"},
+    {"name": "Good Day Farm Imperial MO", "slug": "gdf-mo-imperial", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bkind-imperial", "is_active": True, "region": "missouri"},
+
+    # ── ROOT 66 DISPENSARY MO (Dutchie — SW MO) ───────────────────
+    {"name": "Root 66 Lebanon MO", "slug": "root66-lebanon", "platform": "dutchie", "url": "https://dutchie.com/dispensary/root-66-lebanon", "is_active": True, "region": "missouri"},
+    {"name": "Root 66 Branson MO", "slug": "root66-branson", "platform": "dutchie", "url": "https://dutchie.com/dispensary/root-66-branson", "is_active": True, "region": "missouri"},
+
+    # ── C4 DISPENSARY MO (Dutchie) ─────────────────────────────────
+    {"name": "C4 Dispensary KC MO", "slug": "c4-kc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/c4-dispensary", "is_active": True, "region": "missouri"},
+    {"name": "C4 Dispensary Independence MO", "slug": "c4-independence", "platform": "dutchie", "url": "https://dutchie.com/dispensary/c4-independence", "is_active": True, "region": "missouri"},
+
+    # ── HIPPOS CANNABIS MO (Dutchie) ───────────────────────────────
+    {"name": "Hippos Springfield MO", "slug": "hippos-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/hippos-springfield", "is_active": True, "region": "missouri"},
+    {"name": "Hippos Chesterfield MO", "slug": "hippos-chesterfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/hippos-chesterfield", "is_active": True, "region": "missouri"},
+
+    # ── FRESH GREEN DISPENSARY MO (Dutchie) ────────────────────────
+    {"name": "Fresh Green Kansas City MO", "slug": "fresh-green-kc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/fresh-green-kansas-city", "is_active": True, "region": "missouri"},
+
+    # ── OTHER MO DUTCHIE ADDITIONS ─────────────────────────────────
+    {"name": "Besame Wellness KC MO", "slug": "besame-kc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/besame-wellness-kansas-city", "is_active": True, "region": "missouri"},
+    {"name": "Besame Smithville MO", "slug": "besame-smithville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/besame-wellness-smithville", "is_active": True, "region": "missouri"},
+    {"name": "Old Route 66 Wellness Pacific MO", "slug": "or66-pacific", "platform": "dutchie", "url": "https://dutchie.com/dispensary/old-route-66-wellness-pacific", "is_active": True, "region": "missouri"},
+    {"name": "Illicit Gardens STL MO", "slug": "illicit-stl", "platform": "dutchie", "url": "https://dutchie.com/dispensary/illicit-gardens-st-louis", "is_active": True, "region": "missouri"},
+    {"name": "Flora Farms Humansville MO", "slug": "flora-farms-humansville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/flora-farms-humansville", "is_active": True, "region": "missouri"},
+    {"name": "Flora Farms Springfield MO", "slug": "flora-farms-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/flora-farms-springfield", "is_active": True, "region": "missouri"},
+    {"name": "Flora Farms Joplin MO", "slug": "flora-farms-joplin", "platform": "dutchie", "url": "https://dutchie.com/dispensary/flora-farms-springfield1", "is_active": True, "region": "missouri"},
+    {"name": "Clovr KC MO", "slug": "clovr-kc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/clovr-kansas-city", "is_active": True, "region": "missouri"},
+    {"name": "Nature Med Kansas City MO", "slug": "nature-med-kc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nature-med-kansas-city", "is_active": True, "region": "missouri"},
+
+    # ── SHANGRI-LA MO (3 locations, Dutchie — central MO) ────────
+    {"name": "Shangri-La Jefferson City MO", "slug": "shangri-la-jeff-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/shangri-la-jefferson-city", "is_active": True, "region": "missouri"},
+    {"name": "Shangri-La Columbia MO", "slug": "shangri-la-columbia", "platform": "dutchie", "url": "https://dutchie.com/dispensary/shangri-la-columbia", "is_active": True, "region": "missouri"},
+    {"name": "Shangri-La Columbia South MO", "slug": "shangri-la-columbia-south", "platform": "dutchie", "url": "https://dutchie.com/dispensary/shangri-la-columbia-south", "is_active": True, "region": "missouri"},
+
+    # ── 3FIFTEEN PRIMO MO (4 locations, Dutchie) ─────────────────
+    {"name": "3Fifteen Primo Valley Park MO", "slug": "3fifteen-valley-park", "platform": "dutchie", "url": "https://dutchie.com/dispensary/3fifteen-primo-valley-park", "is_active": True, "region": "missouri"},
+    {"name": "3Fifteen Primo Branson West MO", "slug": "3fifteen-branson-west", "platform": "dutchie", "url": "https://dutchie.com/dispensary/3fifteen-primo-branson-west", "is_active": True, "region": "missouri"},
+    {"name": "3Fifteen Primo STL MO", "slug": "3fifteen-stl", "platform": "dutchie", "url": "https://dutchie.com/dispensary/3fifteen-primo-st-louis", "is_active": True, "region": "missouri"},
+
+    # ── TRINITY MO (2 locations, Dutchie — I-44 corridor) ────────
+    {"name": "Trinity Salem MO", "slug": "trinity-mo-salem", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trinity-salem", "is_active": True, "region": "missouri"},
+    {"name": "Trinity St James MO", "slug": "trinity-mo-st-james", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trinity-st-james", "is_active": True, "region": "missouri"},
+
+    # ── OTHER NEW MO DUTCHIE ─────────────────────────────────────
+    {"name": "The Forest STL MO", "slug": "forest-stl", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-forest-st-louis", "is_active": True, "region": "missouri"},
+    {"name": "Luxury Leaf STL MO", "slug": "luxury-leaf-stl", "platform": "dutchie", "url": "https://dutchie.com/dispensary/luxury-leaf", "is_active": True, "region": "missouri"},
+    {"name": "Stairway Cannabis Blue Springs MO", "slug": "stairway-blue-springs", "platform": "dutchie", "url": "https://dutchie.com/dispensary/stairway-cannabis", "is_active": True, "region": "missouri"},
+
     # ==================================================================
-    # NEW JERSEY — Data collection. $1B+ in 2024 sales. 190+ licensed
+    # NEW JERSEY — 65 dispensaries. $1B+ in 2024 sales. 190+ licensed
     # dispensaries. NYC metro 20M+ population. MSO-heavy: Curaleaf (on
     # Dutchie!), GTI/Rise, Verano/Zen Leaf, Ascend. Key insight: Curaleaf
     # NJ migrated to Dutchie platform — scrapes via dutchie.py not
-    # curaleaf.py. Strong independent scene: MPX NJ, Sweetspot, Hashery,
-    # Bloc, AYR/GSD.
+    # curaleaf.py. Botanist, Harmony, Valley Wellness, Aunt Mary's,
+    # AYR/GSD, CannaVibes, INSA Coastline, + many verified independents.
     # ==================================================================
 
     # ── ASCEND NJ (3 locations, Dutchie) ─────────────────────────
@@ -1165,6 +1578,214 @@ DISPENSARIES = [
     {"name": "Zen Leaf Elizabeth NJ", "slug": "zen-leaf-nj-elizabeth", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/elizabeth/menu/recreational", "is_active": True, "region": "new-jersey"},
     {"name": "Zen Leaf Lawrence NJ", "slug": "zen-leaf-nj-lawrence", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/lawrence/menu/recreational", "is_active": True, "region": "new-jersey"},
     {"name": "Zen Leaf Neptune NJ", "slug": "zen-leaf-nj-neptune", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/neptune/menu/recreational", "is_active": True, "region": "new-jersey"},
+
+    # ==================================================================
+    #  OHIO  — Initial test batch (10 Dutchie + 4 Jane + 3 Curaleaf + 5 Rise = 22)
+    #  OH went recreational Aug 2024.  67 scrapable dispensaries identified.
+    #  Rise URLs fixed with store IDs (all 5 OH locations included).
+    #  Expand after confirming scraper success on these test URLs.
+    # ==================================================================
+
+    # ── DUTCHIE OH ──────────────────────────────────────────────────
+    {"name": "Terrasana Columbus", "slug": "terrasana-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/terrasana-cannabis-co", "is_active": True, "region": "ohio"},
+    {"name": "Terrasana Fremont", "slug": "terrasana-fremont", "platform": "dutchie", "url": "https://dutchie.com/dispensary/terrasana-cannabis-co-fremont", "is_active": True, "region": "ohio"},
+    {"name": "Ascend Cleveland", "slug": "ascend-oh-cleveland", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cleveland-ohio", "is_active": True, "region": "ohio"},
+    {"name": "Trulieve OH Columbus", "slug": "trulieve-oh-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trulieve-columbus", "is_active": True, "region": "ohio"},
+    {"name": "Trulieve OH Cincinnati", "slug": "trulieve-oh-cincinnati", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trulieve-cincinnati", "is_active": True, "region": "ohio"},
+    {"name": "Amplify Canton", "slug": "amplify-canton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/amplify-canton", "is_active": True, "region": "ohio"},
+    {"name": "Klutch Lorain", "slug": "klutch-lorain", "platform": "dutchie", "url": "https://dutchie.com/dispensary/klutch-lorain", "is_active": True, "region": "ohio"},
+    {"name": "Shangri-La Columbus", "slug": "shangri-la-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/shangri-la-dispensary-columbus", "is_active": True, "region": "ohio"},
+    {"name": "The Landing Kirkersville", "slug": "landing-kirkersville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-landing-dispensary-kirkersville", "is_active": True, "region": "ohio"},
+    {"name": "Firelands Scientific Huron", "slug": "firelands-huron", "platform": "dutchie", "url": "https://dutchie.com/dispensary/firelands-scientific-huron", "is_active": True, "region": "ohio"},
+
+    # ── JANE OH ─────────────────────────────────────────────────────
+    {"name": "Bloom Columbus", "slug": "bloom-oh-columbus", "platform": "jane", "url": "https://www.iheartjane.com/stores/2820/bloom-medicinals-columbus/menu", "is_active": True, "region": "ohio"},
+    {"name": "Bloom Akron", "slug": "bloom-oh-akron", "platform": "jane", "url": "https://www.iheartjane.com/stores/2817/bloom-medicinals-akron/menu", "is_active": True, "region": "ohio"},
+    {"name": "Verilife Cincinnati", "slug": "verilife-oh-cincinnati", "platform": "jane", "url": "https://www.iheartjane.com/stores/3004/verilife-cincinnati/menu", "is_active": True, "region": "ohio"},
+    {"name": "Pure Ohio Wellness Dayton", "slug": "pure-ohio-dayton", "platform": "jane", "url": "https://www.iheartjane.com/stores/2943/pure-ohio-wellness-dayton/menu", "is_active": True, "region": "ohio"},
+
+    # ── CURALEAF OH ─────────────────────────────────────────────────
+    {"name": "Curaleaf OH Cuyahoga Falls", "slug": "curaleaf-oh-cuyahoga", "platform": "curaleaf", "url": "https://oh.curaleaf.com/shop/cuyahoga-falls", "is_active": True, "region": "ohio"},
+    {"name": "Curaleaf OH Newark", "slug": "curaleaf-oh-newark", "platform": "curaleaf", "url": "https://oh.curaleaf.com/shop/newark", "is_active": True, "region": "ohio"},
+    {"name": "Curaleaf OH Lima", "slug": "curaleaf-oh-lima", "platform": "curaleaf", "url": "https://oh.curaleaf.com/shop/lima", "is_active": True, "region": "ohio"},
+
+    # ── RISE OH (GTI) ───────────────────────────────────────────────
+    {"name": "Rise OH Cleveland", "slug": "rise-oh-cleveland", "platform": "rise", "url": "https://oh.risecannabis.com/dispensaries/ohio/cleveland/6015/recreational-menu/", "is_active": True, "region": "ohio"},
+    {"name": "Rise OH Lakewood Madison", "slug": "rise-oh-lakewood-madison", "platform": "rise", "url": "https://oh.risecannabis.com/dispensaries/ohio/lakewood-madison/6014/recreational-menu/", "is_active": True, "region": "ohio"},
+    {"name": "Rise OH Lakewood Detroit", "slug": "rise-oh-lakewood-detroit", "platform": "rise", "url": "https://oh.risecannabis.com/dispensaries/ohio/lakewood-detroit/6013/recreational-menu/", "is_active": True, "region": "ohio"},
+    {"name": "Rise OH Toledo", "slug": "rise-oh-toledo", "platform": "rise", "url": "https://oh.risecannabis.com/dispensaries/ohio/toledo/6011/recreational-menu/", "is_active": True, "region": "ohio"},
+    {"name": "Rise OH Lorain", "slug": "rise-oh-lorain", "platform": "rise", "url": "https://oh.risecannabis.com/dispensaries/ohio/lorain/6012/recreational-menu/", "is_active": True, "region": "ohio"},
+
+    # ==================================================================
+    #  COLORADO  — Initial test batch (12 Dutchie + 5 Jane = 17)
+    #  Mature market since 2014.  97 scrapable store pages identified.
+    #  Dutchie dominates; no Curaleaf/Rise/Carrot/AIQ presence.
+    # ==================================================================
+
+    # ── DUTCHIE CO ──────────────────────────────────────────────────
+    {"name": "Native Roots West Denver", "slug": "native-roots-west-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/native-roots-west-denver", "is_active": True, "region": "colorado"},
+    {"name": "Native Roots Boulder", "slug": "native-roots-boulder", "platform": "dutchie", "url": "https://dutchie.com/dispensary/native-roots-boulder1", "is_active": True, "region": "colorado"},
+    {"name": "Lightshade Dayton Rec", "slug": "lightshade-dayton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/lightshade-dayton-rec-and-med-dispensary", "is_active": True, "region": "colorado"},
+    {"name": "The Green Solution Fort Collins", "slug": "tgs-fort-collins", "platform": "dutchie", "url": "https://dutchie.com/dispensary/tgs-fort-collins", "is_active": True, "region": "colorado"},
+    {"name": "L'Eagle Denver", "slug": "leagle-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/leagle-denver-dispensary", "is_active": True, "region": "colorado"},
+    {"name": "Oasis Cannabis NW Denver", "slug": "oasis-nw-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/oasis-cannabis-superstore-northwest", "is_active": True, "region": "colorado"},
+    {"name": "Medicine Man Denver", "slug": "medicine-man-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/medicine-man-denver", "is_active": True, "region": "colorado"},
+    {"name": "Colorado Harvest Broadway", "slug": "coharvest-broadway", "platform": "dutchie", "url": "https://dutchie.com/dispensary/colorado-harvest-company-broadway", "is_active": True, "region": "colorado"},
+    {"name": "Rocky Mountain High 6th", "slug": "rmh-6th-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/rocky-mountain-high-6th", "is_active": True, "region": "colorado"},
+    {"name": "Magnolia Road Boulder Rec", "slug": "magnolia-boulder-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/magnolia-road-cannabis-company-boulder", "is_active": True, "region": "colorado"},
+    {"name": "Green Dragon Breckenridge", "slug": "green-dragon-breck", "platform": "dutchie", "url": "https://dutchie.com/stores/green-dragon-breckenridge", "is_active": True, "region": "colorado"},
+    {"name": "The Spot 420 Pueblo", "slug": "spot420-pueblo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-spot-420-pueblo-central", "is_active": True, "region": "colorado"},
+
+    # ── JANE CO ─────────────────────────────────────────────────────
+    {"name": "Ascend Cannabis Denver Rec", "slug": "ascend-co-denver-rec", "platform": "jane", "url": "https://www.iheartjane.com/embed/stores/3019/menu", "is_active": True, "region": "colorado"},
+    {"name": "Silver Stem Bonnie Brae Rec", "slug": "silver-stem-bonnie-brae", "platform": "jane", "url": "https://www.iheartjane.com/embed/stores/5494/menu", "is_active": True, "region": "colorado"},
+    {"name": "Maggie's Farm N CO Springs", "slug": "maggies-farm-cos", "platform": "jane", "url": "https://www.iheartjane.com/stores/1229/maggie-s-farm-n-colorado-springs/menu", "is_active": True, "region": "colorado"},
+    {"name": "Fresh Baked Boulder", "slug": "fresh-baked-boulder", "platform": "jane", "url": "https://www.iheartjane.com/embed/stores/333/menu", "is_active": True, "region": "colorado"},
+    {"name": "Gardens Dispensary Yuma", "slug": "gardens-yuma", "platform": "jane", "url": "https://www.iheartjane.com/stores/17/gardens-dispensary-yuma/menu/featured", "is_active": True, "region": "colorado"},
+
+    # ==================================================================
+    #  NEW YORK  — Initial test batch (10 Dutchie + 4 Jane + 2 Curaleaf + 2 Rise = 18)
+    #  Rec market opened 2023.  68 scrapable dispensaries identified.
+    #  Curaleaf HQ'd in NYC.  Dutchie dominates CAURD licensees.
+    # ==================================================================
+
+    # ── DUTCHIE NY ──────────────────────────────────────────────────
+    {"name": "Housing Works Cannabis Broadway", "slug": "hwc-broadway", "platform": "dutchie", "url": "https://hwcannabis.co/menu/broadway/", "is_active": True, "region": "new-york"},
+    {"name": "Smacked Village Bleecker", "slug": "smacked-village", "platform": "dutchie", "url": "https://dutchie.com/dispensary/temeka-bleecker", "is_active": True, "region": "new-york"},
+    {"name": "Gotham Bowery", "slug": "gotham-bowery", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gotham-nyc-3rd-st", "is_active": True, "region": "new-york"},
+    {"name": "Gotham Chelsea", "slug": "gotham-chelsea", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gotham-chelsea", "is_active": True, "region": "new-york"},
+    {"name": "Silk Road Queens", "slug": "silk-road-queens", "platform": "dutchie", "url": "https://dutchie.com/dispensary/silk-road-nyc", "is_active": True, "region": "new-york"},
+    {"name": "Travel Agency Union Square", "slug": "travel-agency-usq", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-doe-store", "is_active": True, "region": "new-york"},
+    {"name": "Strain Stars Farmingdale", "slug": "strain-stars-farmingdale", "platform": "dutchie", "url": "https://dutchie.com/dispensary/strain-stars", "is_active": True, "region": "new-york"},
+    {"name": "FLUENT Manhattan Rec (Etain)", "slug": "fluent-manhattan-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/etain-new-york-rec", "is_active": True, "region": "new-york"},
+    {"name": "Royale Flower Albany", "slug": "royale-flower-albany", "platform": "dutchie", "url": "https://dutchie.com/dispensary/royale-flower-albany", "is_active": True, "region": "new-york"},
+    {"name": "Herbalwai Buffalo", "slug": "herbalwai-buffalo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/herbalwai", "is_active": True, "region": "new-york"},
+
+    # ── JANE NY ─────────────────────────────────────────────────────
+    {"name": "Rise Manhattan NYC", "slug": "rise-ny-manhattan-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1181/rise-dispensaries-manhattan-nyc/menu", "is_active": True, "region": "new-york"},
+    {"name": "Vireo Health Queens", "slug": "vireo-queens", "platform": "jane", "url": "https://www.iheartjane.com/stores/2065/vireo-health-queens/menu", "is_active": True, "region": "new-york"},
+    {"name": "The Botanist Farmingdale", "slug": "botanist-farmingdale", "platform": "jane", "url": "https://www.iheartjane.com/stores/1386/the-botanist-farmingdale", "is_active": True, "region": "new-york"},
+    {"name": "Verilife Bronx", "slug": "verilife-ny-bronx", "platform": "jane", "url": "https://www.iheartjane.com/stores/3003/verilife-bronx-ny", "is_active": True, "region": "new-york"},
+
+    # ── CURALEAF NY ─────────────────────────────────────────────────
+    {"name": "Curaleaf NY Queens AU", "slug": "curaleaf-ny-queens-au", "platform": "curaleaf", "url": "https://curaleaf.com/shop/new-york/curaleaf-ny-queens-au", "is_active": True, "region": "new-york"},
+    {"name": "Curaleaf NY Hudson Valley", "slug": "curaleaf-ny-hudson-valley", "platform": "curaleaf", "url": "https://curaleaf.com/shop/new-york/curaleaf-ny-hudson-valley", "is_active": True, "region": "new-york"},
+
+    # ── RISE NY (GTI) ───────────────────────────────────────────────
+    {"name": "Rise NY Henrietta", "slug": "rise-ny-henrietta", "platform": "rise", "url": "https://risecannabis.com/dispensaries/new-york/henrietta/5800/recreational-menu/", "is_active": True, "region": "new-york"},
+    {"name": "Rise NY East Syracuse", "slug": "rise-ny-east-syracuse", "platform": "rise", "url": "https://risecannabis.com/dispensaries/new-york/east-syracuse/6115/recreational-menu/", "is_active": True, "region": "new-york"},
+
+    # ==================================================================
+    #  MASSACHUSETTS  — Initial test batch (10 Dutchie + 3 Jane + 2 Curaleaf + 2 Rise = 17)
+    #  Rec since 2018.  83 scrapable dispensaries identified.
+    #  Dutchie dominant; Jane via Sunnyside/Cannabist.
+    # ==================================================================
+
+    # ── DUTCHIE MA ──────────────────────────────────────────────────
+    {"name": "NETA Northampton Rec", "slug": "neta-northampton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/neta-northampton", "is_active": True, "region": "massachusetts"},
+    {"name": "NETA Brookline Rec", "slug": "neta-brookline", "platform": "dutchie", "url": "https://dutchie.com/dispensary/neta-brookline", "is_active": True, "region": "massachusetts"},
+    {"name": "Theory Wellness Great Barrington", "slug": "theory-great-barrington", "platform": "dutchie", "url": "https://dutchie.com/dispensary/theory-wellness", "is_active": True, "region": "massachusetts"},
+    {"name": "Berkshire Roots East Boston", "slug": "berkshire-roots-eastie", "platform": "dutchie", "url": "https://dutchie.com/dispensary/berkshire-roots-east-boston", "is_active": True, "region": "massachusetts"},
+    {"name": "Ascend Boston Friend St", "slug": "ascend-ma-boston", "platform": "dutchie", "url": "https://dutchie.com/dispensary/boston-massachusetts", "is_active": True, "region": "massachusetts"},
+    {"name": "INSA Easthampton Rec", "slug": "insa-easthampton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/insa-easthampton-rec", "is_active": True, "region": "massachusetts"},
+    {"name": "Revolutionary Clinics Somerville", "slug": "rev-clinics-somerville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/revolutionary-clinics-somerville", "is_active": True, "region": "massachusetts"},
+    {"name": "Cookies Somerville", "slug": "cookies-ma-somerville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cookies-union-leaf", "is_active": True, "region": "massachusetts"},
+    {"name": "AYR Back Bay Boston", "slug": "ayr-ma-back-bay", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ayr-dispensary-back-bay", "is_active": True, "region": "massachusetts"},
+    {"name": "Harbor House Collective Chelsea", "slug": "harbor-house-chelsea", "platform": "dutchie", "url": "https://dutchie.com/dispensary/harbor-house-collective", "is_active": True, "region": "massachusetts"},
+
+    # ── JANE MA ─────────────────────────────────────────────────────
+    {"name": "Sunnyside Worcester MA", "slug": "sunnyside-ma-worcester", "platform": "jane", "url": "https://www.iheartjane.com/stores/5025/sunnyside-cannabis-dispensary-worcester/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Sunnyside Leicester MA", "slug": "sunnyside-ma-leicester", "platform": "jane", "url": "https://www.iheartjane.com/stores/5054/sunnyside-cannabis-dispensary-leicester/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Cannabist Lowell AU", "slug": "cannabist-ma-lowell-au", "platform": "jane", "url": "https://www.iheartjane.com/stores/734/cannabist-lowell-adult-use/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── CURALEAF MA ─────────────────────────────────────────────────
+    {"name": "Curaleaf MA Oxford AU", "slug": "curaleaf-ma-oxford", "platform": "curaleaf", "url": "https://curaleaf.com/shop/massachusetts/curaleaf-ma-oxford-adult-use", "is_active": True, "region": "massachusetts"},
+    {"name": "Curaleaf MA Ware AU", "slug": "curaleaf-ma-ware", "platform": "curaleaf", "url": "https://curaleaf.com/shop/massachusetts/curaleaf-ma-ware-adult-use", "is_active": True, "region": "massachusetts"},
+
+    # ── RISE MA (GTI) ───────────────────────────────────────────────
+    {"name": "Rise MA Chelsea Rec", "slug": "rise-ma-chelsea", "platform": "rise", "url": "https://risecannabis.com/dispensaries/massachusetts/chelsea/4636/recreational-menu/", "is_active": True, "region": "massachusetts"},
+    {"name": "Rise MA Dracut Rec", "slug": "rise-ma-dracut", "platform": "rise", "url": "https://risecannabis.com/dispensaries/massachusetts/dracut/4637/recreational-menu/", "is_active": True, "region": "massachusetts"},
+
+    # ==================================================================
+    #  PENNSYLVANIA  — Initial test batch (10 Dutchie + 6 Rise = 16)
+    #  Medical-only but top-5 US market by revenue.  86 scrapable found.
+    #  Rise has its LARGEST footprint here (19 locations).
+    #  PA Curaleaf menus are on Dutchie, not curaleaf.com.
+    # ==================================================================
+
+    # ── DUTCHIE PA ──────────────────────────────────────────────────
+    {"name": "Ethos NE Philadelphia", "slug": "ethos-pa-ne-philly", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ethos-northeast-philadelphia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Ethos Pleasant Hills PGH", "slug": "ethos-pa-pleasant-hills", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ethos-pleasant-hills", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA Philadelphia", "slug": "curaleaf-pa-philly", "platform": "dutchie", "url": "https://dutchie.com/dispensary/curaleaf-pa-philadelphia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA King of Prussia", "slug": "curaleaf-pa-kop", "platform": "dutchie", "url": "https://dutchie.com/dispensary/curaleaf-pa-king-of-prussia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Trulieve PA Center City", "slug": "trulieve-pa-center-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/harvest-of-city-center-philadelphia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Trulieve PA Squirrel Hill PGH", "slug": "trulieve-pa-squirrel-hill", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trulieve-squirrel-hill", "is_active": True, "region": "pennsylvania"},
+    {"name": "Liberty Philadelphia", "slug": "liberty-pa-philly", "platform": "dutchie", "url": "https://dutchie.com/dispensary/liberty-philadelphia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Liberty Pittsburgh", "slug": "liberty-pa-pgh", "platform": "dutchie", "url": "https://dutchie.com/dispensary/liberty-pittsburgh", "is_active": True, "region": "pennsylvania"},
+    {"name": "AYR Bryn Mawr", "slug": "ayr-pa-bryn-mawr", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ayr-wellness-bryn-mawr", "is_active": True, "region": "pennsylvania"},
+    {"name": "Ascend PA Scranton", "slug": "ascend-pa-scranton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/scranton-pennsylvania", "is_active": True, "region": "pennsylvania"},
+
+    # ── RISE PA (GTI — largest state footprint: 19 locations) ───────
+    #    PA is medical-only → /medical-menu/ (not /recreational-menu/)
+    {"name": "Rise PA Philadelphia", "slug": "rise-pa-philly", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/philadelphia/5383/medical-menu/", "is_active": True, "region": "pennsylvania"},
+    {"name": "Rise PA King of Prussia", "slug": "rise-pa-kop", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/king-of-prussia/1552/medical-menu/", "is_active": True, "region": "pennsylvania"},
+    {"name": "Rise PA Monroeville", "slug": "rise-pa-monroeville", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/monroeville/2266/medical-menu/", "is_active": True, "region": "pennsylvania"},
+    {"name": "Rise PA Steelton", "slug": "rise-pa-steelton", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/steelton/1544/medical-menu/", "is_active": True, "region": "pennsylvania"},
+    {"name": "Rise PA Erie Lake", "slug": "rise-pa-erie-lake", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/erie-lake/392/medical-menu/", "is_active": True, "region": "pennsylvania"},
+    {"name": "Rise PA York", "slug": "rise-pa-york", "platform": "rise", "url": "https://risecannabis.com/dispensaries/pennsylvania/york/1548/medical-menu/", "is_active": True, "region": "pennsylvania"},
+
+    # ==================================================================
+    #  NEW JERSEY EXPANSION — additional verified dispensaries
+    # ==================================================================
+
+    # ── AYR NJ EATONTOWN (verified, Dutchie) ──────────────────────────
+    {"name": "AYR NJ Eatontown Med", "slug": "ayr-nj-eatontown-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/garden-state-dispensary-eatontown", "is_active": True, "region": "new-jersey"},
+    {"name": "AYR NJ Eatontown Rec", "slug": "ayr-nj-eatontown-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/garden-state-dispensary-eatontown-REC", "is_active": True, "region": "new-jersey"},
+
+    # ── BLOC NJ ADDITIONAL (verified, Dutchie) ──────────────────────
+    {"name": "Bloc Ewing NJ Rec", "slug": "bloc-nj-ewing-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloc-dispensary-ewing-rec", "is_active": True, "region": "new-jersey"},
+    {"name": "Bloc Somerset NJ Rec", "slug": "bloc-nj-somerset-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloc-dispensary-somerset-rec", "is_active": True, "region": "new-jersey"},
+
+    # ── THE BOTANIST NJ (Acreage — verified Dutchie slugs) ─────────
+    {"name": "Botanist Egg Harbor NJ Rec", "slug": "botanist-nj-egg-harbor-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/egg-harbor-rec-menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Botanist Egg Harbor NJ Med", "slug": "botanist-nj-egg-harbor-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/egg-harbor-med-menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Botanist Williamstown NJ Rec", "slug": "botanist-nj-williamstown-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/williamstown-rec-menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Botanist Collingswood NJ Rec", "slug": "botanist-nj-collingswood-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/collingswood-rec-menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Botanist Collingswood NJ Med", "slug": "botanist-nj-collingswood-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/collingswood-med-menu", "is_active": True, "region": "new-jersey"},
+
+    # ── HARMONY NJ (verified, Dutchie) ──────────────────────────────
+    {"name": "Harmony Secaucus NJ Rec", "slug": "harmony-nj-secaucus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/harmony-dispensary-secaucus-rec", "is_active": True, "region": "new-jersey"},
+
+    # ── MPX NJ Atlantic City Med (verified) ─────────────────────────
+    {"name": "MPX NJ Atlantic City Med", "slug": "mpx-nj-ac-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/be-altantic-city", "is_active": True, "region": "new-jersey"},
+
+    # ── VALLEY WELLNESS NJ (verified, Dutchie — Raritan) ────────────
+    {"name": "Valley Wellness Raritan NJ Med", "slug": "valley-wellness-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/valley-wellness", "is_active": True, "region": "new-jersey"},
+    {"name": "Valley Wellness Raritan NJ Rec", "slug": "valley-wellness-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/valley-wellness-nj-rec", "is_active": True, "region": "new-jersey"},
+
+    # ── AUNT MARY'S NJ (verified, Dutchie — Flemington) ────────────
+    {"name": "Aunt Mary's Flemington NJ Med", "slug": "aunt-marys-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/aunt-marys", "is_active": True, "region": "new-jersey"},
+    {"name": "Aunt Mary's Flemington NJ Rec", "slug": "aunt-marys-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/aunt-marys-flemington-rec", "is_active": True, "region": "new-jersey"},
+
+    # ── VERIFIED NJ INDEPENDENTS (Dutchie) ──────────────────────────
+    {"name": "CannaVibes Elmwood Park NJ", "slug": "cannavibes-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cannavibes-rec", "is_active": True, "region": "new-jersey"},
+    {"name": "Simply Pure Trenton NJ", "slug": "simply-pure-trenton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/simply-pure-trenton", "is_active": True, "region": "new-jersey"},
+    {"name": "Fresh Elizabeth NJ", "slug": "fresh-elizabeth", "platform": "dutchie", "url": "https://dutchie.com/dispensary/fresh-elizabeth", "is_active": True, "region": "new-jersey"},
+    {"name": "Cream Jersey City NJ", "slug": "cream-jc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cream1", "is_active": True, "region": "new-jersey"},
+    {"name": "1634 Funk Jersey City NJ", "slug": "1634-funk-jc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/1634-funk", "is_active": True, "region": "new-jersey"},
+    {"name": "Village HBK Hoboken NJ", "slug": "village-hbk", "platform": "dutchie", "url": "https://dutchie.com/dispensary/Village-HBK", "is_active": True, "region": "new-jersey"},
+    {"name": "INSA Coastline Middle Twp NJ", "slug": "insa-coastline-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/insa-coastline", "is_active": True, "region": "new-jersey"},
+    {"name": "Woodbury Wellness NJ", "slug": "woodbury-wellness", "platform": "dutchie", "url": "https://dutchie.com/dispensary/woodbury-wellness-llc", "is_active": True, "region": "new-jersey"},
+    {"name": "Herbalicity Highland Park NJ", "slug": "herbalicity-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/herbalicity", "is_active": True, "region": "new-jersey"},
+    {"name": "Plantabis Rahway NJ", "slug": "plantabis-rahway", "platform": "dutchie", "url": "https://dutchie.com/dispensary/plantabis", "is_active": True, "region": "new-jersey"},
+    {"name": "Bakin Bad Atlantic City NJ", "slug": "bakin-bad-ac", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bakin-bad", "is_active": True, "region": "new-jersey"},
+    {"name": "Dispensary of Union NJ", "slug": "dispensary-of-union", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-bud-shop-llc-nka-the-dispensary-of-union-llc", "is_active": True, "region": "new-jersey"},
+    {"name": "Unity Road Somerset NJ", "slug": "unity-road-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/unity-road-new-jersey", "is_active": True, "region": "new-jersey"},
+    {"name": "Illicit Gardens Secaucus NJ", "slug": "illicit-secaucus-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/illicit-gardens-dispensary-seacaucus", "is_active": True, "region": "new-jersey"},
+    {"name": "Hackettstown Dispensary NJ", "slug": "hackettstown-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/hackettstown-dispensary", "is_active": True, "region": "new-jersey"},
+
+    # ── RISE NJ ADDITIONAL (Rise platform) ──────────────────────────
+    {"name": "Rise Paramus NJ", "slug": "rise-nj-paramus", "platform": "rise", "url": "https://risecannabis.com/dispensaries/new-jersey/paramus/3112/recreational-menu/", "is_active": True, "region": "new-jersey"},
 ]
 
 # ---------------------------------------------------------------------------
@@ -1272,18 +1893,19 @@ def get_chain_id(dispensary_slug: str) -> str:
 # "stable"  — scrapers that run on the daily 8 AM PT cron.
 # "new"     — recently built scrapers; triggered manually until proven.
 #
-# As of Feb 2026 all 6 platforms are promoted to stable (63 dispensaries).
-# Rise/Carrot/AIQ were promoted after initial manual testing period.
-# Note: Rise (risecannabis.com) may hit Cloudflare challenges — monitor
-# scrape_runs for 0-product failures and check debug artifacts if so.
+# As of Feb 2026 Dutchie/Curaleaf/Jane/Carrot/AIQ are stable.
+# Rise demoted 2026-02-16: Cloudflare Turnstile blocks all Rise sites
+# (0 products across every state). Moved to "disabled" until resolved.
+# Re-add to "stable" once Cloudflare bypass is implemented.
 #
 # Each group deactivates *only its own* stale products so runs don't
 # wipe each other's data.
 # ---------------------------------------------------------------------------
 
 PLATFORM_GROUPS: dict[str, list[str]] = {
-    "stable": ["dutchie", "curaleaf", "jane", "carrot", "aiq", "rise"],
+    "stable": ["dutchie", "curaleaf", "jane", "carrot", "aiq"],
     "new": [],
+    "disabled": ["rise"],
 }
 
 # Reverse lookup: platform → group name
@@ -1329,7 +1951,9 @@ def get_dispensaries_by_group(group: str) -> list[dict]:
 def get_dispensaries_by_region(region: str) -> list[dict]:
     """Return active dispensaries belonging to a region/state.
 
-    Valid regions: 'southern-nv', 'michigan', 'illinois', 'arizona', 'all'.
+    Valid regions: 'southern-nv', 'michigan', 'illinois', 'arizona',
+    'missouri', 'new-jersey', 'ohio', 'colorado', 'new-york',
+    'massachusetts', 'pennsylvania', 'all'.
     """
     if region == "all":
         return get_active_dispensaries()

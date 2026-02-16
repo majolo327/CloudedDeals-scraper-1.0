@@ -6,6 +6,15 @@ import { Dispensary, Platform } from "@/lib/types";
 
 const PLATFORMS: Platform[] = ["dutchie", "curaleaf", "jane"];
 
+interface PostedDeal {
+  id: string;
+  deal_score: number;
+  posted_at: string;
+  tweet_id: string | null;
+  product: { name: string; brand: string | null; category: string | null; sale_price: number | null } | null;
+  dispensary: { name: string } | null;
+}
+
 export default function SettingsPage() {
   const [dispensaries, setDispensaries] = useState<Dispensary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,11 +26,13 @@ export default function SettingsPage() {
   const [priceMax, setPriceMax] = useState(100);
 
   // ----- Twitter state -----
-  const [twitterHandle, setTwitterHandle] = useState("");
-  const [autoPost, setAutoPost] = useState(false);
-  const [minScoreToPost, setMinScoreToPost] = useState(60);
+  const [twitterHandle, setTwitterHandle] = useState("@CloudedDeals");
+  const [autoPost, setAutoPost] = useState(true);
+  const [minScoreToPost, setMinScoreToPost] = useState(55);
+  const [recentPosts, setRecentPosts] = useState<PostedDeal[]>([]);
+  const [todayCount, setTodayCount] = useState(0);
 
-  // ----- Fetch dispensaries -----
+  // ----- Fetch dispensaries + recent posted deals -----
   useEffect(() => {
     if (!isSupabaseConfigured) {
       setLoading(false);
@@ -29,12 +40,35 @@ export default function SettingsPage() {
     }
     (async () => {
       try {
-        const { data } = await supabase
-          .from("dispensaries")
-          .select("id, name, url, platform, address, city, state, is_active, region")
-          .order("platform")
-          .order("name");
-        if (data) setDispensaries(data as Dispensary[]);
+        const [dispResult, postsResult] = await Promise.all([
+          supabase
+            .from("dispensaries")
+            .select("id, name, url, platform, address, city, state, is_active, region")
+            .order("platform")
+            .order("name"),
+          supabase
+            .from("deals")
+            .select(`
+              id, deal_score, posted_at, tweet_id,
+              product:products(name, brand, category, sale_price),
+              dispensary:dispensaries(name)
+            `)
+            .eq("is_posted", true)
+            .order("posted_at", { ascending: false })
+            .limit(10),
+        ]);
+
+        if (dispResult.data) setDispensaries(dispResult.data as Dispensary[]);
+        if (postsResult.data) {
+          setRecentPosts(postsResult.data as unknown as PostedDeal[]);
+          // Count today's posts
+          const todayStart = new Date();
+          todayStart.setUTCHours(0, 0, 0, 0);
+          const todayPosts = postsResult.data.filter(
+            (p: { posted_at: string | null }) => p.posted_at && new Date(p.posted_at) >= todayStart
+          );
+          setTodayCount(todayPosts.length);
+        }
       } catch {
         // DB not available
       }
@@ -191,42 +225,64 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* ---- Twitter / social settings ---- */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-          Twitter / X Settings
-        </h3>
-        <p className="mb-4 mt-0.5 text-xs text-zinc-400">
-          Configure automated deal posting to Twitter/X.
-        </p>
+      {/* ---- Twitter / X Auto-Post Settings ---- */}
+      <section className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                Twitter / X Auto-Post
+              </h3>
+              <p className="mt-0.5 text-xs text-zinc-400">
+                Automated deal posting to {twitterHandle || "@CloudedDeals"}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`h-2 w-2 rounded-full ${autoPost ? "bg-green-500 animate-pulse" : "bg-zinc-400"}`} />
+              <span className="text-xs font-medium text-zinc-500">
+                {autoPost ? "Active" : "Paused"}
+              </span>
+            </div>
+          </div>
+        </div>
 
-        <div className="space-y-4">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-zinc-600 dark:text-zinc-400">
-              Twitter Handle
-            </span>
-            <input
-              type="text"
-              placeholder="@CloudedDeals"
-              value={twitterHandle}
-              onChange={(e) => setTwitterHandle(e.target.value)}
-              className="h-9 w-60 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-            />
-          </label>
+        <div className="space-y-4 p-4">
+          {/* Status bar */}
+          <div className="flex items-center gap-4 rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-800/50">
+            <div className="text-center">
+              <div className="text-lg font-bold text-zinc-700 dark:text-zinc-200">{todayCount}</div>
+              <div className="text-[10px] uppercase tracking-wider text-zinc-400">Today</div>
+            </div>
+            <div className="h-8 w-px bg-zinc-200 dark:bg-zinc-700" />
+            <div className="text-center">
+              <div className="text-lg font-bold text-zinc-700 dark:text-zinc-200">4</div>
+              <div className="text-[10px] uppercase tracking-wider text-zinc-400">Max/Day</div>
+            </div>
+            <div className="h-8 w-px bg-zinc-200 dark:bg-zinc-700" />
+            <div className="text-center">
+              <div className="text-lg font-bold text-zinc-700 dark:text-zinc-200">{4 - todayCount}</div>
+              <div className="text-[10px] uppercase tracking-wider text-zinc-400">Remaining</div>
+            </div>
+            <div className="h-8 w-px bg-zinc-200 dark:bg-zinc-700" />
+            <div className="flex-1 text-xs text-zinc-500 dark:text-zinc-400">
+              Posts at 9am, 12pm, 3pm, 6pm PST
+            </div>
+          </div>
 
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={autoPost}
-              onChange={(e) => setAutoPost(e.target.checked)}
-              className="rounded accent-green-600"
-            />
-            <span className="font-medium text-zinc-600 dark:text-zinc-400">
-              Auto-post deals above score threshold
-            </span>
-          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-zinc-600 dark:text-zinc-400">
+                Twitter Handle
+              </span>
+              <input
+                type="text"
+                placeholder="@CloudedDeals"
+                value={twitterHandle}
+                onChange={(e) => setTwitterHandle(e.target.value)}
+                className="h-9 w-full rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              />
+            </label>
 
-          {autoPost && (
             <label className="flex flex-col gap-1 text-sm">
               <span className="font-medium text-zinc-600 dark:text-zinc-400">
                 Min Score to Post: {minScoreToPost}
@@ -238,9 +294,89 @@ export default function SettingsPage() {
                 step={5}
                 value={minScoreToPost}
                 onChange={(e) => setMinScoreToPost(Number(e.target.value))}
-                className="w-48 accent-green-600"
+                className="w-full accent-green-600"
               />
             </label>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={autoPost}
+              onChange={(e) => setAutoPost(e.target.checked)}
+              className="rounded accent-green-600"
+            />
+            <span className="font-medium text-zinc-600 dark:text-zinc-400">
+              Enable automated posting (via GitHub Actions cron)
+            </span>
+          </label>
+
+          {/* Posting rules summary */}
+          <div className="rounded-lg border border-zinc-100 bg-zinc-50/50 p-3 dark:border-zinc-800 dark:bg-zinc-800/30">
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+              Posting Rules (Active)
+            </h4>
+            <ul className="space-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <li>- 1-4 deals/day, spaced across 4 time slots</li>
+              <li>- Southern NV dispensaries only (beta market)</li>
+              <li>- Categories: 1g disposable vapes, 3.5g/7g flower</li>
+              <li>- Price cap: under $30</li>
+              <li>- No brand repeats per day</li>
+              <li>- No brand + dispensary combo repeats per day</li>
+              <li>- Min deal score: {minScoreToPost}</li>
+            </ul>
+          </div>
+
+          {/* Recent posts log */}
+          {recentPosts.length > 0 && (
+            <div>
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                Recent Posts
+              </h4>
+              <div className="space-y-1">
+                {recentPosts.map((post) => (
+                  <div
+                    key={post.id}
+                    className="flex items-center justify-between rounded-md bg-zinc-50 px-2.5 py-1.5 text-xs dark:bg-zinc-800/50"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                        {post.product?.category ?? "?"}
+                      </span>
+                      <span className="truncate text-zinc-600 dark:text-zinc-300">
+                        {post.product?.brand && `${post.product.brand} — `}
+                        {post.product?.name ?? "Unknown"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0 ml-2">
+                      {post.product?.sale_price && (
+                        <span className="text-zinc-500">${post.product.sale_price}</span>
+                      )}
+                      <span className="text-zinc-400">
+                        {post.posted_at
+                          ? new Date(post.posted_at).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })
+                          : "—"}
+                      </span>
+                      {post.tweet_id && (
+                        <a
+                          href={`https://x.com/CloudedDeals/status/${post.tweet_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-500 hover:text-blue-600"
+                        >
+                          View
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </section>

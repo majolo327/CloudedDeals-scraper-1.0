@@ -43,7 +43,7 @@ export function FeedbackWidget() {
     <div className="fixed bottom-20 right-4 z-40 sm:bottom-6">
       {/* Expanded form */}
       {open && (
-        <div className="mb-2 w-72 rounded-xl border border-slate-700 bg-slate-900/95 p-3 shadow-xl backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="mb-2 w-72 rounded-2xl border p-3 shadow-xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-200" style={{ backgroundColor: 'rgba(12, 14, 28, 0.95)', borderColor: 'rgba(120, 100, 200, 0.12)' }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-slate-300">
               Send us feedback
@@ -98,7 +98,8 @@ export function FeedbackWidget() {
         <button
           onClick={() => setOpen(true)}
           aria-label="Send feedback"
-          className="group flex h-11 w-11 items-center justify-center rounded-full border border-slate-700/60 bg-slate-900/90 shadow-lg backdrop-blur-sm transition-all hover:border-purple-500/40 hover:bg-slate-800/90 hover:scale-105"
+          className="group flex h-11 w-11 items-center justify-center rounded-full border shadow-lg backdrop-blur-xl transition-all hover:border-purple-500/40 hover:scale-105"
+          style={{ backgroundColor: 'rgba(12, 14, 28, 0.9)', borderColor: 'rgba(120, 100, 200, 0.12)' }}
         >
           <MessageCircle className="w-4.5 h-4.5 text-slate-400 group-hover:text-purple-400 transition-colors" />
         </button>

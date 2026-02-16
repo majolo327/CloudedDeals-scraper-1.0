@@ -24,8 +24,8 @@ export function StickyStatsBar({
 
   return (
     <div
-      className="sticky top-14 sm:top-16 z-40 backdrop-blur-xl border-b"
-      style={{ backgroundColor: 'rgba(10, 14, 26, 0.92)', borderColor: 'var(--border-subtle)' }}
+      className="sticky top-14 sm:top-16 z-40 border-b"
+      style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderColor: 'rgba(120, 100, 200, 0.06)', WebkitBackdropFilter: 'blur(40px) saturate(1.3)', backdropFilter: 'blur(40px) saturate(1.3)' }}
     >
       <div className="max-w-6xl mx-auto px-4 h-11 flex items-center gap-1.5">
         {children && <div className="flex-shrink-0">{children}</div>}
@@ -37,7 +37,7 @@ export function StickyStatsBar({
                 onClick={() => onCategoryChange(category.id)}
                 className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
                   activeCategory === category.id
-                    ? 'bg-white/10 text-white border border-white/20'
+                    ? 'bg-purple-500/15 text-purple-300 border border-purple-500/25'
                     : 'text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10'
                 }`}
               >

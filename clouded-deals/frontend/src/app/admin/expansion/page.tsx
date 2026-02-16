@@ -10,6 +10,11 @@ const EXPANSION_REGIONS = [
   { id: "arizona", label: "Arizona", emoji: "AZ", color: "orange" },
   { id: "missouri", label: "Missouri", emoji: "MO", color: "emerald" },
   { id: "new-jersey", label: "New Jersey", emoji: "NJ", color: "cyan" },
+  { id: "ohio", label: "Ohio", emoji: "OH", color: "red" },
+  { id: "colorado", label: "Colorado", emoji: "CO", color: "sky" },
+  { id: "new-york", label: "New York", emoji: "NY", color: "yellow" },
+  { id: "massachusetts", label: "Massachusetts", emoji: "MA", color: "emerald" },
+  { id: "pennsylvania", label: "Pennsylvania", emoji: "PA", color: "rose" },
 ] as const;
 
 interface ScrapeRun {
@@ -43,6 +48,11 @@ const CONFIGURED_SITES: Record<string, number> = {
   arizona: 52,
   missouri: 31,
   "new-jersey": 34,
+  ohio: 22,
+  colorado: 17,
+  "new-york": 18,
+  massachusetts: 17,
+  pennsylvania: 16,
 };
 
 export default function ExpansionDashboard() {
@@ -181,7 +191,7 @@ export default function ExpansionDashboard() {
         <SummaryCard
           label="Configured Sites"
           value={totalConfigured.toString()}
-          sub="across 5 states"
+          sub="across 10 states"
         />
         <SummaryCard
           label="Products (7d)"

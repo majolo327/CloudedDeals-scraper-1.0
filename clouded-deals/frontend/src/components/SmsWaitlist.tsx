@@ -95,7 +95,7 @@ export function SmsWaitlist({ addToast }: SmsWaitlistProps) {
       {!showModal && (
         <div
           className="fixed bottom-[60px] sm:bottom-0 left-0 right-0 z-40 animate-soft-reveal"
-          style={{ backgroundColor: 'rgba(10, 14, 26, 0.95)' }}
+          style={{ backgroundColor: 'rgba(10, 12, 28, 0.95)' }}
         >
           <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -114,7 +114,7 @@ export function SmsWaitlist({ addToast }: SmsWaitlistProps) {
                   setShowModal(true);
                   trackEvent('deal_viewed' as never, undefined, { action: 'sms_cta_clicked' });
                 }}
-                className="px-4 py-2 min-h-[40px] bg-purple-500 hover:bg-purple-400 text-white text-sm font-semibold rounded-xl transition-colors whitespace-nowrap"
+                className="px-4 py-2 min-h-[40px] bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white text-sm font-semibold rounded-2xl transition-colors whitespace-nowrap"
               >
                 Join VIP
               </button>
@@ -138,7 +138,7 @@ export function SmsWaitlist({ addToast }: SmsWaitlistProps) {
         >
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-soft-reveal" />
           <div
-            className="relative w-full sm:max-w-sm glass-strong frost rounded-t-2xl sm:rounded-2xl animate-soft-reveal"
+            className="relative w-full sm:max-w-sm glass-strong frost rounded-t-3xl sm:rounded-3xl animate-soft-reveal"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Mobile drag handle */}
@@ -196,7 +196,7 @@ export function SmsWaitlist({ addToast }: SmsWaitlistProps) {
                       onChange={(e) => setPhone(formatPhone(e.target.value))}
                       placeholder="(702) 555-1234"
                       autoFocus
-                      className="w-full px-4 py-3 min-h-[48px] rounded-xl bg-white/5 border border-slate-700 text-white placeholder-slate-500 text-base tracking-wide focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/20 text-center"
+                      className="w-full px-4 py-3 min-h-[48px] rounded-2xl bg-white/5 border border-slate-700 text-white placeholder-slate-500 text-base tracking-wide focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/20 text-center"
                     />
 
                     {errorMsg && (
@@ -206,7 +206,8 @@ export function SmsWaitlist({ addToast }: SmsWaitlistProps) {
                     <button
                       type="submit"
                       disabled={!isValid || status === 'submitting'}
-                      className="w-full py-3 min-h-[48px] bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all shadow-lg shadow-purple-500/20 flex items-center justify-center gap-2 text-sm"
+                      className="w-full py-3.5 min-h-[48px] bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-2xl transition-all flex items-center justify-center gap-2 text-sm"
+                      style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12), 0 4px 16px rgba(139, 92, 246, 0.25)' }}
                     >
                       {status === 'submitting' ? (
                         <>

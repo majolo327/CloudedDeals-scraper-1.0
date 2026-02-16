@@ -36,28 +36,38 @@ logger = logging.getLogger("deal_detector")
 CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
     "flower": {
         "3.5": 25,    # eighth — relaxed from $19
-        "7": 45,      # quarter — relaxed from $30
-        "14": 65,     # half oz — relaxed from $40
+        "7": 40,      # quarter — tightened from $45
+        "14": 55,     # half oz — tightened from $65 ($55 half oz is upper bound)
         "28": 100,    # full oz — relaxed from $79
     },
-    "vape": 35,           # carts/pods — relaxed from $25
-    "edible": 20,         # gummies/chocolates — raised from $15 for multi-dose
+    "vape": 28,           # carts/pods — tightened from $35 ($24 .5g cart is already borderline)
+    "edible": 15,         # gummies/chocolates — tightened from $20 ($20 edible is a bad deal)
     "concentrate": {      # weight-based: live rosin can be pricier
         "0.5": 25,        # half gram
         "1": 45,          # gram — raised from flat $35
         "2": 75,          # 2g buckets
     },
-    "preroll": 15,        # single prerolls — raised from $10 for NJ/IL/AZ pricing
-    "preroll_pack": 30,   # preroll multi-packs — raised from $25 for expansion states
+    "preroll": 9,         # regular flower prerolls — tightened from $10 (should be $5-9)
+    "infused_preroll": 15, # infused prerolls are premium products
+    "preroll_pack": 25,   # preroll multi-packs — relaxed from $20
 }
 
 # Global hard-filter thresholds (apply to ALL categories)
 HARD_FILTERS = {
-    "min_discount_percent": 15,   # relaxed from 20%
+    "min_discount_percent": 15,   # tightened from 12% — prevents non-deals from displacing steals
     "min_price": 3,               # below $3 = data error
     "max_price_absolute": 100,    # raised from $80 for oz flower + concentrates
     "max_discount_percent": 85,   # above 85% = fake/data error
     "require_original_price": True,
+}
+
+# Category-specific discount minimums — edibles and prerolls have real deals
+# at lower discount percentages (e.g. $8 edible marked down from $10 = 20%,
+# but a $9 edible from $10 = 10%).  These budget items are genuine deals
+# that consumers want to see, not data errors.
+CATEGORY_MIN_DISCOUNT: dict[str, float] = {
+    "edible": 12,
+    "preroll": 12,
 }
 
 # Maximum believable ORIGINAL price per category.  If the parsed original
@@ -99,6 +109,12 @@ BRAND_TIERS: dict[str, dict[str, Any]] = {
             # Michigan-native popular brands
             "platinum vape", "mkx", "lume", "skymint",
             "element", "redbud roots", "pleasantrees",
+            # Michigan expansion — Feb 2026
+            "joyology", "pinnacle emporium", "herbana",
+            "exclusive cannabis", "high profile", "five star extracts",
+            "humblebee", "redemption", "drip", "viola",
+            "house of dank", "hod", "church cannabis",
+            "choice edibles", "detroit edibles", "nirvana center",
             # Illinois-native popular brands
             "revolution", "aeriz", "bedford grow", "cresco",
             "high supply", "good news", "matter", "superflux",
@@ -114,12 +130,23 @@ BRAND_TIERS: dict[str, dict[str, Any]] = {
             "elevate", "greenlight", "haze", "nature med",
             "vertical", "star buds", "bloc", "terrabis",
             "c4", "amaze cannabis", "keef", "robhots",
+            # Missouri expansion — Feb 2026
+            "swade", "fresh green", "n'bliss", "from the earth",
+            "old route 66", "heya", "solhaus", "cloud nine",
+            "heartland labs", "robust",
             # New Jersey-native popular brands
             "kind tree", "fernway", "ozone", "rythm",
             "garden greens", "the botanist", "clade9",
             "terrascend", "good green", "later days",
             "grön", "gron", "jams", "beboe", "avexia",
             "level", "bits",
+            # NJ expansion — Feb 2026
+            "breakwater", "garden state canna", "the heirloom collective",
+            "harmony", "apothecarium", "purple leaf", "bloc nj",
+            # Nevada dispensary house brands (boost when detected)
+            "deep roots", "deep roots harvest",
+            "state flower", "cultivation labs",
+            "the sanctuary",
         },
         "points": 12,
     },
@@ -152,10 +179,10 @@ TARGET_DEAL_COUNT = 200
 
 CATEGORY_TARGETS: dict[str, int] = {
     "flower": 60,
-    "vape": 50,
+    "vape": 45,
     "edible": 30,
     "concentrate": 30,
-    "preroll": 20,
+    "preroll": 25,
     "other": 10,
 }
 
@@ -163,30 +190,35 @@ CATEGORY_TARGETS: dict[str, int] = {
 # slots before surplus is redistributed.  Prevents the feed from being
 # dominated by a single category (e.g. all prerolls, no flower).
 CATEGORY_MINIMUMS: dict[str, int] = {
-    "flower": 15,
-    "vape": 12,
+    "flower": 12,
+    "vape": 10,
     "edible": 8,
-    "concentrate": 8,
-    "preroll": 5,
+    "concentrate": 6,
+    "preroll": 6,
     "other": 0,
 }
 
 MAX_SAME_BRAND_TOTAL = 5          # was 8 — tighter cap so one brand can't dominate the feed
-MAX_SAME_DISPENSARY_TOTAL = 10
+MAX_SAME_DISPENSARY_TOTAL = 12
 MAX_CONSECUTIVE_SAME_CATEGORY = 3
 MAX_CONSECUTIVE_SAME_BRAND = 1        # no same-brand cards adjacent in the feed
 MAX_SAME_BRAND_PER_DISPENSARY = 2  # similarity dedup
 MAX_SAME_BRAND_PER_CATEGORY = 3    # cap per brand within a single category across all dispensaries
-MAX_UNKNOWN_BRAND_TOTAL = 8        # cap for unbranded products (more lenient since "unknown" covers many genuinely different brands)
+MAX_UNKNOWN_BRAND_TOTAL = 0        # no unknown brand deals — users want recognized brands only
 
 # Backfill caps — used in round 2 when round 1 under-fills the target.
 # More generous than the primary caps so the feed can fill, but still
 # prevent a single brand/dispensary from taking over.
 _BACKFILL_BRAND_TOTAL = 10
 _BACKFILL_BRAND_PER_CATEGORY = 6
-_BACKFILL_DISPENSARY_TOTAL = 15
-_BACKFILL_UNKNOWN_BRAND_TOTAL = 15
+_BACKFILL_DISPENSARY_TOTAL = 18
+_BACKFILL_UNKNOWN_BRAND_TOTAL = 0
 _BACKFILL_THRESHOLD = 0.85  # trigger backfill when round 1 fills < 85% of target
+
+# Dispensary minimum exposure — every dispensary with qualifying deals
+# should appear at least this many times in the feed.  Ensures smaller
+# shops get visibility alongside high-volume dispensaries.
+MIN_DEALS_PER_DISPENSARY = 1
 
 # =====================================================================
 # Phase 4: Badge thresholds
@@ -293,18 +325,18 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     # JANE LOOSE QUALIFICATION
     # Jane does NOT display original prices — only the deal/current
     # price.  We cannot calculate discount_percent, so we skip the
-    # discount and original-price checks.  Qualification is:
-    #   1. Price within category cap
-    #   2. Recognized brand (must be in BRAND_TIERS, not just any string)
+    # discount and original-price checks.  Qualification is price cap
+    # only.  Brand is NOT required here — many Jane sites (Deep Roots,
+    # Sanctuary, Beyond/Hello) have unreliable brand extraction.
+    # Products with recognized brands score higher in Phase 2;
+    # brandless products get a lower score but aren't excluded.
     # ------------------------------------------------------------------
     if source_platform == "jane":
-        brand = product.get("brand")
-        if not brand or _score_brand(brand) <= 5:
-            return False  # recognized brand required for Jane loose mode
         return _passes_price_cap(sale_price, category, weight_value)
 
     # --- Standard filters (non-Jane platforms) ---
-    if discount is None or discount < HARD_FILTERS["min_discount_percent"]:
+    min_disc = CATEGORY_MIN_DISCOUNT.get(category, HARD_FILTERS["min_discount_percent"])
+    if discount is None or discount < min_disc:
         return False
     if discount > HARD_FILTERS["max_discount_percent"]:
         return False  # fake discount / data error
@@ -319,6 +351,12 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
         return False
 
     # --- Category-specific price caps ---
+    # Preroll-specific: infused prerolls use a higher cap than regular flower
+    # prerolls.  Regular 1g flower prerolls should be $5-9 (never $10-12),
+    # but infused prerolls are premium products and legitimately cost more.
+    if category == "preroll" and subtype == "infused_preroll":
+        return sale_price <= CATEGORY_PRICE_CAPS.get("infused_preroll", 15)
+
     return _passes_price_cap(sale_price, category, weight_value)
 
 
@@ -351,8 +389,9 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
     weight_value = product.get("weight_value")
 
     # Reject deals with no detected brand — "UNKNOWN" brand cards are
-    # confusing to users and indicate a parsing problem.  We have enough
-    # volume that we can require a brand on every displayed deal.
+    # confusing to users and indicate a parsing problem.  We require a
+    # brand on every displayed deal, ALL platforms including Jane.
+    # Users want recognized brands only.
     if not brand:
         return False
 
@@ -376,6 +415,16 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
     # Reject products with no weight in categories that need it
     if category in _WEIGHT_REQUIRED_CATEGORIES and not weight_value:
         return False
+
+    # Reject edibles with tiny THC content — 9.5mg, 10mg single-dose items
+    # are not real deals.  Standard dispensary edibles are 100mg+.
+    if category == "edible" and weight_value:
+        try:
+            wv = float(weight_value)
+            if wv < 50:
+                return False
+        except (ValueError, TypeError):
+            pass
 
     return True
 
@@ -428,9 +477,11 @@ def _score_unit_value(category: str, price: float, weight_value: float | None) -
         if price <= 4:
             return 15
         elif price <= 6:
-            return 10
+            return 12
         elif price <= 8:
-            return 5
+            return 8
+        elif price <= 9:
+            return 4
         return 0
 
     return 0
@@ -471,6 +522,7 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
       4. Unit value            — up to 15 pts
       5. Category boost        — up to 8 pts
       6. Price attractiveness  — up to 12 pts
+      7. Budget deal bonus     — up to 5 pts (prerolls/edibles ≤$11)
     """
     score = 0
     discount = product.get("discount_percent") or 0
@@ -523,18 +575,25 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
     # 5. CATEGORY BOOST (up to 8 points)
     score += CATEGORY_BOOST.get(category, 3)
 
-    # 6. PRICE ATTRACTIVENESS (up to 12 points)
-    # Consumers love deals in the $8-25 range
-    if 8 <= sale_price <= 15:
+    # 6. PRICE ATTRACTIVENESS (up to 15 points)
+    # Consumers love the lowest-priced deals — prioritize genuine steals.
+    # The $3-8 range gets the highest boost to ensure the cheapest real
+    # deals float to the top instead of being outscored by mid-priced items.
+    if 3 <= sale_price <= 8:
+        score += 15
+    elif 8 < sale_price <= 15:
         score += 12
     elif 15 < sale_price <= 25:
-        score += 10
-    elif 5 <= sale_price < 8:
         score += 8
     elif 25 < sale_price <= 40:
-        score += 6
-    elif 0 < sale_price < 5:
         score += 4
+
+    # 7. BUDGET DEAL BONUS (up to 5 points)
+    # Prerolls and edibles at $11 or less are accessible price points that
+    # consumers actively seek out.  Give them a scoring boost so more appear
+    # in the feed instead of being outscored by higher-priced categories.
+    if category in ("preroll", "edible") and sale_price <= 11:
+        score += 5
 
     return min(100, score)
 
@@ -839,8 +898,21 @@ def select_top_deals(
             cat = "other"
         buckets[cat].append(deal)
 
+    # Sort each category bucket: lowest-price steals first (top 3 per
+    # category), then by deal_score for the rest.  This ensures the
+    # absolute cheapest deals in each category get priority slots,
+    # giving users the "steals" they want to see at the top.
+    _PRICE_PRIORITY_SLOTS = 3
     for cat in buckets:
-        buckets[cat].sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+        pool = buckets[cat]
+        # Sort by price ascending to find cheapest deals
+        pool.sort(key=lambda d: d.get("sale_price") or d.get("current_price") or 999)
+        price_leaders = pool[:_PRICE_PRIORITY_SLOTS]
+        rest = pool[_PRICE_PRIORITY_SLOTS:]
+        # Sort rest by deal_score descending
+        rest.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+        # Reassemble: price leaders first, then score-ranked
+        buckets[cat] = price_leaders + rest
 
     # ------------------------------------------------------------------
     # Step 2: Calculate category slot allocation
@@ -1022,7 +1094,61 @@ def select_top_deals(
             break
 
     # ------------------------------------------------------------------
-    # Step 4: Dispensary cap enforcement (uses backfill cap if active)
+    # Step 4: Dispensary minimum exposure guarantee
+    # ------------------------------------------------------------------
+    # Every dispensary that has qualifying deals should appear at least
+    # MIN_DEALS_PER_DISPENSARY times.  This ensures smaller shops get
+    # visibility instead of being completely squeezed out by high-volume
+    # dispensaries with many qualifying products.
+    result_disp_ids = {deal.get("dispensary_id") or "" for deal in result}
+    all_disp_pools: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for deal in scored_deals:
+        disp_id = deal.get("dispensary_id") or ""
+        all_disp_pools[disp_id].append(deal)
+
+    missing_disps = [
+        disp_id for disp_id in all_disp_pools
+        if disp_id and disp_id not in result_disp_ids
+    ]
+    if missing_disps:
+        result_keys = {
+            (d.get("name", ""), d.get("sale_price")) for d in result
+        }
+        # Track brand counts in the current result to respect caps
+        disp_min_brand_counts: dict[str, int] = defaultdict(int)
+        for deal in result:
+            b = (deal.get("brand") or "").lower()
+            if b:
+                disp_min_brand_counts[b] += 1
+        added = 0
+        for disp_id in missing_disps:
+            pool = all_disp_pools[disp_id]
+            pool.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+            count = 0
+            for deal in pool:
+                if count >= MIN_DEALS_PER_DISPENSARY:
+                    break
+                deal_key = (deal.get("name", ""), deal.get("sale_price"))
+                brand_lower = (deal.get("brand") or "").lower()
+                # Only add if it has a brand and doesn't exceed brand cap
+                if (
+                    deal_key not in result_keys
+                    and deal.get("brand")
+                    and disp_min_brand_counts[brand_lower] < _BACKFILL_BRAND_TOTAL
+                ):
+                    result.append(deal)
+                    result_keys.add(deal_key)
+                    disp_min_brand_counts[brand_lower] += 1
+                    count += 1
+                    added += 1
+        if added > 0:
+            logger.info(
+                "Dispensary minimum: added %d deals from %d under-represented dispensaries",
+                added, len(missing_disps),
+            )
+
+    # ------------------------------------------------------------------
+    # Step 5: Dispensary cap enforcement (uses backfill cap if active)
     # ------------------------------------------------------------------
     effective_disp_cap = (
         _BACKFILL_DISPENSARY_TOTAL
