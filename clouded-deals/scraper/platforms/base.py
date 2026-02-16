@@ -23,7 +23,10 @@ from playwright.async_api import (
     Playwright,
 )
 
-from config.dispensaries import BROWSER_ARGS, GOTO_TIMEOUT_MS, PLATFORM_DEFAULTS, USER_AGENT, VIEWPORT, WAIT_UNTIL
+from config.dispensaries import (
+    BROWSER_ARGS, GOTO_TIMEOUT_MS, PLATFORM_DEFAULTS, STEALTH_INIT_SCRIPT,
+    USER_AGENT, VIEWPORT, WAIT_UNTIL, get_user_agent, get_viewport,
+)
 from handlers import dismiss_age_gate
 
 DEBUG_DIR = Path(os.getenv("DEBUG_DIR", "debug_screenshots"))
@@ -83,9 +86,14 @@ class BaseScraper(abc.ABC):
                 args=BROWSER_ARGS,
             )
         self._context = await self._browser.new_context(
-            viewport=VIEWPORT,
-            user_agent=USER_AGENT,
+            viewport=get_viewport(),
+            user_agent=get_user_agent(),
+            locale="en-US",
+            timezone_id="America/New_York",
         )
+        # Inject stealth script BEFORE any page navigation so automation
+        # signals are masked from the very first request.
+        await self._context.add_init_script(STEALTH_INIT_SCRIPT)
         self._page = await self._context.new_page()
         logger.info("[%s] Browser ready (shared=%s)", self.slug, bool(self._shared_browser))
         return self

@@ -104,6 +104,8 @@ _REGION_TO_STATE: dict[str, tuple[str, str]] = {
     "northern-nv": ("Nevada", "NV"),
     "nevada": ("Nevada", "NV"),
     "michigan": ("Michigan", "MI"),
+    "michigan-east": ("Michigan", "MI"),
+    "michigan-west": ("Michigan", "MI"),
     "illinois": ("Illinois", "IL"),
     "arizona": ("Arizona", "AZ"),
     "missouri": ("Missouri", "MO"),

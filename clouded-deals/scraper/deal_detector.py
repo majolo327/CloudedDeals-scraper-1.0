@@ -109,6 +109,12 @@ BRAND_TIERS: dict[str, dict[str, Any]] = {
             # Michigan-native popular brands
             "platinum vape", "mkx", "lume", "skymint",
             "element", "redbud roots", "pleasantrees",
+            # Michigan expansion — Feb 2026
+            "joyology", "pinnacle emporium", "herbana",
+            "exclusive cannabis", "high profile", "five star extracts",
+            "humblebee", "redemption", "drip", "viola",
+            "house of dank", "hod", "church cannabis",
+            "choice edibles", "detroit edibles", "nirvana center",
             # Illinois-native popular brands
             "revolution", "aeriz", "bedford grow", "cresco",
             "high supply", "good news", "matter", "superflux",
@@ -124,12 +130,19 @@ BRAND_TIERS: dict[str, dict[str, Any]] = {
             "elevate", "greenlight", "haze", "nature med",
             "vertical", "star buds", "bloc", "terrabis",
             "c4", "amaze cannabis", "keef", "robhots",
+            # Missouri expansion — Feb 2026
+            "swade", "fresh green", "n'bliss", "from the earth",
+            "old route 66", "heya", "solhaus", "cloud nine",
+            "heartland labs", "robust",
             # New Jersey-native popular brands
             "kind tree", "fernway", "ozone", "rythm",
             "garden greens", "the botanist", "clade9",
             "terrascend", "good green", "later days",
             "grön", "gron", "jams", "beboe", "avexia",
             "level", "bits",
+            # NJ expansion — Feb 2026
+            "breakwater", "garden state canna", "the heirloom collective",
+            "harmony", "apothecarium", "purple leaf", "bloc nj",
             # Nevada dispensary house brands (boost when detected)
             "deep roots", "deep roots harvest",
             "state flower", "cultivation labs",

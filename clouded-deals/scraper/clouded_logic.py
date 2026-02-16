@@ -189,6 +189,12 @@ BRANDS = sorted(set([
     'Puffin', 'Monster Xtracts', 'Stiizy MI',
     'Wana MI', 'High Supply', 'Gage Cannabis', 'HOD',
     'Cloud Cannabis', 'Puff Cannabis', 'JARS',
+    # Michigan expansion — Feb 2026
+    'Joyology', 'Pinnacle Emporium', 'Herbana', 'Nirvana Center',
+    'Exclusive Cannabis', 'Breeze', 'High Profile',
+    'Five Star Extracts', 'Pyramid', 'Humblebee', 'Redemption',
+    'Drip', 'Choice Edibles', 'Detroit Edibles',
+    'House of Dank', 'Viola', 'Church Cannabis',
     # ── Illinois-native brands ──────────────────────────────────────
     'Revolution', 'Aeriz', 'Bedford Grow', 'Cresco',
     'Good News', "Mindy's", "Mindy's Edibles", 'FloraCal',
@@ -211,12 +217,19 @@ BRANDS = sorted(set([
     "Missouri's Own", 'Amaze Cannabis', 'Key Cannabis',
     'Greenlight', 'Star Buds', 'Vertical',
     'Local Cannabis', 'Peak', 'Canna Mojo', 'Honeybee',
+    # Missouri expansion — Feb 2026
+    'Swade', 'Fresh Green', "N'Bliss", 'From The Earth',
+    'Old Route 66', 'Heya', 'Solhaus', 'Cloud Nine',
+    'Heartland Labs', 'Good Day Farms', 'Robust',
     # ── New Jersey-native brands ─────────────────────────────────────
     'Kind Tree', 'Fernway', 'Ozone', 'Garden Greens',
     'Clade9', 'Jersey Canna', 'Sweet Spot',
     'The Botanist', 'TerrAscend', 'Prism',
     'Dogwalkers', 'Beboe', 'Encore',
     'Effin', 'Treeworks',
+    # NJ expansion — Feb 2026
+    'Breakwater', 'Garden State Canna', 'The Heirloom Collective',
+    'Harmony', 'Apothecarium', 'Purple Leaf', 'Bloc NJ',
 ]), key=str.lower)
 
 # Pre-compute lowercase brand set for fast lookup
@@ -266,6 +279,16 @@ BRAND_ALIASES: dict[str, str] = {
     # NJ aliases
     'Verano Reserve': 'Verano',
     'Full Tilt': 'Verano',
+    # Michigan expansion aliases
+    'House of Dank': 'HOD',
+    'Five Star': 'Five Star Extracts',
+    'Church Cannabis Company': 'Church Cannabis',
+    'Good Day Farms': 'Good Day Farm',
+    # NJ expansion aliases
+    'The Apothecarium': 'Apothecarium',
+    'Bloc': 'Bloc NJ',
+    'Garden State': 'Garden State Canna',
+    'Heirloom Collective': 'The Heirloom Collective',
 }
 
 # ============================================================================
@@ -342,6 +365,35 @@ _BRAND_VARIATION_MAP: dict[str, str] = {
     'amaze': 'Amaze Cannabis',
     'greenlight cannabis': 'Greenlight',
     'star bud': 'Star Buds',
+    # Michigan expansion variations
+    'house of dank': 'HOD',
+    'hod cannabis': 'HOD',
+    'five star extracts': 'Five Star Extracts',
+    'five star': 'Five Star Extracts',
+    'light sky': 'Light Sky Farms',
+    'choice edibles': 'Choice Edibles',
+    'detroit edible': 'Detroit Edibles',
+    'monster xtracts': 'Monster Xtracts',
+    'monster extracts': 'Monster Xtracts',
+    'pinnacle': 'Pinnacle Emporium',
+    'church cannabis co': 'Church Cannabis',
+    'viola cannabis': 'Viola',
+    # Missouri expansion variations
+    'good day farms': 'Good Day Farm',
+    'from the earth cannabis': 'From The Earth',
+    'nbliss': "N'Bliss",
+    'n bliss': "N'Bliss",
+    'heartland': 'Heartland Labs',
+    'heartland labs': 'Heartland Labs',
+    'old route 66 cannabis': 'Old Route 66',
+    'swade cannabis': 'Swade',
+    # NJ expansion variations
+    'breakwater treatment': 'Breakwater',
+    'garden state canna': 'Garden State Canna',
+    'heirloom collective': 'The Heirloom Collective',
+    'harmony dispensary': 'Harmony',
+    'apothecarium nj': 'Apothecarium',
+    'purple leaf nj': 'Purple Leaf',
     # NJ variations
     'kind tree nj': 'Kind Tree',
     'terrascend': 'TerrAscend',

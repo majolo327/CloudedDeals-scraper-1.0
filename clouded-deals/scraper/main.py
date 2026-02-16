@@ -1417,11 +1417,13 @@ async def run(slug_filter: str | None = None) -> None:
         }
 
         # Domain-level throttle: when many sites share the same domain
-        # (e.g. 111 Michigan sites on dutchie.com), insert a minimum delay
-        # between requests to the same domain to avoid triggering WAF /
-        # bot detection.  Each domain gets its own asyncio.Lock so only
-        # one request at a time negotiates the cooldown.
-        _DOMAIN_MIN_INTERVAL = 2.0  # seconds between requests to same domain
+        # (e.g. 111 Michigan sites on dutchie.com), insert a randomized
+        # delay between requests to avoid triggering WAF / bot detection.
+        # Each domain gets its own asyncio.Lock so only one request at a
+        # time negotiates the cooldown.  Range 3-7s mimics human browsing
+        # cadence and prevents predictable request patterns.
+        _DOMAIN_MIN_INTERVAL = float(os.getenv("DOMAIN_MIN_INTERVAL", "3.0"))
+        _DOMAIN_MAX_JITTER = float(os.getenv("DOMAIN_MAX_JITTER", "4.0"))
         domain_locks: dict[str, asyncio.Lock] = {}
         domain_last_request: dict[str, float] = {}
 
@@ -1437,12 +1439,14 @@ async def run(slug_filter: str | None = None) -> None:
 
             async with global_semaphore:
                 async with plat_sem:
-                    # Domain-level cooldown — serialize the timing check
+                    # Domain-level cooldown — serialize the timing check.
+                    # Randomized wait (3-7s default) mimics human browsing
+                    # cadence and avoids predictable request fingerprints.
                     async with domain_locks[domain]:
                         elapsed_since = time.time() - domain_last_request.get(domain, 0)
-                        if elapsed_since < _DOMAIN_MIN_INTERVAL:
-                            jitter = random.uniform(0, 1.0)
-                            wait = _DOMAIN_MIN_INTERVAL - elapsed_since + jitter
+                        cooldown = _DOMAIN_MIN_INTERVAL + random.uniform(0, _DOMAIN_MAX_JITTER)
+                        if elapsed_since < cooldown:
+                            wait = cooldown - elapsed_since
                             logger.debug(
                                 "[%s] Domain throttle: waiting %.1fs for %s",
                                 dispensary["slug"], wait, domain,

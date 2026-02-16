@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import re
 from typing import Any, Union
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
@@ -149,7 +150,8 @@ class DutchieScraper(BaseScraper):
         await self.goto()
 
         # Post-navigate settle — let JS-heavy sites finish initializing
-        await asyncio.sleep(3)
+        # Randomized 2-5s to avoid predictable timing fingerprint
+        await asyncio.sleep(2 + random.uniform(0, 3))
 
         # --- Cloudflare detection (bail early to save ~300s) --------------
         # If the primary site is Cloudflare-blocked, the full detection
