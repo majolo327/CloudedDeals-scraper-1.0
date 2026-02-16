@@ -50,27 +50,27 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
           We checked every dispensary this morning so you don&apos;t have to. Hand-curated deals, updated daily.
         </p>
 
-        {/* Feature callouts */}
+        {/* Feature callouts — action-oriented, scannable */}
         <div className="w-full max-w-sm space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
           {[
             {
               icon: Search,
-              title: 'Search & Filter',
-              desc: 'Flower, vapes, edibles, concentrates, pre-rolls — search any brand or dispensary by name',
+              title: 'Search any brand',
+              desc: 'Flower, vapes, edibles, concentrates — find your go-to or discover something new',
               color: 'text-purple-400 bg-purple-500/10',
             },
             {
               icon: MapPin,
-              title: 'One-Tap Directions',
-              desc: 'Every dispensary in Vegas, one tap away. Sort by distance.',
+              title: 'Get directions',
+              desc: 'One tap to any dispensary in Vegas, sorted by distance',
               color: 'text-emerald-400 bg-emerald-500/10',
             },
             {
               icon: DollarSign,
-              title: 'Updated Daily',
+              title: 'Save deals you like',
               desc: dealCount > 0
-                ? `${dealCount} deals today. Updated before you wake up.`
-                : '27 dispensaries. Every deal. Updated daily.',
+                ? `Tap the heart, build your list. ${dealCount} deals live right now.`
+                : 'Tap the heart to save. 27 dispensaries checked every morning.',
               color: 'text-amber-400 bg-amber-500/10',
             },
           ].map((feature) => (
@@ -83,16 +83,11 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
               </div>
               <div className="text-left">
                 <p className="text-sm font-semibold text-white">{feature.title}</p>
-                <p className="text-xs text-slate-500 leading-relaxed">{feature.desc}</p>
+                <p className="text-sm text-slate-400 leading-relaxed">{feature.desc}</p>
               </div>
             </div>
           ))}
         </div>
-
-        {/* Future teaser */}
-        <p className="mt-6 text-[11px] text-slate-600 max-w-xs leading-relaxed animate-in fade-in duration-500 delay-300">
-          Coming soon: brand loyalty perks, VIP rewards &amp; giveaways
-        </p>
       </div>
 
       {/* CTA */}

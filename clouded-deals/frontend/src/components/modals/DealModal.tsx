@@ -45,8 +45,17 @@ export function DealModal({
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
+    // Prevent iOS scroll bounce bleeding through
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.top = `-${window.scrollY}px`;
     return () => {
-      document.body.style.overflow = 'unset';
+      const scrollY = document.body.style.top;
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+      window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
     };
   }, []);
 
@@ -102,7 +111,7 @@ export function DealModal({
       <div
         className="relative w-full sm:max-w-lg glass-strong frost rounded-t-2xl sm:rounded-2xl max-h-[85vh] overflow-y-auto animate-soft-reveal"
         onClick={(e) => e.stopPropagation()}
-        style={{ paddingBottom: 'max(7rem, env(safe-area-inset-bottom, 0px) + 4rem)' }}
+        style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}
       >
         {/* Mobile drag handle */}
         <div className="sm:hidden flex justify-center pt-2">
@@ -122,7 +131,7 @@ export function DealModal({
             </div>
             <button
               onClick={onClose}
-              className="w-10 h-10 sm:w-9 sm:h-9 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all -mr-1 sm:-mr-2 -mt-1 flex-shrink-0"
+              className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all flex-shrink-0"
             >
               <X className="w-5 h-5" />
             </button>
