@@ -28,7 +28,7 @@ export function Footer({ onNavigateToForBusiness, onNavigate, onNavigateToAbout,
   }, [onReplayTour]);
 
   return (
-    <footer className="relative border-t mt-8" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'rgba(10, 14, 26, 0.6)' }}>
+    <footer className="relative border-t mt-8" style={{ borderColor: 'rgba(120, 100, 200, 0.06)', backgroundColor: 'rgba(10, 12, 28, 0.6)' }}>
       <div className="max-w-6xl mx-auto px-4 py-6">
         {/* How It Works collapsible section */}
         <div className="mb-6">
@@ -97,7 +97,7 @@ export function Footer({ onNavigateToForBusiness, onNavigate, onNavigateToAbout,
           Nevada law limits adult possession to 1 oz of flower or 1/8 oz of concentrates.
         </p>
 
-        <div className="mt-8 pt-6 border-t border-slate-800/50">
+        <div className="mt-8 pt-6 border-t" style={{ borderColor: 'rgba(120, 100, 200, 0.06)' }}>
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500 mb-3">
             <button
               onClick={() => onNavigate?.('terms')}

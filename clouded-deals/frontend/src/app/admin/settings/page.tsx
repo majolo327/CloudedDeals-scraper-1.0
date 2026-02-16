@@ -65,7 +65,7 @@ export default function SettingsPage() {
           const todayStart = new Date();
           todayStart.setUTCHours(0, 0, 0, 0);
           const todayPosts = postsResult.data.filter(
-            (p: any) => p.posted_at && new Date(p.posted_at) >= todayStart
+            (p: { posted_at: string | null }) => p.posted_at && new Date(p.posted_at) >= todayStart
           );
           setTodayCount(todayPosts.length);
         }

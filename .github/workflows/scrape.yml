@@ -1,17 +1,20 @@
 name: Daily Scraper
 
-# Dynamic run name so each state is identifiable at a glance in the Actions UI.
+# Dynamic run name — each scheduled region is identifiable at a glance in the
+# Actions UI (e.g. "Scrape — nevada", "Scrape — michigan").
+# Uses contains() instead of == for resilient cron-expression matching.
 run-name: >-
   Scrape — ${{
     github.event_name == 'workflow_dispatch'
-      && (github.event.inputs.region || 'all')
-    || github.event.schedule == '0 16 * * *' && 'nevada'
-    || github.event.schedule == '0 18 * * *' && 'arizona'
-    || github.event.schedule == '30 19 * * *' && 'illinois'
-    || github.event.schedule == '0 21 * * *' && 'missouri'
-    || github.event.schedule == '0 22 * * *' && 'michigan'
-    || github.event.schedule == '0 23 * * *' && 'new-jersey'
-    || 'unknown'
+      && format('{0}{1}', github.event.inputs.region || 'all',
+           github.event.inputs.dry_run == 'true' && ' (dry-run)' || '')
+    || contains(github.event.schedule || '', '0 16') && 'nevada'
+    || contains(github.event.schedule || '', '0 18') && 'arizona'
+    || contains(github.event.schedule || '', '30 19') && 'illinois'
+    || contains(github.event.schedule || '', '0 21') && 'missouri'
+    || contains(github.event.schedule || '', '0 22') && 'michigan'
+    || contains(github.event.schedule || '', '0 23') && 'new-jersey'
+    || 'scheduled'
   }}
 
 on:

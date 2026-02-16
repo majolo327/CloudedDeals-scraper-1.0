@@ -19,10 +19,10 @@ on:
           - deep-diagnostics
         default: "all"
       timeout_minutes:
-        description: "Max runtime in minutes (default 45)"
+        description: "Max runtime in minutes (default 90)"
         required: false
         type: number
-        default: 45
+        default: 90
 
 concurrency:
   group: site-diagnostics
@@ -96,12 +96,12 @@ jobs:
           # Run — no -x so every site runs even if some fail
           if [ -n "$K_EXPR" ]; then
             python -m pytest tests/test_site_diagnostics.py \
-              -v -s --tb=short --timeout=300 \
+              -v -s --tb=short --timeout=600 \
               -k "$K_EXPR" \
               2>&1 | tee debug_screenshots/diagnostics_log.txt || true
           else
             python -m pytest tests/test_site_diagnostics.py \
-              -v -s --tb=short --timeout=300 \
+              -v -s --tb=short --timeout=600 \
               2>&1 | tee debug_screenshots/diagnostics_log.txt || true
           fi
 

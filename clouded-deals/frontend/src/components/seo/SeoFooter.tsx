@@ -25,7 +25,7 @@ export function SeoFooter() {
   return (
     <footer
       className="border-t mt-12"
-      style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'rgba(10, 14, 26, 0.6)' }}
+      style={{ borderColor: 'rgba(120, 100, 200, 0.06)', backgroundColor: 'rgba(10, 12, 28, 0.6)' }}
     >
       <div className="max-w-6xl mx-auto px-4 py-10">
         {/* Navigation columns */}

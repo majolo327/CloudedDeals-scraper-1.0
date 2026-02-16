@@ -404,10 +404,23 @@ _BRAND_VARIATION_MAP: dict[str, str] = {
     'the botanist nj': 'The Botanist',
     'clade 9': 'Clade9',
     'effin\'': 'Effin',
+    '& shine': '&Shine',
+    'and shine': '&Shine',
 }
 
+def _variation_pattern(var: str) -> re.Pattern:
+    """Compile a word-boundary pattern for a brand variation string.
+
+    Variations starting with non-word characters (like '& shine') use
+    ``(?:^|\\s)`` instead of ``\\b`` — same logic as ``_brand_pattern``.
+    """
+    escaped = re.escape(var)
+    if var and not var[0].isalnum() and var[0] != '_':
+        return re.compile(r'(?:^|\s)' + escaped + r'\b', re.IGNORECASE)
+    return re.compile(r'\b' + escaped + r'\b', re.IGNORECASE)
+
 _VARIATION_PATTERNS: list[tuple[re.Pattern, str]] = [
-    (re.compile(r'\b' + re.escape(var) + r'\b', re.IGNORECASE), canonical)
+    (_variation_pattern(var), canonical)
     for var, canonical in sorted(_BRAND_VARIATION_MAP.items(), key=lambda x: len(x[0]), reverse=True)
 ]
 
@@ -911,8 +924,10 @@ class CloudedLogic:
         # 6. VAPE
         # Use word-boundary regex to prevent false positives from
         # substrings (e.g. "pen" matching "Aspen", "open", "expend").
-        edible_keywords = ['gummies', 'gummy', 'chocolate', 'candy', 'brownie']
-        if re.search(r'\b(cart|cartridge|pod|disposable|vape|pen|all[- ]?in[- ]?one|aio|ready[- ]?to[- ]?use)\b', t):
+        edible_keywords = ['gummies', 'gummy', 'chocolate', 'candy', 'brownie',
+                          'chews', 'chew', 'taffy', 'lozenge', 'lozenges',
+                          'drops', 'tarts', 'bites', 'pieces', 'mints']
+        if re.search(r'\b(cart|cartridge|pod|disposable|vape|pen|all-in-one)\b', t):
             if not any(w in t for w in edible_keywords):
                 return 'vape'
 
@@ -921,9 +936,15 @@ class CloudedLogic:
         if any(w in t for w in flower_keywords):
             return 'flower'
 
-        # 8. EDIBLE fallback (keyword)
+        # 8. EDIBLE — expanded keywords including common product formats
         if any(w in t for w in edible_keywords):
             return 'edible'
+        # Word-boundary match for short/ambiguous edible words
+        if re.search(r'\b(?:bars?|mints?|chew|tabs?|tablets?)\b', t):
+            # Avoid false positives: "bar" in strain names or "mint" in "Thin Mint"
+            # Only match if the text also has a mg weight (edible indicator)
+            if re.search(r'\b\d+\s*mg\b', t):
+                return 'edible'
 
         # 9. WEIGHT-BASED INFERENCE — last chance before "other"
         # Products with mg content (e.g. "100mg") are almost always edibles

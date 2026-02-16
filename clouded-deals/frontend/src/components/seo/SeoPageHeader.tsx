@@ -3,10 +3,10 @@ import Link from 'next/link';
 export function SeoPageHeader() {
   return (
     <header
-      className="sticky top-0 z-50 backdrop-blur-xl border-b"
+      className="sticky top-0 z-50 backdrop-blur-2xl header-border-glow"
       style={{
-        backgroundColor: 'rgba(10, 14, 26, 0.92)',
-        borderColor: 'var(--border-subtle)',
+        backgroundColor: 'rgba(10, 12, 28, 0.92)',
+        borderBottom: '1px solid rgba(120, 100, 200, 0.08)',
       }}
     >
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">

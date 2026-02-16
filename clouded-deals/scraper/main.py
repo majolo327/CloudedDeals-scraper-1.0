@@ -341,6 +341,28 @@ _RE_BRACKET_WEIGHT = re.compile(
     re.IGNORECASE,
 )
 
+# Promotional bundle text embedded in product names:
+# "Gummies 2 For $35 All Dispensary", "Elixir 3 For $20 Sips, HaHa, "
+_RE_PROMO_BUNDLE = re.compile(
+    r"\s*\d+\s+For\s+\$\d+\.?\d*\b.*$",
+    re.IGNORECASE,
+)
+
+# Trailing pipe-delimited weight/metadata for edibles:
+# "Drink Loud | Cucumber Haze | 100mg" → keep up to the strain segment
+# "Blue Razz | 100mg" → strip "| 100mg"
+# "Dreamberry | 100mg 2:1 [THC:CBN]" → strip "| 100mg 2:1 [THC:CBN]"
+_RE_TRAILING_PIPE_WEIGHT = re.compile(
+    r"\s*\|\s*\d+\.?\d*\s*m?g\b.*$",
+    re.IGNORECASE,
+)
+
+# THC:CBD ratio brackets: "[THC:CBN]", "[1:1]", "[2:1]"
+_RE_RATIO_BRACKET = re.compile(
+    r"\s*\[?\d*:?\d*\s*(?:THC|CBD|CBN|CBG)\s*(?::\s*(?:THC|CBD|CBN|CBG))?\]?",
+    re.IGNORECASE,
+)
+
 # Patterns that indicate promotional / sale copy rather than a real product name
 _SALE_COPY_PATTERNS = [
     re.compile(r"^\d+%\s*off", re.IGNORECASE),
@@ -442,6 +464,64 @@ _RE_LEADING_STRAIN = re.compile(
 )
 
 
+# Lines in raw_text that are NOT useful strain/product names.
+_JUNK_LINE_PATTERNS = re.compile(
+    r"^(?:"
+    r"\$[\d.]+"                              # price line
+    r"|[\d.]+\s*(?:g|mg|oz)\b"               # weight line
+    r"|(?:Indica|Sativa|Hybrid)$"            # strain type
+    r"|(?:THC|CBD|CBN)\s*:?\s*[\d.]+\s*%?"   # cannabinoid
+    r"|Add to (?:cart|bag)"                   # CTA
+    r"|(?:Pre[-\s]?Rolls?|Prerolls?|Flower|Vapes?|Cartridges?|Concentrates?|Edibles?)$"  # category label
+    r"|(?:Sale!?|New!?|Limited|Sold out|In stock|Staff Pick|Local Love|New Arrival)"
+    r"|\d+%\s*off"
+    r"|Special Offers?"
+    r"|\s*$"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def _extract_strain_from_raw_text(
+    raw_text: str, brand: str, fallback: str,
+) -> str:
+    """Try to find a meaningful strain/product name in raw_text lines.
+
+    When the scraped product name equals the brand (e.g. a Dutchie card
+    whose heading is just "Cookies"), the real strain name often appears
+    as a separate line in the card text (e.g. "Headband", "Gary Payton").
+    This function scans those lines and returns the first candidate that
+    isn't the brand, a price, a weight, a category label, or junk text.
+
+    Falls back to *fallback* (usually the raw_name) if nothing better
+    is found.
+    """
+    if not raw_text:
+        return fallback
+    brand_lower = brand.lower() if brand else ""
+    for line in raw_text.split("\n"):
+        candidate = line.strip()
+        if not candidate or len(candidate) < 3:
+            continue
+        # Skip if it's the brand name itself
+        if candidate.lower() == brand_lower:
+            continue
+        # Skip if it starts with the brand (e.g. "Cookies | Flower")
+        if brand_lower and candidate.lower().startswith(brand_lower):
+            continue
+        # Skip junk lines (prices, weights, strain types, category labels, etc.)
+        if _JUNK_LINE_PATTERNS.match(candidate):
+            continue
+        # Good candidate — strip brand prefix if present
+        result = re.sub(
+            rf'\b{re.escape(brand)}\b\s*[-:|]?\s*',
+            '', candidate, flags=re.IGNORECASE,
+        ).strip()
+        if len(result) >= 3:
+            return result
+    return fallback
+
+
 def _is_junk_deal(name: str, price: float | None) -> bool:
     """Return True if this scraped entry is promotional junk rather than a real product."""
     if not price or price <= 0:
@@ -521,6 +601,11 @@ def _clean_product_name(name: str) -> str:
 
     # Strip parenthetical strain codes: "(SH)", "(I)", "(S)", "(H)", "(IH)", "(SH)"
     cleaned = re.sub(r"\s*\(\s*(?:SH?|IH?|H)\s*\)", "", cleaned, flags=re.IGNORECASE)
+
+    # Strip leading price prefix from product names that begin with "$XX"
+    # e.g. "$55 VYBZ Pre-packaged" → "VYBZ Pre-packaged"
+    #       "$23 Dab Oil Applicators" → "Dab Oil Applicators"
+    cleaned = re.sub(r"^\$\d+\.?\d*\s+", "", cleaned)
 
     # Strip inline price/deal text fragments that slip into product names
     # e.g. "$99 $45 1/2 OZ" or "1/2 OZ" at end of name
@@ -978,6 +1063,27 @@ async def _scrape_site_inner(
         # Category: detect from clean text (no offer keyword pollution)
         category = logic.detect_category(clean_text)
 
+        # Scraped category override: when the platform scraper extracted
+        # a category label directly from the product card (e.g. Dutchie
+        # cards show "Pre-Roll", "Flower", etc.), trust it over text-based
+        # detection — it's the dispensary's own classification.
+        # Only override when text detection gave a DIFFERENT answer or
+        # landed on "other" (meaning no keywords matched).
+        scraped_category = rp.get("scraped_category", "")
+        if scraped_category and scraped_category != category:
+            # If text detection found a specific category AND the scraped
+            # category disagrees, the scraped label wins — it's directly
+            # from the dispensary's structured data.
+            if category in ("other", "skip"):
+                category = scraped_category
+            elif scraped_category == "preroll" and category == "flower":
+                # Common misclassification: dispensary lists a preroll
+                # product but text detection picks up "flower" from
+                # stray text.  Trust the scraped label.
+                category = "preroll"
+            elif scraped_category != "other":
+                category = scraped_category
+
         # Concentrate correction: if category landed on "vape" but the
         # product text has concentrate format keywords (badder, wax, live
         # resin…) and no vape keywords (cart, pod…), it's a concentrate.
@@ -999,6 +1105,7 @@ async def _scrape_site_inner(
                 if name_category not in ("other", "vape"):
                     category = name_category
 
+
         # Parse full combined text for price, weight, THC
         text = f"{raw_name} {raw_text} {price_text}"
         product = logic.parse_product(text, dispensary["name"])
@@ -1012,6 +1119,45 @@ async def _scrape_site_inner(
             product["category"] = category
 
         weight_value, weight_unit = _split_weight(product.get("weight"))
+
+        # "Other" → flower fallback: products with flower-typical weights
+        # (3.5g, 7g, 14g, 28g) that didn't match any category keyword are
+        # almost certainly flower.  "Golden State Banana 3.5g" has no
+        # keyword but the weight is unambiguously flower.
+        if category == "other" and weight_value is not None:
+            try:
+                wv = float(weight_value)
+                if wv in (3.5, 7.0, 14.0, 28.0):
+                    category = "flower"
+                    product["category"] = "flower"
+            except (ValueError, TypeError):
+                pass
+
+        # ── Flower @ 1g → preroll heuristic ────────────────────────
+        # In cannabis retail, 1g flower is almost never sold — it's
+        # the standard weight for a single preroll.  When category
+        # is "flower" and weight is exactly 1g, reclassify as preroll
+        # UNLESS the product name explicitly contains "flower" or
+        # "bud" (confirming it really is flower).
+        if category == "flower" and weight_unit == "g":
+            try:
+                wv = float(weight_value) if weight_value is not None else None
+                if wv == 1.0 and not re.search(r"\b(?:flower|bud)\b", raw_name, re.IGNORECASE):
+                    category = "preroll"
+                    product["category"] = "preroll"
+            except (ValueError, TypeError):
+                pass
+
+        # Normalize mg → g for vape/concentrate (physical weight, not THC)
+        # "1000mg" vape cart → 1.0g, "850mg" pod → 0.85g
+        effective_cat = category if (category and category != 'other') else product.get("category")
+        if (
+            weight_unit == "mg"
+            and weight_value is not None
+            and effective_cat in ("vape", "concentrate")
+        ):
+            weight_value = round(weight_value / 1000, 3)
+            weight_unit = "g"
 
         # --- Build a clean display name from the scraper's raw_name ------
         # CloudedLogic's product_name is derived from the full combined text
@@ -1040,7 +1186,13 @@ async def _scrape_site_inner(
                     '', display_name, flags=re.IGNORECASE,
                 ).strip()
             if len(display_name) < 3:
-                display_name = raw_name
+                # The product name was essentially just the brand (e.g.
+                # "Cookies" when the card heading is the brand label).
+                # Try to extract a meaningful strain/product name from
+                # the raw_text lines instead of falling back to the brand.
+                display_name = _extract_strain_from_raw_text(
+                    raw_text, brand, raw_name,
+                )
 
         display_name = display_name or raw_name or "Unknown"
 
@@ -1066,14 +1218,20 @@ async def _scrape_site_inner(
                 r"\b(?:Flower|Bud)\b", "", display_name, flags=re.IGNORECASE,
             ).strip()
 
-        # 6. Strip inline weight values redundant with the weight field
+        # 6. Strip promotional bundle text: "Gummies 2 For $35 All Dis…"
+        display_name = _RE_PROMO_BUNDLE.sub("", display_name).strip()
+
+        # 7. Strip trailing pipe + weight for edibles: "Drink Loud | Cucumber Haze | 100mg"
+        display_name = _RE_TRAILING_PIPE_WEIGHT.sub("", display_name).strip()
+
+        # 8. Strip inline weight values redundant with the weight field
         display_name = _RE_BRACKET_WEIGHT.sub("", display_name).strip()
         display_name = _RE_INLINE_WEIGHT.sub("", display_name).strip()
 
-        # 7. Strip marketing junk: "High Octane Xtreme" etc.
+        # 9. Strip marketing junk: "High Octane Xtreme" etc.
         display_name = _RE_MARKETING_JUNK.sub("", display_name).strip()
 
-        # 8. Strip parenthetical weight and strain-type indicators
+        # 10. Strip parenthetical weight and strain-type indicators
         # "(100mg)" duplicates the weight field; "(I)"/"(S)"/"(H)" are
         # strain-type shorthand already captured in the strain_type field.
         display_name = re.sub(
@@ -1083,8 +1241,16 @@ async def _scrape_site_inner(
             r"\s*\(\s*[ISH]\s*\)", "", display_name, flags=re.IGNORECASE,
         )
 
+        # 11. Strip standalone "mg" weight: "100mg", "200mg"
+        display_name = re.sub(
+            r"\b\d+\.?\d*\s*mg\b", "", display_name, flags=re.IGNORECASE,
+        ).strip()
+
+        # 12. Strip THC:CBD ratio text: "2:1", "[THC:CBN]"
+        display_name = _RE_RATIO_BRACKET.sub("", display_name).strip()
+
         display_name = re.sub(r"\s{2,}", " ", display_name).strip()
-        display_name = display_name.strip(" -–—") or raw_name or "Unknown"
+        display_name = display_name.strip(" -–—|") or raw_name or "Unknown"
 
         # Map CloudedLogic output to the DB schema expected by _upsert_products
         enriched: dict[str, Any] = {

@@ -36,12 +36,12 @@ logger = logging.getLogger("deal_detector")
 CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
     "flower": {
         "3.5": 25,    # eighth — relaxed from $19
-        "7": 45,      # quarter — relaxed from $30
-        "14": 65,     # half oz — relaxed from $40
+        "7": 40,      # quarter — tightened from $45
+        "14": 55,     # half oz — tightened from $65 ($55 half oz is upper bound)
         "28": 100,    # full oz — relaxed from $79
     },
-    "vape": 35,           # carts/pods — relaxed from $25
-    "edible": 20,         # gummies/chocolates — raised from $15 for multi-dose
+    "vape": 28,           # carts/pods — tightened from $35 ($24 .5g cart is already borderline)
+    "edible": 15,         # gummies/chocolates — tightened from $20 ($20 edible is a bad deal)
     "concentrate": {      # weight-based: live rosin can be pricier
         "0.5": 25,        # half gram
         "1": 45,          # gram — raised from flat $35
@@ -413,6 +413,16 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
     # Reject products with no weight in categories that need it
     if category in _WEIGHT_REQUIRED_CATEGORIES and not weight_value:
         return False
+
+    # Reject edibles with tiny THC content — 9.5mg, 10mg single-dose items
+    # are not real deals.  Standard dispensary edibles are 100mg+.
+    if category == "edible" and weight_value:
+        try:
+            wv = float(weight_value)
+            if wv < 50:
+                return False
+        except (ValueError, TypeError):
+            pass
 
     return True
 
