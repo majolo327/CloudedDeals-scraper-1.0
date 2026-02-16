@@ -311,16 +311,25 @@ class CarrotScraper(BaseScraper):
             await asyncio.sleep(1)
 
         # --- Wait for Carrot content to render ---
+        # 45s timeout — some Carrot sites (Wallflower, Jenny's) need extra
+        # time after age gate dismissal before products appear in the DOM.
         try:
             await self.page.wait_for_function(
-                _WAIT_FOR_CARROT_JS, timeout=30_000,
+                _WAIT_FOR_CARROT_JS, timeout=45_000,
             )
             logger.info("[%s] Carrot content detected in DOM", self.slug)
         except PlaywrightTimeout:
-            logger.warning("[%s] No Carrot content after 30s — trying extraction anyway", self.slug)
+            logger.warning("[%s] No Carrot content after 45s — trying extraction anyway", self.slug)
 
         # Additional settle time for JS rendering
         await asyncio.sleep(_POST_AGE_GATE_WAIT)
+
+        # Post-content age gate retry — some Carrot sites (Wallflower)
+        # show the age gate as a JS modal AFTER the main content starts
+        # rendering.  Try once more to clear any lingering overlay.
+        post_dismissed = await self.handle_age_gate(post_wait_sec=2)
+        if post_dismissed:
+            logger.info("[%s] Post-content age gate dismissed", self.slug)
 
         # Wait for prices to appear — Carrot sometimes renders links before
         # prices are loaded (separate API call / lazy hydration).

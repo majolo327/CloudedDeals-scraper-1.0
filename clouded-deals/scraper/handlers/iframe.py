@@ -236,7 +236,7 @@ DIRECT_PAGE_PRODUCT_PROBES = [
 _MIN_DIRECT_PRODUCTS = 3  # Need at least this many cards to confirm
 
 
-async def _probe_direct_page(page: Page, timeout_sec: float = 15) -> bool:
+async def _probe_direct_page(page: Page, timeout_sec: float = 30) -> bool:
     """Check if the page itself has Dutchie-style product cards (no container).
 
     This is the fallback for sites like Planet13 / Medizin where the Dutchie
@@ -318,7 +318,7 @@ async def find_dutchie_content(
     # --- Fall back to direct page content (e.g., planet13.com) ----------
     if embed_type_hint != "direct":  # already tried above if hint was direct
         logger.info("No JS embed container — probing for direct Dutchie product cards on page")
-        if await _probe_direct_page(page, timeout_sec=15):
+        if await _probe_direct_page(page, timeout_sec=30):
             logger.info("Direct page confirmed — using main page as scrape target")
             return page, "direct"
 

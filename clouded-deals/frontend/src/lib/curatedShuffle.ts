@@ -2,9 +2,22 @@ import type { Deal, Category } from '@/types';
 import { getChainId } from '@/utils/dealFilters';
 
 /**
- * Curated Shuffle — tier-based weighted shuffle with diversity constraints.
+ * Curated Shuffle — hero slots + tier-based weighted shuffle.
  *
- * Tiers:
+ * Hero Slots (positions 0-6):
+ *   Each slot pins the cheapest qualifying deal from a priority category,
+ *   ensuring the user's first impression is the absolute best deal in
+ *   each product type consumers care most about.
+ *
+ *   0: Cheapest 100mg edible
+ *   1: Cheapest full-gram disposable vape (0.8-1g)
+ *   2: Cheapest preroll
+ *   3: Cheapest 3.5g flower (eighth)
+ *   4: Cheapest 7g flower (quarter)
+ *   5: Cheapest half-gram disposable vape (0.3-0.5g)
+ *   6: Cheapest 14g flower (half oz)
+ *
+ * Tiers (for remaining deals):
  *   Tier 1 (top ~20%): deal_score >= 75 — "Steals" — 40% of output
  *   Tier 2 (mid ~50%): deal_score 40–74 — "Solid picks" — 45% of output
  *   Tier 3 (bottom ~30%): deal_score < 40 — "Discovery" — 15% of output
@@ -49,6 +62,137 @@ function seededShuffle<T>(arr: T[], rng: () => number): T[] {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
+}
+
+// ── Weight parsing ──────────────────────────────────────────────────
+
+/** Parse the weight string ("3.5g", "100mg", "1g") into grams. */
+function parseWeightGrams(weight: string): number | null {
+  if (!weight) return null;
+  const mg = weight.match(/^([\d.]+)\s*mg$/i);
+  if (mg) return parseFloat(mg[1]) / 1000;
+  const g = weight.match(/^([\d.]+)\s*g$/i);
+  if (g) return parseFloat(g[1]);
+  return null;
+}
+
+/** Parse weight string into mg (for edibles). */
+function parseWeightMg(weight: string): number | null {
+  if (!weight) return null;
+  const mg = weight.match(/^([\d.]+)\s*mg$/i);
+  if (mg) return parseFloat(mg[1]);
+  return null;
+}
+
+// ── Hero slot extraction ────────────────────────────────────────────
+
+/**
+ * Hero slot definitions — each defines a product niche and how to
+ * identify the best (cheapest) qualifying deal for that slot.
+ *
+ * Order reflects consumer priority:
+ *   Edibles (mass market) → Disposable vapes (trending) → Prerolls
+ *   (impulse) → Flower eighths/quarters (core) → Half-gram vapes →
+ *   Half-oz flower (value seekers)
+ */
+interface HeroSlotDef {
+  label: string;
+  match: (deal: Deal) => boolean;
+}
+
+const HERO_SLOTS: HeroSlotDef[] = [
+  {
+    label: 'cheapest_100mg_edible',
+    match: (d) => {
+      if (d.category !== 'edible') return false;
+      const mg = parseWeightMg(d.weight);
+      return mg !== null && mg >= 80 && mg <= 120;
+    },
+  },
+  {
+    label: 'cheapest_1g_disposable_vape',
+    match: (d) => {
+      if (d.category !== 'vape') return false;
+      if (d.product_subtype !== 'disposable') return false;
+      const g = parseWeightGrams(d.weight);
+      return g !== null && g >= 0.7 && g <= 1.1;
+    },
+  },
+  {
+    label: 'cheapest_preroll',
+    match: (d) => {
+      if (d.category !== 'preroll') return false;
+      // Exclude infused prerolls and packs — keep it simple/affordable
+      if (d.product_subtype === 'infused_preroll') return false;
+      if (d.product_subtype === 'preroll_pack') return false;
+      return true;
+    },
+  },
+  {
+    label: 'cheapest_3.5g_flower',
+    match: (d) => {
+      if (d.category !== 'flower') return false;
+      const g = parseWeightGrams(d.weight);
+      return g !== null && g >= 3.0 && g <= 4.0;
+    },
+  },
+  {
+    label: 'cheapest_7g_flower',
+    match: (d) => {
+      if (d.category !== 'flower') return false;
+      const g = parseWeightGrams(d.weight);
+      return g !== null && g >= 6.5 && g <= 8.0;
+    },
+  },
+  {
+    label: 'cheapest_halfg_disposable_vape',
+    match: (d) => {
+      if (d.category !== 'vape') return false;
+      if (d.product_subtype !== 'disposable') return false;
+      const g = parseWeightGrams(d.weight);
+      return g !== null && g >= 0.25 && g <= 0.6;
+    },
+  },
+  {
+    label: 'cheapest_14g_flower',
+    match: (d) => {
+      if (d.category !== 'flower') return false;
+      const g = parseWeightGrams(d.weight);
+      return g !== null && g >= 13.0 && g <= 15.0;
+    },
+  },
+];
+
+/**
+ * Extract hero deals — the cheapest qualifying deal for each hero slot.
+ * Returns an array of hero deals (may be shorter than HERO_SLOTS if some
+ * slots have no qualifying deals), plus the remaining deals.
+ */
+function extractHeroDeals(deals: Deal[]): {
+  heroes: Deal[];
+  remaining: Deal[];
+} {
+  const usedIds = new Set<string>();
+  const heroes: Deal[] = [];
+
+  for (const slot of HERO_SLOTS) {
+    // Find the cheapest qualifying deal not already used by a prior slot
+    let best: Deal | null = null;
+    for (const deal of deals) {
+      if (usedIds.has(deal.id)) continue;
+      if (!slot.match(deal)) continue;
+      if (!best || deal.deal_price < best.deal_price) {
+        best = deal;
+      }
+    }
+    if (best) {
+      heroes.push(best);
+      usedIds.add(best.id);
+    }
+  }
+
+  const remaining = deals.filter((d) => !usedIds.has(d.id));
+  return { heroes, remaining };
 }
 
 // ── Tier classification ─────────────────────────────────────────────
@@ -231,10 +375,11 @@ export interface CuratedShuffleOptions {
 
 /**
  * Produces a curated, shuffled deal order that:
- * 1. Groups deals into score tiers
- * 2. Shuffles within each tier (seeded for session stability)
- * 3. Interleaves tiers at target ratios (40/45/15)
- * 4. Enforces diversity constraints (category, dispensary, brand)
+ * 1. Extracts hero deals (cheapest per priority category) for top slots
+ * 2. Groups remaining deals into score tiers
+ * 3. Shuffles within each tier (seeded for session stability)
+ * 4. Interleaves tiers at target ratios (40/45/15)
+ * 5. Enforces diversity constraints (category, dispensary, brand)
  *
  * The result is deterministic for the same day + user, ensuring a
  * consistent order across re-renders within a single session.
@@ -250,6 +395,13 @@ export function curatedShuffle(
   const seed = seedFromString(`${dateSeed}:${anonId}`);
   const rng = mulberry32(seed);
 
-  const tiers = classifyTiers(deals);
-  return interleaveWithDiversity(tiers, rng);
+  // Step 1: Extract hero deals (cheapest per priority category)
+  const { heroes, remaining } = extractHeroDeals(deals);
+
+  // Step 2: Shuffle remaining deals with existing tier-based logic
+  const tiers = classifyTiers(remaining);
+  const shuffled = interleaveWithDiversity(tiers, rng);
+
+  // Step 3: Pin heroes at the front, then append shuffled remainder
+  return [...heroes, ...shuffled];
 }

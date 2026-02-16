@@ -203,7 +203,7 @@ DISPENSARIES = [
         "name": "Mint Paradise",
         "slug": "mint-paradise",
         "platform": "dutchie",
-        "url": "https://mintdeals.com/paradise-lv/menu/?dtche%5Bpath%5D=specials",
+        "url": "https://mintdeals.com/paradise-lv/deals/?dtche%5Bpath%5D=specials",
         "fallback_url": "https://dutchie.com/embedded-menu/the-mint-paradise/specials",
         "is_active": True,
         "region": "southern-nv",
@@ -213,7 +213,7 @@ DISPENSARIES = [
         "name": "Mint Rainbow",
         "slug": "mint-rainbow",
         "platform": "dutchie",
-        "url": "https://mintdeals.com/rainbow-lv/menu/?dtche%5Bpath%5D=specials",
+        "url": "https://mintdeals.com/rainbow-lv/deals/?dtche%5Bpath%5D=specials",
         "fallback_url": "https://dutchie.com/embedded-menu/the-mint-spring-valley/specials",
         "is_active": True,
         "region": "southern-nv",
@@ -671,12 +671,12 @@ DISPENSARIES = [
     },
     {
         # Switched from AIQ to Dutchie — specials page with embedded menu.
-        # No embed_type hint — auto-detect via full cascade, same as the
-        # working Charleston/Henderson/Warm Springs siblings.
+        # Added fallback URL so we go direct to Dutchie if primary fails.
         "name": "Nevada Made Laughlin",
         "slug": "nevada-made-casino-dr",
         "platform": "dutchie",
         "url": "https://nevadamademarijuana.com/stores/nevada-made-marijuana-laughlin/specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/nevada-made-marijuana-laughlin/specials",
         "is_active": True,
         "region": "southern-nv",
     },
