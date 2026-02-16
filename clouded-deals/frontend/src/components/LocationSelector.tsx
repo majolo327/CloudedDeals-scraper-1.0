@@ -136,7 +136,7 @@ export function LocationSelector() {
   // Locating state — brief spinner while re-geolocating
   if (state === 'locating') {
     return (
-      <div className="flex items-center gap-1 p-1.5 min-h-[40px] text-xs sm:text-sm text-purple-400">
+      <div className="flex items-center gap-1 p-1.5 min-h-[44px] text-xs sm:text-sm text-purple-400">
         <Loader2 className="w-3.5 h-3.5 animate-spin" />
         <span>Locating</span>
       </div>
@@ -153,7 +153,7 @@ export function LocationSelector() {
           value={zipInput}
           onChange={(e) => setZipInput(e.target.value.replace(/\D/g, '').slice(0, 5))}
           placeholder="Zip code"
-          className="w-24 sm:w-28 px-2 sm:px-3 py-2 min-h-[40px] text-sm bg-slate-800 border border-purple-500 rounded-lg text-white placeholder:text-slate-500 focus:outline-none"
+          className="w-24 sm:w-28 px-2 sm:px-3 py-2 min-h-[44px] text-sm bg-slate-800 border border-purple-500 rounded-lg text-white placeholder:text-slate-500 focus:outline-none"
           autoFocus
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleZipSubmit();
@@ -162,7 +162,7 @@ export function LocationSelector() {
         />
         <button
           onClick={handleZipSubmit}
-          className="p-2 min-w-[40px] min-h-[40px] text-xs sm:text-sm text-purple-400 hover:text-purple-300 font-medium"
+          className="p-2 min-w-[44px] min-h-[44px] text-xs sm:text-sm text-purple-400 hover:text-purple-300 font-medium"
         >
           Go
         </button>
@@ -173,7 +173,7 @@ export function LocationSelector() {
   // Confirmed state — brief success flash
   if (state === 'confirmed') {
     return (
-      <div className="flex items-center gap-1 p-1.5 min-h-[40px] text-xs sm:text-sm text-green-400">
+      <div className="flex items-center gap-1 p-1.5 min-h-[44px] text-xs sm:text-sm text-green-400">
         <CheckCircle className="w-3.5 h-3.5" />
         <span>{displayLabel}</span>
       </div>
@@ -185,7 +185,8 @@ export function LocationSelector() {
     <>
       <button
         onClick={handleIdleClick}
-        className="flex items-center gap-1 p-1.5 min-h-[40px] text-xs sm:text-sm text-white hover:text-purple-400 transition-colors"
+        aria-label={`Location: ${displayLabel}. Tap to change.`}
+        className="flex items-center gap-1 p-1.5 min-h-[44px] text-xs sm:text-sm text-white hover:text-purple-400 transition-colors"
       >
         {geoGranted ? (
           <Navigation className="w-3.5 h-3.5 text-emerald-400" />

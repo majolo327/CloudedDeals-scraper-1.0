@@ -269,8 +269,8 @@ RECON_SITES: list[dict[str, str]] = [
     {
         "slug": "jardin",
         "name": "Jardin",
-        "url": "https://www.jardinlasvegas.com/store",
-        "expected_platform": "aiq",
+        "url": "https://dutchie.com/embedded-menu/jardin-premium-cannabis-dispensary/specials",
+        "expected_platform": "dutchie",
     },
     {
         "slug": "nevada-made-henderson",
@@ -410,18 +410,6 @@ RECON_SITES: list[dict[str, str]] = [
         "slug": "top-notch",
         "name": "Top Notch THC",
         "url": "https://topnotchthc.com/curbside-orders/",
-        "expected_platform": "unknown",
-    },
-    {
-        "slug": "zen-leaf-flamingo",
-        "name": "Zen Leaf Flamingo",
-        "url": "https://zenleafdispensaries.com/locations/flamingo/menu/recreational",
-        "expected_platform": "unknown",
-    },
-    {
-        "slug": "zen-leaf-north-lv",
-        "name": "Zen Leaf North Las Vegas",
-        "url": "https://zenleafdispensaries.com/locations/north-las-vegas/menu/recreational",
         "expected_platform": "unknown",
     },
     {

@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from 'react';
 import { ValuePropSplash } from './ValuePropSplash';
-import { PreferenceSelector } from './PreferenceSelector';
 import { LocationPrompt } from './LocationPrompt';
 import type { UserCoords } from './LocationPrompt';
 import { trackEvent } from '@/lib/analytics';
@@ -19,7 +18,7 @@ export function markFTUECompleted(): void {
   localStorage.setItem(FTUE_KEY, 'true');
 }
 
-type FTUEStep = 'splash' | 'preferences' | 'location';
+type FTUEStep = 'splash' | 'location';
 
 interface FTUEFlowProps {
   dealCount: number;
@@ -28,43 +27,29 @@ interface FTUEFlowProps {
 
 export function FTUEFlow({ dealCount, onComplete }: FTUEFlowProps) {
   const [step, setStep] = useState<FTUEStep>('splash');
-  const [prefs, setPrefs] = useState<string[]>([]);
 
   const finish = useCallback(
-    (finalPrefs: string[], coords: UserCoords | null) => {
+    (coords: UserCoords | null) => {
       markFTUECompleted();
       trackEvent('onboarding_completed', undefined, {
-        preferences: finalPrefs.join(','),
         location: coords ? 'granted' : 'denied',
       });
-      onComplete(finalPrefs, coords);
+      onComplete([], coords);
     },
     [onComplete]
   );
 
   // Skip the entire FTUE
   const handleSkipAll = useCallback(() => {
-    finish([], null);
+    finish(null);
   }, [finish]);
 
   if (step === 'splash') {
     return (
       <ValuePropSplash
         dealCount={dealCount}
-        onContinue={() => setStep('preferences')}
+        onContinue={() => setStep('location')}
         onSkip={handleSkipAll}
-      />
-    );
-  }
-
-  if (step === 'preferences') {
-    return (
-      <PreferenceSelector
-        onContinue={(selectedPrefs) => {
-          setPrefs(selectedPrefs);
-          setStep('location');
-        }}
-        onSkip={() => setStep('location')}
       />
     );
   }
@@ -72,7 +57,7 @@ export function FTUEFlow({ dealCount, onComplete }: FTUEFlowProps) {
   if (step === 'location') {
     return (
       <LocationPrompt
-        onContinue={(coords) => finish(prefs, coords)}
+        onContinue={(coords) => finish(coords)}
       />
     );
   }

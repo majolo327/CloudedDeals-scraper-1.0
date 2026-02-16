@@ -125,8 +125,10 @@ class TestExtractPrices:
         assert r["sale_price"] == 37.0
 
     def test_discount_label_save_filtered(self):
+        # "$30 $5 save" → $30 original, $5 discount → sale = $25
         r = extract_prices("$30 $5 save")
-        assert r["sale_price"] == 30.0
+        assert r["original_price"] == 30.0
+        assert r["sale_price"] == 25.0
 
 
 # =====================================================================
@@ -187,9 +189,10 @@ class TestExtractWeight:
         assert r["weight_unit"] == "mg"
 
     def test_ounce(self):
+        """'1oz' now converts to grams (28g)."""
         r = extract_weight("Premium 1oz")
-        assert r["weight_value"] == 1
-        assert r["weight_unit"] == "oz"
+        assert r["weight_value"] == 28.0
+        assert r["weight_unit"] == "g"
 
     def test_mg_before_g_priority(self):
         """850mg must match as 850 mg, not 85 + '0g'."""
@@ -239,6 +242,35 @@ class TestExtractWeight:
     def test_case_insensitive(self):
         r = extract_weight("3.5G")
         assert r["weight_value"] == 3.5
+
+    # -- Fractional oz patterns (1/8oz, 1/4oz, 1/2oz) ──────────────
+
+    def test_one_eighth_oz(self):
+        """'1/8oz' should parse as 3.5g, not 8oz."""
+        r = extract_weight("Rove Live Resin 1/8oz")
+        assert r["weight_value"] == 3.5
+        assert r["weight_unit"] == "g"
+
+    def test_one_eighth_oz_with_space(self):
+        r = extract_weight("Product 1/8 oz")
+        assert r["weight_value"] == 3.5
+        assert r["weight_unit"] == "g"
+
+    def test_one_quarter_oz(self):
+        r = extract_weight("Premium 1/4oz")
+        assert r["weight_value"] == 7.0
+        assert r["weight_unit"] == "g"
+
+    def test_one_half_oz(self):
+        r = extract_weight("Smalls 1/2oz")
+        assert r["weight_value"] == 14.0
+        assert r["weight_unit"] == "g"
+
+    def test_plain_oz_conversion(self):
+        """'1oz' should convert to 28g."""
+        r = extract_weight("Full 1oz")
+        assert r["weight_value"] == 28.0
+        assert r["weight_unit"] == "g"
 
 
 # =====================================================================

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Search, ChevronDown, ChevronUp, ShieldCheck, MapPin, ExternalLink, Star, Navigation } from 'lucide-react';
+import { Search, ShieldCheck, MapPin, ExternalLink, Star, Navigation } from 'lucide-react';
 import { ALPHABET } from '@/utils/constants';
 import { filterBrandsByQuery, sortBrandsByName, groupBrandsByLetter, countDealsByBrand } from '@/utils/brandUtils';
 import {
@@ -30,7 +30,6 @@ interface BrowsePageProps {
 export function BrowsePage({ deals = [], onSelectBrand, onSelectDispensary }: BrowsePageProps) {
   const [activeTab, setActiveTab] = useState<BrowseTab>('brands');
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedBrand, setExpandedBrand] = useState<string | null>(null);
 
   // Brand deal counts (from live Supabase deals)
   const brandDealCounts = useMemo(() => countDealsByBrand(deals), [deals]);
@@ -53,10 +52,6 @@ export function BrowsePage({ deals = [], onSelectBrand, onSelectDispensary }: Br
   const scrollToLetter = (letter: string, prefix: string) => {
     const el = document.getElementById(`${prefix}-letter-${letter}`);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
-  const toggleBrand = (brandId: string) => {
-    setExpandedBrand((prev) => (prev === brandId ? null : brandId));
   };
 
   return (
@@ -83,7 +78,7 @@ export function BrowsePage({ deals = [], onSelectBrand, onSelectDispensary }: Br
               }`}
             >
               Dispensaries
-              <span className="ml-1.5 text-[10px] text-slate-500 font-normal">{DISPENSARIES.length}</span>
+              <span className="ml-1.5 text-[11px] text-slate-400 font-normal">{DISPENSARIES.length}</span>
               {activeTab === 'dispensaries' && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500 rounded-full" />
               )}
@@ -99,8 +94,6 @@ export function BrowsePage({ deals = [], onSelectBrand, onSelectDispensary }: Br
             onSearchChange={setSearchQuery}
             groupedBrands={groupedBrands}
             activeLetters={activeLetters}
-            expandedBrand={expandedBrand}
-            onToggleBrand={toggleBrand}
             onScrollToLetter={(l) => scrollToLetter(l, 'brand')}
             brandDealCounts={brandDealCounts}
             onSelectBrand={onSelectBrand}
@@ -124,8 +117,6 @@ interface BrandsTabProps {
   onSearchChange: (q: string) => void;
   groupedBrands: Record<string, Brand[]>;
   activeLetters: string[];
-  expandedBrand: string | null;
-  onToggleBrand: (id: string) => void;
   onScrollToLetter: (letter: string) => void;
   brandDealCounts: Record<string, number>;
   onSelectBrand?: (brandName: string) => void;
@@ -136,8 +127,6 @@ function BrandsTab({
   onSearchChange,
   groupedBrands,
   activeLetters,
-  expandedBrand,
-  onToggleBrand,
   onScrollToLetter,
   brandDealCounts,
   onSelectBrand,
@@ -179,7 +168,7 @@ function BrandsTab({
         </div>
       </div>
 
-      {/* Brand list */}
+      {/* Brand list — tap goes directly to deals */}
       <div className="space-y-6">
         {ALPHABET.map((letter) => {
           const brands = groupedBrands[letter];
@@ -190,113 +179,42 @@ function BrandsTab({
                 {letter}
               </h3>
               <div className="space-y-1">
-                {brands.map((brand) => (
-                  <BrandRow
-                    key={brand.id}
-                    brand={brand}
-                    isExpanded={expandedBrand === brand.id}
-                    onToggle={() => onToggleBrand(brand.id)}
-                    dealCount={brandDealCounts[brand.name] || 0}
-                    onViewDeals={onSelectBrand ? () => onSelectBrand(brand.name) : undefined}
-                  />
-                ))}
+                {brands.map((brand) => {
+                  const dealCount = brandDealCounts[brand.name] || 0;
+                  return (
+                    <button
+                      key={brand.id}
+                      onClick={() => onSelectBrand?.(brand.name)}
+                      className="w-full glass rounded-lg flex items-center justify-between px-3 py-2.5 text-left hover:bg-slate-800/30 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
+                          <span className="text-xs font-bold text-slate-400">
+                            {brand.name[0]}
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-200 truncate">{brand.name}</p>
+                          {dealCount > 0 && (
+                            <p className="text-[11px] text-purple-400">
+                              {dealCount} deal{dealCount !== 1 ? 's' : ''}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {dealCount > 0 && (
+                        <span className="text-xs text-purple-400/70 shrink-0">
+                          View &rarr;
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           );
         })}
       </div>
-    </div>
-  );
-}
-
-function BrandRow({
-  brand,
-  isExpanded,
-  onToggle,
-  dealCount,
-  onViewDeals,
-}: {
-  brand: Brand;
-  isExpanded: boolean;
-  onToggle: () => void;
-  dealCount: number;
-  onViewDeals?: () => void;
-}) {
-  const tierColor: Record<string, string> = {
-    premium: 'text-amber-400',
-    established: 'text-emerald-400',
-    local: 'text-blue-400',
-    value: 'text-slate-400',
-  };
-
-  const tierLabel: Record<string, string> = {
-    premium: 'Premium',
-    established: 'Established',
-    local: 'Local',
-    value: 'Value',
-  };
-
-  return (
-    <div className="glass rounded-lg overflow-hidden">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-slate-800/30 transition-colors"
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
-            <span className="text-xs font-bold text-slate-400">
-              {brand.name[0]}
-            </span>
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-medium text-slate-200 truncate">{brand.name}</p>
-              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${tierColor[brand.tier] || 'text-slate-500'} bg-slate-800/50`}>
-                {tierLabel[brand.tier] || brand.tier}
-              </span>
-            </div>
-            {dealCount > 0 && (
-              <p className="text-[10px] text-purple-400">
-                {dealCount} deal{dealCount !== 1 ? 's' : ''}
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {isExpanded ? (
-            <ChevronUp className="w-4 h-4 text-slate-500" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-slate-500" />
-          )}
-        </div>
-      </button>
-      {isExpanded && (
-        <div className="px-3 pb-3 pt-1 border-t border-slate-800/50">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-wrap gap-1.5">
-              {brand.categories.map((cat) => (
-                <span
-                  key={cat}
-                  className="rounded-full bg-slate-800/50 px-2 py-0.5 text-[10px] text-slate-400 capitalize"
-                >
-                  {cat}
-                </span>
-              ))}
-            </div>
-            {onViewDeals && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onViewDeals();
-                }}
-                className="shrink-0 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 text-xs font-medium hover:bg-purple-500/20 transition-colors"
-              >
-                {dealCount > 0 ? `View ${dealCount} Deal${dealCount !== 1 ? 's' : ''}` : 'Search Deals'}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -329,7 +247,6 @@ function DispensariesTab({
 }: DispensariesTabProps) {
   const [dispSearch, setDispSearch] = useState('');
   const [activeZone, setActiveZone] = useState<DispensaryZone | 'all'>('all');
-  const [expandedDisp, setExpandedDisp] = useState<string | null>(null);
   const [sortByDistance, setSortByDistance] = useState(false);
   const [userCoords, setUserCoords] = useState<ZipCoords | null>(null);
 
@@ -368,10 +285,6 @@ function DispensariesTab({
   const withDealsCount = useMemo(() => {
     return DISPENSARIES.filter((d) => (dealCounts[d.id] || 0) > 0).length;
   }, [dealCounts]);
-
-  const toggleDisp = (dispId: string) => {
-    setExpandedDisp((prev) => (prev === dispId ? null : dispId));
-  };
 
   return (
     <div className="space-y-4">
@@ -450,7 +363,7 @@ function DispensariesTab({
         </div>
       </div>
 
-      {/* Dispensary list */}
+      {/* Dispensary list — buttons inline, no expand/collapse */}
       <div className="space-y-6">
         {ALPHABET.map((letter) => {
           const disps = grouped[letter];
@@ -470,8 +383,6 @@ function DispensariesTab({
                       key={disp.id}
                       dispensary={disp}
                       dealCount={dealCounts[disp.id] || 0}
-                      isExpanded={expandedDisp === disp.id}
-                      onToggle={() => toggleDisp(disp.id)}
                       onViewDeals={onSelectDispensary ? () => onSelectDispensary(disp.name) : undefined}
                       distance={dist}
                     />
@@ -493,15 +404,11 @@ function DispensariesTab({
 function DispensaryRow({
   dispensary,
   dealCount,
-  isExpanded,
-  onToggle,
   onViewDeals,
   distance,
 }: {
   dispensary: Dispensary;
   dealCount: number;
-  isExpanded: boolean;
-  onToggle: () => void;
   onViewDeals?: () => void;
   distance?: number | null;
 }) {
@@ -510,77 +417,60 @@ function DispensaryRow({
   const isVerified = dispensary.tier === 'verified' || dispensary.tier === 'premium';
 
   return (
-    <div className="glass rounded-lg overflow-hidden">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-slate-800/30 transition-colors"
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
-            <span className="text-xs font-bold text-slate-400">
-              {dispensary.name[0]}
+    <div className="glass rounded-lg px-3 py-2.5">
+      <div className="flex items-center gap-3">
+        {/* Icon */}
+        <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
+          <span className="text-xs font-bold text-slate-400">
+            {dispensary.name[0]}
+          </span>
+        </div>
+
+        {/* Info */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-slate-200 truncate">{dispensary.name}</p>
+            {isVerified && (
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            )}
+            {dispensary.tier === 'premium' && (
+              <Star className="w-3 h-3 text-amber-400 shrink-0" />
+            )}
+            <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full capitalize ${zoneStyle.bg} ${zoneStyle.text}`}>
+              {zone}
             </span>
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-medium text-slate-200 truncate">{dispensary.name}</p>
-              {isVerified && (
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              )}
-              {dispensary.tier === 'premium' && (
-                <Star className="w-3 h-3 text-amber-400 shrink-0" />
-              )}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <MapPin className="w-2.5 h-2.5 text-slate-600 shrink-0" />
-              <p className="text-[10px] text-slate-500 truncate">{dispensary.address}</p>
-              {distance != null && (
-                <span className="text-[10px] text-blue-400 shrink-0">{distance.toFixed(1)} mi</span>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full capitalize ${zoneStyle.bg} ${zoneStyle.text}`}>
-            {zone}
-          </span>
-          <span className={`text-xs font-medium ${dealCount > 0 ? 'text-purple-400' : 'text-slate-600'}`}>
-            {dealCount} deal{dealCount !== 1 ? 's' : ''}
-          </span>
-          {isExpanded ? (
-            <ChevronUp className="w-4 h-4 text-slate-500" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-slate-500" />
-          )}
-        </div>
-      </button>
-      {isExpanded && (
-        <div className="px-3 pb-3 pt-1 border-t border-slate-800/50">
-          <div className="flex items-center justify-between gap-2">
-            <a
-              href={dispensary.menu_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
-            >
-              <ExternalLink className="w-3 h-3" />
-              View menu
-            </a>
-            {onViewDeals && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onViewDeals();
-                }}
-                className="shrink-0 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 text-xs font-medium hover:bg-purple-500/20 transition-colors"
-              >
-                {dealCount > 0 ? `View ${dealCount} Deal${dealCount !== 1 ? 's' : ''}` : 'Search Deals'}
-              </button>
+          <div className="flex items-center gap-1.5">
+            <MapPin className="w-2.5 h-2.5 text-slate-500 shrink-0" />
+            <p className="text-[11px] text-slate-400 truncate">{dispensary.address}</p>
+            {distance != null && (
+              <span className="text-[11px] text-blue-400 shrink-0">{distance.toFixed(1)} mi</span>
             )}
           </div>
         </div>
-      )}
+
+        {/* Actions — inline with the row */}
+        <div className="flex items-center gap-2 shrink-0">
+          <a
+            href={dispensary.menu_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-slate-400 hover:text-slate-300 hover:bg-slate-800/50 transition-colors"
+          >
+            <ExternalLink className="w-3 h-3" />
+            Menu
+          </a>
+          {onViewDeals && (
+            <button
+              onClick={onViewDeals}
+              className="px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 text-xs font-medium hover:bg-purple-500/20 transition-colors"
+            >
+              {dealCount > 0 ? `${dealCount} Deal${dealCount !== 1 ? 's' : ''}` : 'Deals'}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

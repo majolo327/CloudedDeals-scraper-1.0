@@ -103,6 +103,21 @@ export function useSavedDeals() {
     });
   }, []);
 
+  // Batch-remove deal IDs without firing analytics (used for automated expiry archival)
+  const removeSavedDeals = useCallback((dealIds: string[]) => {
+    setSavedDeals(prev => {
+      const newSet = new Set(prev);
+      let changed = false;
+      for (const id of dealIds) {
+        if (newSet.has(id)) {
+          newSet.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? newSet : prev;
+    });
+  }, []);
+
   const markDealUsed = useCallback((dealId: string) => {
     setUsedDeals(prev => {
       if (prev.has(dealId)) return prev;
@@ -120,6 +135,7 @@ export function useSavedDeals() {
     savedDeals,
     usedDeals,
     toggleSavedDeal,
+    removeSavedDeals,
     markDealUsed,
     isDealUsed,
     savedCount: savedDeals.size,

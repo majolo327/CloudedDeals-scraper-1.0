@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Star, Heart, Search, Bookmark, Compass, AlertCircle } from 'lucide-react';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { fetchDeals, fetchExpiredDeals, fetchDispensaries } from '@/lib/api';
-import type { BrowseDispensary } from '@/lib/api';
+import type { BrowseDispensary, FetchDealsResult, FetchDispensariesResult } from '@/lib/api';
 import type { Deal } from '@/types';
 import { AgeGate, Footer } from '@/components/layout';
 import { DealsPage } from '@/components/DealsPage';
@@ -22,12 +22,9 @@ import { DealCardSkeleton, TopPickSkeleton } from '@/components/Skeleton';
 import { ToastContainer } from '@/components/Toast';
 import type { ToastData } from '@/components/Toast';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
-import { useStreak } from '@/hooks/useStreak';
-import { useBrandAffinity } from '@/hooks/useBrandAffinity';
-import { useChallenges } from '@/hooks/useChallenges';
+import { useDealHistory } from '@/hooks/useDealHistory';
 import { initializeAnonUser, trackEvent, trackPageView, trackDealModalOpen } from '@/lib/analytics';
-import { FTUEFlow, isFTUECompleted, CoachMarks, isCoachMarksSeen } from '@/components/ftue';
-import { useSmartTips } from '@/hooks/useSmartTips';
+import { FTUEFlow, isFTUECompleted } from '@/components/ftue';
 import { createShareLink } from '@/lib/share';
 
 type AppPage = 'home' | 'search' | 'browse' | 'saved' | 'about' | 'terms' | 'privacy';
@@ -49,14 +46,9 @@ export default function Home() {
     if (typeof window === 'undefined') return false;
     return !isFTUECompleted();
   });
-  const [showCoachMarks, setShowCoachMarks] = useState(false);
-
-  const { savedDeals, usedDeals, toggleSavedDeal, markDealUsed, isDealUsed, savedCount } =
+  const { savedDeals, usedDeals, toggleSavedDeal, removeSavedDeals, markDealUsed, isDealUsed, savedCount } =
     useSavedDeals();
-  const { streak, isNewMilestone, clearMilestone } = useStreak();
-  const { trackBrand } = useBrandAffinity();
-  const challenges = useChallenges();
-  const smartTips = useSmartTips();
+  const dealHistory = useDealHistory();
 
   // Age verification & anonymous tracking
   useEffect(() => {
@@ -82,20 +74,6 @@ export default function Home() {
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
-
-  // Streak milestone toast
-  useEffect(() => {
-    if (isNewMilestone) {
-      addToast(`${isNewMilestone}-day streak! Keep it up.`, 'streak');
-      clearMilestone();
-    }
-  }, [isNewMilestone, clearMilestone, addToast]);
-
-  // Saved deals as array (for challenge progress computation)
-  const savedDealsList = useMemo(
-    () => deals.filter((d) => savedDeals.has(d.id)),
-    [deals, savedDeals]
-  );
 
   // Handle ?auth=success redirect from magic link
   useEffect(() => {
@@ -158,26 +136,35 @@ export default function Home() {
     }
   }, [selectedDeal, activePage]);
 
-  // Fetch deals and dispensaries. If no active deals, fetch expired deals as fallback.
+  // Fetch deals, expired deals, and dispensaries in parallel.
+  // Expired deals always load so they can be shown in a "Past Deals" section.
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const [dealsResult, dispResult] = await Promise.all([
+      const fetches: [Promise<FetchDealsResult>, Promise<FetchDispensariesResult>] = [
         fetchDeals(),
         fetchDispensaries(),
-      ]);
+      ];
+      const [dealsResult, dispResult] = await Promise.all(fetches);
       if (cancelled) return;
       setDeals(dealsResult.deals);
       setError(dealsResult.error);
       setBrowseDispensaries(dispResult.dispensaries);
 
-      // No active deals and no error → fetch expired deals for browsing
-      if (dealsResult.deals.length === 0 && !dealsResult.error && isSupabaseConfigured) {
+      // Always fetch expired deals — shown as "Past Deals" section below active deals,
+      // or as the main feed when no active deals exist (early morning fallback).
+      if (isSupabaseConfigured) {
         const expiredResult = await fetchExpiredDeals();
         if (cancelled) return;
         if (expiredResult.deals.length > 0) {
-          setExpiredDeals(expiredResult.deals);
-          setIsShowingExpired(true);
+          // Deduplicate: exclude deals that are already in the active set
+          const activeIds = new Set(dealsResult.deals.map(d => d.id));
+          const uniqueExpired = expiredResult.deals.filter(d => !activeIds.has(d.id));
+          setExpiredDeals(uniqueExpired);
+          // Only flag as "showing expired" when there are NO active deals
+          if (dealsResult.deals.length === 0) {
+            setIsShowingExpired(true);
+          }
         }
       }
 
@@ -188,6 +175,20 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
+
+  // Archive expired saved deals to history when fresh deals load
+  const archiveRunRef = useRef(false);
+  useEffect(() => {
+    if (archiveRunRef.current || loading || deals.length === 0) return;
+    archiveRunRef.current = true;
+
+    const currentIds = new Set(deals.map(d => d.id));
+    const archived = dealHistory.archiveExpired(savedDeals, currentIds);
+    if (archived.length > 0) {
+      // Silently remove archived IDs — no analytics for automated expiry
+      removeSavedDeals(archived);
+    }
+  }, [deals, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Show all active deals — the server-side is_active=true filter already
   // ensures we only get the latest scrape run's products. A client-side
@@ -224,37 +225,13 @@ export default function Home() {
       if (!wasSaved) {
         const deal = deals.find((d) => d.id === dealId);
         if (deal) {
-          trackBrand(deal.brand.name);
-          challenges.updateProgress('save', deal, savedDealsList);
-        }
-
-        // Build context for smart tip engine
-        const newCount = savedCount + 1;
-        const dispensaryIds = new Set(savedDealsList.map(d => d.dispensary.id));
-        if (deal) dispensaryIds.add(deal.dispensary.id);
-        const categorySet = new Set(savedDealsList.map(d => d.category));
-        if (deal) categorySet.add(deal.category);
-        const brandCount = deal?.brand?.name
-          ? savedDealsList.filter(d => d.brand?.name === deal.brand?.name).length + 1
-          : 0;
-
-        const tip = smartTips.onSave({
-          totalSavedCount: newCount,
-          brandName: deal?.brand?.name,
-          brandSaveCount: brandCount,
-          uniqueDispensaryCount: dispensaryIds.size,
-          uniqueCategoryCount: categorySet.size,
-        });
-
-        if (tip?.message) {
-          addToast(tip.message, tip.type);
+          dealHistory.snapshotDeal(deal);
         }
       } else {
-        const tip = smartTips.onUnsave();
-        if (tip.message) addToast(tip.message, tip.type);
+        dealHistory.removeSnapshot(dealId);
       }
     },
-    [savedDeals, toggleSavedDeal, deals, trackBrand, addToast, challenges, savedDealsList, savedCount, smartTips]
+    [savedDeals, toggleSavedDeal, deals, dealHistory]
   );
 
   // Share saves handler — used by swipe overlay's "Share today's favorites" CTA
@@ -300,11 +277,6 @@ export default function Home() {
 
   const handleFTUEComplete = useCallback(() => {
     setShowFTUE(false);
-    // Show coach marks on first deals feed view
-    if (!isCoachMarksSeen()) {
-      // Delay so the deals page renders first and coach mark targets exist
-      setTimeout(() => setShowCoachMarks(true), 600);
-    }
   }, []);
 
   // AgeGate
@@ -375,7 +347,7 @@ export default function Home() {
             >
               <Heart className={`w-5 h-5 ${savedCount > 0 ? 'fill-current' : ''}`} />
               {savedCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full bg-purple-500 text-[9px] font-bold text-white">
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full bg-purple-500 text-[10px] font-bold text-white">
                   {savedCount > 9 ? '9+' : savedCount}
                 </span>
               )}
@@ -432,17 +404,13 @@ export default function Home() {
           ) : (
             <DealsPage
               deals={todaysDeals}
+              expiredDeals={isShowingExpired ? [] : expiredDeals}
               savedDeals={savedDeals}
               usedDeals={usedDeals}
               toggleSavedDeal={handleToggleSave}
               setSelectedDeal={setSelectedDeal}
               savedCount={savedCount}
-              streak={streak}
               isExpired={isShowingExpired}
-              onDismissDeal={() => {
-                const tip = smartTips.onDismiss();
-                if (tip?.message) addToast(tip.message, tip.type);
-              }}
               onShareSaves={handleShareSaves}
             />
           )
@@ -484,6 +452,8 @@ export default function Home() {
             deals={deals}
             onSelectDeal={setSelectedDeal}
             addToast={addToast}
+            history={dealHistory.history}
+            onClearHistory={dealHistory.clearHistory}
           />
         )}
 
@@ -504,7 +474,6 @@ export default function Home() {
         onReplayTour={() => {
           setActivePage('home');
           setShowFTUE(true);
-          setShowCoachMarks(false);
           window.scrollTo(0, 0);
         }}
       />
@@ -521,6 +490,16 @@ export default function Home() {
             markDealUsed(selectedDeal.id);
             addToast('Marked as used', 'success');
           }}
+          onAccuracyFeedback={(accurate) => {
+            trackEvent('deal_viewed', selectedDeal.id, {
+              action: 'accuracy_feedback',
+              accurate,
+              dispensary: selectedDeal.dispensary?.name,
+            });
+          }}
+          onDealReported={() => {
+            addToast('Thanks for flagging — we\'ll review it.', 'info');
+          }}
         />
       )}
 
@@ -529,11 +508,6 @@ export default function Home() {
 
       {/* Feedback widget — subtle floating icon, bottom-right */}
       <FeedbackWidget />
-
-      {/* Coach marks overlay — shown once after FTUE on first deals view */}
-      {showCoachMarks && (
-        <CoachMarks onComplete={() => setShowCoachMarks(false)} />
-      )}
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
@@ -553,8 +527,7 @@ export default function Home() {
               aria-selected={activePage === tab.id}
               aria-label={tab.label}
               onClick={() => setActivePage(tab.id)}
-              {...(tab.id === 'search' ? { 'data-coach': 'nav-search' } : {})}
-              className={`flex flex-col items-center gap-0.5 px-3 py-2 min-w-[56px] min-h-[48px] text-[10px] font-medium transition-colors ${
+              className={`flex flex-col items-center gap-0.5 px-3 py-2 min-w-[56px] min-h-[48px] text-[11px] font-medium transition-colors ${
                 activePage === tab.id
                   ? 'text-purple-400'
                   : 'text-slate-500 active:text-slate-300'

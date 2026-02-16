@@ -21,6 +21,8 @@ from deal_detector import (
     MAX_SAME_BRAND_TOTAL,
     MAX_SAME_DISPENSARY_TOTAL,
     TARGET_DEAL_COUNT,
+    _BACKFILL_BRAND_TOTAL,
+    _BACKFILL_DISPENSARY_TOTAL,
     calculate_deal_score,
     detect_deals,
     get_last_report_data,
@@ -222,9 +224,12 @@ class TestBrandDiversity:
     def test_brand_cap_enforced(self, realistic_scrape):
         result = detect_deals(realistic_scrape)
         brand_counts = Counter(d.get("brand") for d in result if d.get("brand"))
+        # The effective cap is the backfill cap — when round 1 (tight caps)
+        # doesn't fill to 85% of target, round 2 relaxes the brand cap.
+        effective_cap = _BACKFILL_BRAND_TOTAL
         for brand, count in brand_counts.items():
-            assert count <= MAX_SAME_BRAND_TOTAL, \
-                f"Brand '{brand}' has {count} deals (max {MAX_SAME_BRAND_TOTAL})"
+            assert count <= effective_cap, \
+                f"Brand '{brand}' has {count} deals (max {effective_cap})"
 
     def test_multiple_brands_present(self, realistic_scrape):
         """At least 8 distinct brands in output."""
@@ -253,9 +258,12 @@ class TestDispensaryDiversity:
     def test_dispensary_cap_enforced(self, realistic_scrape):
         result = detect_deals(realistic_scrape)
         dispo_counts = Counter(d.get("dispensary_id") for d in result)
+        # Effective cap is the backfill cap — round 2 relaxes dispensary
+        # limits when round 1 doesn't fill to 85% of target.
+        effective_cap = _BACKFILL_DISPENSARY_TOTAL
         for dispo, count in dispo_counts.items():
-            assert count <= MAX_SAME_DISPENSARY_TOTAL, \
-                f"Dispensary '{dispo}' has {count} deals (max {MAX_SAME_DISPENSARY_TOTAL})"
+            assert count <= effective_cap, \
+                f"Dispensary '{dispo}' has {count} deals (max {effective_cap})"
 
     def test_multiple_dispensaries_present(self, realistic_scrape):
         """At least 10 dispensaries in output."""

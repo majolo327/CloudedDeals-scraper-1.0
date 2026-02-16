@@ -97,8 +97,8 @@ export function FeedbackWidget() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          title="Have feedback? Let us know"
-          className="group flex h-10 w-10 items-center justify-center rounded-full border border-slate-700/60 bg-slate-900/90 shadow-lg backdrop-blur-sm transition-all hover:border-purple-500/40 hover:bg-slate-800/90 hover:scale-105"
+          aria-label="Send feedback"
+          className="group flex h-11 w-11 items-center justify-center rounded-full border border-slate-700/60 bg-slate-900/90 shadow-lg backdrop-blur-sm transition-all hover:border-purple-500/40 hover:bg-slate-800/90 hover:scale-105"
         >
           <MessageCircle className="w-4.5 h-4.5 text-slate-400 group-hover:text-purple-400 transition-colors" />
         </button>

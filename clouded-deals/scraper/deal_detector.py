@@ -22,6 +22,7 @@ Only the ~200 deals returned by ``select_top_deals`` should have
 from __future__ import annotations
 
 import logging
+import re
 from collections import defaultdict
 from itertools import cycle
 from typing import Any
@@ -40,23 +41,33 @@ CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
         "28": 100,    # full oz — relaxed from $79
     },
     "vape": 35,           # carts/pods — relaxed from $25
-    "edible": 15,         # gummies/chocolates — relaxed from $9
+    "edible": 20,         # gummies/chocolates — raised from $15 for multi-dose
     "concentrate": {      # weight-based: live rosin can be pricier
         "0.5": 25,        # half gram
         "1": 45,          # gram — raised from flat $35
         "2": 75,          # 2g buckets
     },
-    "preroll": 10,        # single prerolls — relaxed from $6
+    "preroll": 9,         # regular flower prerolls — tightened from $10 (should be $5-9)
+    "infused_preroll": 15, # infused prerolls are premium products
     "preroll_pack": 25,   # preroll multi-packs — relaxed from $20
 }
 
 # Global hard-filter thresholds (apply to ALL categories)
 HARD_FILTERS = {
-    "min_discount_percent": 15,   # relaxed from 20%
+    "min_discount_percent": 12,   # relaxed from 15% — captures more mid-tier deals
     "min_price": 3,               # below $3 = data error
     "max_price_absolute": 100,    # raised from $80 for oz flower + concentrates
     "max_discount_percent": 85,   # above 85% = fake/data error
     "require_original_price": True,
+}
+
+# Category-specific discount minimums — edibles and prerolls have real deals
+# at lower discount percentages (e.g. $8 edible marked down from $10 = 20%,
+# but a $9 edible from $10 = 10%).  These budget items are genuine deals
+# that consumers want to see, not data errors.
+CATEGORY_MIN_DISCOUNT: dict[str, float] = {
+    "edible": 10,
+    "preroll": 10,
 }
 
 # Maximum believable ORIGINAL price per category.  If the parsed original
@@ -95,6 +106,34 @@ BRAND_TIERS: dict[str, dict[str, Any]] = {
             "wana", "incredibles", "verano", "grassroots",
             "rythm", "plug play", "pax", "kingpen",
             "doja", "wonderbrett", "ember valley", "backpack boyz",
+            # Michigan-native popular brands
+            "platinum vape", "mkx", "lume", "skymint",
+            "element", "redbud roots", "pleasantrees",
+            # Illinois-native popular brands
+            "revolution", "aeriz", "bedford grow", "cresco",
+            "high supply", "good news", "matter", "superflux",
+            "thrive", "essence", "cake", "&shine",
+            "pts", "nature's grace", "encore edibles",
+            "savvy", "reserve",
+            # Arizona-native popular brands
+            "abundant organics", "grow sciences", "item 9 labs",
+            "timeless", "sonoran roots", "mohave cannabis",
+            # Missouri-native popular brands
+            "illicit", "flora farms", "vivid", "sinse",
+            "proper", "clovr", "good day farm", "headchange",
+            "elevate", "greenlight", "haze", "nature med",
+            "vertical", "star buds", "bloc", "terrabis",
+            "c4", "amaze cannabis", "keef", "robhots",
+            # New Jersey-native popular brands
+            "kind tree", "fernway", "ozone", "rythm",
+            "garden greens", "the botanist", "clade9",
+            "terrascend", "good green", "later days",
+            "grön", "gron", "jams", "beboe", "avexia",
+            "level", "bits",
+            # Nevada dispensary house brands (boost when detected)
+            "deep roots", "deep roots harvest",
+            "state flower", "cultivation labs",
+            "the sanctuary",
         },
         "points": 12,
     },
@@ -123,14 +162,14 @@ CATEGORY_BOOST: dict[str, int] = {
 # Phase 3: Top-200 selection parameters
 # =====================================================================
 
-TARGET_DEAL_COUNT = 200
+TARGET_DEAL_COUNT = 250
 
 CATEGORY_TARGETS: dict[str, int] = {
-    "flower": 60,
-    "vape": 50,
-    "edible": 30,
-    "concentrate": 30,
-    "preroll": 20,
+    "flower": 75,       # raised from 60 — proportional to 250 target
+    "vape": 60,         # raised from 50
+    "edible": 40,       # raised from 35
+    "concentrate": 35,  # raised from 30
+    "preroll": 30,      # raised from 25
     "other": 10,
 }
 
@@ -140,18 +179,28 @@ CATEGORY_TARGETS: dict[str, int] = {
 CATEGORY_MINIMUMS: dict[str, int] = {
     "flower": 15,
     "vape": 12,
-    "edible": 8,
+    "edible": 12,       # raised from 8 — guarantee more edibles in feed
     "concentrate": 8,
-    "preroll": 5,
+    "preroll": 8,       # raised from 5 — guarantee more prerolls in feed
     "other": 0,
 }
 
 MAX_SAME_BRAND_TOTAL = 5          # was 8 — tighter cap so one brand can't dominate the feed
-MAX_SAME_DISPENSARY_TOTAL = 10
+MAX_SAME_DISPENSARY_TOTAL = 12
 MAX_CONSECUTIVE_SAME_CATEGORY = 3
 MAX_CONSECUTIVE_SAME_BRAND = 1        # no same-brand cards adjacent in the feed
 MAX_SAME_BRAND_PER_DISPENSARY = 2  # similarity dedup
 MAX_SAME_BRAND_PER_CATEGORY = 3    # cap per brand within a single category across all dispensaries
+MAX_UNKNOWN_BRAND_TOTAL = 15       # raised from 8 — Jane stores often lack brand extraction, so more headroom needed
+
+# Backfill caps — used in round 2 when round 1 under-fills the target.
+# More generous than the primary caps so the feed can fill, but still
+# prevent a single brand/dispensary from taking over.
+_BACKFILL_BRAND_TOTAL = 10
+_BACKFILL_BRAND_PER_CATEGORY = 6
+_BACKFILL_DISPENSARY_TOTAL = 18
+_BACKFILL_UNKNOWN_BRAND_TOTAL = 15
+_BACKFILL_THRESHOLD = 0.85  # trigger backfill when round 1 fills < 85% of target
 
 # =====================================================================
 # Phase 4: Badge thresholds
@@ -181,11 +230,50 @@ _NON_CANNABIS_KEYWORDS = {
 }
 
 
+def _passes_price_cap(
+    sale_price: float,
+    category: str,
+    weight_value: float | None,
+) -> bool:
+    """Check whether *sale_price* is within the category price cap.
+
+    Extracted so it can be reused by both the full and loose filter paths.
+    """
+    caps = CATEGORY_PRICE_CAPS.get(category)
+    if caps is None:
+        return sale_price <= 50
+
+    if isinstance(caps, dict):
+        sorted_keys = sorted(caps.keys(), key=lambda k: float(k))
+        if weight_value:
+            weight_str = str(weight_value)
+            if float(weight_value) == int(float(weight_value)):
+                weight_str = str(int(float(weight_value)))
+            cap = caps.get(weight_str)
+            if cap is not None:
+                return sale_price <= cap
+            wv = float(weight_value)
+            best_cap = caps[sorted_keys[0]]
+            for k in sorted_keys:
+                if float(k) <= wv:
+                    best_cap = caps[k]
+            return sale_price <= best_cap
+        else:
+            return sale_price <= caps[sorted_keys[0]]
+    else:
+        return sale_price <= caps
+
+
 def passes_hard_filters(product: dict[str, Any]) -> bool:
     """Return ``False`` if the product should be completely excluded.
 
     Checks global price bounds, minimum discount, original price
     presence, category-specific price caps, and non-cannabis keywords.
+
+    **Jane platform exception**: Jane sites do not display original
+    prices — only the current/deal price is available.  For Jane
+    products we use *loose* qualification: price cap + brand match
+    only, skipping discount and original-price checks.
 
     Infused pre-rolls are now ALLOWED (they're popular products).
     Only preroll multi-packs remain excluded from curation.
@@ -204,16 +292,33 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
 
     sale_price = product.get("sale_price") or product.get("current_price") or 0
     original_price = product.get("original_price") or 0
-    discount = product.get("discount_percent") or 0
+    discount = product.get("discount_percent")
     category = product.get("category", "other")
     weight_value = product.get("weight_value")
+    source_platform = product.get("source_platform", "")
 
-    # --- Global filters ---
+    # --- Global price floor / ceiling (applies to ALL platforms) ---
     if not sale_price or sale_price < HARD_FILTERS["min_price"]:
         return False
     if sale_price > HARD_FILTERS["max_price_absolute"]:
         return False
-    if not discount or discount < HARD_FILTERS["min_discount_percent"]:
+
+    # ------------------------------------------------------------------
+    # JANE LOOSE QUALIFICATION
+    # Jane does NOT display original prices — only the deal/current
+    # price.  We cannot calculate discount_percent, so we skip the
+    # discount and original-price checks.  Qualification is price cap
+    # only.  Brand is NOT required here — many Jane sites (Deep Roots,
+    # Sanctuary, Beyond/Hello) have unreliable brand extraction.
+    # Products with recognized brands score higher in Phase 2;
+    # brandless products get a lower score but aren't excluded.
+    # ------------------------------------------------------------------
+    if source_platform == "jane":
+        return _passes_price_cap(sale_price, category, weight_value)
+
+    # --- Standard filters (non-Jane platforms) ---
+    min_disc = CATEGORY_MIN_DISCOUNT.get(category, HARD_FILTERS["min_discount_percent"])
+    if discount is None or discount < min_disc:
         return False
     if discount > HARD_FILTERS["max_discount_percent"]:
         return False  # fake discount / data error
@@ -228,53 +333,25 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
         return False
 
     # --- Category-specific price caps ---
-    caps = CATEGORY_PRICE_CAPS.get(category)
-    if caps is None:
-        # Unknown category — apply general max of $50
-        return sale_price <= 50
+    # Preroll-specific: infused prerolls use a higher cap than regular flower
+    # prerolls.  Regular 1g flower prerolls should be $5-9 (never $10-12),
+    # but infused prerolls are premium products and legitimately cost more.
+    if category == "preroll" and subtype == "infused_preroll":
+        return sale_price <= CATEGORY_PRICE_CAPS.get("infused_preroll", 15)
 
-    if isinstance(caps, dict):
-        # Weight-based caps (flower, concentrate)
-        sorted_keys = sorted(caps.keys(), key=lambda k: float(k))
-
-        if weight_value:
-            weight_str = str(weight_value)
-            # Normalize: 3.5 → "3.5", 7.0 → "7", 28.0 → "28"
-            if float(weight_value) == int(float(weight_value)):
-                weight_str = str(int(float(weight_value)))
-            cap = caps.get(weight_str)
-            if cap is not None:
-                if sale_price > cap:
-                    return False
-            else:
-                # No exact key match — find the best cap for this weight.
-                # Use the largest defined cap that is ≤ weight, or the
-                # smallest cap if weight is below all keys.
-                wv = float(weight_value)
-                best_cap = caps[sorted_keys[0]]  # default: smallest key
-                for k in sorted_keys:
-                    if float(k) <= wv:
-                        best_cap = caps[k]
-                if sale_price > best_cap:
-                    return False
-        else:
-            # No weight detected — use smallest-weight cap as default
-            if sale_price > caps[sorted_keys[0]]:
-                return False
-    else:
-        # Flat cap for category
-        if sale_price > caps:
-            return False
-
-    return True
+    return _passes_price_cap(sale_price, category, weight_value)
 
 
 # =====================================================================
 # Quality gate — reject incomplete / garbage deals
 # =====================================================================
 
-# Names that are just strain types or classifications, not real products
-_STRAIN_ONLY_NAMES = {"indica", "sativa", "hybrid", "cbd", "thc", "unknown"}
+# Names that are just strain types, classifications, or category labels — not real products
+_STRAIN_ONLY_NAMES = {
+    "indica", "sativa", "hybrid", "cbd", "thc", "unknown",
+    "flower", "vape", "edible", "concentrate", "preroll", "pre-roll",
+    "cartridge", "cart", "badder", "shatter", "wax", "gummy", "gummies",
+}
 
 # Categories that should always have a detected weight
 _WEIGHT_REQUIRED_CATEGORIES = {"flower", "concentrate", "vape"}
@@ -296,7 +373,11 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
     # Reject deals with no detected brand — "UNKNOWN" brand cards are
     # confusing to users and indicate a parsing problem.  We have enough
     # volume that we can require a brand on every displayed deal.
-    if not brand:
+    # Exception: Jane products get a pass — Jane brand extraction is
+    # unreliable and we'd rather show a deal with a missing brand than
+    # exclude an entire dispensary.  The dispensary name gives context.
+    source_platform = product.get("source_platform", "")
+    if not brand and source_platform != "jane":
         return False
 
     # Reject strain-type-only product names
@@ -309,6 +390,11 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
 
     # Reject products where name == brand (redundant display)
     if brand and name.strip().lower() == brand.lower():
+        return False
+
+    # Reject products where name is a repeated word (e.g. "Badder Badder")
+    name_words = name.strip().lower().split()
+    if len(name_words) == 2 and name_words[0] == name_words[1]:
         return False
 
     # Reject products with no weight in categories that need it
@@ -366,9 +452,11 @@ def _score_unit_value(category: str, price: float, weight_value: float | None) -
         if price <= 4:
             return 15
         elif price <= 6:
-            return 10
+            return 12
         elif price <= 8:
-            return 5
+            return 8
+        elif price <= 9:
+            return 4
         return 0
 
     return 0
@@ -386,8 +474,12 @@ def _score_brand(brand: str) -> int:
     for tier_data in BRAND_TIERS.values():
         if brand_lower in tier_data["brands"]:
             return tier_data["points"]
-        # Substring match for compound names (e.g. "Alien Labs Cannabis")
-        if any(b in brand_lower for b in tier_data["brands"] if len(b) > 3):
+        # Word-boundary match for compound names (e.g. "Alien Labs Cannabis")
+        if any(
+            re.search(r"\b" + re.escape(b) + r"\b", brand_lower)
+            for b in tier_data["brands"]
+            if len(b) > 3
+        ):
             return tier_data["points"]
 
     return 5  # any brand > no brand
@@ -405,6 +497,7 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
       4. Unit value            — up to 15 pts
       5. Category boost        — up to 8 pts
       6. Price attractiveness  — up to 12 pts
+      7. Budget deal bonus     — up to 5 pts (prerolls/edibles ≤$11)
     """
     score = 0
     discount = product.get("discount_percent") or 0
@@ -414,24 +507,39 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
     weight_value = product.get("weight_value")
     brand = product.get("brand") or ""
 
-    # 1. DISCOUNT DEPTH (up to 35 points)
-    if discount >= 50:
-        score += 35
-    elif discount >= 40:
-        score += 28
-    elif discount >= 30:
-        score += 22
-    elif discount >= 25:
-        score += 17
-    elif discount >= 20:
-        score += 12
-    elif discount >= 15:
-        score += 7
+    source_platform = product.get("source_platform", "")
 
-    # 2. DOLLARS SAVED (up to 10 points)
-    if original_price > 0 and original_price > sale_price:
-        saved = original_price - sale_price
-        score += min(10, int(saved / 2.5))
+    # Cap discount at 80% for scoring purposes.  Hard filter already
+    # rejects >85%, but values between 80-85% are almost always parsing
+    # artifacts.  Prevents inflated scores from slipping into top 20.
+    discount = min(discount, 80)
+
+    # Jane products have no original price / discount data.  Give them a
+    # flat baseline so they can compete with other platforms on
+    # brand/value/category alone.  Non-Jane platforms get up to 45 pts
+    # (35 discount depth + 10 dollars saved); 15 roughly equals a 20%
+    # discount — keeps Jane products visible without inflating the feed.
+    if source_platform == "jane":
+        score += 15  # baseline in lieu of discount depth + dollars saved
+    else:
+        # 1. DISCOUNT DEPTH (up to 35 points)
+        if discount >= 50:
+            score += 35
+        elif discount >= 40:
+            score += 28
+        elif discount >= 30:
+            score += 22
+        elif discount >= 25:
+            score += 17
+        elif discount >= 20:
+            score += 12
+        elif discount >= 15:
+            score += 7
+
+        # 2. DOLLARS SAVED (up to 10 points)
+        if original_price > 0 and original_price > sale_price:
+            saved = original_price - sale_price
+            score += min(10, int(saved / 2.5))
 
     # 3. BRAND RECOGNITION (up to 20 points)
     score += _score_brand(brand)
@@ -454,6 +562,13 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
         score += 6
     elif 0 < sale_price < 5:
         score += 4
+
+    # 7. BUDGET DEAL BONUS (up to 5 points)
+    # Prerolls and edibles at $11 or less are accessible price points that
+    # consumers actively seek out.  Give them a scoring boost so more appear
+    # in the feed instead of being outscored by higher-priced categories.
+    if category in ("preroll", "edible") and sale_price <= 11:
+        score += 5
 
     return min(100, score)
 
@@ -487,6 +602,8 @@ def _weight_tier(deal: dict[str, Any]) -> str:
             return "flower_half"
         return "flower_oz"
     if cat == "vape":
+        # 0.6g threshold: industry-standard "half gram" carts are 0.5g but
+        # some brands label at 0.55-0.6g; anything above is a full gram.
         if wv <= 0.6:
             return "vape_half"
         return "vape_full"
@@ -497,6 +614,30 @@ def _weight_tier(deal: dict[str, Any]) -> str:
     return f"{cat}_default"
 
 
+def _normalize_dedup_name(name: str, brand: str) -> str:
+    """Normalize product name for dedup matching.
+
+    Strips brand name, strain types, weight prefixes, punctuation, and
+    whitespace so garbled variants match their clean counterparts.
+    E.g. "CSF Cartridge Kobe Circle S Farms Indica-Hybrid" → "kobe"
+    """
+    import re
+    n = (name or "").lower().strip()
+    # Strip brand name from product name
+    if brand:
+        n = re.sub(r'\b' + re.escape(brand.lower()) + r'\b', '', n)
+    # Strip strain types
+    n = re.sub(r'\b(?:indica|sativa|hybrid|indica-hybrid|sativa-hybrid)\b', '', n)
+    # Strip weight prefixes: "3.5g |", "1g |"
+    n = re.sub(r'^\.?\d+\.?\d*\s*g\s*\|\s*', '', n)
+    # Strip common product type words
+    n = re.sub(r'\b(?:cartridge|cart|disposable|badder|pre-?roll|gummy|gummies)\b', '', n)
+    # Strip all punctuation, collapse whitespace
+    n = re.sub(r'[^a-z0-9\s]', '', n)
+    n = re.sub(r'\s+', ' ', n).strip()
+    return n
+
+
 def remove_global_name_duplicates(
     deals: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -504,13 +645,16 @@ def remove_global_name_duplicates(
 
     If "Baja Blast Disposable" from Hustler's Ambition is sold at three
     different dispensaries, only keep the one with the best deal score.
+
+    Uses normalized name matching so garbled variants (with extra brand
+    name, strain type, weight prefix) match their clean counterparts.
     """
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for deal in deals:
-        name = (deal.get("name") or "").lower().strip()
         brand = (deal.get("brand") or "").lower()
         cat = deal.get("category", "other")
-        key = f"{name}|{brand}|{cat}"
+        norm_name = _normalize_dedup_name(deal.get("name", ""), brand)
+        key = f"{norm_name}|{brand}|{cat}"
         groups[key].append(deal)
 
     result: list[dict[str, Any]] = []
@@ -550,7 +694,7 @@ def _chain_prefix(dispensary_id: str) -> str:
     Examples:
         "curaleaf-western" → "curaleaf"
         "curaleaf-strip"   → "curaleaf"
-        "zen-leaf-lv"      → "zen-leaf"
+        "deep-roots-craig" → "deep-roots"
         "td-gibson"        → "td"
         "planet-13"        → "planet-13"  (single location, no split)
     """
@@ -558,8 +702,8 @@ def _chain_prefix(dispensary_id: str) -> str:
         return ""
     parts = dispensary_id.split("-")
     # Use first segment as chain prefix; multi-word chains use first two
-    # segments (e.g., "zen-leaf-lv" → "zen-leaf").
-    _MULTI_WORD_CHAINS = {"zen", "the"}
+    # segments (e.g., "deep-roots-craig" → "deep-roots", "nevada-made-henderson" → "nevada-made").
+    _MULTI_WORD_CHAINS = {"the", "nevada", "deep", "beyond", "tree"}
     if len(parts) >= 2 and parts[0] in _MULTI_WORD_CHAINS:
         return f"{parts[0]}-{parts[1]}"
     return parts[0]
@@ -597,82 +741,40 @@ def remove_cross_chain_duplicates(
 # =====================================================================
 
 
-def select_top_deals(
-    scored_deals: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Select the best ~200 deals with category, brand, and dispensary diversity.
+def _pick_from_pools(
+    buckets: dict[str, list[dict[str, Any]]],
+    category_slots: dict[str, int],
+    brand_cap: int,
+    brand_cat_cap: int,
+    dispensary_cap: int,
+    unknown_cap: int,
+    already_picked: set[tuple] | None = None,
+    brand_counts: dict[str, int] | None = None,
+    brand_cat_counts: dict[str, int] | None = None,
+    dispensary_counts: dict[str, int] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Pick deals from category pools with brand/dispensary diversity.
 
-    ``scored_deals`` must already have ``deal_score`` set (from
-    ``calculate_deal_score``).  Returns a list of up to
-    ``TARGET_DEAL_COUNT`` deals ordered for display.
+    Extracted so the same 3-pass logic can be reused in both the primary
+    diversity round and the backfill round with different cap values.
+
+    ``already_picked`` is a set of (name, sale_price) keys for deals
+    already selected in a previous round — they will be skipped.
     """
-    if not scored_deals:
-        return []
+    if brand_counts is None:
+        brand_counts = defaultdict(int)
+    if brand_cat_counts is None:
+        brand_cat_counts = defaultdict(int)
+    if dispensary_counts is None:
+        dispensary_counts = defaultdict(int)
+    if already_picked is None:
+        already_picked = set()
 
-    # ------------------------------------------------------------------
-    # Step 1: Bucket by category, sorted by deal_score DESC within each
-    # ------------------------------------------------------------------
-    buckets: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for deal in scored_deals:
-        cat = deal.get("category", "other")
-        if cat not in CATEGORY_TARGETS:
-            cat = "other"
-        buckets[cat].append(deal)
-
-    for cat in buckets:
-        buckets[cat].sort(key=lambda d: d.get("deal_score", 0), reverse=True)
-
-    # ------------------------------------------------------------------
-    # Step 2: Pick per category with brand diversity
-    # ------------------------------------------------------------------
     category_picks: dict[str, list[dict[str, Any]]] = {}
-    total_available = sum(len(v) for v in buckets.values())
-    target = min(TARGET_DEAL_COUNT, total_available)
-
-    # Calculate how many slots each category gets
-    category_slots: dict[str, int] = {}
-    remaining_slots = target
-    for cat, cat_target in CATEGORY_TARGETS.items():
-        pool_size = len(buckets.get(cat, []))
-        slots = min(cat_target, pool_size)
-        category_slots[cat] = slots
-        remaining_slots -= slots
-
-    # Redistribute surplus slots to categories that have more deals.
-    # Cap redistribution: no category can exceed 1.5x its target to
-    # prevent a single category from dominating the feed when others
-    # have low volume.
-    if remaining_slots > 0:
-        for cat in sorted(buckets.keys(), key=lambda c: len(buckets[c]), reverse=True):
-            pool_size = len(buckets[cat])
-            current = category_slots.get(cat, 0)
-            cat_target = CATEGORY_TARGETS.get(cat, 10)
-            max_for_cat = int(cat_target * 1.5)
-            can_add = min(pool_size - current, max_for_cat - current)
-            if can_add > 0:
-                add = min(can_add, remaining_slots)
-                category_slots[cat] = current + add
-                remaining_slots -= add
-            if remaining_slots <= 0:
-                break
-
-    # Pick deals from each category pool with brand diversity.
-    # NOTE: Products without a detected brand each get a unique key
-    # so they are NOT all collapsed into one "Unknown" bucket that
-    # gets capped at MAX_SAME_BRAND_TOTAL.  Only per-dispensary
-    # and per-category limits constrain brandless products.
-    brand_counts: dict[str, int] = defaultdict(int)
-    brand_cat_counts: dict[str, int] = defaultdict(int)  # "brand|category" → count
-    dispensary_counts: dict[str, int] = defaultdict(int)
-    _unknown_counter = 0
 
     def _brand_key(deal: dict[str, Any]) -> str:
-        nonlocal _unknown_counter
         b = deal.get("brand")
-        if b:
-            return b
-        _unknown_counter += 1
-        return f"_unknown_{_unknown_counter}"
+        return b if b else "_unknown"
 
     for cat, slots in category_slots.items():
         pool = buckets.get(cat, [])
@@ -680,26 +782,28 @@ def select_top_deals(
         picked_set: set[int] = set()  # indices into pool
 
         def _try_pick(deal: dict[str, Any], idx: int) -> bool:
+            deal_key = (deal.get("name", ""), deal.get("sale_price"))
+            if deal_key in already_picked:
+                return False
             brand = _brand_key(deal)
             disp_id = deal.get("dispensary_id") or ""
             bc_key = f"{brand}|{cat}"
-            if brand_counts[brand] >= MAX_SAME_BRAND_TOTAL:
+            effective_cap = unknown_cap if brand == "_unknown" else brand_cap
+            if brand_counts[brand] >= effective_cap:
                 return False
-            if brand_cat_counts[bc_key] >= MAX_SAME_BRAND_PER_CATEGORY:
+            if brand_cat_counts[bc_key] >= brand_cat_cap:
                 return False
-            if dispensary_counts[disp_id] >= MAX_SAME_DISPENSARY_TOTAL:
+            if dispensary_counts[disp_id] >= dispensary_cap:
                 return False
             brand_counts[brand] += 1
             brand_cat_counts[bc_key] += 1
             dispensary_counts[disp_id] += 1
             picks.append(deal)
             picked_set.add(idx)
+            already_picked.add(deal_key)
             return True
 
         # First pass: one deal per brand AND per weight tier.
-        # Ensures the top picks span different sizes (3.5g, 7g, 14g
-        # flower; 0.5g, 1g vape) for maximum variety in the first
-        # screen of cards.
         seen_brands: set[str] = set()
         seen_tiers: set[str] = set()
         for i, deal in enumerate(pool):
@@ -739,17 +843,156 @@ def select_top_deals(
 
         category_picks[cat] = picks
 
+    return category_picks
+
+
+def select_top_deals(
+    scored_deals: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Select the best ~200 deals with category, brand, and dispensary diversity.
+
+    Uses a two-round approach:
+      Round 1 — tight diversity caps for a high-variety core selection.
+      Round 2 (backfill) — if round 1 filled < 85% of target, relax caps
+        and pick additional deals to fill empty slots.
+
+    ``scored_deals`` must already have ``deal_score`` set (from
+    ``calculate_deal_score``).  Returns a list of up to
+    ``TARGET_DEAL_COUNT`` deals ordered for display.
+    """
+    if not scored_deals:
+        return []
+
+    # ------------------------------------------------------------------
+    # Step 1: Bucket by category, sorted by deal_score DESC within each
+    # ------------------------------------------------------------------
+    buckets: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for deal in scored_deals:
+        cat = deal.get("category", "other")
+        if cat not in CATEGORY_TARGETS:
+            cat = "other"
+        buckets[cat].append(deal)
+
+    for cat in buckets:
+        buckets[cat].sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+
+    # ------------------------------------------------------------------
+    # Step 2: Calculate category slot allocation
+    # ------------------------------------------------------------------
+    total_available = sum(len(v) for v in buckets.values())
+    target = min(TARGET_DEAL_COUNT, total_available)
+
+    category_slots: dict[str, int] = {}
+    remaining_slots = target
+    for cat, cat_target in CATEGORY_TARGETS.items():
+        pool_size = len(buckets.get(cat, []))
+        slots = min(cat_target, pool_size)
+        category_slots[cat] = slots
+        remaining_slots -= slots
+
+    # Redistribute surplus slots to underfilled categories first, then
+    # overflow to categories with abundant supply.  "other" is hard-capped
+    # at its target to prevent it from absorbing slots that real categories
+    # (vape, edible, concentrate) could use.
+    if remaining_slots > 0:
+        # Priority 1: underfilled real categories (below their target)
+        for cat in sorted(buckets.keys(), key=lambda c: CATEGORY_TARGETS.get(c, 0), reverse=True):
+            if cat == "other":
+                continue  # don't overflow into "other" — keep it tight
+            pool_size = len(buckets.get(cat, []))
+            current = category_slots.get(cat, 0)
+            cat_target = CATEGORY_TARGETS.get(cat, 10)
+            max_for_cat = int(cat_target * 1.5)
+            can_add = min(pool_size - current, max_for_cat - current)
+            if can_add > 0:
+                add = min(can_add, remaining_slots)
+                category_slots[cat] = current + add
+                remaining_slots -= add
+            if remaining_slots <= 0:
+                break
+        # Priority 2: overflow into any category (including "other") if still slots left
+        if remaining_slots > 0:
+            for cat in sorted(buckets.keys(), key=lambda c: len(buckets[c]), reverse=True):
+                pool_size = len(buckets.get(cat, []))
+                current = category_slots.get(cat, 0)
+                cat_target = CATEGORY_TARGETS.get(cat, 10)
+                max_for_cat = int(cat_target * 1.5) if cat != "other" else cat_target
+                can_add = min(pool_size - current, max_for_cat - current)
+                if can_add > 0:
+                    add = min(can_add, remaining_slots)
+                    category_slots[cat] = current + add
+                    remaining_slots -= add
+                if remaining_slots <= 0:
+                    break
+
+    # ------------------------------------------------------------------
+    # Step 2a: Round 1 — tight diversity caps
+    # ------------------------------------------------------------------
+    brand_counts: dict[str, int] = defaultdict(int)
+    brand_cat_counts: dict[str, int] = defaultdict(int)
+    dispensary_counts: dict[str, int] = defaultdict(int)
+    already_picked: set[tuple] = set()
+
+    category_picks = _pick_from_pools(
+        buckets, category_slots,
+        brand_cap=MAX_SAME_BRAND_TOTAL,
+        brand_cat_cap=MAX_SAME_BRAND_PER_CATEGORY,
+        dispensary_cap=MAX_SAME_DISPENSARY_TOTAL,
+        unknown_cap=MAX_UNKNOWN_BRAND_TOTAL,
+        already_picked=already_picked,
+        brand_counts=brand_counts,
+        brand_cat_counts=brand_cat_counts,
+        dispensary_counts=dispensary_counts,
+    )
+
+    round1_total = sum(len(v) for v in category_picks.values())
+
+    # ------------------------------------------------------------------
+    # Step 2b: Round 2 (backfill) — relaxed caps if under-filled
+    # ------------------------------------------------------------------
+    if round1_total < target * _BACKFILL_THRESHOLD:
+        # Calculate remaining slots per category
+        backfill_slots: dict[str, int] = {}
+        for cat in category_slots:
+            filled = len(category_picks.get(cat, []))
+            remaining = category_slots[cat] - filled
+            # Also allow categories to exceed their original slot allocation
+            # up to 2x target if the pool has supply
+            pool_remaining = len(buckets.get(cat, [])) - filled
+            backfill_slots[cat] = min(remaining + 5, pool_remaining)
+
+        backfill_picks = _pick_from_pools(
+            buckets, backfill_slots,
+            brand_cap=_BACKFILL_BRAND_TOTAL,
+            brand_cat_cap=_BACKFILL_BRAND_PER_CATEGORY,
+            dispensary_cap=_BACKFILL_DISPENSARY_TOTAL,
+            unknown_cap=_BACKFILL_UNKNOWN_BRAND_TOTAL,
+            already_picked=already_picked,
+            brand_counts=brand_counts,
+            brand_cat_counts=brand_cat_counts,
+            dispensary_counts=dispensary_counts,
+        )
+
+        # Merge backfill into category_picks
+        for cat, picks in backfill_picks.items():
+            if picks:
+                category_picks.setdefault(cat, []).extend(picks)
+
+        round2_total = sum(len(v) for v in category_picks.values())
+        logger.info(
+            "Backfill: %d → %d deals (round 1 was %.0f%% of %d target)",
+            round1_total, round2_total, round1_total / target * 100, target,
+        )
+
     # ------------------------------------------------------------------
     # Step 3: Interleave categories for feed variety
     # ------------------------------------------------------------------
     result: list[dict[str, Any]] = []
-    # Sort categories by their target weight (most popular first)
     cat_order = sorted(
         category_picks.keys(),
         key=lambda c: CATEGORY_TARGETS.get(c, 0),
         reverse=True,
     )
-    # Create iterators for each category
     cat_iters: dict[str, list[dict[str, Any]]] = {
         cat: list(category_picks[cat]) for cat in cat_order
     }
@@ -758,14 +1001,12 @@ def select_top_deals(
     last_brands: list[str] = []
 
     while len(result) < target:
-        # Try each category in round-robin
         tried = 0
         placed = False
         while tried < len(cat_order):
             cat = next(cat_cycle)
             tried += 1
 
-            # Check consecutive-same-category constraint
             if (
                 len(last_cats) >= MAX_CONSECUTIVE_SAME_CATEGORY
                 and all(c == cat for c in last_cats[-MAX_CONSECUTIVE_SAME_CATEGORY:])
@@ -776,15 +1017,11 @@ def select_top_deals(
                 deal = cat_iters[cat][0]
                 deal_brand = deal.get("brand") or ""
 
-                # Check consecutive-same-brand constraint: don't place
-                # the same brand adjacent in the feed
                 if (
                     deal_brand
                     and len(last_brands) >= MAX_CONSECUTIVE_SAME_BRAND
                     and all(b == deal_brand for b in last_brands[-MAX_CONSECUTIVE_SAME_BRAND:])
                 ):
-                    # Try to find a non-conflicting deal deeper in this
-                    # category's queue (swap it to front if found)
                     swapped = False
                     for j in range(1, len(cat_iters[cat])):
                         alt = cat_iters[cat][j]
@@ -799,8 +1036,6 @@ def select_top_deals(
                             swapped = True
                             break
                     if not swapped:
-                        # All remaining deals in this category are the
-                        # same brand — skip to another category
                         continue
 
                 cat_iters[cat].pop(0)
@@ -811,7 +1046,6 @@ def select_top_deals(
                 break
 
         if not placed:
-            # All iterators empty or blocked — force-drain remaining
             for cat in cat_order:
                 while cat_iters.get(cat):
                     result.append(cat_iters[cat].pop(0))
@@ -822,8 +1056,13 @@ def select_top_deals(
             break
 
     # ------------------------------------------------------------------
-    # Step 4: Dispensary cap enforcement
+    # Step 4: Dispensary cap enforcement (uses backfill cap if active)
     # ------------------------------------------------------------------
+    effective_disp_cap = (
+        _BACKFILL_DISPENSARY_TOTAL
+        if round1_total < target * _BACKFILL_THRESHOLD
+        else MAX_SAME_DISPENSARY_TOTAL
+    )
     final_disp_counts: dict[str, int] = defaultdict(int)
     for deal in result:
         disp_id = deal.get("dispensary_id") or ""
@@ -831,17 +1070,16 @@ def select_top_deals(
 
     over_cap = [
         disp_id for disp_id, count in final_disp_counts.items()
-        if count > MAX_SAME_DISPENSARY_TOTAL
+        if count > effective_disp_cap
     ]
     if over_cap:
-        # Remove lowest-scored excess from over-represented dispensaries
         for disp_id in over_cap:
             disp_deals = [
                 (i, d) for i, d in enumerate(result)
                 if (d.get("dispensary_id") or "") == disp_id
             ]
             disp_deals.sort(key=lambda x: x[1].get("deal_score", 0))
-            excess = len(disp_deals) - MAX_SAME_DISPENSARY_TOTAL
+            excess = len(disp_deals) - effective_disp_cap
             remove_indices = {idx for idx, _ in disp_deals[:excess]}
             result = [d for i, d in enumerate(result) if i not in remove_indices]
 

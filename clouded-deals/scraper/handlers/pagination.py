@@ -238,8 +238,31 @@ async def navigate_curaleaf_page(
 # Jane sites
 # ------------------------------------------------------------------
 
-_JANE_MAX_LOAD_MORE = 10
-_JANE_LOAD_MORE_SETTLE_SEC = 1.5  # PRD: 1.5 s between View More clicks
+_JANE_MAX_LOAD_MORE = 15
+_JANE_LOAD_MORE_SETTLE_SEC = 2.0  # Settle time after each View More click
+_JANE_VIEW_MORE_TIMEOUT_MS = 12_000  # 12 s — Jane pages render slowly
+
+# JS to scroll to the bottom of the page / frame to expose the
+# "View More" button.  Some Jane embeds only render the button after
+# the user scrolls near the end of the product list.
+_JS_SCROLL_TO_BOTTOM = """
+async () => {
+    const delay = ms => new Promise(r => setTimeout(r, ms));
+    // Scroll down in large steps to trigger lazy-load / button reveal
+    for (let i = 0; i < 5; i++) {
+        window.scrollBy(0, window.innerHeight);
+        await delay(300);
+    }
+    // Also try scrolling the first scrollable container (for iframes
+    // where the window itself isn't scrollable).
+    const containers = document.querySelectorAll(
+        '[style*="overflow"], [class*="scroll"], [class*="menu-list"], main'
+    );
+    for (const c of containers) {
+        c.scrollTop = c.scrollHeight;
+    }
+}
+"""
 
 async def handle_jane_view_more(
     target: Page | Frame,
@@ -252,12 +275,16 @@ async def handle_jane_view_more(
     numbered pages.  We click it repeatedly until it disappears or
     ``max_attempts`` is reached.
 
+    Each attempt scrolls the page first to expose the button (some Jane
+    embeds hide it until the user scrolls near the bottom), then waits
+    up to 12 s for the button to become visible.
+
     Parameters
     ----------
     target:
         The ``Page`` or ``Frame`` containing the Jane menu.
     max_attempts:
-        Safety cap on the number of clicks (default 10).
+        Safety cap on the number of clicks (default 15).
 
     Returns
     -------
@@ -275,12 +302,22 @@ async def handle_jane_view_more(
     clicks = 0
 
     for attempt in range(1, max_attempts + 1):
+        # Scroll to bottom to expose the View More button.  Jane sites
+        # sometimes require vertical (and occasionally horizontal)
+        # scrolling before the button becomes visible.
+        try:
+            await target.evaluate(_JS_SCROLL_TO_BOTTOM)
+        except Exception:
+            pass  # best-effort; button may already be visible
+
         clicked = False
 
         for selector in view_more_selectors:
             try:
                 locator = target.locator(selector).first
-                await locator.wait_for(state="visible", timeout=5_000)
+                await locator.wait_for(
+                    state="visible", timeout=_JANE_VIEW_MORE_TIMEOUT_MS,
+                )
             except PlaywrightTimeout:
                 continue
 
@@ -290,6 +327,13 @@ async def handle_jane_view_more(
                     attempt,
                 )
                 return clicks
+
+            # Scroll the button into view before clicking — handles
+            # Jane layouts where the button is below the fold.
+            try:
+                await locator.scroll_into_view_if_needed(timeout=3_000)
+            except Exception:
+                pass  # best-effort
 
             await locator.click()
             clicks += 1

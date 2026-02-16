@@ -2,11 +2,12 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { SlidersHorizontal, X, RotateCcw, Check, MapPin, ChevronDown } from 'lucide-react';
+import { SlidersHorizontal, X, RotateCcw, Check, MapPin, ChevronDown, Navigation, Loader2, Search } from 'lucide-react';
 import type { Category } from '@/types';
 import { DISPENSARIES } from '@/data/dispensaries';
 import { VALID_WEIGHTS_BY_CATEGORY } from '@/utils/weightNormalizer';
 import { trackEvent } from '@/lib/analytics';
+import { isVegasArea, getZipCoordinates } from '@/lib/zipCodes';
 import type {
   UniversalFilterState,
   SortOption,
@@ -45,9 +46,9 @@ const SORT_OPTIONS: { id: SortOption; label: string }[] = [
 
 const DISTANCE_OPTIONS: { id: DistanceRange; label: string; desc: string }[] = [
   { id: 'all', label: 'Any Distance', desc: 'Show all deals' },
-  { id: 'near', label: 'Near You', desc: '< 5 miles' },
-  { id: 'nearby', label: 'Nearby', desc: '5–10 miles' },
-  { id: 'across_town', label: 'Across Town', desc: '10–15 miles' },
+  { id: 'near', label: 'Near You', desc: 'Within 5 miles' },
+  { id: 'nearby', label: 'Nearby', desc: 'Within 10 miles' },
+  { id: 'across_town', label: 'Across Town', desc: 'Within 15 miles' },
 ];
 
 /** Weight options that adapt to selected category. */
@@ -80,6 +81,8 @@ export function getPriceRangeBounds(rangeId: string): { min: number; max: number
   return range ? { min: range.min, max: range.max } : { min: 0, max: Infinity };
 }
 
+type LocationPromptState = 'hidden' | 'choose' | 'requesting' | 'zip';
+
 interface FilterSheetProps {
   filters: UniversalFilterState;
   onFiltersChange: (filters: UniversalFilterState) => void;
@@ -87,6 +90,7 @@ interface FilterSheetProps {
   hasLocation?: boolean;
   onReset?: () => void;
   activeFilterCount?: number;
+  onLocationSet?: () => void;
 }
 
 export function FilterSheet({
@@ -96,10 +100,16 @@ export function FilterSheet({
   hasLocation = false,
   onReset,
   activeFilterCount: externalActiveCount,
+  onLocationSet,
 }: FilterSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [sortOpen, setSortOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(true);
   const [locationOpen, setLocationOpen] = useState(false);
+  const [locationPrompt, setLocationPrompt] = useState<LocationPromptState>('hidden');
+  const [zipInput, setZipInput] = useState('');
+  const [zipError, setZipError] = useState('');
+  const [dispensarySearch, setDispensarySearch] = useState('');
+  const zipInputRef = useRef<HTMLInputElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
 
@@ -110,6 +120,12 @@ export function FilterSheet({
   }, []);
 
   const weightOptions = useMemo(() => getWeightOptions(filters.categories), [filters.categories]);
+
+  const filteredDispensaries = useMemo(() => {
+    if (!dispensarySearch.trim()) return dispensaries;
+    const q = dispensarySearch.toLowerCase().trim();
+    return dispensaries.filter((d) => d.name.toLowerCase().includes(q));
+  }, [dispensaries, dispensarySearch]);
 
   const activeFilterCount = externalActiveCount ?? [
     filters.categories.length > 0,
@@ -154,12 +170,74 @@ export function FilterSheet({
     onFiltersChange({ ...filters, dispensaryIds: [], quickFilter: 'none' });
   };
 
-  // Auto-expand location section if user already has active location filters
+  // Sort option click — if "distance" is selected without location, prompt for it
+  const handleSortSelect = useCallback((optId: SortOption) => {
+    if (optId === 'distance' && !hasLocation) {
+      setLocationPrompt('choose');
+      return;
+    }
+    onFiltersChange({ ...filters, sortBy: optId });
+    setSortOpen(false);
+  }, [filters, hasLocation, onFiltersChange]);
+
+  // Geolocation request for inline prompt
+  const handleUseLocation = useCallback(async () => {
+    setLocationPrompt('requesting');
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: false,
+          timeout: 10000,
+          maximumAge: 300000,
+        });
+      });
+      const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
+      localStorage.setItem('clouded_user_coords', JSON.stringify(coords));
+      setLocationPrompt('hidden');
+      onFiltersChange({ ...filters, sortBy: 'distance' });
+      setSortOpen(false);
+      onLocationSet?.();
+      trackEvent('filter_change', undefined, { action: 'location_set', method: 'geolocation' });
+    } catch {
+      // Geolocation denied or failed — fall back to zip input
+      setLocationPrompt('zip');
+      setTimeout(() => zipInputRef.current?.focus(), 100);
+    }
+  }, [filters, onFiltersChange, onLocationSet]);
+
+  // Zip code submission for inline prompt
+  const handleZipSubmit = useCallback(() => {
+    const zip = zipInput.trim();
+    if (!/^\d{5}$/.test(zip)) {
+      setZipError('Enter a 5-digit zip code');
+      return;
+    }
+    if (!isVegasArea(zip)) {
+      setZipError('Enter a Las Vegas area zip code');
+      return;
+    }
+    const coords = getZipCoordinates(zip);
+    if (!coords) {
+      setZipError('Zip code not found');
+      return;
+    }
+    localStorage.setItem('clouded_zip', zip);
+    localStorage.setItem('clouded_user_coords', JSON.stringify(coords));
+    setLocationPrompt('hidden');
+    setZipInput('');
+    setZipError('');
+    onFiltersChange({ ...filters, sortBy: 'distance' });
+    setSortOpen(false);
+    onLocationSet?.();
+    trackEvent('filter_change', undefined, { action: 'location_set', method: 'zip', zip });
+  }, [zipInput, filters, onFiltersChange, onLocationSet]);
+
+  // Auto-expand location section when user has location or active location filters
   useEffect(() => {
-    if (filters.distanceRange !== 'all' || filters.dispensaryIds.length > 0) {
+    if (hasLocation || filters.distanceRange !== 'all' || filters.dispensaryIds.length > 0) {
       setLocationOpen(true);
     }
-  }, [filters.distanceRange, filters.dispensaryIds]);
+  }, [hasLocation, filters.distanceRange, filters.dispensaryIds]);
 
   // Lock body scroll when open
   useEffect(() => {
@@ -185,18 +263,18 @@ export function FilterSheet({
 
   return (
     <>
-      {/* Trigger button */}
+      {/* Trigger button — styled as a chip to match category pills */}
       <button
         onClick={() => setIsOpen(true)}
-        className="relative flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+        aria-label={`Filters${activeFilterCount > 0 ? ` (${activeFilterCount} active)` : ''}`}
+        className={`relative flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+          activeFilterCount > 0
+            ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+            : 'bg-slate-700/50 text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10'
+        }`}
       >
-        <SlidersHorizontal className="w-4 h-4" />
-        <span className="hidden sm:inline">Filters</span>
-        {activeFilterCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-purple-500 text-white text-[10px] font-bold flex items-center justify-center">
-            {activeFilterCount}
-          </span>
-        )}
+        <SlidersHorizontal className="w-3.5 h-3.5" />
+        {activeFilterCount > 0 ? activeFilterCount : 'Filter'}
       </button>
 
       {/* Overlay — rendered via portal */}
@@ -236,7 +314,8 @@ export function FilterSheet({
                 )}
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  aria-label="Close filters"
+                  className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -251,55 +330,55 @@ export function FilterSheet({
                     <button
                       key={cat}
                       onClick={() => toggleCategory(cat)}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-purple-500/15 text-purple-400 text-[11px] font-medium"
+                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-purple-500/15 text-purple-400 text-xs font-medium"
                     >
                       {cat}
-                      <X className="w-2.5 h-2.5" />
+                      <X className="w-3 h-3" />
                     </button>
                   ))}
                   {filters.priceRange !== 'all' && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, priceRange: 'all', quickFilter: 'none' })}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-[11px] font-medium"
+                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-medium"
                     >
                       {PRICE_RANGES.find(r => r.id === filters.priceRange)?.label}
-                      <X className="w-2.5 h-2.5" />
+                      <X className="w-3 h-3" />
                     </button>
                   )}
                   {filters.minDiscount > 0 && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, minDiscount: 0, quickFilter: 'none' })}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/15 text-amber-400 text-[11px] font-medium"
+                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-amber-500/15 text-amber-400 text-xs font-medium"
                     >
                       {filters.minDiscount}%+ off
-                      <X className="w-2.5 h-2.5" />
+                      <X className="w-3 h-3" />
                     </button>
                   )}
                   {filters.distanceRange !== 'all' && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, distanceRange: 'all', quickFilter: 'none' })}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/15 text-blue-400 text-[11px] font-medium"
+                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-blue-500/15 text-blue-400 text-xs font-medium"
                     >
                       {DISTANCE_OPTIONS.find(d => d.id === filters.distanceRange)?.label}
-                      <X className="w-2.5 h-2.5" />
+                      <X className="w-3 h-3" />
                     </button>
                   )}
                   {filters.weightFilter !== 'all' && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, weightFilter: 'all' })}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-cyan-500/15 text-cyan-400 text-[11px] font-medium"
+                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-cyan-500/15 text-cyan-400 text-xs font-medium"
                     >
                       {filters.weightFilter}
-                      <X className="w-2.5 h-2.5" />
+                      <X className="w-3 h-3" />
                     </button>
                   )}
                   {filters.dispensaryIds.length > 0 && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, dispensaryIds: [], quickFilter: 'none' })}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/15 text-blue-400 text-[11px] font-medium"
+                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-blue-500/15 text-blue-400 text-xs font-medium"
                     >
                       {filters.dispensaryIds.length} store{filters.dispensaryIds.length !== 1 ? 's' : ''}
-                      <X className="w-2.5 h-2.5" />
+                      <X className="w-3 h-3" />
                     </button>
                   )}
                 </div>
@@ -321,13 +400,10 @@ export function FilterSheet({
                 </button>
                 {sortOpen && (
                   <div className="mt-2 space-y-0.5 rounded-xl bg-slate-800/50 p-1.5">
-                    {SORT_OPTIONS.filter(opt => opt.id !== 'distance' || hasLocation).map((opt) => (
+                    {SORT_OPTIONS.map((opt) => (
                       <button
                         key={opt.id}
-                        onClick={() => {
-                          onFiltersChange({ ...filters, sortBy: opt.id });
-                          setSortOpen(false);
-                        }}
+                        onClick={() => handleSortSelect(opt.id)}
                         className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${
                           filters.sortBy === opt.id
                             ? 'bg-purple-500/15 text-purple-400'
@@ -335,10 +411,77 @@ export function FilterSheet({
                         }`}
                       >
                         {opt.label}
+                        {opt.id === 'distance' && !hasLocation && (
+                          <span className="ml-1.5 text-[10px] text-slate-600">(set location)</span>
+                        )}
                       </button>
                     ))}
                   </div>
                 )}
+
+                {/* Inline location prompt — shown when user taps "Nearest First" without location */}
+                {locationPrompt !== 'hidden' && (
+                    <div className="mt-3 rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
+                      {locationPrompt === 'choose' && (
+                        <div className="space-y-2.5">
+                          <p className="text-xs text-slate-400 mb-3">Set your location to sort by distance</p>
+                          <button
+                            onClick={handleUseLocation}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-purple-500/15 text-purple-400 text-sm font-medium hover:bg-purple-500/25 transition-colors"
+                          >
+                            <Navigation className="w-4 h-4" />
+                            Use my location
+                          </button>
+                          <button
+                            onClick={() => {
+                              setLocationPrompt('zip');
+                              setTimeout(() => zipInputRef.current?.focus(), 100);
+                            }}
+                            className="w-full text-center text-xs text-slate-500 hover:text-slate-400 transition-colors py-1"
+                          >
+                            Or enter a zip code
+                          </button>
+                        </div>
+                      )}
+                      {locationPrompt === 'requesting' && (
+                        <div className="flex items-center justify-center gap-2 py-3 text-sm text-slate-400">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Requesting location...
+                        </div>
+                      )}
+                      {locationPrompt === 'zip' && (
+                        <div className="space-y-2">
+                          <p className="text-xs text-slate-400">Enter your Las Vegas area zip code</p>
+                          <div className="flex gap-2">
+                            <input
+                              ref={zipInputRef}
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={5}
+                              value={zipInput}
+                              onChange={(e) => { setZipInput(e.target.value.replace(/\D/g, '')); setZipError(''); }}
+                              onKeyDown={(e) => { if (e.key === 'Enter') handleZipSubmit(); }}
+                              placeholder="89101"
+                              className="flex-1 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500/50"
+                            />
+                            <button
+                              onClick={handleZipSubmit}
+                              className="px-4 py-2 rounded-lg bg-purple-500/20 text-purple-400 text-sm font-medium hover:bg-purple-500/30 transition-colors"
+                            >
+                              Go
+                            </button>
+                          </div>
+                          {zipError && <p className="text-xs text-red-400">{zipError}</p>}
+                          <button
+                            onClick={() => { setLocationPrompt('choose'); setZipInput(''); setZipError(''); }}
+                            className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors"
+                          >
+                            Back
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
               </section>
 
               {/* Category */}
@@ -351,7 +494,7 @@ export function FilterSheet({
                       <button
                         key={cat.id}
                         onClick={() => toggleCategory(cat.id)}
-                        className={`flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-full text-xs font-medium transition-all ${
+                        className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all ${
                           isSelected
                             ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
                             : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
@@ -382,14 +525,19 @@ export function FilterSheet({
                     {/* Distance */}
                     {hasLocation && (
                       <div>
-                        <p className="text-[11px] text-slate-500 mb-2">Distance</p>
+                        <p className="text-xs text-slate-500 mb-2">Distance</p>
                         <div className="grid grid-cols-2 gap-2">
                           {DISTANCE_OPTIONS.map((opt) => {
                             const isSelected = filters.distanceRange === opt.id;
                             return (
                               <button
                                 key={opt.id}
-                                onClick={() => onFiltersChange({ ...filters, distanceRange: opt.id, quickFilter: 'none' })}
+                                onClick={() => onFiltersChange({
+                                  ...filters,
+                                  distanceRange: opt.id,
+                                  sortBy: opt.id !== 'all' ? 'distance' : filters.sortBy,
+                                  quickFilter: 'none',
+                                })}
                                 className={`px-3 py-2.5 rounded-xl text-left transition-all ${
                                   isSelected
                                     ? 'bg-blue-500/15 border border-blue-500/30'
@@ -399,7 +547,7 @@ export function FilterSheet({
                                 <p className={`text-xs font-medium ${isSelected ? 'text-blue-400' : 'text-slate-300'}`}>
                                   {opt.label}
                                 </p>
-                                <p className="text-[10px] text-slate-500">{opt.desc}</p>
+                                <p className="text-[11px] text-slate-500">{opt.desc}</p>
                               </button>
                             );
                           })}
@@ -410,25 +558,35 @@ export function FilterSheet({
                     {/* Dispensary */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-[11px] text-slate-500">Dispensary</p>
-                        <div className="flex items-center gap-2">
+                        <p className="text-xs text-slate-500">Dispensary</p>
+                        <div className="flex items-center gap-3">
                           <button
                             onClick={selectAllDispensaries}
-                            className="text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
+                            className="px-2 py-1 min-h-[32px] text-[11px] text-purple-400 hover:text-purple-300 transition-colors"
                           >
                             Select All
                           </button>
-                          <span className="text-slate-700">|</span>
                           <button
                             onClick={clearAllDispensaries}
-                            className="text-[10px] text-slate-400 hover:text-slate-300 transition-colors"
+                            className="px-2 py-1 min-h-[32px] text-[11px] text-slate-400 hover:text-slate-300 transition-colors"
                           >
                             Clear
                           </button>
                         </div>
                       </div>
+                      {/* Dispensary search */}
+                      <div className="relative mb-2">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                        <input
+                          type="text"
+                          value={dispensarySearch}
+                          onChange={(e) => setDispensarySearch(e.target.value)}
+                          placeholder="Search dispensaries..."
+                          className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500/50 transition-colors"
+                        />
+                      </div>
                       <div className="space-y-1 max-h-40 overflow-y-auto rounded-lg bg-slate-800/50 p-2">
-                        {dispensaries.map((d) => {
+                        {filteredDispensaries.map((d) => {
                           const isChecked = filters.dispensaryIds.includes(d.id);
                           return (
                             <label
@@ -468,7 +626,7 @@ export function FilterSheet({
                     <button
                       key={range.id}
                       onClick={() => onFiltersChange({ ...filters, priceRange: range.id, quickFilter: 'none' })}
-                      className={`px-3 py-2 min-h-[40px] rounded-full text-xs font-medium transition-all ${
+                      className={`px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all ${
                         filters.priceRange === range.id
                           ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
                           : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
@@ -493,7 +651,7 @@ export function FilterSheet({
                         onFiltersChange({ ...filters, weightFilter: opt.id });
                         if (opt.id !== 'all') trackEvent('filter_change', undefined, { weight: opt.id });
                       }}
-                      className={`px-3 py-2 min-h-[40px] rounded-full text-xs font-medium transition-all ${
+                      className={`px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all ${
                         filters.weightFilter === opt.id
                           ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
                           : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
@@ -519,7 +677,7 @@ export function FilterSheet({
                   onChange={(e) => onFiltersChange({ ...filters, minDiscount: Number(e.target.value), quickFilter: 'none' })}
                   className="w-full accent-purple-500"
                 />
-                <div className="flex justify-between text-[10px] text-slate-600 mt-1">
+                <div className="flex justify-between text-[11px] text-slate-500 mt-1">
                   <span>Any</span>
                   <span>70%+</span>
                 </div>
@@ -530,9 +688,13 @@ export function FilterSheet({
             <div className="flex-shrink-0 p-4 bg-slate-900/95 border-t border-slate-800 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <button
                 onClick={() => setIsOpen(false)}
-                className="w-full py-3 bg-purple-500 hover:bg-purple-400 text-white font-semibold rounded-xl transition-colors text-sm"
+                className={`w-full py-3 min-h-[48px] font-semibold rounded-xl transition-colors text-sm ${
+                  filteredCount === 0
+                    ? 'bg-slate-700 text-slate-400'
+                    : 'bg-purple-500 hover:bg-purple-400 text-white'
+                }`}
               >
-                Show {filteredCount} deal{filteredCount !== 1 ? 's' : ''}
+                {filteredCount === 0 ? 'No deals match' : `Show ${filteredCount} deal${filteredCount !== 1 ? 's' : ''}`}
               </button>
             </div>
           </div>

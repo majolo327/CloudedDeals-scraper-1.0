@@ -51,7 +51,7 @@ export function ExpiredDealsBanner({ expiredCount, onDismiss }: ExpiredDealsBann
       {onDismiss && (
         <button
           onClick={onDismiss}
-          className="absolute top-3 right-3 p-1 rounded-lg text-slate-600 hover:text-slate-400 transition-colors"
+          className="absolute top-2 right-2 p-2 min-w-[44px] min-h-[44px] rounded-lg text-slate-600 hover:text-slate-400 transition-colors flex items-center justify-center"
           aria-label="Dismiss"
         >
           <X className="w-4 h-4" />
