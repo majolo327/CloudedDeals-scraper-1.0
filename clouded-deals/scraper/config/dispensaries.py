@@ -1,29 +1,30 @@
 """
 Dispensary configuration across 11 regions and 5 active platforms.
 
-Regions (776 active):
-  - southern-nv:    48 dispensaries (Dutchie/Jane/Carrot/Curaleaf/AIQ)
-  - michigan:      200 dispensaries (Dutchie-dominant + Curaleaf)
-  - illinois:      164 dispensaries (Dutchie + Jane + Curaleaf)
-  - arizona:        91 dispensaries (Dutchie + Curaleaf + Jane)
+Regions (861 active):
+  - southern-nv:    53 dispensaries (Dutchie/Jane/Carrot/Curaleaf/Zen Leaf/AIQ)
+  - michigan:      196 dispensaries (Dutchie-dominant)
+  - illinois:      165 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - arizona:        99 dispensaries (Dutchie + Curaleaf/Zen Leaf + Jane)
   - missouri:       89 dispensaries (Dutchie-only)
-  - new-jersey:     72 dispensaries (Dutchie + Jane + Curaleaf)
+  - new-jersey:     91 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
   - ohio:           23 dispensaries (Dutchie + Curaleaf/Zen Leaf + Jane)
   - colorado:       17 dispensaries (Dutchie + Jane)
-  - new-york:       17 dispensaries (Dutchie + Jane + Curaleaf)
-  - massachusetts:  34 dispensaries (Dutchie + Jane + Curaleaf)
-  - pennsylvania:   21 dispensaries (Curaleaf + Dutchie)
+  - new-york:       20 dispensaries (Dutchie + Jane + Curaleaf)
+  - massachusetts:  65 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - pennsylvania:   43 dispensaries (Curaleaf/Zen Leaf + Dutchie)
 
-Platforms (776 active / 821 total):
-  - dutchie:  ~565 — iframe-based menus (Dutchie/TD sites)
-  - jane:      ~98 — hybrid iframe/direct with "View More" pagination
-  - curaleaf:  ~75 — direct page loads (Curaleaf + Zen Leaf)
+Platforms (861 active / 910 total):
+  - dutchie: ~628 — iframe-based menus (Dutchie/TD sites)
+  - jane:    ~117 — hybrid iframe/direct with "View More" pagination
+  - curaleaf: ~109 — direct page loads (Curaleaf + Zen Leaf)
   - rise:        0 — ALL DEACTIVATED (100% Cloudflare blocked)
   - carrot:      5 — JS widget via getcarrot.io
   - aiq:         2 — Alpine IQ / Dispense React SPA
 
 Rise sites (37) are kept in config with is_active=False for DB history
 but are universally skipped due to Cloudflare blocking.
+Curaleaf MI sites (4) deactivated — Curaleaf exited Michigan late 2023.
 
 Sites marked ``is_active: False`` are known-broken (redirects, rebrands,
 Cloudflare blocks, etc.) and will be skipped by the orchestrator.  They
@@ -957,8 +958,9 @@ DISPENSARIES = [
     {"name": "Lit Provisioning Evart MI", "slug": "lit-evart", "platform": "dutchie", "url": "https://dutchie.com/dispensary/lit-provisioning-evart", "is_active": True, "region": "michigan"},
 
     # ── CURALEAF MICHIGAN (Curaleaf platform) ───────────────────────
-    {"name": "Curaleaf MI Kalamazoo", "slug": "curaleaf-mi-kalamazoo", "platform": "curaleaf", "url": "https://curaleaf.com/shop/michigan/curaleaf-mi-kalamazoo", "is_active": True, "region": "michigan"},
-    {"name": "Curaleaf MI Bangor", "slug": "curaleaf-mi-bangor", "platform": "curaleaf", "url": "https://curaleaf.com/shop/michigan/curaleaf-mi-bangor", "is_active": True, "region": "michigan"},
+    # Curaleaf exited Michigan in late 2023 — all MI stores deactivated
+    {"name": "Curaleaf MI Kalamazoo", "slug": "curaleaf-mi-kalamazoo", "platform": "curaleaf", "url": "https://curaleaf.com/shop/michigan/curaleaf-mi-kalamazoo", "is_active": False, "region": "michigan"},
+    {"name": "Curaleaf MI Bangor", "slug": "curaleaf-mi-bangor", "platform": "curaleaf", "url": "https://curaleaf.com/shop/michigan/curaleaf-mi-bangor", "is_active": False, "region": "michigan"},
 
     # ── ZEN LEAF MICHIGAN (Verano — same platform as NV) ────────────
     {"name": "Zen Leaf Buchanan MI", "slug": "zen-leaf-buchanan", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/buchanan/menu/recreational", "is_active": True, "region": "michigan"},
@@ -1783,10 +1785,10 @@ DISPENSARIES = [
     {"name": "Resinate Worcester MA", "slug": "resinate-ma-worcester", "platform": "dutchie", "url": "https://dutchie.com/dispensary/resinate-worcester", "is_active": True, "region": "massachusetts"},
     {"name": "Canna Provisions Lee MA", "slug": "canna-provisions-ma-lee", "platform": "dutchie", "url": "https://dutchie.com/dispensary/canna-provisions", "is_active": True, "region": "massachusetts"},
     {"name": "Cannabis Culture Northampton MA", "slug": "cannabis-culture-ma", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cannabis-culture1", "is_active": True, "region": "massachusetts"},
-    {"name": "Berkshire Roots East Boston MA", "slug": "berkshire-roots-ma-boston", "platform": "dutchie", "url": "https://dutchie.com/dispensary/berkshire-roots-east-boston", "is_active": True, "region": "massachusetts"},
+    # Berkshire Roots East Boston — duplicate of line 1650, removed
     {"name": "Berkshire Roots Pittsfield MA", "slug": "berkshire-roots-ma-pittsfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/berkshire-roots-med", "is_active": True, "region": "massachusetts"},
     {"name": "INSA Springfield MA", "slug": "insa-ma-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/insa-inc-springfield-adult-use", "is_active": True, "region": "massachusetts"},
-    {"name": "INSA Easthampton MA", "slug": "insa-ma-easthampton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/insa-easthampton-rec", "is_active": True, "region": "massachusetts"},
+    # INSA Easthampton — duplicate of line 1652, removed
     {"name": "Theory Wellness Bridgewater MA", "slug": "theory-ma-bridgewater", "platform": "dutchie", "url": "https://dutchie.com/dispensary/theory-wellness-bridgewater", "is_active": True, "region": "massachusetts"},
     {"name": "Theory Wellness Chicopee MA", "slug": "theory-ma-chicopee", "platform": "dutchie", "url": "https://dutchie.com/dispensary/theory-wellness-chicopee-med", "is_active": True, "region": "massachusetts"},
     {"name": "Cheech and Chongs Greenfield MA", "slug": "cheech-chongs-ma-greenfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/toroverde-greenfield", "is_active": True, "region": "massachusetts"},
@@ -1835,9 +1837,9 @@ DISPENSARIES = [
     # ── NEW CURALEAF NEW YORK (1 new store) ──────────────────────────
     {"name": "Curaleaf NY Carle Place", "slug": "curaleaf-ny-carle-place", "platform": "curaleaf", "url": "https://curaleaf.com/shop/new-york/curaleaf-ny-carle-place", "is_active": True, "region": "new-york"},
 
-    # ── NEW CURALEAF MICHIGAN (2 new stores) ─────────────────────────
-    {"name": "Curaleaf MI Battle Creek", "slug": "curaleaf-mi-battle-creek", "platform": "curaleaf", "url": "https://curaleaf.com/shop/michigan/curaleaf-mi-battle-creek", "is_active": True, "region": "michigan"},
-    {"name": "Curaleaf MI Ann Arbor", "slug": "curaleaf-mi-ann-arbor", "platform": "curaleaf", "url": "https://curaleaf.com/shop/michigan/curaleaf-mi-ann-arbor", "is_active": True, "region": "michigan"},
+    # ── NEW CURALEAF MICHIGAN (deactivated — Curaleaf exited MI late 2023)
+    {"name": "Curaleaf MI Battle Creek", "slug": "curaleaf-mi-battle-creek", "platform": "curaleaf", "url": "https://curaleaf.com/shop/michigan/curaleaf-mi-battle-creek", "is_active": False, "region": "michigan"},
+    {"name": "Curaleaf MI Ann Arbor", "slug": "curaleaf-mi-ann-arbor", "platform": "curaleaf", "url": "https://curaleaf.com/shop/michigan/curaleaf-mi-ann-arbor", "is_active": False, "region": "michigan"},
 
     # ── NEW ZEN LEAF OHIO (6 new stores) ─────────────────────────────
     {"name": "Zen Leaf Cincinnati OH", "slug": "zen-leaf-oh-cincinnati", "platform": "curaleaf", "url": "https://oh.zenleafdispensaries.com/cincinnati/", "is_active": True, "region": "ohio"},
@@ -1851,6 +1853,130 @@ DISPENSARIES = [
     {"name": "Zen Leaf Pittsburgh McKnight PA", "slug": "zen-leaf-pa-pgh-mcknight", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/pittsburgh-mcknight/medical-menu", "is_active": True, "region": "pennsylvania"},
     {"name": "Zen Leaf Pittsburgh Robinson PA", "slug": "zen-leaf-pa-pgh-robinson", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/pittsburgh/medical-menu", "is_active": True, "region": "pennsylvania"},
     {"name": "Zen Leaf Harrisburg PA", "slug": "zen-leaf-pa-harrisburg", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/harrisburg/medical-menu", "is_active": True, "region": "pennsylvania"},
+
+    # ==================================================================
+    #  WAVE 2 EXPANSION — from completed research agents
+    #  Curaleaf/Zen Leaf gaps + NJ/MA Jane/Dutchie to 95% coverage
+    # ==================================================================
+
+    # ── CURALEAF ARIZONA — 4 missing stores ─────────────────────────
+    {"name": "Curaleaf AZ Bell", "slug": "curaleaf-az-bell", "platform": "curaleaf", "url": "https://curaleaf.com/shop/arizona/curaleaf-az-bell", "is_active": True, "region": "arizona"},
+    {"name": "Curaleaf AZ Glendale West", "slug": "curaleaf-az-glendale-west", "platform": "curaleaf", "url": "https://curaleaf.com/shop/arizona/curaleaf-az-glendale", "is_active": True, "region": "arizona"},
+    {"name": "Curaleaf AZ Peoria", "slug": "curaleaf-az-peoria", "platform": "curaleaf", "url": "https://curaleaf.com/shop/arizona/curaleaf-az-peoria", "is_active": True, "region": "arizona"},
+    {"name": "Curaleaf AZ Sedona", "slug": "curaleaf-az-sedona", "platform": "curaleaf", "url": "https://curaleaf.com/shop/arizona/curaleaf-dispensary-sedona", "is_active": True, "region": "arizona"},
+
+    # ── CURALEAF NEW YORK — 3 missing stores ────────────────────────
+    {"name": "Curaleaf NY Plattsburgh", "slug": "curaleaf-ny-plattsburgh", "platform": "curaleaf", "url": "https://curaleaf.com/shop/new-york/curaleaf-ny-plattsburgh", "is_active": True, "region": "new-york"},
+    {"name": "Curaleaf NY Rochester", "slug": "curaleaf-ny-rochester", "platform": "curaleaf", "url": "https://curaleaf.com/shop/new-york/curaleaf-ny-rochester", "is_active": True, "region": "new-york"},
+    {"name": "Curaleaf NY Syracuse", "slug": "curaleaf-ny-syracuse", "platform": "curaleaf", "url": "https://curaleaf.com/shop/new-york/curaleaf-ny-syracuse", "is_active": True, "region": "new-york"},
+
+    # ── CURALEAF PENNSYLVANIA — 9 missing stores ────────────────────
+    {"name": "Curaleaf PA Altoona", "slug": "curaleaf-pa-altoona", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-altoona", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA Brookville", "slug": "curaleaf-pa-brookville", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-brookville", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA DuBois", "slug": "curaleaf-pa-dubois", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-dubois", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA Erie", "slug": "curaleaf-pa-erie", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-erie", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA Millcreek", "slug": "curaleaf-pa-millcreek", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-millcreek", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA Gettysburg", "slug": "curaleaf-pa-gettysburg", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-gettysburg", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA Greensburg", "slug": "curaleaf-pa-greensburg", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-greensburg", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA Harrisburg", "slug": "curaleaf-pa-harrisburg", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-harrisburg", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA Horsham", "slug": "curaleaf-pa-horsham", "platform": "curaleaf", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-horsham", "is_active": True, "region": "pennsylvania"},
+
+    # ── ZEN LEAF NEVADA — 5 new stores (entirely absent before) ─────
+    {"name": "Zen Leaf Las Vegas Fort Apache NV", "slug": "zen-leaf-nv-fort-apache", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/las-vegas-fort-apache/menu/recreational", "is_active": True, "region": "southern-nv"},
+    {"name": "Zen Leaf Las Vegas Flamingo NV", "slug": "zen-leaf-nv-flamingo", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/las-vegas-flamingo/menu/recreational", "is_active": True, "region": "southern-nv"},
+    {"name": "Zen Leaf North Las Vegas NV", "slug": "zen-leaf-nv-north-lv", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/north-las-vegas/menu/recreational", "is_active": True, "region": "southern-nv"},
+    {"name": "Zen Leaf Reno NV", "slug": "zen-leaf-nv-reno", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/reno/menu/recreational", "is_active": True, "region": "southern-nv"},
+    {"name": "Zen Leaf Carson City NV", "slug": "zen-leaf-nv-carson-city", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/carson-city/menu/recreational", "is_active": True, "region": "southern-nv"},
+
+    # ── ZEN LEAF ILLINOIS — 1 missing store ─────────────────────────
+    {"name": "Zen Leaf Chicago Rogers Park IL", "slug": "zen-leaf-il-rogers-park", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/chicago-rogers-park/menu/recreational", "is_active": True, "region": "illinois"},
+
+    # ── ZEN LEAF ARIZONA — 4 missing stores ─────────────────────────
+    {"name": "Zen Leaf Phoenix Arcadia AZ", "slug": "zen-leaf-az-arcadia", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/phoenix-arcadia/menu/recreational", "is_active": True, "region": "arizona"},
+    {"name": "Zen Leaf Phoenix W Dunlap AZ", "slug": "zen-leaf-az-w-dunlap", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/phoenix-w-dunlap/menu/recreational", "is_active": True, "region": "arizona"},
+    {"name": "Zen Leaf Mesa AZ", "slug": "zen-leaf-az-mesa", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/mesa/menu/recreational", "is_active": True, "region": "arizona"},
+    {"name": "Zen Leaf Tempe AZ", "slug": "zen-leaf-az-tempe", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/tempe/menu/recreational", "is_active": True, "region": "arizona"},
+
+    # ── ZEN LEAF NEW JERSEY — 1 missing store ───────────────────────
+    {"name": "Zen Leaf Mt Holly NJ", "slug": "zen-leaf-nj-mt-holly", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/mount-holly/menu/recreational", "is_active": True, "region": "new-jersey"},
+
+    # ── ZEN LEAF MASSACHUSETTS — 2 new stores (entirely absent before)
+    {"name": "Zen Leaf Sharon MA", "slug": "zen-leaf-ma-sharon", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/sharon/menu/recreational", "is_active": True, "region": "massachusetts"},
+    {"name": "Zen Leaf Plymouth MA", "slug": "zen-leaf-ma-plymouth", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/plymouth/menu/recreational", "is_active": True, "region": "massachusetts"},
+
+    # ── ZEN LEAF PENNSYLVANIA — 13 missing stores ───────────────────
+    {"name": "Zen Leaf Abington PA", "slug": "zen-leaf-pa-abington", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/abington/medical-menu", "is_active": True, "region": "pennsylvania"},
+    {"name": "Zen Leaf Altoona PA", "slug": "zen-leaf-pa-altoona", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/altoona/medical-menu", "is_active": True, "region": "pennsylvania"},
+    {"name": "Zen Leaf Clifton Heights PA", "slug": "zen-leaf-pa-clifton-heights", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/clifton-heights/medical-menu", "is_active": True, "region": "pennsylvania"},
+    {"name": "Zen Leaf Cranberry Twp PA", "slug": "zen-leaf-pa-cranberry", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/cranberry-township/medical-menu", "is_active": True, "region": "pennsylvania"},
+    {"name": "Zen Leaf Fairless Hills PA", "slug": "zen-leaf-pa-fairless-hills", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/fairless-hills/medical-menu", "is_active": True, "region": "pennsylvania"},
+    {"name": "Zen Leaf Monroeville PA", "slug": "zen-leaf-pa-monroeville", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/monroeville/medical-menu", "is_active": True, "region": "pennsylvania"},
+    {"name": "Zen Leaf New Kensington PA", "slug": "zen-leaf-pa-new-kensington", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/new-kensington/medical-menu", "is_active": True, "region": "pennsylvania"},
+    {"name": "Zen Leaf Norristown PA", "slug": "zen-leaf-pa-norristown", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/norristown/medical-menu", "is_active": True, "region": "pennsylvania"},
+    {"name": "Zen Leaf Philadelphia PA", "slug": "zen-leaf-pa-philly", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/philadelphia/medical-menu", "is_active": True, "region": "pennsylvania"},
+    {"name": "Zen Leaf Sellersville PA", "slug": "zen-leaf-pa-sellersville", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/sellersville/medical-menu", "is_active": True, "region": "pennsylvania"},
+    {"name": "Zen Leaf Washington PA", "slug": "zen-leaf-pa-washington", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/washington/medical-menu", "is_active": True, "region": "pennsylvania"},
+    {"name": "Zen Leaf West Chester PA", "slug": "zen-leaf-pa-west-chester", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/west-chester/medical-menu", "is_active": True, "region": "pennsylvania"},
+    {"name": "Zen Leaf York PA", "slug": "zen-leaf-pa-york", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/york/medical-menu", "is_active": True, "region": "pennsylvania"},
+
+    # ── NJ JANE EXPANSION — Rise stores via Jane (bypasses Cloudflare)
+    {"name": "Rise Bloomfield NJ AU (Jane)", "slug": "rise-nj-bloomfield-jane-au", "platform": "jane", "url": "https://www.iheartjane.com/stores/4439/rise-dispensaries-bloomfield-adult-use/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Rise Bloomfield NJ Med (Jane)", "slug": "rise-nj-bloomfield-jane-med", "platform": "jane", "url": "https://www.iheartjane.com/stores/3422/rise-dispensaries-bloomfield-medical/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Rise Paterson NJ AU (Jane)", "slug": "rise-nj-paterson-jane-au", "platform": "jane", "url": "https://www.iheartjane.com/stores/4440/rise-dispensaries-paterson-adult-use/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Rise Paterson NJ Med (Jane)", "slug": "rise-nj-paterson-jane-med", "platform": "jane", "url": "https://www.iheartjane.com/stores/1317/rise-dispensaries-paterson-medical/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Rise Paramus NJ (Jane)", "slug": "rise-nj-paramus-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/2446/rise-dispensaries-paramus/menu", "is_active": True, "region": "new-jersey"},
+
+    # ── NJ JANE EXPANSION — Cannabist, Breakwater, KushKlub ─────────
+    {"name": "Cannabist Vineland NJ Med", "slug": "cannabist-nj-vineland-med", "platform": "jane", "url": "https://www.iheartjane.com/stores/1811/cannabist-vineland-medical/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Cannabist Vineland NJ Rec", "slug": "cannabist-nj-vineland-rec", "platform": "jane", "url": "https://www.iheartjane.com/stores/4460/cannabist-vineland-rec/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Breakwater Cranbury NJ", "slug": "breakwater-nj-cranbury", "platform": "jane", "url": "https://www.iheartjane.com/stores/1505/breakwater-treatment-wellness-cranbury/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Breakwater Roselle Park NJ", "slug": "breakwater-nj-roselle-park", "platform": "jane", "url": "https://www.iheartjane.com/stores/4777/breakwater-treatment-wellness-roselle-park/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "KushKlub Jersey City NJ", "slug": "kushklub-nj-jersey-city", "platform": "jane", "url": "https://www.iheartjane.com/stores/6882/kushklub-jersey-city-nj/menu", "is_active": True, "region": "new-jersey"},
+
+    # ── NJ DUTCHIE EXPANSION — 8 new stores ─────────────────────────
+    {"name": "Everest Dispensary AC NJ", "slug": "everest-nj-ac", "platform": "dutchie", "url": "https://dutchie.com/dispensary/everest-dispensary", "is_active": True, "region": "new-jersey"},
+    {"name": "Design 710 REC AC NJ", "slug": "design-710-nj-ac", "platform": "dutchie", "url": "https://dutchie.com/dispensary/design-710-rec", "is_active": True, "region": "new-jersey"},
+    {"name": "Peaches Garden AC NJ", "slug": "peaches-garden-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/peaches-garden", "is_active": True, "region": "new-jersey"},
+    {"name": "Moja Life Trenton NJ", "slug": "moja-life-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/moja-life", "is_active": True, "region": "new-jersey"},
+    {"name": "Rush Budz S Bound Brook NJ", "slug": "rush-budz-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/shopnew-jersey-pickup", "is_active": True, "region": "new-jersey"},
+    {"name": "Got Your Six Princeton NJ", "slug": "got-your-six-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/got-your-six-llc", "is_active": True, "region": "new-jersey"},
+    {"name": "Mister Jones Little Falls NJ", "slug": "mister-jones-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/mister-jones-new-jersey", "is_active": True, "region": "new-jersey"},
+    {"name": "Green Oasis Atco NJ", "slug": "green-oasis-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cannabis-nj", "is_active": True, "region": "new-jersey"},
+
+    # ── MA DUTCHIE EXPANSION — 27 new stores ────────────────────────
+    {"name": "Canna Provisions Holyoke MA", "slug": "canna-provisions-ma-holyoke", "platform": "dutchie", "url": "https://dutchie.com/dispensary/canna-provisions-holyoke", "is_active": True, "region": "massachusetts"},
+    {"name": "Redi Newton MA", "slug": "redi-ma-newton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/redi", "is_active": True, "region": "massachusetts"},
+    {"name": "Honey Northampton MA", "slug": "honey-ma-northampton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/honey-northhampton", "is_active": True, "region": "massachusetts"},
+    {"name": "The Boston Garden Cambridge MA", "slug": "boston-garden-ma-cambridge", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-boston-garden-cambridge", "is_active": True, "region": "massachusetts"},
+    {"name": "The Boston Garden Somerville MA", "slug": "boston-garden-ma-somerville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-boston-garden-somerville", "is_active": True, "region": "massachusetts"},
+    {"name": "Cookies Worcester MA", "slug": "cookies-ma-worcester", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cookies-worcester", "is_active": True, "region": "massachusetts"},
+    {"name": "Ethos Dorchester MA", "slug": "ethos-ma-dorchester", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ethos-dorchester", "is_active": True, "region": "massachusetts"},
+    {"name": "Ethos Watertown Med MA", "slug": "ethos-ma-watertown-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/Ethos-Watertown-Medical", "is_active": True, "region": "massachusetts"},
+    {"name": "Good Chemistry Worcester Rec MA", "slug": "good-chem-ma-worcester-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/good-chemistry", "is_active": True, "region": "massachusetts"},
+    {"name": "Good Chemistry Worcester Med MA", "slug": "good-chem-ma-worcester-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/good-chemistry-med", "is_active": True, "region": "massachusetts"},
+    {"name": "Diem Worcester MA", "slug": "diem-ma-worcester", "platform": "dutchie", "url": "https://dutchie.com/dispensary/diem-worcester", "is_active": True, "region": "massachusetts"},
+    {"name": "Smyth Cannabis Co Lowell MA", "slug": "smyth-ma-lowell", "platform": "dutchie", "url": "https://dutchie.com/dispensary/smyth-cannabis-co", "is_active": True, "region": "massachusetts"},
+    {"name": "Rev Clinics Central Square MA", "slug": "rev-clinics-ma-central-sq", "platform": "dutchie", "url": "https://dutchie.com/dispensary/revolutionary-clinics-central-square", "is_active": True, "region": "massachusetts"},
+    {"name": "Rev Clinics Fresh Pond MA", "slug": "rev-clinics-ma-fresh-pond", "platform": "dutchie", "url": "https://dutchie.com/dispensary/revolutionary-clinics-fresh-pond", "is_active": True, "region": "massachusetts"},
+    {"name": "High Hopes Hopedale MA", "slug": "high-hopes-ma-hopedale", "platform": "dutchie", "url": "https://dutchie.com/dispensary/high-hopes", "is_active": True, "region": "massachusetts"},
+    {"name": "Pettals Attleboro MA", "slug": "pettals-ma-attleboro", "platform": "dutchie", "url": "https://dutchie.com/dispensary/terps-attleboro", "is_active": True, "region": "massachusetts"},
+    {"name": "Pettals Charlton MA", "slug": "pettals-ma-charlton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/terps-charlton", "is_active": True, "region": "massachusetts"},
+    {"name": "Cape Cod Cannabis Wellfleet MA", "slug": "cape-cod-cannabis-ma", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cape-cod-cannabis", "is_active": True, "region": "massachusetts"},
+    {"name": "DDM Cannabis Blackstone MA", "slug": "ddm-ma-blackstone", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ddm-cannabis", "is_active": True, "region": "massachusetts"},
+    {"name": "Smokey Leaf Greenfield MA", "slug": "smokey-leaf-ma-greenfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/smokey-leaf", "is_active": True, "region": "massachusetts"},
+    {"name": "In Good Health Brockton Rec MA", "slug": "igh-ma-brockton-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/in-good-health-brockton", "is_active": True, "region": "massachusetts"},
+    {"name": "In Good Health Brockton Med MA", "slug": "igh-ma-brockton-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/in-good-health-medical", "is_active": True, "region": "massachusetts"},
+    {"name": "In Good Health Taunton Rec MA", "slug": "igh-ma-taunton-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/in-good-health-taunton-rec-dispensary", "is_active": True, "region": "massachusetts"},
+    {"name": "Ascend New Bedford MA", "slug": "ascend-ma-new-bedford", "platform": "dutchie", "url": "https://dutchie.com/dispensary/new-bedford-massachusetts", "is_active": True, "region": "massachusetts"},
+    {"name": "Collective Littleton MA", "slug": "collective-ma-littleton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/community-care-collective1", "is_active": True, "region": "massachusetts"},
+    {"name": "Pure Oasis Blue Hill Boston MA", "slug": "pure-oasis-ma-blue-hill", "platform": "dutchie", "url": "https://dutchie.com/dispensary/pure-oasis1", "is_active": True, "region": "massachusetts"},
+    {"name": "Pure Oasis DTX Boston MA", "slug": "pure-oasis-ma-dtx", "platform": "dutchie", "url": "https://dutchie.com/dispensary/pure-oasis-dtx", "is_active": True, "region": "massachusetts"},
+
+    # ── MA JANE EXPANSION — 4 new stores ────────────────────────────
+    {"name": "Cannabist Lowell Med MA", "slug": "cannabist-ma-lowell-med", "platform": "jane", "url": "https://www.iheartjane.com/stores/733/cannabist-lowell-medical/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Verilife Wareham Rec MA", "slug": "verilife-ma-wareham-rec", "platform": "jane", "url": "https://www.iheartjane.com/stores/2939/verilife-wareham-ma-rec/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Verilife Wareham Med MA", "slug": "verilife-ma-wareham-med", "platform": "jane", "url": "https://www.iheartjane.com/stores/2936/verilife-wareham-ma-med/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Full Harvest Moonz Haverhill MA", "slug": "full-harvest-moonz-ma", "platform": "jane", "url": "https://www.iheartjane.com/stores/2783/full-harvest-moonz", "is_active": True, "region": "massachusetts"},
 ]
 
 # ---------------------------------------------------------------------------
