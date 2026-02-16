@@ -646,6 +646,54 @@ These are the tactical engineering tasks that make the product production-grade.
 - [ ] SLV double age gate may break if Treez changes — monitor
 - [ ] Gamification features (streaks, challenges, milestones) may need tuning based on user feedback
 
+### 10. Security & Abuse Prevention
+
+**Current state (Feb 16, 2026):** Solid foundation in place. Three hardening items shipped today, remaining items sequenced by priority.
+
+#### Shipped
+
+- [x] **Per-IP rate limiting** on all API routes via Next.js edge middleware (sliding window, in-memory Map)
+  - `/api/search`: 20 req/60s (most abusable — arbitrary user queries)
+  - `/api/health`: 30 req/60s (public monitoring, returns status only — no business metrics)
+  - `/api/admin`: 20 req/60s (defense-in-depth behind PIN gate)
+  - `/api/deals`: 10 req/60s (cron-only endpoints)
+- [x] **Health endpoint hardened** — `/api/health` stripped to return only `{status, database, timestamp}`. Full pipeline metrics (deal counts, categories, brands, scores) moved to `/admin/health` behind PIN gate. Competitors can no longer poll business intelligence from the public endpoint
+- [x] **Search routed through API** — `searchExtendedDeals()` now calls `/api/search` server-side instead of querying Supabase directly from the browser. Rate-limited at 20 searches/min per IP. Prevents bots from enumerating the product catalog
+- [x] **Anonymous insert caps** (migration `035_anonymous_insert_rate_limits.sql`) — RLS policies cap daily inserts per anon_id:
+  - `analytics_events`: 500/day
+  - `user_events`: 500/day
+  - `user_saved_deals`: 100/day
+  - `user_dismissed_deals`: 500/day
+  - `deal_reports`: 20/day
+- [x] **Admin PIN gate** — 6-digit PIN with constant-time comparison, 5-attempt server-side lockout (15 min), protects all `/admin/*` routes
+- [x] **Bearer token auth** on deal posting endpoints (`ADMIN_API_KEY`)
+- [x] **Supabase RLS** on all tables — anon reads, service-role writes, user-scoped data
+- [x] **Security headers** — `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`
+- [x] **SQL injection prevention** — `escapeLike()` for search, parameterized queries throughout
+- [x] **Twitter OAuth 1.0a** — HMAC-SHA1 signing, nonce generation, credentials never in logs
+
+#### Before Public Beta (Priority: HIGH)
+
+- [ ] **Run migration `035_anonymous_insert_rate_limits.sql`** on production Supabase
+- [ ] **CSRF protection on admin endpoints** — add `X-Requested-With: XMLHttpRequest` header validation to `/api/admin/verify-pin` and `/api/deals/post`. A malicious site could trigger requests if admin session is active
+- [ ] **Security event logging** — log rate limit hits, failed PIN attempts, and suspicious patterns to Sentry or similar. Currently no audit trail for security events
+- [ ] **Content Security Policy (CSP)** — add CSP header via middleware to reduce XSS surface area
+
+#### Post-Beta (Priority: MEDIUM — first 30 days)
+
+- [ ] **Persistent rate limiting (Upstash Redis)** — current in-memory Map resets on every deploy. Attackers could brute-force during deployment windows. Upstash free tier ($0) provides persistent Redis-backed rate limiting
+- [ ] **Dependency security scanning** — add `npm audit --audit-level=high` and `pip audit` to CI workflows. Currently no automated vulnerability scanning
+- [ ] **Admin PIN rotation** — document quarterly PIN rotation process. Currently a static env var with no expiry
+- [ ] **Rate limit the main data endpoints** — `fetchDeals()` and `fetchDispensaries()` query Supabase directly from the browser. Consider routing through API endpoints with rate limiting, or adding Supabase's built-in rate limiting (pg_net) if available
+
+#### Future (Priority: LOW — when scaling)
+
+- [ ] **Cloudflare Bot Management** — when traffic justifies it, add bot detection and challenge pages
+- [ ] **Proper OAuth for admin** — replace PIN gate with Google OAuth or Supabase Auth magic links for multi-admin support
+- [ ] **API key management** — rotate keys automatically, support multiple keys for different services (cron, admin, monitoring)
+- [ ] **Database request signing** — verify that API requests to Supabase are coming from our frontend, not spoofed
+- [ ] **Disable Supabase SQL Playground** — in production settings, ensure the public SQL editor is not accessible
+
 ---
 
 ## What's Next — Full Roadmap

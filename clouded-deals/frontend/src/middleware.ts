@@ -22,7 +22,9 @@ interface RateBucket {
 const rateLimitStore = new Map<string, RateBucket>();
 
 const RATE_LIMITS: Record<string, { windowMs: number; maxRequests: number }> = {
-  // Public health endpoint — generous but capped
+  // Search endpoint — most abusable (arbitrary user input, broad queries)
+  "/api/search": { windowMs: 60_000, maxRequests: 20 },
+  // Public health endpoint — generous but capped (returns status only, no metrics)
   "/api/health": { windowMs: 60_000, maxRequests: 30 },
   // Admin endpoints — tighter limits (already has auth, this is defense-in-depth)
   "/api/admin": { windowMs: 60_000, maxRequests: 20 },
