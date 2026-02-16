@@ -924,10 +924,14 @@ class CloudedLogic:
         # 6. VAPE
         # Use word-boundary regex to prevent false positives from
         # substrings (e.g. "pen" matching "Aspen", "open", "expend").
+        # IMPORTANT: all-in-one pattern must handle all variations
+        # (hyphens, spaces, no separator) — same as the vape exclusion
+        # in step 4.  Without this, "All In One 0.5g" falls through to
+        # step 9 (weight-based inference) and gets classified as concentrate.
         edible_keywords = ['gummies', 'gummy', 'chocolate', 'candy', 'brownie',
                           'chews', 'chew', 'taffy', 'lozenge', 'lozenges',
                           'drops', 'tarts', 'bites', 'pieces', 'mints']
-        if re.search(r'\b(cart|cartridge|pod|disposable|vape|pen|all-in-one)\b', t):
+        if re.search(r'\b(cart|cartridge|pod|disposable|vape|pen|all[- ]?in[- ]?one|aio|ready[- ]?to[- ]?use)\b', t):
             if not any(w in t for w in edible_keywords):
                 return 'vape'
 
