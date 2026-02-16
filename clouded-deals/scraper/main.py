@@ -106,6 +106,14 @@ REGION = os.getenv("REGION", "all").lower()
 # Key = base region name, value = total number of shards.
 REGION_SHARDS: dict[str, int] = {
     "michigan": 4,
+    "illinois": 3,
+    "colorado": 3,
+    "massachusetts": 2,
+    "new-jersey": 2,
+    "arizona": 2,
+    "missouri": 2,
+    "ohio": 2,
+    "new-york": 2,
 }
 
 if not SUPABASE_URL or not SUPABASE_KEY:

@@ -1,22 +1,22 @@
 """
 Dispensary configuration across 11 regions and 5 active platforms.
 
-Regions (918 active):
-  - southern-nv:    53 dispensaries (Dutchie/Jane/Carrot/Curaleaf/Zen Leaf/AIQ)
+Regions (1143 active):
   - michigan:      196 dispensaries (Dutchie-dominant)
   - illinois:      165 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - colorado:      133 dispensaries (Dutchie + Jane)
+  - massachusetts: 111 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - new-jersey:    102 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
   - arizona:        99 dispensaries (Dutchie + Curaleaf/Zen Leaf + Jane)
   - missouri:       89 dispensaries (Dutchie-only)
-  - new-jersey:    102 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
-  - ohio:           23 dispensaries (Dutchie + Curaleaf/Zen Leaf + Jane)
-  - colorado:       17 dispensaries (Dutchie + Jane)
-  - new-york:       20 dispensaries (Dutchie + Jane + Curaleaf)
-  - massachusetts: 111 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - ohio:           78 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - new-york:       74 dispensaries (Dutchie + Jane + Curaleaf)
+  - southern-nv:    53 dispensaries (Dutchie/Jane/Carrot/Curaleaf/Zen Leaf/AIQ)
   - pennsylvania:   43 dispensaries (Curaleaf/Zen Leaf + Dutchie)
 
-Platforms (918 active / 967 total):
-  - dutchie: ~683 — iframe-based menus (Dutchie/TD sites)
-  - jane:    ~119 — hybrid iframe/direct with "View More" pagination
+Platforms (1143 active / 1192 total):
+  - dutchie: ~846 — iframe-based menus (Dutchie/TD sites)
+  - jane:    ~181 — hybrid iframe/direct with "View More" pagination
   - curaleaf: ~109 — direct page loads (Curaleaf + Zen Leaf)
   - rise:        0 — ALL DEACTIVATED (100% Cloudflare blocked)
   - carrot:      5 — JS widget via getcarrot.io
@@ -2041,6 +2041,255 @@ DISPENSARIES = [
     # ── MA WAVE 3 JANE — remaining from research agent ──────────────
     {"name": "Full Harvest Moonz Lowell MA", "slug": "full-harvest-moonz-ma-lowell", "platform": "jane", "url": "https://www.iheartjane.com/stores/4813/full-harvest-moonz-lowell", "is_active": True, "region": "massachusetts"},
     {"name": "Verilife Shrewsbury Med MA", "slug": "verilife-ma-shrewsbury-med", "platform": "jane", "url": "https://www.iheartjane.com/stores/3731/verilife-shrewsbury-ma-med/menu", "is_active": True, "region": "massachusetts"},
+
+    # ═════════════════════════════════════════════════════════════════════
+    # WAVE 4 — Ohio expansion (+55 net new)
+    # ═════════════════════════════════════════════════════════════════════
+
+    # ── OH DUTCHIE ─────────────────────────────────────────────────────
+    {"name": "Ascend Cincinnati OH", "slug": "ascend-oh-cincinnati", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ascend-cincinnati-ohio", "is_active": True, "region": "ohio"},
+    {"name": "Ascend Sandusky OH", "slug": "ascend-oh-sandusky", "platform": "dutchie", "url": "https://dutchie.com/dispensary/sandusky-ohio", "is_active": True, "region": "ohio"},
+    {"name": "Amplify Columbus OH", "slug": "amplify-oh-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/amplify-columbus", "is_active": True, "region": "ohio"},
+    {"name": "Amplify Coventry OH", "slug": "amplify-oh-coventry", "platform": "dutchie", "url": "https://dutchie.com/dispensary/amplify-coventry", "is_active": True, "region": "ohio"},
+    {"name": "Amplify Eastlake OH", "slug": "amplify-oh-eastlake", "platform": "dutchie", "url": "https://dutchie.com/dispensary/amplify-eastlake-llc-dba-amplify", "is_active": True, "region": "ohio"},
+    {"name": "Certified Cleveland OH", "slug": "certified-oh-cleveland", "platform": "dutchie", "url": "https://dutchie.com/dispensary/certified-cleveland", "is_active": True, "region": "ohio"},
+    {"name": "Certified Columbus OH", "slug": "certified-oh-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/certified-columbus", "is_active": True, "region": "ohio"},
+    {"name": "Certified Springfield OH", "slug": "certified-oh-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/certified-springfield", "is_active": True, "region": "ohio"},
+    {"name": "Queen City Cannabis Harrison OH", "slug": "queen-city-oh-harrison", "platform": "dutchie", "url": "https://dutchie.com/dispensary/canoe-hill-dispensary-harrison", "is_active": True, "region": "ohio"},
+    {"name": "Queen City Cannabis Norwood OH", "slug": "queen-city-oh-norwood", "platform": "dutchie", "url": "https://dutchie.com/dispensary/canoe-hill-dispensary-norwood", "is_active": True, "region": "ohio"},
+    {"name": "Culture Cannabis Akron OH", "slug": "culture-cannabis-oh-akron", "platform": "dutchie", "url": "https://dutchie.com/dispensary/culture-cannabis-club-akron", "is_active": True, "region": "ohio"},
+    {"name": "Daily Releaf Dayton OH", "slug": "daily-releaf-oh-dayton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/daily-releaf", "is_active": True, "region": "ohio"},
+    {"name": "Good River Wellness Euclid OH", "slug": "good-river-oh-euclid", "platform": "dutchie", "url": "https://dutchie.com/dispensary/good-river-wellness", "is_active": True, "region": "ohio"},
+    {"name": "Green Releaf Dayton OH", "slug": "green-releaf-oh-dayton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-releaf-dispensary-dayton", "is_active": True, "region": "ohio"},
+    {"name": "Harvest Columbus OH", "slug": "harvest-oh-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/harvest-of-columbus", "is_active": True, "region": "ohio"},
+    {"name": "Leaf Relief Boardman OH", "slug": "leaf-relief-oh-boardman", "platform": "dutchie", "url": "https://dutchie.com/dispensary/leaf-relief1", "is_active": True, "region": "ohio"},
+    {"name": "Landing Columbus OH", "slug": "landing-oh-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/columbus-ohio", "is_active": True, "region": "ohio"},
+    {"name": "Landing Cleveland OH", "slug": "landing-oh-cleveland", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-landing-dispensary-cleveland", "is_active": True, "region": "ohio"},
+    {"name": "Landing Monroe OH", "slug": "landing-oh-monroe", "platform": "dutchie", "url": "https://dutchie.com/dispensary/monroe-ohio", "is_active": True, "region": "ohio"},
+    {"name": "Nectar Bowling Green OH", "slug": "nectar-oh-bowling-green", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nectar-bowling-green", "is_active": True, "region": "ohio"},
+    {"name": "Nectar Cincinnati OH", "slug": "nectar-oh-cincinnati", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nectar-cincinnati", "is_active": True, "region": "ohio"},
+    {"name": "Off The Charts Dayton OH", "slug": "otc-oh-dayton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/otc-ohio", "is_active": True, "region": "ohio"},
+    {"name": "OCC Piqua OH", "slug": "occ-oh-piqua", "platform": "dutchie", "url": "https://dutchie.com/dispensary/piqua-ohio", "is_active": True, "region": "ohio"},
+    {"name": "Shangri-La Cleveland OH", "slug": "shangri-la-oh-cleveland", "platform": "dutchie", "url": "https://dutchie.com/dispensary/shangri-la-cleveland", "is_active": True, "region": "ohio"},
+    {"name": "Shangri-La Delphos OH", "slug": "shangri-la-oh-delphos", "platform": "dutchie", "url": "https://dutchie.com/dispensary/shangri-la-delphos", "is_active": True, "region": "ohio"},
+    {"name": "Shangri-La Norwalk OH", "slug": "shangri-la-oh-norwalk", "platform": "dutchie", "url": "https://dutchie.com/dispensary/shangri-la-norwalk", "is_active": True, "region": "ohio"},
+    {"name": "Southern Ohio Botanicals OH", "slug": "southern-oh-botanicals", "platform": "dutchie", "url": "https://dutchie.com/dispensary/southern-ohio-botanicals", "is_active": True, "region": "ohio"},
+    {"name": "Supergood Ravenna OH", "slug": "supergood-oh-ravenna", "platform": "dutchie", "url": "https://dutchie.com/dispensary/supergood-ravenna", "is_active": True, "region": "ohio"},
+    {"name": "Terrasana Garfield OH", "slug": "terrasana-oh-garfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/terrasana-garfield", "is_active": True, "region": "ohio"},
+    {"name": "Terrasana Springfield OH", "slug": "terrasana-oh-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/terrasana-springfield", "is_active": True, "region": "ohio"},
+    {"name": "The Vault Zanesville OH", "slug": "vault-oh-zanesville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-vault-medrec", "is_active": True, "region": "ohio"},
+    {"name": "Therapy Cincinnati OH", "slug": "therapy-oh-cincinnati", "platform": "dutchie", "url": "https://dutchie.com/dispensary/therapy-cincinnati", "is_active": True, "region": "ohio"},
+    {"name": "Therapy Cleveland OH", "slug": "therapy-oh-cleveland", "platform": "dutchie", "url": "https://dutchie.com/dispensary/therapy-cleveland", "is_active": True, "region": "ohio"},
+    {"name": "Trulieve Findlay OH", "slug": "trulieve-oh-findlay", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trulieve-findlay", "is_active": True, "region": "ohio"},
+    {"name": "Trulieve Westerville OH", "slug": "trulieve-oh-westerville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trulieve-medical-marijuana-dispensary-westerville", "is_active": True, "region": "ohio"},
+    {"name": "Trulieve Zanesville OH", "slug": "trulieve-oh-zanesville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trulieve-zanesville", "is_active": True, "region": "ohio"},
+
+    # ── OH JANE ────────────────────────────────────────────────────────
+    {"name": "Botanist Akron OH", "slug": "botanist-oh-akron", "platform": "jane", "url": "https://www.iheartjane.com/stores/1666/the-botanist-akron-oh-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "Botanist Columbus OH", "slug": "botanist-oh-columbus", "platform": "jane", "url": "https://www.iheartjane.com/stores/1667/the-botanist-columbus/menu", "is_active": True, "region": "ohio"},
+    {"name": "Botanist Cleveland OH", "slug": "botanist-oh-cleveland", "platform": "jane", "url": "https://www.iheartjane.com/stores/1668/the-botanist-cleveland/menu", "is_active": True, "region": "ohio"},
+    {"name": "Botanist Wickliffe OH", "slug": "botanist-oh-wickliffe", "platform": "jane", "url": "https://www.iheartjane.com/stores/743/the-botanist-wickliffe/menu", "is_active": True, "region": "ohio"},
+    {"name": "Botanist Canton OH", "slug": "botanist-oh-canton", "platform": "jane", "url": "https://www.iheartjane.com/stores/744/the-botanist-canton/menu", "is_active": True, "region": "ohio"},
+    {"name": "Certified AU Cleveland OH", "slug": "certified-oh-au", "platform": "jane", "url": "https://www.iheartjane.com/stores/6077/certified-cultivators-ohio-non-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "Bloom Columbus OH", "slug": "bloom-oh-columbus-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/2410/bloom-medicinals-columbus-oh/menu", "is_active": True, "region": "ohio"},
+    {"name": "Bloom Maumee OH", "slug": "bloom-oh-maumee", "platform": "jane", "url": "https://www.iheartjane.com/stores/6003/bloom-medicinals-maumee-oh-rec/menu", "is_active": True, "region": "ohio"},
+    {"name": "Bloom Seven Mile OH", "slug": "bloom-oh-seven-mile", "platform": "jane", "url": "https://www.iheartjane.com/stores/6000/bloom-medicinals-seven-mile-oh-non-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "Bloom Painesville OH", "slug": "bloom-oh-painesville", "platform": "jane", "url": "https://www.iheartjane.com/stores/2866/bloom-medicinals-painesville-oh/menu", "is_active": True, "region": "ohio"},
+    {"name": "Bloom Lockbourne OH", "slug": "bloom-oh-lockbourne", "platform": "jane", "url": "https://www.iheartjane.com/stores/6482/bloom-medicinals-lockbourne-oh-non-med/menu", "is_active": True, "region": "ohio"},
+    {"name": "Sunnyside Wintersville OH", "slug": "sunnyside-oh-wintersville", "platform": "jane", "url": "https://www.iheartjane.com/stores/5026/sunnyside-medical-marijuana-dispensary-wintersville/menu", "is_active": True, "region": "ohio"},
+    {"name": "Sunnyside Cincinnati OH", "slug": "sunnyside-oh-cincinnati", "platform": "jane", "url": "https://www.iheartjane.com/stores/5036/sunnyside-medical-marijuana-dispensary-cincinnati/menu", "is_active": True, "region": "ohio"},
+    {"name": "Sunnyside Chillicothe OH", "slug": "sunnyside-oh-chillicothe", "platform": "jane", "url": "https://www.iheartjane.com/stores/5049/sunnyside-medical-marijuana-dispensary-chillicothe/menu", "is_active": True, "region": "ohio"},
+    {"name": "Pure Ohio Wellness London OH", "slug": "pure-ohio-london", "platform": "jane", "url": "https://www.iheartjane.com/stores/6054/pure-ohio-wellness-london-non-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "Verilife Hillsboro OH", "slug": "verilife-oh-hillsboro", "platform": "jane", "url": "https://www.iheartjane.com/stores/6048/verilife-hillsboro-oh-non-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "Verilife Wapakoneta OH", "slug": "verilife-oh-wapakoneta", "platform": "jane", "url": "https://www.iheartjane.com/stores/6047/verilife-wapakoneta-oh-non-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "Consume Oxford OH", "slug": "consume-oh-oxford", "platform": "jane", "url": "https://www.iheartjane.com/stores/6098/consume-cannabis-oxford-non-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "Cannabist St Clairsville OH", "slug": "cannabist-oh-st-clairsville", "platform": "jane", "url": "https://www.iheartjane.com/stores/6705/cannabist-st-clairsville-adult-use/menu", "is_active": True, "region": "ohio"},
+
+    # ═════════════════════════════════════════════════════════════════════
+    # WAVE 4 — Colorado expansion (+114 net new)
+    # ═════════════════════════════════════════════════════════════════════
+
+    # ── CO DUTCHIE ─────────────────────────────────────────────────────
+    {"name": "Ajoya W Colfax CO", "slug": "ajoya-co-colfax", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ajoya-w-colfax-rec", "is_active": True, "region": "colorado"},
+    {"name": "Ajoya Dillon Rd CO", "slug": "ajoya-co-dillon", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ajoya-w-dillon-rd-recreational", "is_active": True, "region": "colorado"},
+    {"name": "B Good Englewood CO", "slug": "bgood-co-englewood", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bgood-englewood", "is_active": True, "region": "colorado"},
+    {"name": "Callie's Cannabis Shoppe CO", "slug": "callies-co-main", "platform": "dutchie", "url": "https://dutchie.com/dispensary/callies-cannabis-shoppe", "is_active": True, "region": "colorado"},
+    {"name": "Callie's Cannabis RiNo CO", "slug": "callies-co-rino", "platform": "dutchie", "url": "https://dutchie.com/dispensary/callies-cannabis-shoppe-rino", "is_active": True, "region": "colorado"},
+    {"name": "Cannabis Station Denver CO", "slug": "cannabis-station-co-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cannabis-station", "is_active": True, "region": "colorado"},
+    {"name": "Colorado Grow Company Durango CO", "slug": "co-grow-durango", "platform": "dutchie", "url": "https://dutchie.com/dispensary/colorado-grow-company", "is_active": True, "region": "colorado"},
+    {"name": "Colorado Harvest Kalamath CO", "slug": "coharvest-kalamath", "platform": "dutchie", "url": "https://dutchie.com/dispensary/colorado-harvest-company---kalamath", "is_active": True, "region": "colorado"},
+    {"name": "Colorado Harvest Yale CO", "slug": "coharvest-yale", "platform": "dutchie", "url": "https://dutchie.com/dispensary/colorado-harvest-company-yale", "is_active": True, "region": "colorado"},
+    {"name": "Colorado Weedery Palisade CO", "slug": "co-weedery-palisade", "platform": "dutchie", "url": "https://dutchie.com/dispensary/colorado-weedery", "is_active": True, "region": "colorado"},
+    {"name": "Colorado Weedery Grand Junction CO", "slug": "co-weedery-gj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/colorado-weedery-grand-junction", "is_active": True, "region": "colorado"},
+    {"name": "Cookies Commerce City CO", "slug": "cookies-co-commerce-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cookies-commerce-city", "is_active": True, "region": "colorado"},
+    {"name": "Den Rec Larimer CO", "slug": "den-rec-co-larimer", "platform": "dutchie", "url": "https://dutchie.com/dispensary/den-rec-larimer", "is_active": True, "region": "colorado"},
+    {"name": "Elevations Rec Colorado Springs CO", "slug": "elevations-co-cos-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/elevations-rec", "is_active": True, "region": "colorado"},
+    {"name": "Golden Meds Broadway CO", "slug": "golden-meds-co-broadway", "platform": "dutchie", "url": "https://dutchie.com/dispensary/golden-meds-broadway", "is_active": True, "region": "colorado"},
+    {"name": "Golden Meds Colorado Springs CO", "slug": "golden-meds-co-cos", "platform": "dutchie", "url": "https://dutchie.com/dispensary/golden-meds-colorado-springs", "is_active": True, "region": "colorado"},
+    {"name": "Golden Meds Peoria CO", "slug": "golden-meds-co-peoria", "platform": "dutchie", "url": "https://dutchie.com/dispensary/golden-meds-peoria", "is_active": True, "region": "colorado"},
+    {"name": "Good Chemistry 15th St CO", "slug": "good-chem-co-15th", "platform": "dutchie", "url": "https://dutchie.com/dispensary/good-chemistry-15th-st", "is_active": True, "region": "colorado"},
+    {"name": "Good Chemistry Aurora CO", "slug": "good-chem-co-aurora", "platform": "dutchie", "url": "https://dutchie.com/dispensary/good-chemistry-aurora", "is_active": True, "region": "colorado"},
+    {"name": "Good Chemistry Colfax CO", "slug": "good-chem-co-colfax", "platform": "dutchie", "url": "https://dutchie.com/dispensary/good-chemistry-colfax", "is_active": True, "region": "colorado"},
+    {"name": "Good Chemistry S Broadway CO", "slug": "good-chem-co-s-broadway", "platform": "dutchie", "url": "https://dutchie.com/dispensary/good-chemistry-south-broadway", "is_active": True, "region": "colorado"},
+    {"name": "Good Meds Englewood CO", "slug": "good-meds-co-englewood", "platform": "dutchie", "url": "https://dutchie.com/dispensary/good-meds-englewood", "is_active": True, "region": "colorado"},
+    {"name": "House of Dankness Denver CO", "slug": "house-dankness-co-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/house-of-dankness", "is_active": True, "region": "colorado"},
+    {"name": "JARS Longmont CO", "slug": "jars-co-longmont", "platform": "dutchie", "url": "https://dutchie.com/dispensary/jars-longmont", "is_active": True, "region": "colorado"},
+    {"name": "JARS Mile High CO", "slug": "jars-co-mile-high", "platform": "dutchie", "url": "https://dutchie.com/dispensary/jars-mile-high", "is_active": True, "region": "colorado"},
+    {"name": "Kind Love Alameda CO", "slug": "kind-love-co-alameda", "platform": "dutchie", "url": "https://dutchie.com/dispensary/kind-love-alameda", "is_active": True, "region": "colorado"},
+    {"name": "Kind Love Peoria CO", "slug": "kind-love-co-peoria", "platform": "dutchie", "url": "https://dutchie.com/dispensary/kind-love-peoria", "is_active": True, "region": "colorado"},
+    {"name": "Kind Meds Colorado Springs CO", "slug": "kind-meds-co-cos", "platform": "dutchie", "url": "https://dutchie.com/dispensary/kind-meds-colorado-springs", "is_active": True, "region": "colorado"},
+    {"name": "Levels Lakewood CO", "slug": "levels-co-lakewood", "platform": "dutchie", "url": "https://dutchie.com/dispensary/levels-lakewood", "is_active": True, "region": "colorado"},
+    {"name": "Levels Sheridan CO", "slug": "levels-co-sheridan", "platform": "dutchie", "url": "https://dutchie.com/dispensary/levels-sheridan", "is_active": True, "region": "colorado"},
+    {"name": "Lightshade 6th Ave CO", "slug": "lightshade-co-6th", "platform": "dutchie", "url": "https://dutchie.com/dispensary/lightshade-6th-rec-dispensary", "is_active": True, "region": "colorado"},
+    {"name": "Lightshade Evans CO", "slug": "lightshade-co-evans", "platform": "dutchie", "url": "https://dutchie.com/dispensary/lightshade-evans-rec-and-med-dispensary", "is_active": True, "region": "colorado"},
+    {"name": "Lightshade Federal Heights CO", "slug": "lightshade-co-federal", "platform": "dutchie", "url": "https://dutchie.com/dispensary/lightshade-federal-heights-rec-dispensary", "is_active": True, "region": "colorado"},
+    {"name": "Lightshade Sheridan CO", "slug": "lightshade-co-sheridan", "platform": "dutchie", "url": "https://dutchie.com/dispensary/lightshade-sheridan-rec-and-med-dispensary", "is_active": True, "region": "colorado"},
+    {"name": "LiveWell Broadway CO", "slug": "livewell-co-broadway", "platform": "dutchie", "url": "https://dutchie.com/dispensary/livewell-cannabis-dispensary-broadway", "is_active": True, "region": "colorado"},
+    {"name": "LiveWell Hawthorne CO", "slug": "livewell-co-hawthorne", "platform": "dutchie", "url": "https://dutchie.com/dispensary/livewell-cannabis-dispensary-hawthorne", "is_active": True, "region": "colorado"},
+    {"name": "Lucky Me Grand Junction CO", "slug": "lucky-me-co-gj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/lucky-me-grand-junction-rec", "is_active": True, "region": "colorado"},
+    {"name": "Lucy Sky Federal CO", "slug": "lucy-sky-co-federal", "platform": "dutchie", "url": "https://dutchie.com/dispensary/lucy-sky-cannabis-boutique-federal", "is_active": True, "region": "colorado"},
+    {"name": "Magnolia Road Broomfield CO", "slug": "magnolia-co-broomfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/magnolia-road-broomfield", "is_active": True, "region": "colorado"},
+    {"name": "Magnolia Road Trinidad CO", "slug": "magnolia-co-trinidad", "platform": "dutchie", "url": "https://dutchie.com/dispensary/magnolia-road-cannabis-company-trinidad", "is_active": True, "region": "colorado"},
+    {"name": "Magnolia Road Colorado Springs CO", "slug": "magnolia-co-cos", "platform": "dutchie", "url": "https://dutchie.com/dispensary/magnolia-road-colorado-springs-rec", "is_active": True, "region": "colorado"},
+    {"name": "Magnolia Road Log Lane CO", "slug": "magnolia-co-log-lane", "platform": "dutchie", "url": "https://dutchie.com/dispensary/magnolia-road-log-lane", "is_active": True, "region": "colorado"},
+    {"name": "Mammoth Farms Durango CO", "slug": "mammoth-co-durango", "platform": "dutchie", "url": "https://dutchie.com/dispensary/mammoth-farms-durango", "is_active": True, "region": "colorado"},
+    {"name": "Mana Supply CO", "slug": "mana-co-supply", "platform": "dutchie", "url": "https://dutchie.com/dispensary/mana-supply-co-colorado", "is_active": True, "region": "colorado"},
+    {"name": "Medicine Man Aurora CO", "slug": "medicine-man-co-aurora", "platform": "dutchie", "url": "https://dutchie.com/dispensary/medicine-man-aurora", "is_active": True, "region": "colorado"},
+    {"name": "Medicine Man Longmont CO", "slug": "medicine-man-co-longmont", "platform": "dutchie", "url": "https://dutchie.com/dispensary/medicine-man-longmont", "is_active": True, "region": "colorado"},
+    {"name": "Medicine Man Thornton CO", "slug": "medicine-man-co-thornton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/medicine-man-thornton", "is_active": True, "region": "colorado"},
+    {"name": "Native Roots Aspen CO", "slug": "native-roots-co-aspen", "platform": "dutchie", "url": "https://dutchie.com/dispensary/native-roots-aspen", "is_active": True, "region": "colorado"},
+    {"name": "Native Roots Austin Bluffs CO", "slug": "native-roots-co-austin-bluffs", "platform": "dutchie", "url": "https://dutchie.com/dispensary/native-roots-austin-bluffs", "is_active": True, "region": "colorado"},
+    {"name": "Native Roots Grand Junction CO", "slug": "native-roots-co-gj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/native-roots-grand-junction-recreational", "is_active": True, "region": "colorado"},
+    {"name": "Native Roots Highlands CO", "slug": "native-roots-co-highlands", "platform": "dutchie", "url": "https://dutchie.com/dispensary/native-roots-highlands", "is_active": True, "region": "colorado"},
+    {"name": "Native Roots Littleton CO", "slug": "native-roots-co-littleton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/native-roots-littleton", "is_active": True, "region": "colorado"},
+    {"name": "Native Roots Longmont CO", "slug": "native-roots-co-longmont", "platform": "dutchie", "url": "https://dutchie.com/dispensary/native-roots-longmont", "is_active": True, "region": "colorado"},
+    {"name": "Native Roots North Denver CO", "slug": "native-roots-co-north-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/native-roots-north-denver", "is_active": True, "region": "colorado"},
+    {"name": "Native Roots South Denver CO", "slug": "native-roots-co-south-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/native-roots-south-denver", "is_active": True, "region": "colorado"},
+    {"name": "Native Roots Tower CO", "slug": "native-roots-co-tower", "platform": "dutchie", "url": "https://dutchie.com/dispensary/native-roots-tower", "is_active": True, "region": "colorado"},
+    {"name": "Native Roots Trinidad CO", "slug": "native-roots-co-trinidad", "platform": "dutchie", "url": "https://dutchie.com/dispensary/native-roots-trinidad", "is_active": True, "region": "colorado"},
+    {"name": "Reefer Madness 46th CO", "slug": "reefer-madness-co-46th", "platform": "dutchie", "url": "https://dutchie.com/dispensary/reefer-madness-46th-recreational", "is_active": True, "region": "colorado"},
+    {"name": "Reefer Madness Broadway CO", "slug": "reefer-madness-co-broadway", "platform": "dutchie", "url": "https://dutchie.com/dispensary/reefer-madness-broadway-rec", "is_active": True, "region": "colorado"},
+    {"name": "Rocky Mountain High Alameda CO", "slug": "rmh-co-alameda", "platform": "dutchie", "url": "https://dutchie.com/dispensary/rocky-mountain-high-alameda", "is_active": True, "region": "colorado"},
+    {"name": "Rocky Mountain High LoDo CO", "slug": "rmh-co-lodo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/rocky-mountain-high-lodo", "is_active": True, "region": "colorado"},
+    {"name": "Rocky Mountain High Montrose CO", "slug": "rmh-co-montrose", "platform": "dutchie", "url": "https://dutchie.com/dispensary/rocky-mountain-high-montrose", "is_active": True, "region": "colorado"},
+    {"name": "Rocky Road Thornton CO", "slug": "rocky-road-co-thornton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/rocky-road-thornton", "is_active": True, "region": "colorado"},
+    {"name": "SilverPeak Denver CO", "slug": "silverpeak-co-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/silverpeak", "is_active": True, "region": "colorado"},
+    {"name": "Snaxland Boulder CO", "slug": "snaxland-co-boulder", "platform": "dutchie", "url": "https://dutchie.com/dispensary/snaxland-boulder", "is_active": True, "region": "colorado"},
+    {"name": "Snaxland Denver CO", "slug": "snaxland-co-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/snaxland-denver", "is_active": True, "region": "colorado"},
+    {"name": "Snaxland Federal Blvd CO", "slug": "snaxland-co-federal", "platform": "dutchie", "url": "https://dutchie.com/dispensary/snaxland-federal-blvd", "is_active": True, "region": "colorado"},
+    {"name": "Starbuds Commerce City CO", "slug": "starbuds-co-commerce-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/starbuds-commerce-city", "is_active": True, "region": "colorado"},
+    {"name": "Starbuds Longmont CO", "slug": "starbuds-co-longmont", "platform": "dutchie", "url": "https://dutchie.com/dispensary/starbuds-longmont", "is_active": True, "region": "colorado"},
+    {"name": "Starbuds Pueblo West CO", "slug": "starbuds-co-pueblo-west", "platform": "dutchie", "url": "https://dutchie.com/dispensary/starbuds-pueblo-west", "is_active": True, "region": "colorado"},
+    {"name": "Starbuds SE Aurora CO", "slug": "starbuds-co-se-aurora", "platform": "dutchie", "url": "https://dutchie.com/dispensary/starbuds-se-aurora", "is_active": True, "region": "colorado"},
+    {"name": "TGS Glenwood CO", "slug": "tgs-co-glenwood", "platform": "dutchie", "url": "https://dutchie.com/dispensary/tgs-glenwood", "is_active": True, "region": "colorado"},
+    {"name": "TGS Grape St CO", "slug": "tgs-co-grape-st", "platform": "dutchie", "url": "https://dutchie.com/dispensary/tgs-grape-st", "is_active": True, "region": "colorado"},
+    {"name": "TGS Montview CO", "slug": "tgs-co-montview", "platform": "dutchie", "url": "https://dutchie.com/dispensary/tgs-montview", "is_active": True, "region": "colorado"},
+    {"name": "TGS Peoria CO", "slug": "tgs-co-peoria", "platform": "dutchie", "url": "https://dutchie.com/dispensary/tgs-peoria", "is_active": True, "region": "colorado"},
+    {"name": "TGS Quincy CO", "slug": "tgs-co-quincy", "platform": "dutchie", "url": "https://dutchie.com/dispensary/tgs-quincy", "is_active": True, "region": "colorado"},
+    {"name": "The 404 Pueblo CO", "slug": "the-404-co-pueblo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-404-dispensary", "is_active": True, "region": "colorado"},
+    {"name": "The Dab Downtown CO", "slug": "the-dab-co-downtown", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-dab-downtown1", "is_active": True, "region": "colorado"},
+    {"name": "The Dab Parachute CO", "slug": "the-dab-co-parachute", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-dab-parachute", "is_active": True, "region": "colorado"},
+    {"name": "The Farm North Boulder CO", "slug": "the-farm-co-boulder", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-farm-north", "is_active": True, "region": "colorado"},
+    {"name": "Grand Junction Greenery CO", "slug": "greenery-co-gj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-grand-junction-greenery", "is_active": True, "region": "colorado"},
+    {"name": "Health Center Boulder CO", "slug": "health-center-co-boulder", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-health-center-boulder", "is_active": True, "region": "colorado"},
+    {"name": "The Stone Dispensary CO", "slug": "the-stone-co", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-stone-dispensary1", "is_active": True, "region": "colorado"},
+    {"name": "Tumbleweed Steamboat CO", "slug": "tumbleweed-co-steamboat", "platform": "dutchie", "url": "https://dutchie.com/dispensary/tumbleweed-dispensary-steamboat", "is_active": True, "region": "colorado"},
+    {"name": "Unity Road Boulder CO", "slug": "unity-road-co-boulder", "platform": "dutchie", "url": "https://dutchie.com/dispensary/unity-road-boulder", "is_active": True, "region": "colorado"},
+    {"name": "Verde Natural Boulder CO", "slug": "verde-co-boulder", "platform": "dutchie", "url": "https://dutchie.com/dispensary/verde-natural-boulder", "is_active": True, "region": "colorado"},
+    {"name": "Verde Natural Denver CO", "slug": "verde-co-denver", "platform": "dutchie", "url": "https://dutchie.com/dispensary/verde-natural-denver", "is_active": True, "region": "colorado"},
+    {"name": "Zen Golds Fort Collins CO", "slug": "zengolds-co-fc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/zengolds-fort-collins", "is_active": True, "region": "colorado"},
+
+    # ── CO JANE ────────────────────────────────────────────────────────
+    {"name": "Silver Stem Denver East Rec CO", "slug": "silver-stem-co-east-rec", "platform": "jane", "url": "https://www.iheartjane.com/stores/399/silver-stem-denver-east-rec/menu", "is_active": True, "region": "colorado"},
+    {"name": "Silver Stem Denver South Rec CO", "slug": "silver-stem-co-south-rec", "platform": "jane", "url": "https://www.iheartjane.com/stores/401/silver-stem-denver-south-rec/menu", "is_active": True, "region": "colorado"},
+    {"name": "Silver Stem Fraser CO", "slug": "silver-stem-co-fraser", "platform": "jane", "url": "https://www.iheartjane.com/stores/403/silver-stem-fraser/menu", "is_active": True, "region": "colorado"},
+    {"name": "Silver Stem Nederland CO", "slug": "silver-stem-co-nederland", "platform": "jane", "url": "https://www.iheartjane.com/stores/405/silver-stem-nederland-rec/menu", "is_active": True, "region": "colorado"},
+    {"name": "Silver Stem Littleton Rec CO", "slug": "silver-stem-co-littleton", "platform": "jane", "url": "https://www.iheartjane.com/stores/3063/silver-stem-littleton-rec/menu", "is_active": True, "region": "colorado"},
+    {"name": "Silver Stem Broadmoor CO", "slug": "silver-stem-co-broadmoor", "platform": "jane", "url": "https://www.iheartjane.com/stores/4956/silver-stem-broadmoor-downtown-med/menu", "is_active": True, "region": "colorado"},
+    {"name": "TGS Colfax E Aurora CO", "slug": "tgs-co-jane-colfax", "platform": "jane", "url": "https://www.iheartjane.com/stores/3832/the-green-solution-colfax-ave-east-aurora/menu", "is_active": True, "region": "colorado"},
+    {"name": "TGS Potomac Central Aurora CO", "slug": "tgs-co-jane-potomac", "platform": "jane", "url": "https://www.iheartjane.com/stores/3910/the-green-solution-potomac-st-central-aurora/menu", "is_active": True, "region": "colorado"},
+    {"name": "TGS Quincy SE Aurora CO", "slug": "tgs-co-jane-quincy", "platform": "jane", "url": "https://www.iheartjane.com/stores/3913/the-green-solution-quincy-ave-southeast-aurora/menu", "is_active": True, "region": "colorado"},
+    {"name": "TGS Federal Sheridan CO", "slug": "tgs-co-jane-federal", "platform": "jane", "url": "https://www.iheartjane.com/stores/3914/the-green-solution-s-federal-blvd-sheridan/menu", "is_active": True, "region": "colorado"},
+    {"name": "TGS Ft Collins Rec CO", "slug": "tgs-co-jane-ftc", "platform": "jane", "url": "https://www.iheartjane.com/stores/3916/the-green-solution-college-avenue-ft-collins-rec/menu", "is_active": True, "region": "colorado"},
+    {"name": "TGS Montview W Aurora CO", "slug": "tgs-co-jane-montview", "platform": "jane", "url": "https://www.iheartjane.com/stores/3918/the-green-solution-e-montview-blvd-w-aurora/menu", "is_active": True, "region": "colorado"},
+    {"name": "TGS Grape North Denver CO", "slug": "tgs-co-jane-grape", "platform": "jane", "url": "https://www.iheartjane.com/stores/3919/the-green-solution-grape-st-north-denver/menu", "is_active": True, "region": "colorado"},
+    {"name": "TGS Peoria S Aurora CO", "slug": "tgs-co-jane-peoria-s", "platform": "jane", "url": "https://www.iheartjane.com/stores/3920/the-green-solution-peoria-ct-south-aurora/menu", "is_active": True, "region": "colorado"},
+    {"name": "TGS Alameda W Denver CO", "slug": "tgs-co-jane-alameda", "platform": "jane", "url": "https://www.iheartjane.com/stores/3925/the-green-solution-alameda-ave-west-denver/menu", "is_active": True, "region": "colorado"},
+    {"name": "TGS Wewatta Union Station CO", "slug": "tgs-co-jane-wewatta", "platform": "jane", "url": "https://www.iheartjane.com/stores/3927/the-green-solution-wewatta-st-union-station/menu", "is_active": True, "region": "colorado"},
+    {"name": "TGS Federal Westminster CO", "slug": "tgs-co-jane-westminster", "platform": "jane", "url": "https://www.iheartjane.com/stores/3928/the-green-solution-federal-blvd-westminster/menu", "is_active": True, "region": "colorado"},
+    {"name": "TGS Southgate Pueblo CO", "slug": "tgs-co-jane-pueblo", "platform": "jane", "url": "https://www.iheartjane.com/stores/3933/the-green-solution-southgate-pl-pueblo/menu", "is_active": True, "region": "colorado"},
+    {"name": "TGS Black Hawk CO", "slug": "tgs-co-jane-blackhawk", "platform": "jane", "url": "https://www.iheartjane.com/stores/3935/the-green-solution-gregory-st-black-hawk/menu", "is_active": True, "region": "colorado"},
+    {"name": "Ascend Lakewood Rec CO", "slug": "ascend-co-lakewood-rec", "platform": "jane", "url": "https://www.iheartjane.com/stores/4238/ascend-cannabis-co-lakewood-rec/menu", "is_active": True, "region": "colorado"},
+    {"name": "Ascend Littleton Rec CO", "slug": "ascend-co-littleton-rec", "platform": "jane", "url": "https://www.iheartjane.com/stores/3023/ascend-cannabis-co-littleton-rec/menu", "is_active": True, "region": "colorado"},
+    {"name": "Gardens Glendale CO", "slug": "gardens-co-glendale", "platform": "jane", "url": "https://www.iheartjane.com/stores/1671/gardens-dispensary-glendale-cherry-peak-rec/menu", "is_active": True, "region": "colorado"},
+    {"name": "Gardens Park Hill CO", "slug": "gardens-co-park-hill", "platform": "jane", "url": "https://www.iheartjane.com/stores/5084/gardens-dispensary-park-hill/menu", "is_active": True, "region": "colorado"},
+    {"name": "Lit Federal CO", "slug": "lit-co-federal", "platform": "jane", "url": "https://www.iheartjane.com/stores/784/lit-federal/menu", "is_active": True, "region": "colorado"},
+    {"name": "Lit Broadway CO", "slug": "lit-co-broadway", "platform": "jane", "url": "https://www.iheartjane.com/stores/1116/lit-cannabis-broadway/menu", "is_active": True, "region": "colorado"},
+    {"name": "Rocky Road Aurora CO", "slug": "rocky-road-co-aurora", "platform": "jane", "url": "https://www.iheartjane.com/stores/595/rocky-road-aurora/menu", "is_active": True, "region": "colorado"},
+    {"name": "Dino Dispensary CO", "slug": "dino-co", "platform": "jane", "url": "https://www.iheartjane.com/stores/5265/dino-dispensary/menu", "is_active": True, "region": "colorado"},
+    {"name": "Shift Denver CO", "slug": "shift-co-denver", "platform": "jane", "url": "https://www.iheartjane.com/stores/6134/shift-dispensary-denver/menu", "is_active": True, "region": "colorado"},
+
+    # ═════════════════════════════════════════════════════════════════════
+    # WAVE 4 — New York expansion (+50 net new)
+    # ═════════════════════════════════════════════════════════════════════
+
+    # ── NY DUTCHIE ─────────────────────────────────────────────────────
+    {"name": "Brooklyn Bourne NY", "slug": "brooklyn-bourne-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/brooklyn-bourne", "is_active": True, "region": "new-york"},
+    {"name": "Culture House NYC NY", "slug": "culture-house-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/culture-house", "is_active": True, "region": "new-york"},
+    {"name": "Dazed Union Square NY", "slug": "dazed-ny-usq", "platform": "dutchie", "url": "https://dutchie.com/dispensary/dazed-cannabis1", "is_active": True, "region": "new-york"},
+    {"name": "Dazed Syracuse NY", "slug": "dazed-ny-syracuse", "platform": "dutchie", "url": "https://dutchie.com/dispensary/dazed-syracuse", "is_active": True, "region": "new-york"},
+    {"name": "The Flowery Soho NY", "slug": "flowery-ny-soho", "platform": "dutchie", "url": "https://dutchie.com/dispensary/elevate-soho", "is_active": True, "region": "new-york"},
+    {"name": "Etain Kingston Rec NY", "slug": "etain-ny-kingston-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/etain-kingston-rec", "is_active": True, "region": "new-york"},
+    {"name": "Etain Manhattan Med NY", "slug": "etain-ny-manhattan-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/etain-manhattan", "is_active": True, "region": "new-york"},
+    {"name": "Gotham Buds Harlem NY", "slug": "gotham-ny-harlem", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gotham-buds", "is_active": True, "region": "new-york"},
+    {"name": "Gotham Delivery NY", "slug": "gotham-ny-delivery", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gotham-delivery", "is_active": True, "region": "new-york"},
+    {"name": "Green Street Brooklyn NY", "slug": "green-street-ny-brooklyn", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-street-brooklyn", "is_active": True, "region": "new-york"},
+    {"name": "Grow Together Brooklyn NY", "slug": "grow-together-ny-brooklyn", "platform": "dutchie", "url": "https://dutchie.com/dispensary/grow-together-brooklyn", "is_active": True, "region": "new-york"},
+    {"name": "Herbwell Bronx NY", "slug": "herbwell-ny-bronx", "platform": "dutchie", "url": "https://dutchie.com/dispensary/herbwell-bronx", "is_active": True, "region": "new-york"},
+    {"name": "Hybrid NYC NY", "slug": "hybrid-ny-nyc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/hybrid-nyc", "is_active": True, "region": "new-york"},
+    {"name": "Just Breathe Syracuse NY", "slug": "just-breathe-ny-syracuse", "platform": "dutchie", "url": "https://dutchie.com/dispensary/just-breathe-syracuse", "is_active": True, "region": "new-york"},
+    {"name": "MedMen Bryant Park NY", "slug": "medmen-ny-bryant-park", "platform": "dutchie", "url": "https://dutchie.com/dispensary/medmen-ny-bryant-park", "is_active": True, "region": "new-york"},
+    {"name": "MedMen Buffalo NY", "slug": "medmen-ny-buffalo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/medmen-ny-buffalo", "is_active": True, "region": "new-york"},
+    {"name": "MedMen Lake Success NY", "slug": "medmen-ny-lake-success", "platform": "dutchie", "url": "https://dutchie.com/dispensary/medmen-ny-li-lake-success-ny", "is_active": True, "region": "new-york"},
+    {"name": "MedMen Syracuse NY", "slug": "medmen-ny-syracuse", "platform": "dutchie", "url": "https://dutchie.com/dispensary/medmen-ny-syracuse-galeville", "is_active": True, "region": "new-york"},
+    {"name": "NY Canna Co NY", "slug": "ny-canna-co-main", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ny-canna-co", "is_active": True, "region": "new-york"},
+    {"name": "NY Canna Co 5th Ave NY", "slug": "ny-canna-co-5th", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ny-canna-co-5th-ave", "is_active": True, "region": "new-york"},
+    {"name": "Queens Cannabis Co NY", "slug": "queens-cannabis-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/queens-cannabis-co", "is_active": True, "region": "new-york"},
+    {"name": "Riverbend Hudson NY", "slug": "riverbend-ny-hudson", "platform": "dutchie", "url": "https://dutchie.com/dispensary/riverbend-dispensary-hudson", "is_active": True, "region": "new-york"},
+    {"name": "Strain Stars Riverhead NY", "slug": "strain-stars-ny-riverhead", "platform": "dutchie", "url": "https://dutchie.com/dispensary/strain-stars-riverhead", "is_active": True, "region": "new-york"},
+    {"name": "Strain Stars White Plains NY", "slug": "strain-stars-ny-white-plains", "platform": "dutchie", "url": "https://dutchie.com/dispensary/strain-stars-white-plains", "is_active": True, "region": "new-york"},
+    {"name": "Sweet Life NYC NY", "slug": "sweet-life-ny-nyc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/sweet-life-nyc", "is_active": True, "region": "new-york"},
+    {"name": "The Emerald Manhattan NY", "slug": "emerald-ny-manhattan", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-emerald-dispensary-manhattan", "is_active": True, "region": "new-york"},
+    {"name": "Buffalo Cannabis Store NY", "slug": "buffalo-cannabis-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/buffalo-cannabis-store", "is_active": True, "region": "new-york"},
+    {"name": "Bayside Cannabis NY", "slug": "bayside-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bayside-cannabis-dispensary", "is_active": True, "region": "new-york"},
+    {"name": "Athenian Royalty Queens NY", "slug": "athenian-ny-queens", "platform": "dutchie", "url": "https://dutchie.com/dispensary/athenian-royalty-queens", "is_active": True, "region": "new-york"},
+    {"name": "Stoop NY", "slug": "stoop-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/stoop", "is_active": True, "region": "new-york"},
+    {"name": "High of Brooklyn NY", "slug": "high-of-brooklyn-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/high-of-brooklyn", "is_active": True, "region": "new-york"},
+    {"name": "Conbud NYC NY", "slug": "conbud-ny-nyc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/conbud", "is_active": True, "region": "new-york"},
+    {"name": "Conbud Bronx NY", "slug": "conbud-ny-bronx", "platform": "dutchie", "url": "https://dutchie.com/dispensary/conbud-bronx", "is_active": True, "region": "new-york"},
+    {"name": "Harlem Cannabis NY", "slug": "harlem-cannabis-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/3807-harlem-cannabis-llc", "is_active": True, "region": "new-york"},
+    {"name": "Citiva Medical Brooklyn NY", "slug": "citiva-ny-brooklyn", "platform": "dutchie", "url": "https://dutchie.com/dispensary/citiva-medical-llc-brooklyn", "is_active": True, "region": "new-york"},
+    {"name": "Citiva Medical Staten Island NY", "slug": "citiva-ny-staten-island", "platform": "dutchie", "url": "https://dutchie.com/dispensary/citiva-medical-staten-island", "is_active": True, "region": "new-york"},
+    {"name": "Mighty Lucky NYC NY", "slug": "mighty-lucky-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/mighty-lucky", "is_active": True, "region": "new-york"},
+    {"name": "Midnight Moon NYC NY", "slug": "midnight-moon-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/midnight-moon", "is_active": True, "region": "new-york"},
+    {"name": "Superfly NYC NY", "slug": "superfly-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/afny", "is_active": True, "region": "new-york"},
+
+    # ── NY JANE ────────────────────────────────────────────────────────
+    {"name": "Rise Halfmoon NY", "slug": "rise-ny-halfmoon", "platform": "jane", "url": "https://www.iheartjane.com/stores/1180/rise-dispensaries-halfmoon-medical/menu", "is_active": True, "region": "new-york"},
+    {"name": "Rise Henrietta NY", "slug": "rise-ny-henrietta-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1182/rise-dispensaries-henrietta-medical/menu", "is_active": True, "region": "new-york"},
+    {"name": "Cannabist Rochester NY", "slug": "cannabist-ny-rochester", "platform": "jane", "url": "https://www.iheartjane.com/stores/1237/columbia-care-rochester/menu", "is_active": True, "region": "new-york"},
+    {"name": "Cannabist Riverhead NY", "slug": "cannabist-ny-riverhead", "platform": "jane", "url": "https://www.iheartjane.com/stores/1239/columbia-care-riverhead/menu", "is_active": True, "region": "new-york"},
+    {"name": "Botanist Middletown NY", "slug": "botanist-ny-middletown", "platform": "jane", "url": "https://www.iheartjane.com/stores/1385/the-botanist-wallkill/menu", "is_active": True, "region": "new-york"},
+    {"name": "Vireo Albany NY", "slug": "vireo-ny-albany", "platform": "jane", "url": "https://www.iheartjane.com/stores/2063/vireo-health-albany/menu", "is_active": True, "region": "new-york"},
+    {"name": "Vireo Johnson City NY", "slug": "vireo-ny-johnson-city", "platform": "jane", "url": "https://www.iheartjane.com/stores/2064/vireo-health-johnson-city/menu", "is_active": True, "region": "new-york"},
+    {"name": "Vireo White Plains NY", "slug": "vireo-ny-white-plains", "platform": "jane", "url": "https://www.iheartjane.com/stores/2069/vireo-health-white-plains/menu", "is_active": True, "region": "new-york"},
+    {"name": "Verilife East Syracuse NY", "slug": "verilife-ny-east-syracuse", "platform": "jane", "url": "https://www.iheartjane.com/stores/6157/verilife-east-syracuse-ny-au/menu", "is_active": True, "region": "new-york"},
+    {"name": "Verilife Amherst NY", "slug": "verilife-ny-amherst", "platform": "jane", "url": "https://www.iheartjane.com/stores/2942/verilife-amherst-ny/menu", "is_active": True, "region": "new-york"},
+    {"name": "Verilife Albany NY", "slug": "verilife-ny-albany", "platform": "jane", "url": "https://www.iheartjane.com/stores/3531/verilife-albany-ny-au/menu", "is_active": True, "region": "new-york"},
+    {"name": "Sunnyside Williamsburg NY", "slug": "sunnyside-ny-williamsburg", "platform": "jane", "url": "https://www.iheartjane.com/stores/5022/sunnyside-dispensary-williamsburg/menu", "is_active": True, "region": "new-york"},
+    {"name": "Sunnyside Mohawk Valley NY", "slug": "sunnyside-ny-mohawk", "platform": "jane", "url": "https://www.iheartjane.com/stores/5027/sunnyside-medical-cannabis-dispensary-mohawk-valley/menu", "is_active": True, "region": "new-york"},
+    {"name": "Sunnyside Hudson Valley NY", "slug": "sunnyside-ny-hudson-valley", "platform": "jane", "url": "https://www.iheartjane.com/stores/5031/sunnyside-medical-cannabis-dispensary-hudson-valley/menu", "is_active": True, "region": "new-york"},
+    {"name": "Sunnyside Huntington NY", "slug": "sunnyside-ny-huntington", "platform": "jane", "url": "https://www.iheartjane.com/stores/5055/sunnyside-medical-cannabis-dispensary-huntington/menu", "is_active": True, "region": "new-york"},
 ]
 
 # ---------------------------------------------------------------------------
