@@ -65,7 +65,7 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[106] flex flex-col gap-2 pointer-events-none">
+    <div className="fixed left-1/2 -translate-x-1/2 z-[106] flex flex-col gap-2 pointer-events-none md:bottom-6" style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
       {toasts.map(toast => (
         <Toast key={toast.id} toast={toast} onDismiss={onDismiss} />
       ))}

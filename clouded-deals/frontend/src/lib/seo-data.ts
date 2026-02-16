@@ -107,7 +107,7 @@ export async function fetchDealsForDispensary(dispensaryId: string): Promise<Seo
 // Fetch active deals for a specific category
 // ---------------------------------------------------------------------------
 
-export async function fetchDealsForCategory(category: Category): Promise<SeoDeal[]> {
+export async function fetchDealsForCategory(category: Category, region = 'southern-nv'): Promise<SeoDeal[]> {
   const supabase = getServerSupabase();
   if (!supabase) return [];
 
@@ -117,9 +117,10 @@ export async function fetchDealsForCategory(category: Category): Promise<SeoDeal
       .select(
         `id, name, brand, category, sale_price, original_price, discount_percent,
          deal_score, weight_value, weight_unit, product_url, strain_type,
-         dispensary_id, dispensary:dispensaries!inner(id, name)`
+         dispensary_id, dispensary:dispensaries!inner(id, name, region)`
       )
       .eq('is_active', true)
+      .eq('dispensaries.region', region)
       .eq('category', category)
       .gt('deal_score', 0)
       .gt('sale_price', 0)
@@ -156,7 +157,7 @@ export async function fetchDealsForCategory(category: Category): Promise<SeoDeal
 // Fetch all active deals (for hub pages)
 // ---------------------------------------------------------------------------
 
-export async function fetchAllActiveDeals(): Promise<SeoDeal[]> {
+export async function fetchAllActiveDeals(region = 'southern-nv'): Promise<SeoDeal[]> {
   const supabase = getServerSupabase();
   if (!supabase) return [];
 
@@ -166,9 +167,10 @@ export async function fetchAllActiveDeals(): Promise<SeoDeal[]> {
       .select(
         `id, name, brand, category, sale_price, original_price, discount_percent,
          deal_score, weight_value, weight_unit, product_url, strain_type,
-         dispensary_id, dispensary:dispensaries!inner(id, name)`
+         dispensary_id, dispensary:dispensaries!inner(id, name, region)`
       )
       .eq('is_active', true)
+      .eq('dispensaries.region', region)
       .gt('deal_score', 0)
       .gt('sale_price', 0)
       .order('deal_score', { ascending: false })

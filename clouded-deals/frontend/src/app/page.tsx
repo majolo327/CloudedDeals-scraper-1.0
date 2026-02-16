@@ -42,6 +42,7 @@ export default function Home() {
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [highlightSaved] = useState(false);
   const [searchInitialQuery, setSearchInitialQuery] = useState('');
+  const [swipeOpen, setSwipeOpen] = useState(false);
   const [showFTUE, setShowFTUE] = useState(() => {
     if (typeof window === 'undefined') return false;
     return !isFTUECompleted();
@@ -412,6 +413,8 @@ export default function Home() {
               savedCount={savedCount}
               isExpired={isShowingExpired}
               onShareSaves={handleShareSaves}
+              swipeOpen={swipeOpen}
+              onSwipeOpenChange={setSwipeOpen}
             />
           )
         )}
@@ -454,6 +457,10 @@ export default function Home() {
             addToast={addToast}
             history={dealHistory.history}
             onClearHistory={dealHistory.clearHistory}
+            onOpenSwipeMode={() => {
+              setActivePage('home');
+              setSwipeOpen(true);
+            }}
           />
         )}
 

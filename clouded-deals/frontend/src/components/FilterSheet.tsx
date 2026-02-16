@@ -249,15 +249,30 @@ export function FilterSheet({
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
-  // Swipe-to-close on mobile
+  // Swipe-to-close on mobile — only from the drag handle area at top of sheet.
+  // Prevents accidental dismissal when scrolling through filter options.
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
+    // Only track swipe if it started in the drag handle zone (top 48px of sheet)
+    // or if the scrollable content is already scrolled to the top
+    const sheetTop = sheetRef.current?.getBoundingClientRect().top ?? 0;
+    const touchY = e.touches[0].clientY;
+    const relativeY = touchY - sheetTop;
+    const scrollTop = scrollRef.current?.scrollTop ?? 0;
+
+    if (relativeY < 48 || scrollTop === 0) {
+      touchStartY.current = touchY;
+    } else {
+      touchStartY.current = null;
+    }
   }, []);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (touchStartY.current === null) return;
     const deltaY = e.changedTouches[0].clientY - touchStartY.current;
-    if (deltaY > 80) setIsOpen(false);
+    // Require 120px+ swipe down (was 80px, too sensitive)
+    if (deltaY > 120) setIsOpen(false);
     touchStartY.current = null;
   }, []);
 
@@ -386,7 +401,7 @@ export function FilterSheet({
             )}
 
             {/* Scrollable content */}
-            <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain">
+            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain">
               {/* Sort By (collapsible at top) */}
               <section>
                 <button
