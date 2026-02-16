@@ -1,7 +1,7 @@
 """
 Dispensary configuration across 11 regions and 5 active platforms.
 
-Regions (872 active):
+Regions (918 active):
   - southern-nv:    53 dispensaries (Dutchie/Jane/Carrot/Curaleaf/Zen Leaf/AIQ)
   - michigan:      196 dispensaries (Dutchie-dominant)
   - illinois:      165 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
@@ -11,12 +11,12 @@ Regions (872 active):
   - ohio:           23 dispensaries (Dutchie + Curaleaf/Zen Leaf + Jane)
   - colorado:       17 dispensaries (Dutchie + Jane)
   - new-york:       20 dispensaries (Dutchie + Jane + Curaleaf)
-  - massachusetts:  65 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - massachusetts: 111 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
   - pennsylvania:   43 dispensaries (Curaleaf/Zen Leaf + Dutchie)
 
-Platforms (872 active / 921 total):
-  - dutchie: ~639 — iframe-based menus (Dutchie/TD sites)
-  - jane:    ~117 — hybrid iframe/direct with "View More" pagination
+Platforms (918 active / 967 total):
+  - dutchie: ~683 — iframe-based menus (Dutchie/TD sites)
+  - jane:    ~119 — hybrid iframe/direct with "View More" pagination
   - curaleaf: ~109 — direct page loads (Curaleaf + Zen Leaf)
   - rise:        0 — ALL DEACTIVATED (100% Cloudflare blocked)
   - carrot:      5 — JS widget via getcarrot.io
@@ -1991,6 +1991,56 @@ DISPENSARIES = [
     {"name": "Verilife Wareham Rec MA", "slug": "verilife-ma-wareham-rec", "platform": "jane", "url": "https://www.iheartjane.com/stores/2939/verilife-wareham-ma-rec/menu", "is_active": True, "region": "massachusetts"},
     {"name": "Verilife Wareham Med MA", "slug": "verilife-ma-wareham-med", "platform": "jane", "url": "https://www.iheartjane.com/stores/2936/verilife-wareham-ma-med/menu", "is_active": True, "region": "massachusetts"},
     {"name": "Full Harvest Moonz Haverhill MA", "slug": "full-harvest-moonz-ma", "platform": "jane", "url": "https://www.iheartjane.com/stores/2783/full-harvest-moonz", "is_active": True, "region": "massachusetts"},
+
+    # ── MA WAVE 3 DUTCHIE — remaining stores from research agent ────
+    {"name": "Dutchess West Roxbury MA", "slug": "dutchess-ma-west-roxbury", "platform": "dutchie", "url": "https://dutchie.com/dispensary/dutchess-west-roxbury-massachusetts", "is_active": True, "region": "massachusetts"},
+    {"name": "Dreamer Southampton MA", "slug": "dreamer-ma-southampton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/dreamer", "is_active": True, "region": "massachusetts"},
+    {"name": "Liberty Market Lanesborough MA", "slug": "liberty-market-ma", "platform": "dutchie", "url": "https://dutchie.com/dispensary/liberty-market", "is_active": True, "region": "massachusetts"},
+    {"name": "Ethos Fitchburg MA", "slug": "ethos-ma-fitchburg", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ethos-fitchburg", "is_active": True, "region": "massachusetts"},
+    {"name": "Ethos Watertown AU MA", "slug": "ethos-ma-watertown-au", "platform": "dutchie", "url": "https://dutchie.com/dispensary/Ethos-Watertown-Adult-Use", "is_active": True, "region": "massachusetts"},
+    {"name": "Temescal Wellness Hudson MA", "slug": "temescal-ma-hudson", "platform": "dutchie", "url": "https://dutchie.com/dispensary/temescal-wellness-hudson", "is_active": True, "region": "massachusetts"},
+    {"name": "Temescal Wellness Framingham MA", "slug": "temescal-ma-framingham", "platform": "dutchie", "url": "https://dutchie.com/dispensary/temescal-wellness-framingham", "is_active": True, "region": "massachusetts"},
+    {"name": "Temescal Wellness Pittsfield MA", "slug": "temescal-ma-pittsfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/temescal-wellness-pittsfield", "is_active": True, "region": "massachusetts"},
+    {"name": "Clear Sky North Adams MA", "slug": "clear-sky-ma-north-adams", "platform": "dutchie", "url": "https://dutchie.com/dispensary/clear-sky-north-adams", "is_active": True, "region": "massachusetts"},
+    {"name": "Clear Sky Belchertown MA", "slug": "clear-sky-ma-belchertown", "platform": "dutchie", "url": "https://dutchie.com/dispensary/clear-sky-belchertown", "is_active": True, "region": "massachusetts"},
+    {"name": "Silver Therapeutics Williamstown MA", "slug": "silver-therapeutics-ma-williamstown", "platform": "dutchie", "url": "https://dutchie.com/dispensary/silver-therapeutics", "is_active": True, "region": "massachusetts"},
+    {"name": "Silver Therapeutics Palmer MA", "slug": "silver-therapeutics-ma-palmer", "platform": "dutchie", "url": "https://dutchie.com/dispensary/silver-therapeutics-palmer-retail", "is_active": True, "region": "massachusetts"},
+    {"name": "Nature's Remedy Millbury MA", "slug": "natures-remedy-ma-millbury", "platform": "dutchie", "url": "https://dutchie.com/dispensary/natures-remedy1", "is_active": True, "region": "massachusetts"},
+    {"name": "Nature's Remedy Tyngsborough MA", "slug": "natures-remedy-ma-tyngsborough", "platform": "dutchie", "url": "https://dutchie.com/dispensary/natures-remedy2", "is_active": True, "region": "massachusetts"},
+    {"name": "Union Twist Allston MA", "slug": "union-twist-ma-allston", "platform": "dutchie", "url": "https://dutchie.com/dispensary/union-twist-allston", "is_active": True, "region": "massachusetts"},
+    {"name": "Union Twist Framingham MA", "slug": "union-twist-ma-framingham", "platform": "dutchie", "url": "https://dutchie.com/dispensary/union-twist-framingham", "is_active": True, "region": "massachusetts"},
+    {"name": "Ermont Inc Quincy MA", "slug": "ermont-ma-quincy", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ermont-inc", "is_active": True, "region": "massachusetts"},
+    {"name": "Heirloom Collective Hadley MA", "slug": "heirloom-ma-hadley", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-heirloom-collective", "is_active": True, "region": "massachusetts"},
+    {"name": "Boston Bud Factory Holyoke MA", "slug": "boston-bud-ma-holyoke", "platform": "dutchie", "url": "https://dutchie.com/dispensary/boston-bud-factory", "is_active": True, "region": "massachusetts"},
+    {"name": "Apothca Jamaica Plain MA", "slug": "apothca-ma-jp", "platform": "dutchie", "url": "https://dutchie.com/dispensary/apothca-jamaica-plain", "is_active": True, "region": "massachusetts"},
+    {"name": "Campfire Cannabis West Boylston MA", "slug": "campfire-ma-west-boylston", "platform": "dutchie", "url": "https://dutchie.com/dispensary/campfire-cannabis1", "is_active": True, "region": "massachusetts"},
+    {"name": "Local Roots Sturbridge MA", "slug": "local-roots-ma-sturbridge", "platform": "dutchie", "url": "https://dutchie.com/dispensary/local-roots-sturbridge", "is_active": True, "region": "massachusetts"},
+    {"name": "Green Gold Charlton MA", "slug": "green-gold-ma-charlton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-gold", "is_active": True, "region": "massachusetts"},
+    {"name": "Triple M Plymouth MA", "slug": "triple-m-ma-plymouth", "platform": "dutchie", "url": "https://dutchie.com/dispensary/triple-m-plymouth", "is_active": True, "region": "massachusetts"},
+    {"name": "Bask Fairhaven Rec MA", "slug": "bask-ma-fairhaven", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bask", "is_active": True, "region": "massachusetts"},
+    {"name": "Trade Roots Wareham MA", "slug": "trade-roots-ma-wareham", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trade-roots", "is_active": True, "region": "massachusetts"},
+    {"name": "Cannabis Connection Westfield MA", "slug": "cannabis-connection-ma", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cannabis-connection", "is_active": True, "region": "massachusetts"},
+    {"name": "Greenleaf Compassion Care MA", "slug": "greenleaf-ma", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-folks", "is_active": True, "region": "massachusetts"},
+    {"name": "Bloom Brothers Pittsfield MA", "slug": "bloom-brothers-ma", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloom-brothers", "is_active": True, "region": "massachusetts"},
+    {"name": "BOUTIQ East Boston MA", "slug": "boutiq-ma-eastie", "platform": "dutchie", "url": "https://dutchie.com/dispensary/boutiq", "is_active": True, "region": "massachusetts"},
+    {"name": "Buds Goods Watertown MA", "slug": "buds-goods-ma-watertown", "platform": "dutchie", "url": "https://dutchie.com/dispensary/buds-goods-and-provisions-watertown", "is_active": True, "region": "massachusetts"},
+    {"name": "Buds Goods Abington MA", "slug": "buds-goods-ma-abington", "platform": "dutchie", "url": "https://dutchie.com/dispensary/buds-goods-and-provisions-abington", "is_active": True, "region": "massachusetts"},
+    {"name": "High Profile Dorchester MA", "slug": "high-profile-ma-dorchester", "platform": "dutchie", "url": "https://dutchie.com/dispensary/high-profile-dorchester", "is_active": True, "region": "massachusetts"},
+    {"name": "Solar Cannabis Seekonk MA", "slug": "solar-ma-seekonk", "platform": "dutchie", "url": "https://dutchie.com/dispensary/solar-cannabis-co-seekonk", "is_active": True, "region": "massachusetts"},
+    {"name": "Solar Cannabis Somerset MA", "slug": "solar-ma-somerset", "platform": "dutchie", "url": "https://dutchie.com/dispensary/solar-therapeutics", "is_active": True, "region": "massachusetts"},
+    {"name": "Solar Cannabis Dartmouth MA", "slug": "solar-ma-dartmouth", "platform": "dutchie", "url": "https://dutchie.com/dispensary/solar-therapeutics-dartmouth", "is_active": True, "region": "massachusetts"},
+    {"name": "Uma Flowers Waltham MA", "slug": "uma-flowers-ma-waltham", "platform": "dutchie", "url": "https://dutchie.com/dispensary/uma-flowers-waltham", "is_active": True, "region": "massachusetts"},
+    {"name": "CommCan Millis MA", "slug": "commcan-ma-millis", "platform": "dutchie", "url": "https://dutchie.com/dispensary/commcan-millis", "is_active": True, "region": "massachusetts"},
+    {"name": "Thrive Beverly Rec MA", "slug": "thrive-ma-beverly", "platform": "dutchie", "url": "https://dutchie.com/dispensary/thrive-beverly-rec", "is_active": True, "region": "massachusetts"},
+    {"name": "Thrive Middleboro Rec MA", "slug": "thrive-ma-middleboro-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/thrive-rec", "is_active": True, "region": "massachusetts"},
+    {"name": "The Pass Sheffield MA", "slug": "the-pass-ma-sheffield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-pass", "is_active": True, "region": "massachusetts"},
+    {"name": "High Street Cannabis Boston MA", "slug": "high-street-ma-boston", "platform": "dutchie", "url": "https://dutchie.com/dispensary/high-street-cannabis-downtown-boston", "is_active": True, "region": "massachusetts"},
+    {"name": "Green Meadows Fitchburg MA", "slug": "green-meadows-ma-fitchburg", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-meadow-farm-fitchburg", "is_active": True, "region": "massachusetts"},
+    {"name": "Elevated Roots MA", "slug": "elevated-roots-ma", "platform": "dutchie", "url": "https://dutchie.com/dispensary/elevated-roots", "is_active": True, "region": "massachusetts"},
+
+    # ── MA WAVE 3 JANE — remaining from research agent ──────────────
+    {"name": "Full Harvest Moonz Lowell MA", "slug": "full-harvest-moonz-ma-lowell", "platform": "jane", "url": "https://www.iheartjane.com/stores/4813/full-harvest-moonz-lowell", "is_active": True, "region": "massachusetts"},
+    {"name": "Verilife Shrewsbury Med MA", "slug": "verilife-ma-shrewsbury-med", "platform": "jane", "url": "https://www.iheartjane.com/stores/3731/verilife-shrewsbury-ma-med/menu", "is_active": True, "region": "massachusetts"},
 ]
 
 # ---------------------------------------------------------------------------
