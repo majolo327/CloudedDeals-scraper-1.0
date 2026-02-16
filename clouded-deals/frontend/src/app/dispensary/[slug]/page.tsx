@@ -303,7 +303,7 @@ export default async function DispensaryPage({ params }: PageProps) {
           return (
             <section className="mt-12 pt-8 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
               <h2 className="text-lg font-semibold mb-4">{zoneTitle}</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 xl:gap-5">
                 {zoneDispensaries.map((d) => (
                   <Link
                     key={d.id}

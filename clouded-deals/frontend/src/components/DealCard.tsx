@@ -47,7 +47,7 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
   return (
     <div
       onClick={onClick}
-      className={`group glass frost rounded-2xl p-3 sm:p-4 cursor-pointer transition-gentle card-interactive h-full flex flex-col ${
+      className={`group glass frost rounded-2xl p-3 sm:p-4 xl:p-5 cursor-pointer transition-gentle card-interactive h-full flex flex-col ${
         isExpired ? 'opacity-50 saturate-[0.6]' : ''
       } ${
         isSaved

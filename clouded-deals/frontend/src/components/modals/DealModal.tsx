@@ -107,7 +107,7 @@ export function DealModal({
       className="fixed inset-0 z-[105] flex items-end sm:items-center justify-center sm:p-4"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-soft-reveal" />
+      <div className="absolute inset-0 bg-black/60 animate-soft-reveal" style={{ WebkitBackdropFilter: 'blur(8px) saturate(1.2)', backdropFilter: 'blur(8px) saturate(1.2)' }} />
       <div
         className="relative w-full sm:max-w-lg glass-strong frost rounded-t-3xl sm:rounded-3xl max-h-[85vh] overflow-y-auto animate-soft-reveal"
         onClick={(e) => e.stopPropagation()}

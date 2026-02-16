@@ -372,7 +372,7 @@ export function SearchPage({
           {isSearching && (
             <div className="py-4">
               <p className="text-xs text-slate-500 mb-4">Checking every dispensary in Vegas...</p>
-              <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:gap-5">
                 {[...Array(3)].map((_, i) => (
                   <DealCardSkeleton key={i} />
                 ))}
@@ -545,7 +545,7 @@ export function SearchPage({
                       <span className="text-[10px] text-amber-500/70">prices may have changed</span>
                     )}
                   </div>
-                  <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:gap-5">
                     {filteredDeals.map((deal, index) => {
                       const dist = getDistance(deal.dispensary.latitude, deal.dispensary.longitude);
                       return (
@@ -583,7 +583,7 @@ export function SearchPage({
               {extendedLoading && filteredDeals.length === 0 && (
                 <div className="py-4">
                   <p className="text-xs text-slate-500 mb-4">Searching all products...</p>
-                  <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:gap-5">
                     {[...Array(3)].map((_, i) => (
                       <DealCardSkeleton key={i} />
                     ))}
@@ -604,7 +604,7 @@ export function SearchPage({
                       Not in today&apos;s top picks, but we found {filteredExtendedDeals.length === 1 ? 'this' : 'these'} on sale for you
                     </p>
                   </div>
-                  <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:gap-5">
                     {filteredExtendedDeals.map((deal, index) => (
                       <div
                         key={deal.id}
