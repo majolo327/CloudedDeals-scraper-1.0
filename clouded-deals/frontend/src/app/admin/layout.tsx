@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: "grid" },
   { href: "/admin/expansion", label: "Expansion", icon: "globe" },
   { href: "/admin/analytics", label: "Analytics", icon: "chart" },
+  { href: "/admin/health", label: "Health", icon: "pulse" },
   { href: "/admin/contacts", label: "Contacts", icon: "users" },
   { href: "/admin/scraper", label: "Scraper", icon: "terminal" },
   { href: "/admin/settings", label: "Settings", icon: "sliders" },
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
 const ICONS: Record<string, string> = {
   grid: "M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5Zm10 0a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5ZM4 15a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4Zm10 0a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-4Z",
   chart: "M3 3v18h18M7 16l4-4 4 4 5-6",
+  pulse: "M22 12h-4l-3 9L9 3l-3 9H2",
   users: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm14 14v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
   terminal:
     "M5.5 7.5 9 11l-3.5 3.5M12 17h6",
