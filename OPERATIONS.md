@@ -907,3 +907,42 @@ Multi-state expansion groundwork is complete and ready when Phase C begins:
 | `docs/research-michigan-illinois.md` | MI (1,000+ dispensaries, 55-65% platform overlap, 35-40 new brands) + IL (230 dispensaries, 65-75% overlap, 30-40 new brands). Platform audit of 20+ chains per state, brand ecosystem by category, state-specific price caps, technical feasibility, data model changes, rollout order |
 | `docs/research-batch2-markets.md` | Scored 8 candidates → selected AZ (43/50), MO (38/50), NJ (38/50). Per-market: dispensary lists, platform audits, brand maps, scrapeability. Combined platform coverage matrix across all 5 new states |
 | `docs/research-cross-market-synthesis.md` | 130-160 net-new brands with aliases + strain blockers. Master platform coverage (1,823 licensed dispensaries → ~1,280 scrapeable). Data normalization challenges for ML. Multi-state schema migration plan. LLM training data opportunities |
+
+---
+
+### Future Feature: Price Index / Price Comparison Grid
+
+**Status:** Concept only — not built. Requires higher data confidence first.
+
+**The idea:** A "Prices" tab showing the lowest price at each dispensary location for 7 specific product buckets:
+
+| Bucket | What it matches |
+|--------|----------------|
+| 3.5g Flower (eighth) | Flower products ~3.5g |
+| 7g Flower (quarter) | Flower products ~7g |
+| 14g Flower (half oz) | Flower products ~14g |
+| Disposable Vape (0.8-1g) | Vapes with disposable subtype |
+| 100mg Edible | Edibles ~100mg |
+| 1g Concentrate | Concentrates ~1g |
+| Preroll | Regular single prerolls (no infused, no packs) |
+
+When multiple brands tie at the lowest price, show all of them so users see their options.
+
+**Why not now:**
+- Data quality and confidence in scraped prices is not high enough yet. Weight parsing, category detection, and product classification still have gaps that would make a price index misleading.
+- Need reliable weight extraction across all 6 platforms before a price-per-weight comparison is trustworthy.
+- Infused preroll vs. regular preroll classification needs to be airtight — a $25 infused preroll shouldn't show as a $25 "preroll" next to $5 regular ones.
+- Disposable vape detection depends on `product_subtype` which isn't always populated.
+
+**Prerequisites before building:**
+- [ ] Weight extraction accuracy >95% across all platforms (currently estimated ~85%)
+- [ ] Product subtype classification coverage >90% for vapes and prerolls
+- [ ] Price validation layer that catches obvious scraping errors (e.g. $0.50 eighths, $500 prerolls)
+- [ ] Enough historical data to distinguish real prices from data errors with confidence
+- [ ] Rise/GTI scraping restored (9 dispensaries missing = incomplete comparison)
+
+**Technical approach (when ready):**
+- `fetchAllProducts()` API: query all active products (not just deal-scored ones), limit 5000
+- `priceComparison.ts` utility: classify products into buckets by category + weight range, find min price per dispensary per bucket, collect all brands tied at the min
+- `PriceComparisonPage.tsx` component: responsive table (desktop) / card grid (mobile), sortable by any column, expandable brand lists for ties
+- Column headers show the overall best price across all dispensaries
