@@ -408,10 +408,18 @@ class DutchieScraper(BaseScraper):
                 except PlaywrightTimeout:
                     pass
 
+                # Auto-detect dutchie.com fallback URLs as "direct" type
+                fb_host = urlparse(fallback_url).netloc
+                inline_hint = embed_hint
+                if fb_host in ("dutchie.com", "www.dutchie.com"):
+                    inline_hint = "direct"
+                    logger.info("[%s] Auto-detected embed_type='direct' for inline fallback %s", self.slug, fb_host)
+
                 fb_target, fb_embed = await find_dutchie_content(
                     self.page,
                     iframe_timeout_ms=45_000,
                     js_embed_timeout_sec=60,
+                    embed_type_hint=inline_hint,
                 )
                 if fb_target is not None:
                     logger.info("[%s] Fallback URL content found via %s", self.slug, fb_embed)
@@ -470,12 +478,20 @@ class DutchieScraper(BaseScraper):
         except PlaywrightTimeout:
             logger.warning("[%s] Smart-wait (fallback): no content after 60s", self.slug)
 
-        # Try detection — use full cascade (no hint) since fallback URL
-        # may use a different embed type than the primary.
+        # Auto-detect: dutchie.com fallback URLs are direct React SPAs —
+        # skip the full 105s cascade (iframe 45s + js_embed 60s) that
+        # wastes time and causes TD/Planet13/Grove to timeout.
+        fb_host = urlparse(fallback_url).netloc
+        fb_hint = embed_hint
+        if fb_host in ("dutchie.com", "www.dutchie.com"):
+            fb_hint = "direct"
+            logger.info("[%s] Auto-detected embed_type='direct' for fallback %s", self.slug, fb_host)
+
         fb_target, fb_embed = await find_dutchie_content(
             self.page,
             iframe_timeout_ms=45_000,
             js_embed_timeout_sec=60,
+            embed_type_hint=fb_hint,
         )
 
         if fb_target is None:
