@@ -99,7 +99,14 @@ PLATFORM_GROUP = os.getenv("PLATFORM_GROUP", "all").lower()
 
 # Region filter: "southern-nv", "michigan", "illinois", "arizona", or "all".
 # When set, only dispensaries from that region are scraped.
+# Sharded regions (e.g. "michigan-1") split a large region into parallel jobs.
 REGION = os.getenv("REGION", "all").lower()
+
+# Regions that are split across multiple cron jobs via round-robin sharding.
+# Key = base region name, value = total number of shards.
+REGION_SHARDS: dict[str, int] = {
+    "michigan": 4,
+}
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     logger.error("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set")
@@ -1387,13 +1394,25 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
     # Filter by is_active from config first
     active = [d for d in DISPENSARIES if d.get("is_active", True)]
 
-    # Apply region filter
+    # Apply region filter (supports sharded regions like "michigan-2")
     if REGION != "all":
-        active = [d for d in active if d.get("region", "southern-nv") == REGION]
-        logger.info(
-            "Region '%s': %d dispensaries",
-            REGION, len(active),
-        )
+        shard_match = re.match(r"^(.+)-(\d+)$", REGION)
+        if shard_match and shard_match.group(1) in REGION_SHARDS:
+            base_region = shard_match.group(1)
+            shard_idx = int(shard_match.group(2)) - 1   # 0-based
+            total_shards = REGION_SHARDS[base_region]
+            active = [d for d in active if d.get("region", "southern-nv") == base_region]
+            active = [d for i, d in enumerate(active) if i % total_shards == shard_idx]
+            logger.info(
+                "Region '%s' (shard %d/%d): %d dispensaries",
+                base_region, shard_idx + 1, total_shards, len(active),
+            )
+        else:
+            active = [d for d in active if d.get("region", "southern-nv") == REGION]
+            logger.info(
+                "Region '%s': %d dispensaries",
+                REGION, len(active),
+            )
 
     # Apply platform group filter
     if PLATFORM_GROUP != "all":

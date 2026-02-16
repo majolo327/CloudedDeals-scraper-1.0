@@ -749,9 +749,21 @@ class CloudedLogic:
             'rso', 'tincture', 'topical', 'capsule', 'cbd only', 'merch',
             'balm', 'salve', 'ointment', 'lotion', 'transdermal', 'patch',
             'roll-on', 'roll on', 'liniment', 'suppository',
+            'hemp wrap', 'hemp wraps',
         ]
         if any(s in t for s in skip_keywords):
             return 'skip'
+
+        # Rolling-paper cones are accessories, not cannabis prerolls.
+        # Match "cone" / "cones" only when NOT preceded by infused/thc
+        # indicators (infused cones ARE cannabis products).
+        if re.search(r'\bcones?\b', t) and not re.search(r'\b(infused|thc|live resin)\b', t):
+            # Only skip if the name looks like a cone accessory
+            # (has size like "1 1/4", brand like RAW/Elements, or "pack"/"pk")
+            if (re.search(r'\b1\s*1/4\b|\b1\.25\b|\bking\s*size\b|\bslim\b', t)
+                    or re.search(r'\b(raw|elements|ocb|zig.?zag|hemper|pop cones?)\b', t)
+                    or re.search(r'\d+\s*-?\s*pack\b|\d+\s*pk\b', t)):
+                return 'skip'
 
         # Topical cream detection: "cream" + CBD:THC ratio (e.g. "Cream 3:1")
         # This catches products like "Medizin Cream 3:1 (125mg)" which are
@@ -761,7 +773,8 @@ class CloudedLogic:
             return 'skip'
 
         # 2. DRINKS → edible (check early, before preroll "shot" overlap)
-        drink_keywords = ['drink', 'shot', 'elixir', 'mocktail', 'beverage']
+        drink_keywords = ['drink', 'shot', 'elixir', 'mocktail', 'beverage',
+                          'seltzer', 'sparkling', 'tonic', 'soda']
         if any(w in t for w in drink_keywords):
             return 'edible'
 
@@ -818,9 +831,12 @@ class CloudedLogic:
         # 6. VAPE
         # Use word-boundary regex to prevent false positives from
         # substrings (e.g. "pen" matching "Aspen", "open", "expend").
-        edible_keywords = ['gummies', 'gummy', 'chocolate', 'candy', 'brownie',
+        edible_keywords = ['gummies', 'gummy', 'gummes', 'gummis',
+                          'chocolate', 'candy', 'brownie',
                           'chews', 'chew', 'taffy', 'lozenge', 'lozenges',
-                          'drops', 'tarts', 'bites', 'pieces', 'mints']
+                          'drops', 'tarts', 'bites', 'pieces', 'mints',
+                          'caramel', 'truffles', 'truffle', 'syrup',
+                          'pastille', 'pastilles', 'bonbon', 'bon bon']
         if re.search(r'\b(cart|cartridge|pod|disposable|vape|pen|all-in-one)\b', t):
             if not any(w in t for w in edible_keywords):
                 return 'vape'
@@ -833,10 +849,10 @@ class CloudedLogic:
         # 8. EDIBLE — expanded keywords including common product formats
         if any(w in t for w in edible_keywords):
             return 'edible'
-        # Word-boundary match for short/ambiguous edible words
-        if re.search(r'\b(?:bars?|mints?|chew|tabs?|tablets?)\b', t):
-            # Avoid false positives: "bar" in strain names or "mint" in "Thin Mint"
-            # Only match if the text also has a mg weight (edible indicator)
+        # Word-boundary match for short/ambiguous edible words.
+        # These words appear in strain names ("Thin Mint", "Honey Boo Boo")
+        # so we require a mg weight to confirm it's truly an edible.
+        if re.search(r'\b(?:bars?|mints?|chew|tabs?|tablets?|blocks?|cookies?|honey)\b', t):
             if re.search(r'\b\d+\s*mg\b', t):
                 return 'edible'
 

@@ -175,18 +175,26 @@ def classify_product(
     _ACCESSORY_INDICATORS = ("screen", "screens", "papers", "rolling paper",
                              "tips", "filter", "grinder", "lighter", "tray",
                              "stash", "storage", "pipe", "bong", "rig",
-                             "torch", "dab tool", "nail")
+                             "torch", "dab tool", "nail",
+                             "hemp wrap", "hemp wraps", "wrapper")
     # Empty cones (RAW, Pop Cones, etc.) are rolling papers, not prerolls
     _CONE_ACCESSORY_BRANDS = ("raw", "pop cones", "elements", "ocb", "zig zag",
-                              "zig-zag")
+                              "zig-zag", "hemper", "king palm")
     is_edible_context = (
         cat in ("edible",)
         or any(kw in name_lower for kw in _EDIBLE_INDICATORS)
     )
+    # Cone accessory: brand-based OR any "cone(s)" + pack pattern without
+    # infused/thc indicators (infused cones ARE cannabis products).
+    _is_cone_accessory = (
+        "cone" in name_lower
+        and not any(kw in name_lower for kw in ("infused", "thc", "live resin"))
+        and (any(b in name_lower for b in _CONE_ACCESSORY_BRANDS)
+             or bool(re.search(r'\d+\s*-?\s*pack\b|\d+\s*pk\b', name_lower)))
+    )
     is_accessory = (
         any(kw in name_lower for kw in _ACCESSORY_INDICATORS)
-        or (any(b in name_lower for b in _CONE_ACCESSORY_BRANDS)
-            and "cone" in name_lower)
+        or _is_cone_accessory
     )
     is_concentrate_context = cat in ("concentrate", "vape")
     if not is_infused and not is_edible_context and not is_accessory and not is_concentrate_context:
