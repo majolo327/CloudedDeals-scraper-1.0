@@ -44,11 +44,21 @@ export function Toast({ toast, onDismiss }: ToastProps) {
     discovery: 'bg-cyan-500/20 border-cyan-500/30 text-cyan-400'
   };
 
+  const glowShadows: Record<string, string> = {
+    success: '0 0 20px rgba(168, 85, 247, 0.15), 0 4px 16px rgba(0, 0, 0, 0.2)',
+    info: '0 0 20px rgba(59, 130, 246, 0.15), 0 4px 16px rgba(0, 0, 0, 0.2)',
+    saved: '0 0 20px rgba(168, 85, 247, 0.15), 0 4px 16px rgba(0, 0, 0, 0.2)',
+    removed: '0 4px 16px rgba(0, 0, 0, 0.3)',
+    milestone: '0 0 20px rgba(251, 191, 36, 0.15), 0 4px 16px rgba(0, 0, 0, 0.2)',
+    discovery: '0 0 20px rgba(6, 182, 212, 0.15), 0 4px 16px rgba(0, 0, 0, 0.2)',
+  };
+
   return (
     <div
-      className={`flex items-center gap-2 px-4 py-3 rounded-xl border backdrop-blur-xl shadow-xl transition-all duration-300 animate-toast-in ${colors[toast.type]} ${
+      className={`flex items-center gap-2 px-4 py-3 rounded-2xl border backdrop-blur-2xl transition-all duration-300 animate-toast-in ${colors[toast.type]} ${
         isLeaving ? 'translate-y-2 opacity-0' : ''
       }`}
+      style={{ boxShadow: glowShadows[toast.type] }}
     >
       <span className="shrink-0">{icons[toast.type]}</span>
       <span className="text-sm font-medium">{toast.message}</span>

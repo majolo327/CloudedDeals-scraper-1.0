@@ -304,7 +304,8 @@ export function FilterSheet({
           {/* Sheet */}
           <div
             ref={sheetRef}
-            className="absolute bottom-0 left-0 right-0 sm:left-auto sm:top-0 sm:bottom-0 sm:w-[380px] max-h-[80vh] sm:max-h-none sm:h-full bg-slate-900 border-t sm:border-t-0 sm:border-l border-slate-800 rounded-t-2xl sm:rounded-none flex flex-col"
+            className="absolute bottom-0 left-0 right-0 sm:left-auto sm:top-0 sm:bottom-0 sm:w-[380px] max-h-[80vh] sm:max-h-none sm:h-full border-t sm:border-t-0 sm:border-l rounded-t-3xl sm:rounded-none flex flex-col"
+            style={{ backgroundColor: 'rgba(12, 14, 28, 0.98)', borderColor: 'rgba(120, 100, 200, 0.1)' }}
             onClick={(e) => e.stopPropagation()}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
@@ -315,7 +316,7 @@ export function FilterSheet({
             </div>
 
             {/* Header */}
-            <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b border-slate-800">
+            <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: 'rgba(120, 100, 200, 0.08)' }}>
               <h2 className="text-lg font-semibold text-white">Filters</h2>
               <div className="flex items-center gap-2">
                 {activeFilterCount > 0 && (
@@ -700,14 +701,15 @@ export function FilterSheet({
             </div>
 
             {/* Footer */}
-            <div className="flex-shrink-0 p-4 bg-slate-900/95 border-t border-slate-800 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="flex-shrink-0 p-4 border-t pb-[max(1rem,env(safe-area-inset-bottom))]" style={{ backgroundColor: 'rgba(12, 14, 28, 0.95)', borderColor: 'rgba(120, 100, 200, 0.08)' }}>
               <button
                 onClick={() => setIsOpen(false)}
-                className={`w-full py-3 min-h-[48px] font-semibold rounded-xl transition-colors text-sm ${
+                className={`w-full py-3.5 min-h-[48px] font-semibold rounded-2xl transition-colors text-sm ${
                   filteredCount === 0
                     ? 'bg-slate-700 text-slate-400'
-                    : 'bg-purple-500 hover:bg-purple-400 text-white'
+                    : 'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white shadow-lg shadow-purple-500/20'
                 }`}
+                style={filteredCount > 0 ? { boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 16px rgba(139, 92, 246, 0.2)' } : undefined}
               >
                 {filteredCount === 0 ? 'No deals match' : `Show ${filteredCount} deal${filteredCount !== 1 ? 's' : ''}`}
               </button>
