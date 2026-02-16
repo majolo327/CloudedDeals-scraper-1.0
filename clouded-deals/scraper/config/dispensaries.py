@@ -36,22 +36,92 @@ The ``REGION`` env var in main.py controls which state is scraped.
 """
 
 # ---------------------------------------------------------------------------
-# Browser / Playwright defaults
+# Browser / Playwright defaults — stealth configuration
 # ---------------------------------------------------------------------------
+
+import random as _random
 
 BROWSER_ARGS = [
     "--no-sandbox",
     "--disable-blink-features=AutomationControlled",
     "--disable-dev-shm-usage",
+    "--disable-infobars",
+    "--disable-features=AutomationControlled",
 ]
 
+# Pool of realistic Chrome User-Agents — rotated per browser context so
+# each scraper session presents a different fingerprint.
+_USER_AGENT_POOL = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+]
+
+# Default (backwards-compat import target); callers should prefer get_user_agent()
+USER_AGENT = _USER_AGENT_POOL[0]
+
+
+def get_user_agent() -> str:
+    """Return a randomly selected realistic Chrome User-Agent."""
+    return _random.choice(_USER_AGENT_POOL)
+
+
+# Common desktop resolutions with small random offsets to avoid
+# fingerprint-matching on exact viewport dimensions.
+_VIEWPORT_BASES = [
+    (1920, 1080),
+    (1366, 768),
+    (1440, 900),
+    (1536, 864),
+]
+
+# Default (backwards-compat import target); callers should prefer get_viewport()
 VIEWPORT = {"width": 1920, "height": 1080}
 
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/131.0.0.0 Safari/537.36"
-)
+
+def get_viewport() -> dict[str, int]:
+    """Return a slightly randomized viewport to avoid fingerprinting."""
+    w, h = _random.choice(_VIEWPORT_BASES)
+    return {
+        "width": w + _random.randint(-16, 16),
+        "height": h + _random.randint(-8, 8),
+    }
+
+
+# JavaScript injected into every browser context on creation to mask
+# Playwright/Chromium automation signals.  Industry-standard technique
+# used by all major scraping frameworks.
+STEALTH_INIT_SCRIPT = """
+// 1. Mask navigator.webdriver (primary bot signal)
+Object.defineProperty(navigator, 'webdriver', {
+    get: () => undefined,
+});
+
+// 2. Override navigator.plugins to look like a real browser
+Object.defineProperty(navigator, 'plugins', {
+    get: () => [1, 2, 3, 4, 5],
+});
+
+// 3. Override navigator.languages to match User-Agent
+Object.defineProperty(navigator, 'languages', {
+    get: () => ['en-US', 'en'],
+});
+
+// 4. Mask chrome.runtime (present in real Chrome, absent in headless)
+if (!window.chrome) { window.chrome = {}; }
+if (!window.chrome.runtime) { window.chrome.runtime = {}; }
+
+// 5. Override permissions API (Notification permission query leaks headless)
+const _origQuery = window.navigator.permissions.query.bind(navigator.permissions);
+window.navigator.permissions.query = (params) =>
+    params.name === 'notifications'
+        ? Promise.resolve({ state: Notification.permission })
+        : _origQuery(params);
+"""
 
 # Use 'domcontentloaded' — NOT 'networkidle' — to avoid hanging on
 # long-polling analytics and chat widgets that never finish loading.

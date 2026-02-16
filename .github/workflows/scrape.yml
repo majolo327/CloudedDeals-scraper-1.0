@@ -135,6 +135,15 @@ jobs:
             echo "value=southern-nv" >> $GITHUB_OUTPUT
           fi
 
+      - name: Startup jitter
+        if: github.event_name == 'schedule'
+        run: |
+          # Random 0-180s delay so daily crons don't start at the exact
+          # same second every day — reduces bot-detection fingerprint.
+          JITTER=$((RANDOM % 180))
+          echo "Sleeping ${JITTER}s for cron jitter…"
+          sleep "$JITTER"
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
