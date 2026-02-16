@@ -92,7 +92,7 @@ function cleanupStaleEntries() {
   if (now - lastCleanup < 300_000) return;
   lastCleanup = now;
 
-  for (const [key, bucket] of rateLimitStore.entries()) {
+  for (const [key, bucket] of Array.from(rateLimitStore.entries())) {
     if (now - bucket.windowStart > 120_000) {
       rateLimitStore.delete(key);
     }
