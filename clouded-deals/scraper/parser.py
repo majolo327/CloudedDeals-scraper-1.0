@@ -451,6 +451,7 @@ KNOWN_BRANDS: list[str] = [
     "The Lab",
     "Tryke",
     "Tumbleweedz",
+    "Vapure",
     "Verano",
     "Voon",
     "Wana",

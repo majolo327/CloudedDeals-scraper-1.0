@@ -787,7 +787,7 @@ class TestNewBrandsFromMenuAudit:
         "The Lab", "Tryke", "SeCHe", "Tumbleweedz", "Smyle Labs",
         "Cosmonaut", "Groove", "Reserve", "Superior", "Neon Cactus",
         "JAMS", "Lift Tickets", "Ghost Town", "Flight Bites",
-        "Highlights", "Provisions", "Polaris", "Curaleaf",
+        "Highlights", "Provisions", "Polaris", "Curaleaf", "Vapure",
     ])
     def test_brand_in_database(self, brand):
         assert brand in BRANDS, f"'{brand}' should be in BRANDS list"
@@ -831,6 +831,18 @@ class TestNewBrandsFromMenuAudit:
     def test_and_shine_variation(self, logic):
         """'and Shine' resolves to &Shine via variations."""
         assert logic.detect_brand("and Shine Sunset Sherbet 0.3g") == "&Shine"
+
+    def test_vapure_detected(self, logic):
+        """Vapure brand should be detected."""
+        assert logic.detect_brand("Vapure .5g Disposable - Blue Dream") == "Vapure"
+
+    def test_vapure_in_cleaned_text(self, logic):
+        """Vapure detected when Bad Batch bundle text is stripped (real pipeline)."""
+        # After _strip_offer_text removes "Bad Batch 1g + Vapure .5g - $40",
+        # only the product text with Vapure remains.
+        assert logic.detect_brand(
+            "Disposable - Blue Dream\nVapure\n.5g\n$50.00"
+        ) == "Vapure"
 
     def test_sip_elixirs_variation(self, logic):
         """'Sip Elixirs' should resolve to 'Sip' via variations."""
@@ -914,3 +926,58 @@ class TestStrainTypeExtraction:
         main_path = pathlib.Path(__file__).resolve().parent.parent / "main.py"
         source = main_path.read_text()
         assert "strain_type" in source, "strain_type not found in main.py"
+
+
+# =====================================================================
+# 17) Offer Text Stripping (inline Dutchie bundle deals)
+# =====================================================================
+
+
+class TestOfferTextStripping:
+    """Inline Dutchie deal text should be stripped before brand detection.
+
+    Uses the _RE_OFFER_SECTION regex directly since main.py requires
+    runtime dependencies (dotenv, supabase) unavailable in unit tests.
+    """
+
+    @pytest.fixture
+    def strip(self):
+        """Replicate _strip_offer_text using the regex from main.py."""
+        _RE_OFFER_SECTION = re.compile(
+            r"(?:Special Offers?\s*\(?.*$)"
+            r"|(?:\d+/\$\d+\s+.*(?:Power Pack|Bundle).*$)"
+            r"|(?:\bShop Offer\b.*$)"
+            r"|(?:\bOffer\b.*\bShop\b.*$)"
+            r"|(?:\bselect\s+\$\d+.*$)"
+            r"|(?:^\d+\s*\([^)]+\)\s+\w+.*-\s*\$\d+.*$)"
+            r"|(?:^.{0,40}\+\s*.{3,40}-\s*\$\d+.*$)",
+            re.IGNORECASE | re.MULTILINE,
+        )
+        def _strip(raw_text: str) -> str:
+            if not raw_text:
+                return ""
+            return _RE_OFFER_SECTION.sub("", raw_text).strip()
+        return _strip
+
+    def test_inline_bundle_deal_stripped(self, strip):
+        """'2 (.5g) Disposables - $60' should be stripped."""
+        text = "Disposable - Blue Dream\nVapure\n2 (.5g) Disposables - $60"
+        result = strip(text)
+        assert "Disposables - $60" not in result
+        assert "Vapure" in result
+
+    def test_brand_plus_brand_bundle_stripped(self, strip):
+        """'Bad Batch 1g + Vapure .5g - $40' cross-brand deal stripped."""
+        text = "Disposable - Blue Dream\nBad Batch 1g + Vapure .5g - $40"
+        result = strip(text)
+        assert "Bad Batch" not in result
+
+    def test_shop_offer_stripped(self, strip):
+        text = "Disposable - Blue Dream\nShop Offer details here"
+        result = strip(text)
+        assert "Shop Offer" not in result
+
+    def test_product_text_preserved(self, strip):
+        """Clean product text should be unaffected."""
+        text = "Vapure .5g Disposable - Blue Dream $50"
+        assert strip(text) == text

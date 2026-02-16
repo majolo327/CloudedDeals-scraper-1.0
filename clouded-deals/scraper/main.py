@@ -343,7 +343,9 @@ _RE_OFFER_SECTION = re.compile(
     r"|(?:\d+/\$\d+\s+.*(?:Power Pack|Bundle).*$)"  # "2/$40 Power Pack || …"
     r"|(?:\bShop Offer\b.*$)"                  # "Shop Offer" link text
     r"|(?:\bOffer\b.*\bShop\b.*$)"             # variant "Offer … Shop"
-    r"|(?:\bselect\s+\$\d+.*$)",               # "select $20 eighths 2/$30 …" promo
+    r"|(?:\bselect\s+\$\d+.*$)"               # "select $20 eighths 2/$30 …" promo
+    r"|(?:^\d+\s*\([^)]+\)\s+\w+.*-\s*\$\d+.*$)"  # "2 (.5g) Disposables - $60"
+    r"|(?:^.{0,40}\+\s*.{3,40}-\s*\$\d+.*$)",  # "Brand X + Brand Y - $40" bundle
     re.IGNORECASE | re.MULTILINE,
 )
 

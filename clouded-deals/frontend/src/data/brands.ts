@@ -379,6 +379,7 @@ export const BRANDS: Brand[] = [
   b('Ultra Health', 'local', ['flower']),
 
   // V
+  b('Vapure', 'established', ['vape', 'concentrate']),
   b('Verano', 'premium', ['flower', 'vape', 'edible']),
   b('Virtue', 'established', ['flower', 'concentrate']),
   b('VPF', 'local', ['flower']),

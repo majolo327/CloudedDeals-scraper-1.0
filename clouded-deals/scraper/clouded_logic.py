@@ -164,7 +164,7 @@ BRANDS = sorted(set([
     'The Grower Circle', 'The Lab', 'Toker Poker', 'Trendi', 'Tryke',
     'Tsunami Labs', 'Tumbleweedz', 'Twisted Hemp', 'Tyson 2.0',
     # U-V
-    "Uncle Arnie's", 'Uncle Arnies', 'Verano', 'VERT Unlimited',
+    "Uncle Arnie's", 'Uncle Arnies', 'Vapure', 'Verano', 'VERT Unlimited',
     'Vegas Valley Growers', 'Virtue', 'Vlasic Labs', 'Voon',
     # W-Y
     'Wana', 'Wonderbrett', 'Wyld', 'Your Highness',
