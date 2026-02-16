@@ -5,13 +5,13 @@ run-name: >-
   Scrape — ${{
     github.event_name == 'workflow_dispatch'
       && (github.event.inputs.region || 'all')
-    || github.event.schedule == '0 16 * * *' && 'nevada'
+    || github.event.schedule == '0 16 * * *' && 'southern-nv'
     || github.event.schedule == '0 18 * * *' && 'arizona'
     || github.event.schedule == '30 19 * * *' && 'illinois'
     || github.event.schedule == '0 21 * * *' && 'missouri'
     || github.event.schedule == '0 22 * * *' && 'michigan'
     || github.event.schedule == '0 23 * * *' && 'new-jersey'
-    || 'unknown'
+    || 'all-regions'
   }}
 
 on:
@@ -72,6 +72,18 @@ concurrency:
 
 jobs:
   scrape:
+    name: >-
+      scrape — ${{
+        github.event_name == 'workflow_dispatch'
+          && (github.event.inputs.region || 'all')
+        || github.event.schedule == '0 16 * * *' && 'southern-nv'
+        || github.event.schedule == '0 18 * * *' && 'arizona'
+        || github.event.schedule == '30 19 * * *' && 'illinois'
+        || github.event.schedule == '0 21 * * *' && 'missouri'
+        || github.event.schedule == '0 22 * * *' && 'michigan'
+        || github.event.schedule == '0 23 * * *' && 'new-jersey'
+        || 'unknown-schedule'
+      }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -86,6 +98,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "value=${{ github.event.inputs.region || 'all' }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 16 * * *" ]; then
+            echo "value=southern-nv" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.schedule }}" = "0 18 * * *" ]; then
             echo "value=arizona" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.schedule }}" = "30 19 * * *" ]; then
@@ -97,7 +111,8 @@ jobs:
           elif [ "${{ github.event.schedule }}" = "0 23 * * *" ]; then
             echo "value=new-jersey" >> $GITHUB_OUTPUT
           else
-            echo "value=southern-nv" >> $GITHUB_OUTPUT
+            echo "::error::Unknown schedule '${{ github.event.schedule }}' — cannot determine region"
+            exit 1
           fi
 
       - name: Setup Python
@@ -127,7 +142,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python test_connection.py
 
-      - name: Run scraper
+      - name: "Run scraper [${{ steps.region.outputs.value }}]"
         working-directory: clouded-deals/scraper
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -142,8 +157,8 @@ jobs:
           REGION: ${{ steps.region.outputs.value }}
         run: |
           echo "=== Scraper Configuration ==="
-          echo "Group:      $PLATFORM_GROUP"
           echo "Region:     $REGION"
+          echo "Group:      $PLATFORM_GROUP"
           echo "Dry run:    $DRY_RUN"
           echo "Limited:    $LIMIT_DISPENSARIES"
           echo "Single:     $SINGLE_SITE"
@@ -156,17 +171,19 @@ jobs:
             python main.py
           fi
 
-      - name: Show scrape summary
+      - name: "Show scrape summary [${{ steps.region.outputs.value }}]"
         if: always()
         working-directory: clouded-deals/scraper
+        env:
+          REGION: ${{ steps.region.outputs.value }}
         run: |
           if [ -f scrape_summary.txt ]; then
-            echo "### Scrape Summary" >> $GITHUB_STEP_SUMMARY
+            echo "### Scrape Summary — ${REGION}" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             cat scrape_summary.txt >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo ""
-            echo "=== Scrape Summary ==="
+            echo "=== Scrape Summary — ${REGION} ==="
             cat scrape_summary.txt
           else
             echo "No scrape_summary.txt found (scraper may have crashed before report)"
@@ -186,7 +203,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: scrape-summary-${{ github.event.inputs.platform_group || 'stable' }}-${{ github.run_id }}
+          name: scrape-summary-${{ steps.region.outputs.value }}-${{ github.run_id }}
           path: |
             clouded-deals/scraper/scrape_summary.txt
           retention-days: 30
