@@ -134,7 +134,7 @@ async function getTodaysPostedDeals(
 
   if (data) {
     for (const deal of data) {
-      const brand = (deal as any).product?.brand;
+      const brand = (deal as unknown as { product?: { brand?: string } }).product?.brand;
       if (brand) {
         const brandKey = brand.toLowerCase().trim();
         brands.add(brandKey);
@@ -197,8 +197,19 @@ export async function selectDealsToPost(
   const candidates: AutoPostCandidate[] = [];
 
   for (const raw of rawDeals) {
-    const product = raw.product as any;
-    const dispensary = raw.dispensary as any;
+    const product = (raw as unknown as { product: {
+      name: string;
+      brand: string | null;
+      category: string | null;
+      sale_price: number | null;
+      original_price: number | null;
+      discount_percent: number | null;
+      weight_value: number | null;
+      weight_unit: string | null;
+      product_subtype: string | null;
+      product_url: string | null;
+    } | null }).product;
+    const dispensary = (raw as unknown as { dispensary: { name: string; region: string } | null }).dispensary;
 
     if (!product || !dispensary) continue;
 
