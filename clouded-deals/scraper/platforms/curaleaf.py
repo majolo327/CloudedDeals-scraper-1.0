@@ -100,11 +100,19 @@ _PRODUCT_SELECTORS = [
 
 # Map region slugs to full state names (for age gate dropdown) and abbreviations.
 _REGION_TO_STATE: dict[str, tuple[str, str]] = {
+    "southern-nv": ("Nevada", "NV"),
+    "northern-nv": ("Nevada", "NV"),
+    "nevada": ("Nevada", "NV"),
     "michigan": ("Michigan", "MI"),
     "illinois": ("Illinois", "IL"),
-    "nevada": ("Nevada", "NV"),
-    "southern-nv": ("Nevada", "NV"),
     "arizona": ("Arizona", "AZ"),
+    "missouri": ("Missouri", "MO"),
+    "new-jersey": ("New Jersey", "NJ"),
+    "ohio": ("Ohio", "OH"),
+    "colorado": ("Colorado", "CO"),
+    "new-york": ("New York", "NY"),
+    "massachusetts": ("Massachusetts", "MA"),
+    "pennsylvania": ("Pennsylvania", "PA"),
 }
 
 
@@ -112,18 +120,18 @@ def _infer_state(url: str, dispensary: dict[str, Any]) -> tuple[str, str]:
     """Infer state name and abbreviation for the Curaleaf age gate.
 
     Resolution order:
-      1. URL path: ``/shop/{state}/...`` → title-cased state name
+      1. URL path: ``/shop/{state}/...`` → lookup in _REGION_TO_STATE
       2. Dispensary config ``region`` field → lookup in _REGION_TO_STATE
       3. Fallback: ("Nevada", "NV") for backward compatibility
     """
     # Try extracting from /shop/{state}/ URL pattern
-    match = re.search(r"/shop/(\w[\w-]*)/", url)
+    match = re.search(r"/shop/([\w-]+)/", url)
     if match:
         slug = match.group(1).lower()
         if slug in _REGION_TO_STATE:
             return _REGION_TO_STATE[slug]
-        # Unknown slug in URL — title-case it as best guess
-        return slug.title(), slug[:2].upper()
+        # Unknown slug — replace hyphens with spaces for dropdown matching
+        return slug.replace("-", " ").title(), slug.replace("-", "")[:2].upper()
 
     # Try the dispensary config "region" field
     region = dispensary.get("region", "").lower()
@@ -282,7 +290,7 @@ class CuraleafScraper(BaseScraper):
 
         logger.info("[%s] Detected Curaleaf age-gate redirect: %s", self.slug, current_url)
 
-        # Infer the correct state from the URL or dispensary config
+        # Infer the correct state from URL or dispensary config
         state_name, state_abbr = _infer_state(self.url, self.dispensary)
         logger.info("[%s] Age gate state: %s (%s)", self.slug, state_name, state_abbr)
 
