@@ -602,6 +602,11 @@ def _clean_product_name(name: str) -> str:
     # Strip parenthetical strain codes: "(SH)", "(I)", "(S)", "(H)", "(IH)", "(SH)"
     cleaned = re.sub(r"\s*\(\s*(?:SH?|IH?|H)\s*\)", "", cleaned, flags=re.IGNORECASE)
 
+    # Strip leading price prefix from product names that begin with "$XX"
+    # e.g. "$55 VYBZ Pre-packaged" → "VYBZ Pre-packaged"
+    #       "$23 Dab Oil Applicators" → "Dab Oil Applicators"
+    cleaned = re.sub(r"^\$\d+\.?\d*\s+", "", cleaned)
+
     # Strip inline price/deal text fragments that slip into product names
     # e.g. "$99 $45 1/2 OZ" or "1/2 OZ" at end of name
     cleaned = re.sub(r"\s*\$\d+\.?\d*(?:\s+\$\d+\.?\d*)*\s*(?:1/2\s+OZ)?.*$", "", cleaned, flags=re.IGNORECASE)
