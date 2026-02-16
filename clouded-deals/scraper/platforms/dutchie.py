@@ -62,6 +62,34 @@ _JUNK_PATTERNS = re.compile(
 # Trailing strain-type labels that shouldn't be in the product name
 _TRAILING_STRAIN = re.compile(r"\s*(Indica|Sativa|Hybrid)\s*$", re.IGNORECASE)
 
+# Category labels that appear as standalone lines in Dutchie card text.
+# Map scraped text → normalized category for scraped_category.
+_CATEGORY_LABEL_MAP: dict[str, str] = {
+    "pre-roll": "preroll",
+    "pre-rolls": "preroll",
+    "pre roll": "preroll",
+    "pre rolls": "preroll",
+    "preroll": "preroll",
+    "prerolls": "preroll",
+    "pre-roll single": "preroll",
+    "flower": "flower",
+    "vape": "vape",
+    "vapes": "vape",
+    "cartridge": "vape",
+    "cartridges": "vape",
+    "concentrate": "concentrate",
+    "concentrates": "concentrate",
+    "edible": "edible",
+    "edibles": "edible",
+}
+
+# Regex to detect standalone category labels in raw_text lines
+_RE_CATEGORY_LABEL = re.compile(
+    r"^\s*(?:Pre[-\s]?Rolls?|Prerolls?|Pre[-\s]?Roll\s+Single|"
+    r"Flower|Vapes?|Cartridges?|Concentrates?|Edibles?)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
 # Age gate cookie to set if the site's own JS doesn't set one after overlay removal.
 _AGE_GATE_COOKIE_JS = """
 () => {
@@ -571,6 +599,21 @@ class DutchieScraper(BaseScraper):
                 raw_text = _JUNK_PATTERNS.sub("", text_block).strip()
                 raw_text = re.sub(r"\n{3,}", "\n\n", raw_text)  # collapse blank lines
 
+                # --- Category extraction from card text ---
+                # Dutchie cards often show a standalone category label
+                # ("Flower", "Pre-Roll", etc.) as a visible line.  Extract
+                # it BEFORE stripping so we get a high-confidence scraped
+                # category, then remove it from raw_text to prevent it
+                # from polluting text-based category detection downstream.
+                scraped_category = None
+                for line in raw_text.split("\n"):
+                    label = line.strip().lower()
+                    if label in _CATEGORY_LABEL_MAP:
+                        scraped_category = _CATEGORY_LABEL_MAP[label]
+                        break
+                # Strip standalone category labels from raw_text
+                raw_text = _RE_CATEGORY_LABEL.sub("", raw_text).strip()
+
                 # --- Separate offer/bundle text from product text ---
                 # Dutchie "Special Offers" sections live inside the same
                 # card container.  Split them out so brand detection
@@ -610,6 +653,24 @@ class DutchieScraper(BaseScraper):
                     except Exception:
                         continue
 
+                # --- Category extraction (separate element on card) ---
+                # Some Dutchie layouts show category in a dedicated element.
+                # This overrides the text-line extraction above (higher confidence).
+                for cat_sel in (
+                    "[class*='category']", "[class*='Category']",
+                    "[data-testid*='category']", "[data-testid*='Category']",
+                    "[class*='productType']", "[class*='product-type']",
+                ):
+                    try:
+                        cat_el = el.locator(cat_sel).first
+                        if await cat_el.count() > 0:
+                            cat_text = (await cat_el.inner_text()).strip().lower()
+                            if cat_text in _CATEGORY_LABEL_MAP:
+                                scraped_category = _CATEGORY_LABEL_MAP[cat_text]
+                                break
+                    except Exception:
+                        continue
+
                 product: dict[str, Any] = {
                     "name": name,
                     "raw_text": raw_text,
@@ -618,6 +679,8 @@ class DutchieScraper(BaseScraper):
                 }
                 if scraped_brand:
                     product["scraped_brand"] = scraped_brand
+                if scraped_category:
+                    product["scraped_category"] = scraped_category
 
                 # --- Product link ---
                 try:

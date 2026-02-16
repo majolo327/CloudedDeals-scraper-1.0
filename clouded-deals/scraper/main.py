@@ -464,6 +464,64 @@ _RE_LEADING_STRAIN = re.compile(
 )
 
 
+# Lines in raw_text that are NOT useful strain/product names.
+_JUNK_LINE_PATTERNS = re.compile(
+    r"^(?:"
+    r"\$[\d.]+"                              # price line
+    r"|[\d.]+\s*(?:g|mg|oz)\b"               # weight line
+    r"|(?:Indica|Sativa|Hybrid)$"            # strain type
+    r"|(?:THC|CBD|CBN)\s*:?\s*[\d.]+\s*%?"   # cannabinoid
+    r"|Add to (?:cart|bag)"                   # CTA
+    r"|(?:Pre[-\s]?Rolls?|Prerolls?|Flower|Vapes?|Cartridges?|Concentrates?|Edibles?)$"  # category label
+    r"|(?:Sale!?|New!?|Limited|Sold out|In stock|Staff Pick|Local Love|New Arrival)"
+    r"|\d+%\s*off"
+    r"|Special Offers?"
+    r"|\s*$"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def _extract_strain_from_raw_text(
+    raw_text: str, brand: str, fallback: str,
+) -> str:
+    """Try to find a meaningful strain/product name in raw_text lines.
+
+    When the scraped product name equals the brand (e.g. a Dutchie card
+    whose heading is just "Cookies"), the real strain name often appears
+    as a separate line in the card text (e.g. "Headband", "Gary Payton").
+    This function scans those lines and returns the first candidate that
+    isn't the brand, a price, a weight, a category label, or junk text.
+
+    Falls back to *fallback* (usually the raw_name) if nothing better
+    is found.
+    """
+    if not raw_text:
+        return fallback
+    brand_lower = brand.lower() if brand else ""
+    for line in raw_text.split("\n"):
+        candidate = line.strip()
+        if not candidate or len(candidate) < 3:
+            continue
+        # Skip if it's the brand name itself
+        if candidate.lower() == brand_lower:
+            continue
+        # Skip if it starts with the brand (e.g. "Cookies | Flower")
+        if brand_lower and candidate.lower().startswith(brand_lower):
+            continue
+        # Skip junk lines (prices, weights, strain types, category labels, etc.)
+        if _JUNK_LINE_PATTERNS.match(candidate):
+            continue
+        # Good candidate — strip brand prefix if present
+        result = re.sub(
+            rf'\b{re.escape(brand)}\b\s*[-:|]?\s*',
+            '', candidate, flags=re.IGNORECASE,
+        ).strip()
+        if len(result) >= 3:
+            return result
+    return fallback
+
+
 def _is_junk_deal(name: str, price: float | None) -> bool:
     """Return True if this scraped entry is promotional junk rather than a real product."""
     if not price or price <= 0:
@@ -1000,6 +1058,27 @@ async def _scrape_site_inner(
         # Category: detect from clean text (no offer keyword pollution)
         category = logic.detect_category(clean_text)
 
+        # Scraped category override: when the platform scraper extracted
+        # a category label directly from the product card (e.g. Dutchie
+        # cards show "Pre-Roll", "Flower", etc.), trust it over text-based
+        # detection — it's the dispensary's own classification.
+        # Only override when text detection gave a DIFFERENT answer or
+        # landed on "other" (meaning no keywords matched).
+        scraped_category = rp.get("scraped_category", "")
+        if scraped_category and scraped_category != category:
+            # If text detection found a specific category AND the scraped
+            # category disagrees, the scraped label wins — it's directly
+            # from the dispensary's structured data.
+            if category in ("other", "skip"):
+                category = scraped_category
+            elif scraped_category == "preroll" and category == "flower":
+                # Common misclassification: dispensary lists a preroll
+                # product but text detection picks up "flower" from
+                # stray text.  Trust the scraped label.
+                category = "preroll"
+            elif scraped_category != "other":
+                category = scraped_category
+
         # Concentrate correction: if category landed on "vape" but the
         # product text has concentrate format keywords (badder, wax, live
         # resin…) and no vape keywords (cart, pod…), it's a concentrate.
@@ -1049,6 +1128,21 @@ async def _scrape_site_inner(
             except (ValueError, TypeError):
                 pass
 
+        # ── Flower @ 1g → preroll heuristic ────────────────────────
+        # In cannabis retail, 1g flower is almost never sold — it's
+        # the standard weight for a single preroll.  When category
+        # is "flower" and weight is exactly 1g, reclassify as preroll
+        # UNLESS the product name explicitly contains "flower" or
+        # "bud" (confirming it really is flower).
+        if category == "flower" and weight_unit == "g":
+            try:
+                wv = float(weight_value) if weight_value is not None else None
+                if wv == 1.0 and not re.search(r"\b(?:flower|bud)\b", raw_name, re.IGNORECASE):
+                    category = "preroll"
+                    product["category"] = "preroll"
+            except (ValueError, TypeError):
+                pass
+
         # Normalize mg → g for vape/concentrate (physical weight, not THC)
         # "1000mg" vape cart → 1.0g, "850mg" pod → 0.85g
         effective_cat = category if (category and category != 'other') else product.get("category")
@@ -1087,7 +1181,13 @@ async def _scrape_site_inner(
                     '', display_name, flags=re.IGNORECASE,
                 ).strip()
             if len(display_name) < 3:
-                display_name = raw_name
+                # The product name was essentially just the brand (e.g.
+                # "Cookies" when the card heading is the brand label).
+                # Try to extract a meaningful strain/product name from
+                # the raw_text lines instead of falling back to the brand.
+                display_name = _extract_strain_from_raw_text(
+                    raw_text, brand, raw_name,
+                )
 
         display_name = display_name or raw_name or "Unknown"
 
