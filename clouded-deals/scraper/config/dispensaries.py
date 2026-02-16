@@ -1,21 +1,21 @@
 """
 Dispensary configuration across 11 regions and 5 active platforms.
 
-Regions (861 active):
+Regions (872 active):
   - southern-nv:    53 dispensaries (Dutchie/Jane/Carrot/Curaleaf/Zen Leaf/AIQ)
   - michigan:      196 dispensaries (Dutchie-dominant)
   - illinois:      165 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
   - arizona:        99 dispensaries (Dutchie + Curaleaf/Zen Leaf + Jane)
   - missouri:       89 dispensaries (Dutchie-only)
-  - new-jersey:     91 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - new-jersey:    102 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
   - ohio:           23 dispensaries (Dutchie + Curaleaf/Zen Leaf + Jane)
   - colorado:       17 dispensaries (Dutchie + Jane)
   - new-york:       20 dispensaries (Dutchie + Jane + Curaleaf)
   - massachusetts:  65 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
   - pennsylvania:   43 dispensaries (Curaleaf/Zen Leaf + Dutchie)
 
-Platforms (861 active / 910 total):
-  - dutchie: ~628 — iframe-based menus (Dutchie/TD sites)
+Platforms (872 active / 921 total):
+  - dutchie: ~639 — iframe-based menus (Dutchie/TD sites)
   - jane:    ~117 — hybrid iframe/direct with "View More" pagination
   - curaleaf: ~109 — direct page loads (Curaleaf + Zen Leaf)
   - rise:        0 — ALL DEACTIVATED (100% Cloudflare blocked)
@@ -1933,7 +1933,9 @@ DISPENSARIES = [
     {"name": "Breakwater Roselle Park NJ", "slug": "breakwater-nj-roselle-park", "platform": "jane", "url": "https://www.iheartjane.com/stores/4777/breakwater-treatment-wellness-roselle-park/menu", "is_active": True, "region": "new-jersey"},
     {"name": "KushKlub Jersey City NJ", "slug": "kushklub-nj-jersey-city", "platform": "jane", "url": "https://www.iheartjane.com/stores/6882/kushklub-jersey-city-nj/menu", "is_active": True, "region": "new-jersey"},
 
-    # ── NJ DUTCHIE EXPANSION — 8 new stores ─────────────────────────
+    # Botanist Egg Harbor already covered on Dutchie (lines 1716-1717)
+
+    # ── NJ DUTCHIE EXPANSION — 19 stores (8 wave2 + 11 wave3) ──────
     {"name": "Everest Dispensary AC NJ", "slug": "everest-nj-ac", "platform": "dutchie", "url": "https://dutchie.com/dispensary/everest-dispensary", "is_active": True, "region": "new-jersey"},
     {"name": "Design 710 REC AC NJ", "slug": "design-710-nj-ac", "platform": "dutchie", "url": "https://dutchie.com/dispensary/design-710-rec", "is_active": True, "region": "new-jersey"},
     {"name": "Peaches Garden AC NJ", "slug": "peaches-garden-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/peaches-garden", "is_active": True, "region": "new-jersey"},
@@ -1942,6 +1944,18 @@ DISPENSARIES = [
     {"name": "Got Your Six Princeton NJ", "slug": "got-your-six-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/got-your-six-llc", "is_active": True, "region": "new-jersey"},
     {"name": "Mister Jones Little Falls NJ", "slug": "mister-jones-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/mister-jones-new-jersey", "is_active": True, "region": "new-jersey"},
     {"name": "Green Oasis Atco NJ", "slug": "green-oasis-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cannabis-nj", "is_active": True, "region": "new-jersey"},
+    # Wave 3 — from completed NJ research agent
+    {"name": "NAR Cannabis Mt Laurel NJ", "slug": "nar-nj-mt-laurel", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nar-cannabis-mt-laurel", "is_active": True, "region": "new-jersey"},
+    {"name": "Phasal Runnemede NJ", "slug": "phasal-nj-runnemede", "platform": "dutchie", "url": "https://dutchie.com/dispensary/phasal-llc", "is_active": True, "region": "new-jersey"},
+    {"name": "The Library West Orange NJ", "slug": "the-library-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-library", "is_active": True, "region": "new-jersey"},
+    {"name": "Hazy Harvest Jersey City NJ", "slug": "hazy-harvest-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/hazy-harvest", "is_active": True, "region": "new-jersey"},
+    {"name": "Castaway Cannabis Delran NJ", "slug": "castaway-nj-delran", "platform": "dutchie", "url": "https://dutchie.com/dispensary/castaway-cannabis", "is_active": True, "region": "new-jersey"},
+    {"name": "Design 710 MED AC NJ", "slug": "design-710-nj-ac-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/design-710", "is_active": True, "region": "new-jersey"},
+    {"name": "Doobiez West Milford NJ", "slug": "doobiez-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/doobiez-nj", "is_active": True, "region": "new-jersey"},
+    {"name": "Blazin Buddiez Bridgeton NJ", "slug": "blazin-buddiez-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/blazin-baddiez", "is_active": True, "region": "new-jersey"},
+    {"name": "Uma Flowers Morristown NJ", "slug": "uma-flowers-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/uma-flowers-morristown", "is_active": True, "region": "new-jersey"},
+    {"name": "Hello High Hammonton NJ", "slug": "hello-high-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/hello-high", "is_active": True, "region": "new-jersey"},
+    {"name": "Cottonmouth Dispensary Runnemede NJ", "slug": "cottonmouth-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cottonmouth-dispensary", "is_active": True, "region": "new-jersey"},
 
     # ── MA DUTCHIE EXPANSION — 27 new stores ────────────────────────
     {"name": "Canna Provisions Holyoke MA", "slug": "canna-provisions-ma-holyoke", "platform": "dutchie", "url": "https://dutchie.com/dispensary/canna-provisions-holyoke", "is_active": True, "region": "massachusetts"},
