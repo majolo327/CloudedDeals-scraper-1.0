@@ -54,7 +54,7 @@ CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
 
 # Global hard-filter thresholds (apply to ALL categories)
 HARD_FILTERS = {
-    "min_discount_percent": 12,   # relaxed from 15% — captures more mid-tier deals
+    "min_discount_percent": 15,   # tightened from 12% — prevents non-deals from displacing steals
     "min_price": 3,               # below $3 = data error
     "max_price_absolute": 100,    # raised from $80 for oz flower + concentrates
     "max_discount_percent": 85,   # above 85% = fake/data error
@@ -66,8 +66,8 @@ HARD_FILTERS = {
 # but a $9 edible from $10 = 10%).  These budget items are genuine deals
 # that consumers want to see, not data errors.
 CATEGORY_MIN_DISCOUNT: dict[str, float] = {
-    "edible": 10,
-    "preroll": 10,
+    "edible": 12,
+    "preroll": 12,
 }
 
 # Maximum believable ORIGINAL price per category.  If the parsed original
@@ -175,14 +175,14 @@ CATEGORY_BOOST: dict[str, int] = {
 # Phase 3: Top-200 selection parameters
 # =====================================================================
 
-TARGET_DEAL_COUNT = 250
+TARGET_DEAL_COUNT = 200
 
 CATEGORY_TARGETS: dict[str, int] = {
-    "flower": 75,       # raised from 60 — proportional to 250 target
-    "vape": 60,         # raised from 50
-    "edible": 40,       # raised from 35
-    "concentrate": 35,  # raised from 30
-    "preroll": 30,      # raised from 25
+    "flower": 60,
+    "vape": 45,
+    "edible": 30,
+    "concentrate": 30,
+    "preroll": 25,
     "other": 10,
 }
 
@@ -190,11 +190,11 @@ CATEGORY_TARGETS: dict[str, int] = {
 # slots before surplus is redistributed.  Prevents the feed from being
 # dominated by a single category (e.g. all prerolls, no flower).
 CATEGORY_MINIMUMS: dict[str, int] = {
-    "flower": 15,
-    "vape": 12,
-    "edible": 12,       # raised from 8 — guarantee more edibles in feed
-    "concentrate": 8,
-    "preroll": 8,       # raised from 5 — guarantee more prerolls in feed
+    "flower": 12,
+    "vape": 10,
+    "edible": 8,
+    "concentrate": 6,
+    "preroll": 6,
     "other": 0,
 }
 
@@ -204,7 +204,7 @@ MAX_CONSECUTIVE_SAME_CATEGORY = 3
 MAX_CONSECUTIVE_SAME_BRAND = 1        # no same-brand cards adjacent in the feed
 MAX_SAME_BRAND_PER_DISPENSARY = 2  # similarity dedup
 MAX_SAME_BRAND_PER_CATEGORY = 3    # cap per brand within a single category across all dispensaries
-MAX_UNKNOWN_BRAND_TOTAL = 15       # raised from 8 — Jane stores often lack brand extraction, so more headroom needed
+MAX_UNKNOWN_BRAND_TOTAL = 0        # no unknown brand deals — users want recognized brands only
 
 # Backfill caps — used in round 2 when round 1 under-fills the target.
 # More generous than the primary caps so the feed can fill, but still
@@ -212,8 +212,13 @@ MAX_UNKNOWN_BRAND_TOTAL = 15       # raised from 8 — Jane stores often lack br
 _BACKFILL_BRAND_TOTAL = 10
 _BACKFILL_BRAND_PER_CATEGORY = 6
 _BACKFILL_DISPENSARY_TOTAL = 18
-_BACKFILL_UNKNOWN_BRAND_TOTAL = 15
+_BACKFILL_UNKNOWN_BRAND_TOTAL = 0
 _BACKFILL_THRESHOLD = 0.85  # trigger backfill when round 1 fills < 85% of target
+
+# Dispensary minimum exposure — every dispensary with qualifying deals
+# should appear at least this many times in the feed.  Ensures smaller
+# shops get visibility alongside high-volume dispensaries.
+MIN_DEALS_PER_DISPENSARY = 1
 
 # =====================================================================
 # Phase 4: Badge thresholds
@@ -384,13 +389,10 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
     weight_value = product.get("weight_value")
 
     # Reject deals with no detected brand — "UNKNOWN" brand cards are
-    # confusing to users and indicate a parsing problem.  We have enough
-    # volume that we can require a brand on every displayed deal.
-    # Exception: Jane products get a pass — Jane brand extraction is
-    # unreliable and we'd rather show a deal with a missing brand than
-    # exclude an entire dispensary.  The dispensary name gives context.
-    source_platform = product.get("source_platform", "")
-    if not brand and source_platform != "jane":
+    # confusing to users and indicate a parsing problem.  We require a
+    # brand on every displayed deal, ALL platforms including Jane.
+    # Users want recognized brands only.
+    if not brand:
         return False
 
     # Reject strain-type-only product names
@@ -573,17 +575,17 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
     # 5. CATEGORY BOOST (up to 8 points)
     score += CATEGORY_BOOST.get(category, 3)
 
-    # 6. PRICE ATTRACTIVENESS (up to 12 points)
-    # Consumers love deals in the $8-25 range
-    if 8 <= sale_price <= 15:
+    # 6. PRICE ATTRACTIVENESS (up to 15 points)
+    # Consumers love the lowest-priced deals — prioritize genuine steals.
+    # The $3-8 range gets the highest boost to ensure the cheapest real
+    # deals float to the top instead of being outscored by mid-priced items.
+    if 3 <= sale_price <= 8:
+        score += 15
+    elif 8 < sale_price <= 15:
         score += 12
     elif 15 < sale_price <= 25:
-        score += 10
-    elif 5 <= sale_price < 8:
         score += 8
     elif 25 < sale_price <= 40:
-        score += 6
-    elif 0 < sale_price < 5:
         score += 4
 
     # 7. BUDGET DEAL BONUS (up to 5 points)
@@ -896,8 +898,21 @@ def select_top_deals(
             cat = "other"
         buckets[cat].append(deal)
 
+    # Sort each category bucket: lowest-price steals first (top 3 per
+    # category), then by deal_score for the rest.  This ensures the
+    # absolute cheapest deals in each category get priority slots,
+    # giving users the "steals" they want to see at the top.
+    _PRICE_PRIORITY_SLOTS = 3
     for cat in buckets:
-        buckets[cat].sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+        pool = buckets[cat]
+        # Sort by price ascending to find cheapest deals
+        pool.sort(key=lambda d: d.get("sale_price") or d.get("current_price") or 999)
+        price_leaders = pool[:_PRICE_PRIORITY_SLOTS]
+        rest = pool[_PRICE_PRIORITY_SLOTS:]
+        # Sort rest by deal_score descending
+        rest.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+        # Reassemble: price leaders first, then score-ranked
+        buckets[cat] = price_leaders + rest
 
     # ------------------------------------------------------------------
     # Step 2: Calculate category slot allocation
@@ -1079,7 +1094,61 @@ def select_top_deals(
             break
 
     # ------------------------------------------------------------------
-    # Step 4: Dispensary cap enforcement (uses backfill cap if active)
+    # Step 4: Dispensary minimum exposure guarantee
+    # ------------------------------------------------------------------
+    # Every dispensary that has qualifying deals should appear at least
+    # MIN_DEALS_PER_DISPENSARY times.  This ensures smaller shops get
+    # visibility instead of being completely squeezed out by high-volume
+    # dispensaries with many qualifying products.
+    result_disp_ids = {deal.get("dispensary_id") or "" for deal in result}
+    all_disp_pools: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for deal in scored_deals:
+        disp_id = deal.get("dispensary_id") or ""
+        all_disp_pools[disp_id].append(deal)
+
+    missing_disps = [
+        disp_id for disp_id in all_disp_pools
+        if disp_id and disp_id not in result_disp_ids
+    ]
+    if missing_disps:
+        result_keys = {
+            (d.get("name", ""), d.get("sale_price")) for d in result
+        }
+        # Track brand counts in the current result to respect caps
+        disp_min_brand_counts: dict[str, int] = defaultdict(int)
+        for deal in result:
+            b = (deal.get("brand") or "").lower()
+            if b:
+                disp_min_brand_counts[b] += 1
+        added = 0
+        for disp_id in missing_disps:
+            pool = all_disp_pools[disp_id]
+            pool.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+            count = 0
+            for deal in pool:
+                if count >= MIN_DEALS_PER_DISPENSARY:
+                    break
+                deal_key = (deal.get("name", ""), deal.get("sale_price"))
+                brand_lower = (deal.get("brand") or "").lower()
+                # Only add if it has a brand and doesn't exceed brand cap
+                if (
+                    deal_key not in result_keys
+                    and deal.get("brand")
+                    and disp_min_brand_counts[brand_lower] < _BACKFILL_BRAND_TOTAL
+                ):
+                    result.append(deal)
+                    result_keys.add(deal_key)
+                    disp_min_brand_counts[brand_lower] += 1
+                    count += 1
+                    added += 1
+        if added > 0:
+            logger.info(
+                "Dispensary minimum: added %d deals from %d under-represented dispensaries",
+                added, len(missing_disps),
+            )
+
+    # ------------------------------------------------------------------
+    # Step 5: Dispensary cap enforcement (uses backfill cap if active)
     # ------------------------------------------------------------------
     effective_disp_cap = (
         _BACKFILL_DISPENSARY_TOTAL

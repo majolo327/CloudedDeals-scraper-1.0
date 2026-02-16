@@ -83,12 +83,12 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is False
 
     def test_below_min_discount_rejected(self, make_product):
-        p = make_product(discount_percent=11)
+        p = make_product(discount_percent=14)
         assert passes_hard_filters(p) is False
 
     def test_at_min_discount_passes(self, make_product):
-        """12% discount is now the minimum (relaxed from 15%)."""
-        p = make_product(sale_price=15.0, original_price=30.0, discount_percent=12,
+        """15% discount is the minimum — prevents non-deals from displacing steals."""
+        p = make_product(sale_price=15.0, original_price=30.0, discount_percent=15,
                          category="flower", weight_value=3.5)
         assert passes_hard_filters(p) is True
 
