@@ -24,8 +24,8 @@ export function PrivacyPage({ onBack }: PrivacyPageProps) {
           This Privacy Policy for <strong>Clouded Inc.</strong> (&quot;Company,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) describes how and why we might access, collect, store, use, and/or share (&quot;process&quot;) your personal information when you use our services (&quot;Services&quot;), including when you:
         </p>
         <ul style={{ fontSize: 14, lineHeight: 1.8, marginBottom: 16, paddingLeft: 24, listStyleType: 'square' }}>
-          <li>Visit our website at <strong>useclouded.com</strong>, or any website of ours that links to this Privacy Policy</li>
-          <li>Use <strong>Clouded</strong>, our mobile application</li>
+          <li>Visit our website, or any website of ours that links to this Privacy Policy</li>
+          <li>Use <strong>Clouded Deals</strong>, our web application</li>
           <li>Engage with us in other related ways, including any sales, marketing, or events</li>
         </ul>
 
@@ -82,20 +82,13 @@ export function PrivacyPage({ onBack }: PrivacyPageProps) {
         </p>
 
         <h2 style={{ fontSize: 19, color: '#000', fontFamily: 'Arial', fontWeight: 'bold', marginTop: 32, marginBottom: 12 }}>9. HOW CAN YOU CONTACT US ABOUT THIS POLICY?</h2>
-        <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 8 }}>
-          If you have questions or comments about this policy, you may email us at <a href="mailto:help@onclouded.com" style={{ color: '#3030F1' }}>help@onclouded.com</a> or by post to:
-        </p>
         <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>
-          <strong>Clouded Inc.</strong><br />
-          304 S. Jones Blvd<br />
-          #7003<br />
-          Las Vegas, NV 89107<br />
-          United States
+          If you have questions or comments about this policy, you may email us at <a href="mailto:hello@cloudeddeals.com" style={{ color: '#3030F1' }}>hello@cloudeddeals.com</a>.
         </p>
 
         <h2 style={{ fontSize: 19, color: '#000', fontFamily: 'Arial', fontWeight: 'bold', marginTop: 32, marginBottom: 12 }}>10. HOW CAN YOU REVIEW, UPDATE, OR DELETE THE DATA WE COLLECT FROM YOU?</h2>
         <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>
-          Based on the applicable laws of your country or state of residence in the US, you may have the right to request access to the personal information we collect from you, details about how we have processed it, correct inaccuracies, or delete your personal information. To request to review, update, or delete your personal information, please email us at <a href="mailto:help@onclouded.com" style={{ color: '#3030F1' }}>help@onclouded.com</a>.
+          Based on the applicable laws of your country or state of residence in the US, you may have the right to request access to the personal information we collect from you, details about how we have processed it, correct inaccuracies, or delete your personal information. To request to review, update, or delete your personal information, please email us at <a href="mailto:hello@cloudeddeals.com" style={{ color: '#3030F1' }}>hello@cloudeddeals.com</a>.
         </p>
       </div>
     </div>

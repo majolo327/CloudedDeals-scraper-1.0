@@ -11,9 +11,9 @@ interface ValuePropSplashProps {
 
 export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSplashProps) {
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col overflow-y-auto">
+    <div className="fixed inset-0 z-[100] flex flex-col overflow-y-auto" style={{ backgroundColor: 'var(--surface-0)' }}>
       {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-purple-950/25 via-slate-950 to-slate-950 pointer-events-none" />
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(88, 28, 135, 0.18) 0%, transparent 60%)' }} />
 
       {/* Skip */}
       <div className="relative z-10 flex justify-end p-4">
@@ -52,14 +52,43 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
             : 'Every deal from every dispensary in Vegas. Updated daily.'}
         </p>
 
-        {/* Scannable value props — replaces 3 tiny feature cards */}
-        <div className="w-full max-w-sm space-y-2 mb-2 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
-          <p className="text-base text-slate-400">
-            Search any strain, brand, or dispensary.
-          </p>
-          <p className="text-base text-slate-400">
-            Sort by distance. Tap for directions.
-          </p>
+        {/* Feature callouts — action-oriented, scannable */}
+        <div className="w-full max-w-sm space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
+          {[
+            {
+              icon: Search,
+              title: 'Search any brand',
+              desc: 'Flower, vapes, edibles, concentrates — find your go-to or discover something new',
+              color: 'text-purple-400 bg-purple-500/10',
+            },
+            {
+              icon: MapPin,
+              title: 'Get directions',
+              desc: 'One tap to any dispensary in Vegas, sorted by distance',
+              color: 'text-emerald-400 bg-emerald-500/10',
+            },
+            {
+              icon: DollarSign,
+              title: 'Save deals you like',
+              desc: dealCount > 0
+                ? `Tap the heart, build your list. ${dealCount} deals live right now.`
+                : 'Tap the heart to save. 27 dispensaries checked every morning.',
+              color: 'text-amber-400 bg-amber-500/10',
+            },
+          ].map((feature) => (
+            <div
+              key={feature.title}
+              className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.04]"
+            >
+              <div className={`w-9 h-9 rounded-lg ${feature.color} flex items-center justify-center shrink-0 mt-0.5`}>
+                <feature.icon className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-white">{feature.title}</p>
+                <p className="text-sm text-slate-400 leading-relaxed">{feature.desc}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

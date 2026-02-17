@@ -141,8 +141,8 @@ export function LocationPrompt({ onContinue }: LocationPromptProps) {
   // Zip code fallback — shown when user denies location
   if (promptState === 'zip-fallback') {
     return (
-      <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col">
-        <div className="absolute inset-0 bg-gradient-to-b from-purple-950/20 via-slate-950 to-slate-950 pointer-events-none" />
+      <div className="fixed inset-0 z-[100] flex flex-col" style={{ backgroundColor: 'var(--surface-0)' }}>
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(88, 28, 135, 0.15) 0%, transparent 60%)' }} />
 
         {/* Skip */}
         <div className="relative z-10 flex justify-end p-4">
@@ -207,9 +207,9 @@ export function LocationPrompt({ onContinue }: LocationPromptProps) {
 
   // Default: location permission request
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col">
+    <div className="fixed inset-0 z-[100] flex flex-col" style={{ backgroundColor: 'var(--surface-0)' }}>
       {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/20 via-slate-950 to-slate-950 pointer-events-none" />
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(16, 185, 129, 0.12) 0%, transparent 60%)' }} />
 
       {/* Skip */}
       <div className="relative z-10 flex justify-end p-4">

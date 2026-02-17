@@ -55,11 +55,19 @@ const DISTANCE_OPTIONS: { id: DistanceRange; label: string; desc: string }[] = [
 function getWeightOptions(selectedCategories: Category[]): { id: string; label: string }[] {
   const options: { id: string; label: string }[] = [{ id: 'all', label: 'Any Size' }];
 
+  // Show "Disposable" when vape is selected (or no category filter)
+  const showDisposable = selectedCategories.length === 0
+    || selectedCategories.includes('vape');
+
   // If exactly one category is selected, show weights for that category
   if (selectedCategories.length === 1) {
     const cat = selectedCategories[0];
     const config = VALID_WEIGHTS_BY_CATEGORY[cat];
     if (config) {
+      // Disposable filters by product_subtype (AIO, RTU, all-in-one)
+      if (showDisposable) {
+        options.push({ id: 'disposable', label: 'Disposable' });
+      }
       for (const w of config.commonWeights) {
         const display = `${w}${config.unit}`;
         options.push({ id: display, label: display });
@@ -69,6 +77,9 @@ function getWeightOptions(selectedCategories: Category[]): { id: string; label: 
   }
 
   // No category or multiple: show universal common weights
+  if (showDisposable) {
+    options.push({ id: 'disposable', label: 'Disposable' });
+  }
   const universalWeights = ['0.5g', '1g', '3.5g', '7g', '14g', '28g', '100mg', '200mg'];
   for (const w of universalWeights) {
     options.push({ id: w, label: w });
@@ -133,7 +144,7 @@ export function FilterSheet({
     filters.priceRange !== 'all',
     filters.minDiscount > 0,
     filters.distanceRange !== 'all',
-    filters.weightFilter !== 'all',
+    filters.weightFilters.length > 0,
   ].filter(Boolean).length;
 
   const handleReset = () => {
@@ -249,15 +260,30 @@ export function FilterSheet({
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
-  // Swipe-to-close on mobile
+  // Swipe-to-close on mobile — only from the drag handle area at top of sheet.
+  // Prevents accidental dismissal when scrolling through filter options.
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
+    // Only track swipe if it started in the drag handle zone (top 48px of sheet)
+    // or if the scrollable content is already scrolled to the top
+    const sheetTop = sheetRef.current?.getBoundingClientRect().top ?? 0;
+    const touchY = e.touches[0].clientY;
+    const relativeY = touchY - sheetTop;
+    const scrollTop = scrollRef.current?.scrollTop ?? 0;
+
+    if (relativeY < 48 || scrollTop === 0) {
+      touchStartY.current = touchY;
+    } else {
+      touchStartY.current = null;
+    }
   }, []);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (touchStartY.current === null) return;
     const deltaY = e.changedTouches[0].clientY - touchStartY.current;
-    if (deltaY > 80) setIsOpen(false);
+    // Require 120px+ swipe down (was 80px, too sensitive)
+    if (deltaY > 120) setIsOpen(false);
     touchStartY.current = null;
   }, []);
 
@@ -282,14 +308,16 @@ export function FilterSheet({
         <div className="fixed inset-0 z-[60]">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+            className="absolute inset-0 bg-black/60 animate-in fade-in duration-200"
+            style={{ WebkitBackdropFilter: 'blur(8px) saturate(1.2)', backdropFilter: 'blur(8px) saturate(1.2)' }}
             onClick={() => setIsOpen(false)}
           />
 
           {/* Sheet */}
           <div
             ref={sheetRef}
-            className="absolute bottom-0 left-0 right-0 sm:left-auto sm:top-0 sm:bottom-0 sm:w-[380px] max-h-[80vh] sm:max-h-none sm:h-full bg-slate-900 border-t sm:border-t-0 sm:border-l border-slate-800 rounded-t-2xl sm:rounded-none flex flex-col"
+            className="absolute bottom-0 left-0 right-0 sm:left-auto sm:top-0 sm:bottom-0 sm:w-[380px] max-h-[80vh] sm:max-h-none sm:h-full border-t sm:border-t-0 sm:border-l rounded-t-3xl sm:rounded-none flex flex-col"
+            style={{ backgroundColor: 'rgba(12, 14, 28, 0.98)', borderColor: 'rgba(120, 100, 200, 0.1)', WebkitBackdropFilter: 'blur(32px) saturate(1.3)', backdropFilter: 'blur(32px) saturate(1.3)' }}
             onClick={(e) => e.stopPropagation()}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
@@ -300,7 +328,7 @@ export function FilterSheet({
             </div>
 
             {/* Header */}
-            <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b border-slate-800">
+            <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: 'rgba(120, 100, 200, 0.08)' }}>
               <h2 className="text-lg font-semibold text-white">Filters</h2>
               <div className="flex items-center gap-2">
                 {activeFilterCount > 0 && (
@@ -363,12 +391,12 @@ export function FilterSheet({
                       <X className="w-3 h-3" />
                     </button>
                   )}
-                  {filters.weightFilter !== 'all' && (
+                  {filters.weightFilters.length > 0 && (
                     <button
-                      onClick={() => onFiltersChange({ ...filters, weightFilter: 'all' })}
+                      onClick={() => onFiltersChange({ ...filters, weightFilters: [] })}
                       className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-cyan-500/15 text-cyan-400 text-xs font-medium"
                     >
-                      {filters.weightFilter}
+                      {filters.weightFilters.join(', ')}
                       <X className="w-3 h-3" />
                     </button>
                   )}
@@ -386,7 +414,7 @@ export function FilterSheet({
             )}
 
             {/* Scrollable content */}
-            <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain">
+            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain">
               {/* Sort By (collapsible at top) */}
               <section>
                 <button
@@ -555,22 +583,27 @@ export function FilterSheet({
                       </div>
                     )}
 
-                    {/* Dispensary */}
+                    {/* Dispensary — A-Z grouped with alphabet rail */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs text-slate-500">Dispensary</p>
+                        <p className="text-xs text-slate-500">
+                          Dispensary
+                          {filters.dispensaryIds.length > 0 && (
+                            <span className="ml-1 text-purple-400">({filters.dispensaryIds.length})</span>
+                          )}
+                        </p>
                         <div className="flex items-center gap-3">
                           <button
                             onClick={selectAllDispensaries}
                             className="px-2 py-1 min-h-[32px] text-[11px] text-purple-400 hover:text-purple-300 transition-colors"
                           >
-                            Select All
+                            All
                           </button>
                           <button
                             onClick={clearAllDispensaries}
                             className="px-2 py-1 min-h-[32px] text-[11px] text-slate-400 hover:text-slate-300 transition-colors"
                           >
-                            Clear
+                            None
                           </button>
                         </div>
                       </div>
@@ -585,33 +618,94 @@ export function FilterSheet({
                           className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500/50 transition-colors"
                         />
                       </div>
-                      <div className="space-y-1 max-h-40 overflow-y-auto rounded-lg bg-slate-800/50 p-2">
-                        {filteredDispensaries.map((d) => {
-                          const isChecked = filters.dispensaryIds.includes(d.id);
-                          return (
-                            <label
-                              key={d.id}
-                              className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-slate-800 cursor-pointer transition-colors"
-                            >
-                              <div
-                                className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
-                                  isChecked
-                                    ? 'bg-purple-500 border-purple-500'
-                                    : 'border-slate-600 bg-slate-800'
-                                }`}
-                              >
-                                {isChecked && <Check className="w-3 h-3 text-white" />}
+                      {/* A-Z grouped list with alphabet rail */}
+                      <div className="relative flex rounded-lg bg-slate-800/50 overflow-hidden" style={{ maxHeight: '220px' }}>
+                        {/* Scrollable dispensary list */}
+                        <div className="flex-1 overflow-y-auto py-1 pr-6" id="dispensary-scroll-list">
+                          {(() => {
+                            // Group filtered dispensaries by first letter
+                            const grouped: Record<string, typeof filteredDispensaries> = {};
+                            for (const d of filteredDispensaries) {
+                              const letter = (d.name[0] || '#').toUpperCase();
+                              const key = /[A-Z]/.test(letter) ? letter : '#';
+                              if (!grouped[key]) grouped[key] = [];
+                              grouped[key].push(d);
+                            }
+                            const letters = Object.keys(grouped).sort();
+                            return letters.map((letter) => (
+                              <div key={letter}>
+                                <div
+                                  id={`disp-letter-${letter}`}
+                                  className="sticky top-0 z-10 px-2 py-0.5 text-[10px] font-bold text-purple-400/70 uppercase"
+                                  style={{ backgroundColor: 'rgba(12, 14, 28, 0.95)' }}
+                                >
+                                  {letter}
+                                </div>
+                                {grouped[letter].map((d) => {
+                                  const isChecked = filters.dispensaryIds.includes(d.id);
+                                  return (
+                                    <label
+                                      key={d.id}
+                                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700/50 cursor-pointer transition-colors"
+                                    >
+                                      <div
+                                        className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                                          isChecked
+                                            ? 'bg-purple-500 border-purple-500'
+                                            : 'border-slate-600 bg-slate-800'
+                                        }`}
+                                      >
+                                        {isChecked && <Check className="w-3 h-3 text-white" />}
+                                      </div>
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => toggleDispensary(d.id)}
+                                        className="sr-only"
+                                      />
+                                      <span className="text-xs text-slate-300 truncate">{d.name}</span>
+                                    </label>
+                                  );
+                                })}
                               </div>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => toggleDispensary(d.id)}
-                                className="sr-only"
-                              />
-                              <span className="text-sm text-slate-300 truncate">{d.name}</span>
-                            </label>
-                          );
-                        })}
+                            ));
+                          })()}
+                        </div>
+                        {/* A-Z alphabet rail */}
+                        {!dispensarySearch && (
+                          <div className="absolute right-0 top-0 bottom-0 w-5 flex flex-col items-center justify-center py-1 gap-0"
+                            style={{ backgroundColor: 'rgba(12, 14, 28, 0.8)' }}
+                          >
+                            {(() => {
+                              const availableLetters = new Set(
+                                dispensaries.map(d => {
+                                  const l = (d.name[0] || '').toUpperCase();
+                                  return /[A-Z]/.test(l) ? l : '#';
+                                })
+                              );
+                              return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('').map((letter) => {
+                                const hasItems = availableLetters.has(letter);
+                                return (
+                                  <button
+                                    key={letter}
+                                    onClick={() => {
+                                      const el = document.getElementById(`disp-letter-${letter}`);
+                                      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    }}
+                                    disabled={!hasItems}
+                                    className={`text-[8px] leading-none py-px font-semibold transition-colors ${
+                                      hasItems
+                                        ? 'text-purple-400 hover:text-purple-300 active:text-white'
+                                        : 'text-slate-700'
+                                    }`}
+                                  >
+                                    {letter}
+                                  </button>
+                                );
+                              });
+                            })()}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -638,28 +732,42 @@ export function FilterSheet({
                 </div>
               </section>
 
-              {/* Weight / Size */}
+              {/* Weight / Size — multi-select */}
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
                   Size / Weight
+                  {filters.weightFilters.length > 0 && (
+                    <button
+                      onClick={() => onFiltersChange({ ...filters, weightFilters: [] })}
+                      className="ml-2 text-[10px] text-cyan-400/60 hover:text-cyan-400 normal-case font-normal"
+                    >
+                      clear
+                    </button>
+                  )}
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {weightOptions.map((opt) => (
+                  {weightOptions.filter(o => o.id !== 'all').map((opt) => {
+                    const isSelected = filters.weightFilters.includes(opt.id);
+                    return (
                     <button
                       key={opt.id}
                       onClick={() => {
-                        onFiltersChange({ ...filters, weightFilter: opt.id });
-                        if (opt.id !== 'all') trackEvent('filter_change', undefined, { weight: opt.id });
+                        const next = isSelected
+                          ? filters.weightFilters.filter(w => w !== opt.id)
+                          : [...filters.weightFilters, opt.id];
+                        onFiltersChange({ ...filters, weightFilters: next });
+                        if (next.length > 0) trackEvent('filter_change', undefined, { weights: next.join(',') });
                       }}
                       className={`px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all ${
-                        filters.weightFilter === opt.id
+                        isSelected
                           ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
                           : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
                       }`}
                     >
                       {opt.label}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
 
@@ -685,14 +793,15 @@ export function FilterSheet({
             </div>
 
             {/* Footer */}
-            <div className="flex-shrink-0 p-4 bg-slate-900/95 border-t border-slate-800 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="flex-shrink-0 p-4 border-t pb-[max(1rem,env(safe-area-inset-bottom))]" style={{ backgroundColor: 'rgba(12, 14, 28, 0.95)', borderColor: 'rgba(120, 100, 200, 0.08)' }}>
               <button
                 onClick={() => setIsOpen(false)}
-                className={`w-full py-3 min-h-[48px] font-semibold rounded-xl transition-colors text-sm ${
+                className={`w-full py-3.5 min-h-[48px] font-semibold rounded-2xl transition-colors text-sm ${
                   filteredCount === 0
                     ? 'bg-slate-700 text-slate-400'
-                    : 'bg-purple-500 hover:bg-purple-400 text-white'
+                    : 'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white shadow-lg shadow-purple-500/20'
                 }`}
+                style={filteredCount > 0 ? { boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 16px rgba(139, 92, 246, 0.2)' } : undefined}
               >
                 {filteredCount === 0 ? 'No deals match' : `Show ${filteredCount} deal${filteredCount !== 1 ? 's' : ''}`}
               </button>

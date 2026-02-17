@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Heart, DollarSign, Trash2, Clock, Share, Check, Sun, ChevronDown, ArrowUpDown, History } from 'lucide-react';
+import { Heart, DollarSign, Trash2, Clock, Share, Check, Sun, ChevronDown, ArrowUpDown, History, Sparkles } from 'lucide-react';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { getDiscountPercent, getDisplayName, getDistanceMiles } from '@/utils';
 import { createShareLink } from '@/lib/share';
@@ -45,9 +45,10 @@ interface SavedPageProps {
   addToast?: (message: string, type: 'success' | 'info') => void;
   history?: HistoryEntry[];
   onClearHistory?: () => void;
+  onOpenSwipeMode?: () => void;
 }
 
-export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClearHistory }: SavedPageProps) {
+export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClearHistory, onOpenSwipeMode }: SavedPageProps) {
   const { savedDeals, toggleSavedDeal, isDealUsed, markDealUsed } = useSavedDeals();
   const [shareState, setShareState] = useState<'idle' | 'sharing' | 'copied'>('idle');
   const [showContactBanner, setShowContactBanner] = useState(false);
@@ -202,11 +203,11 @@ export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClear
   const currentSortLabel = SORT_OPTIONS.find(o => o.id === sortBy)?.label || 'Saved Order';
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen text-white" style={{ backgroundColor: 'var(--surface-0)' }}>
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
         {/* Stats bar */}
         {savedDealsList.length > 0 && (
-          <div className="glass rounded-xl p-4 flex items-center justify-between">
+          <div className="glass frost rounded-2xl p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
                 <Heart className="w-5 h-5 text-purple-400" />
@@ -268,6 +269,26 @@ export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClear
 
         {/* Expiry urgency with hours + minutes */}
         {activeDeals.length > 0 && <ExpiryBanner />}
+
+        {/* Swipe mode nudge — shown to engaged users (3+ saves) */}
+        {activeDeals.length >= 3 && onOpenSwipeMode && (
+          <button
+            onClick={onOpenSwipeMode}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 hover:border-purple-500/30 transition-all group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4 text-purple-400" />
+            </div>
+            <div className="text-left min-w-0">
+              <p className="text-sm font-medium text-purple-300 group-hover:text-purple-200 transition-colors">
+                Try Swipe Mode
+              </p>
+              <p className="text-xs text-slate-500">
+                Swipe through {deals.length} deals Tinder-style — save or pass
+              </p>
+            </div>
+          </button>
+        )}
 
         {/* Active saved deals */}
         {activeDeals.length > 0 && (

@@ -57,10 +57,11 @@ _JS_REMOVE_OVERLAY = """
 () => {
     const candidates = document.querySelectorAll(
         '#agc_form, #agc_container, .agc_screen, '
+        + '#AVtextTop, #AVbg, #AVyes, #AVno, #AVtextBottom, '
         + '.age-gate, .age-verification, .overlay, .modal-backdrop, '
         + '[class*="age"], [class*="gate"], [class*="verify"], '
         + '[class*="modal"], [class*="overlay"], [id*="age"], '
-        + '[id*="gate"], [id*="verify"]'
+        + '[id*="gate"], [id*="verify"], [id^="AV"]'
     );
     let removed = 0;
     for (const el of candidates) {
@@ -70,6 +71,7 @@ _JS_REMOVE_OVERLAY = """
             style.position === 'absolute' ||
             style.position === 'sticky' ||
             el.id === 'agc_form' ||
+            el.id.startsWith('AV') ||
             el.classList.contains('agc_screen')
         ) {
             el.remove();
@@ -80,6 +82,61 @@ _JS_REMOVE_OVERLAY = """
     document.body.style.overflow = 'auto';
     document.documentElement.style.overflow = 'auto';
     return removed;
+}
+"""
+
+# MutationObserver that continuously removes re-injected age gate
+# overlays.  Thrive (and similar) sites re-inject their age gate
+# elements (#AVtextTop, #AVbg) via a recurring JS interval even after
+# initial removal.  This observer catches and removes them instantly.
+_JS_INSTALL_AGE_GATE_OBSERVER = """
+() => {
+    if (window.__ageGateObserverInstalled) return 0;
+    window.__ageGateObserverInstalled = true;
+
+    const NUKE_IDS = new Set([
+        'AVtextTop', 'AVbg', 'AVyes', 'AVno', 'AVtextBottom',
+        'agc_form', 'agc_container',
+    ]);
+    const NUKE_CLASSES = ['agc_screen', 'age-gate', 'age-verification'];
+
+    function shouldNuke(el) {
+        if (!el || !el.id) return false;
+        if (NUKE_IDS.has(el.id)) return true;
+        if (el.id.startsWith('AV')) return true;
+        for (const cls of NUKE_CLASSES) {
+            if (el.classList && el.classList.contains(cls)) return true;
+        }
+        return false;
+    }
+
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+                if (node.nodeType !== 1) continue;
+                if (shouldNuke(node)) {
+                    node.remove();
+                    continue;
+                }
+                // Check children (in case the gate is nested)
+                const children = node.querySelectorAll
+                    ? node.querySelectorAll('[id^="AV"], #agc_form, #agc_container, .agc_screen')
+                    : [];
+                for (const child of children) {
+                    child.remove();
+                }
+            }
+        }
+        // Re-enable scrolling in case the overlay locked it
+        document.body.style.overflow = 'auto';
+        document.documentElement.style.overflow = 'auto';
+    });
+
+    observer.observe(document.body || document.documentElement, {
+        childList: true,
+        subtree: true,
+    });
+    return 1;
 }
 """
 
@@ -252,13 +309,25 @@ async def dismiss_age_gate(
 async def force_remove_age_gate(target: Page | Frame) -> int:
     """JavaScript fallback to forcibly remove age-gate overlays.
 
+    Also installs a MutationObserver to prevent re-injection (Thrive
+    sites re-inject #AVtextTop / #AVbg via recurring JS intervals).
+
     Returns the number of elements removed.
     """
     try:
         removed = await target.evaluate(_JS_REMOVE_OVERLAY)
         if removed > 0:
             logger.debug("JS overlay removal cleared %d element(s)", removed)
-        return removed
     except Exception:
         logger.debug("JS overlay removal failed", exc_info=True)
-        return 0
+        removed = 0
+
+    # Install persistent observer to block re-injection
+    try:
+        installed = await target.evaluate(_JS_INSTALL_AGE_GATE_OBSERVER)
+        if installed:
+            logger.debug("Age gate MutationObserver installed")
+    except Exception:
+        logger.debug("MutationObserver install failed", exc_info=True)
+
+    return removed

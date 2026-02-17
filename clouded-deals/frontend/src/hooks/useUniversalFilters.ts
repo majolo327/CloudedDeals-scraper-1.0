@@ -21,7 +21,7 @@ export interface UniversalFilterState {
   sortBy: SortOption;
   distanceRange: DistanceRange;
   quickFilter: QuickFilter;
-  weightFilter: string;
+  weightFilters: string[];
 }
 
 export const DEFAULT_UNIVERSAL_FILTERS: UniversalFilterState = {
@@ -32,7 +32,7 @@ export const DEFAULT_UNIVERSAL_FILTERS: UniversalFilterState = {
   sortBy: 'deal_score',
   distanceRange: 'all',
   quickFilter: 'none',
-  weightFilter: 'all',
+  weightFilters: [],
 };
 
 const FILTERS_STORAGE_KEY = 'clouded_filters_v1';
@@ -68,6 +68,11 @@ export function useUniversalFilters() {
       const stored = localStorage.getItem(FILTERS_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
+        // Migrate old single weightFilter → weightFilters array
+        if ('weightFilter' in parsed && !('weightFilters' in parsed)) {
+          parsed.weightFilters = parsed.weightFilter && parsed.weightFilter !== 'all' ? [parsed.weightFilter] : [];
+          delete parsed.weightFilter;
+        }
         return { ...DEFAULT_UNIVERSAL_FILTERS, ...parsed };
       }
     } catch { /* ignore */ }
@@ -140,7 +145,7 @@ export function useUniversalFilters() {
       filters.minDiscount > 0,
       filters.distanceRange !== 'all',
       filters.quickFilter !== 'none',
-      filters.weightFilter !== 'all',
+      filters.weightFilters.length > 0,
     ].filter(Boolean).length;
   }, [filters]);
 
@@ -235,9 +240,19 @@ export function useUniversalFilters() {
       });
     }
 
-    // Weight filter (fuzzy: 850mg matches 0.85g, 1/8 matches 3.5g, etc.)
-    if (filters.weightFilter !== 'all') {
-      result = result.filter(d => weightsMatch(d.weight, filters.weightFilter));
+    // Weight filter — multi-select (match ANY selected weight or subtype)
+    if (filters.weightFilters.length > 0) {
+      const hasDisposable = filters.weightFilters.includes('disposable');
+      const weightOnly = filters.weightFilters.filter(w => w !== 'disposable');
+      result = result.filter(d => {
+        // Match disposable by product_subtype (not weight range)
+        if (hasDisposable && d.product_subtype === 'disposable') return true;
+        // Match remaining weight selections by weight
+        if (weightOnly.length > 0 && d.weight) {
+          return weightOnly.some(w => weightsMatch(d.weight, w));
+        }
+        return false;
+      });
     }
 
     // Distance range — cumulative (within X miles, not exclusive bands)

@@ -7,17 +7,16 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { AdminPinGate, isAdminVerified, clearAdminVerification } from "@/components/admin/AdminPinGate";
 
 const NAV_ITEMS = [
-  { href: "/admin", label: "Dashboard", icon: "grid" },
-  { href: "/admin/expansion", label: "Expansion", icon: "globe" },
-  { href: "/admin/analytics", label: "Analytics", icon: "chart" },
-  { href: "/admin/contacts", label: "Contacts", icon: "users" },
-  { href: "/admin/scraper", label: "Scraper", icon: "terminal" },
-  { href: "/admin/settings", label: "Settings", icon: "sliders" },
+  { href: "/admin", label: "Dashboard", sub: "Stats, flags, runs", icon: "grid" },
+  { href: "/admin/scraper", label: "Scraper", sub: "Trigger, regions, logs", icon: "terminal" },
+  { href: "/admin/analytics", label: "Analytics", sub: "Traffic, contacts", icon: "chart" },
+  { href: "/admin/settings", label: "Settings", sub: "Config", icon: "sliders" },
 ] as const;
 
 const ICONS: Record<string, string> = {
   grid: "M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5Zm10 0a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5ZM4 15a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4Zm10 0a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-4Z",
   chart: "M3 3v18h18M7 16l4-4 4 4 5-6",
+  pulse: "M22 12h-4l-3 9L9 3l-3 9H2",
   users: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm14 14v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
   terminal:
     "M5.5 7.5 9 11l-3.5 3.5M12 17h6",
@@ -131,8 +130,8 @@ export default function AdminLayout({
           <p className="mt-0.5 text-xs text-zinc-400">Admin Panel</p>
         </div>
 
-        <nav className="flex-1 space-y-1 px-2 py-3">
-          {NAV_ITEMS.map(({ href, label, icon }) => {
+        <nav className="flex-1 space-y-0.5 px-2 py-3">
+          {NAV_ITEMS.map(({ href, label, sub, icon }) => {
             const active =
               href === "/admin"
                 ? pathname === "/admin"
@@ -141,14 +140,14 @@ export default function AdminLayout({
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 transition-colors ${
                   active
                     ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+                    : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800/60"
                 }`}
               >
                 <svg
-                  className="h-4 w-4"
+                  className="h-4 w-4 shrink-0"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -160,7 +159,12 @@ export default function AdminLayout({
                     d={ICONS[icon]}
                   />
                 </svg>
-                {label}
+                <div>
+                  <div className="text-sm font-medium leading-tight">{label}</div>
+                  <div className={`text-[10px] leading-tight ${active ? "text-green-600/70 dark:text-green-400/60" : "text-zinc-400 dark:text-zinc-500"}`}>
+                    {sub}
+                  </div>
+                </div>
               </Link>
             );
           })}

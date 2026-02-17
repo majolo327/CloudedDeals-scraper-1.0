@@ -7,6 +7,16 @@ import { DISPENSARIES as DISPENSARIES_STATIC } from '@/data/dispensaries';
 import type { Deal, Category, Dispensary, Brand } from '@/types';
 
 // --------------------------------------------------------------------------
+// Blocked dispensaries — temporarily excluded from all frontend queries
+// --------------------------------------------------------------------------
+
+const BLOCKED_DISPENSARY_PREFIXES = ['zen-leaf'];
+
+function isBlockedDispensary(dispensaryId: string): boolean {
+  return BLOCKED_DISPENSARY_PREFIXES.some((p) => dispensaryId.startsWith(p));
+}
+
+// --------------------------------------------------------------------------
 // Deal cache for offline support
 // --------------------------------------------------------------------------
 
@@ -285,6 +295,7 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
             if (!row.name || row.name.length < 5 || (row.sale_price ?? 0) <= 0) return false;
             // Guard: Supabase join can return array or null for dispensary in edge cases
             if (!row.dispensary || Array.isArray(row.dispensary)) return false;
+            if (isBlockedDispensary(row.dispensary.id)) return false;
             return true;
           })
           .map((row) => {
@@ -376,6 +387,7 @@ export async function fetchExpiredDeals(region?: string): Promise<FetchDealsResu
           .filter((row) => {
             if (!row.name || row.name.length < 5 || (row.sale_price ?? 0) <= 0) return false;
             if (!row.dispensary || Array.isArray(row.dispensary)) return false;
+            if (isBlockedDispensary(row.dispensary.id)) return false;
             return true;
           })
           .map(normalizeDeal)
@@ -460,7 +472,7 @@ export async function fetchDispensaries(region?: string): Promise<FetchDispensar
       }
     }
 
-    const dispensaries: BrowseDispensary[] = (data as DispensaryRow[]).map((row) => ({
+    const dispensaries: BrowseDispensary[] = (data as DispensaryRow[]).filter((row) => !isBlockedDispensary(row.id)).map((row) => ({
       id: row.id,
       name: row.name,
       slug: row.id,
@@ -498,48 +510,48 @@ export interface SearchExtendedResult {
   error: string | null;
 }
 
-function escapeLike(s: string): string {
-  return s.replace(/%/g, '\\%').replace(/_/g, '\\_');
-}
-
 export async function searchExtendedDeals(
   query: string,
   curatedDealIds: Set<string>,
   region?: string,
 ): Promise<SearchExtendedResult> {
-  if (!isSupabaseConfigured || !query || query.trim().length < 2) {
+  if (!query || query.trim().length < 2) {
     return { deals: [], error: null };
   }
 
   const activeRegion = region ?? getRegion() ?? DEFAULT_REGION;
-  const escaped = escapeLike(query.trim());
-  const pattern = `%${escaped}%`;
 
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .select(
-        `id, name, brand, category, original_price, sale_price, discount_percent,
-         weight_value, weight_unit, deal_score, product_url, scraped_at, created_at,
-         is_infused, product_subtype, strain_type,
-         dispensary:dispensaries!inner(id, name, address, city, state, platform, url, region, latitude, longitude)`
-      )
-      .eq('is_active', true)
-      .eq('dispensaries.region', activeRegion)
-      .gt('sale_price', 0)
-      .or('discount_percent.gt.0,discount_percent.is.null')
-      .or(`name.ilike.${pattern},brand.ilike.${pattern},category.ilike.${pattern},product_subtype.ilike.${pattern},strain_type.ilike.${pattern}`)
-      .order('deal_score', { ascending: false })
-      .limit(200);
+    // Route through our rate-limited API endpoint instead of hitting
+    // Supabase directly from the browser. Prevents bots from
+    // enumerating the product catalog via search queries.
+    const params = new URLSearchParams({
+      q: query.trim(),
+      region: activeRegion,
+    });
+    const res = await fetch(`/api/search?${params.toString()}`);
 
-    if (error) throw error;
+    if (res.status === 429) {
+      return { deals: [], error: 'Too many searches. Please wait a moment.' };
+    }
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'Search failed' }));
+      throw new Error(body.error || `Search failed (${res.status})`);
+    }
+
+    const { data } = await res.json();
 
     // Filter out junk: short names, zero price, batteries, accessories, merch
     const JUNK_KEYWORDS = /\b(battery|batteries|grinder|lighter|rolling\s+papers?|tray|stash|pipe|bong|rig|torch|scale|jar|container|apparel|shirt|hat|merch)\b/i;
     const allResults = data
       ? (data as unknown as ProductRow[])
-          .filter((row) => row.name && row.name.length >= 5 && (row.sale_price ?? 0) > 0)
-          .filter((row) => !JUNK_KEYWORDS.test(row.name ?? ''))
+          .filter((row: ProductRow) => row.name && row.name.length >= 5 && (row.sale_price ?? 0) > 0)
+          .filter((row: ProductRow) => !JUNK_KEYWORDS.test(row.name ?? ''))
+          .filter((row: ProductRow) => {
+            const disp = row.dispensary as { id: string } | null | undefined;
+            return !disp || !isBlockedDispensary(disp.id);
+          })
           .map(normalizeDeal)
       : [];
 
@@ -602,6 +614,10 @@ export async function fetchDealsByIds(ids: string[]): Promise<Deal[]> {
 
     return (data as unknown as ProductRow[])
       .filter((row) => row.name && (row.sale_price ?? 0) > 0)
+      .filter((row) => {
+        const disp = row.dispensary as { id: string } | null | undefined;
+        return !disp || !isBlockedDispensary(disp.id);
+      })
       .map(normalizeDeal);
   } catch {
     return [];

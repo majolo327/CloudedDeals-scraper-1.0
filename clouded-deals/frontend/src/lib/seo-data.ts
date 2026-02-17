@@ -22,6 +22,16 @@ function getServerSupabase() {
 }
 
 // ---------------------------------------------------------------------------
+// Blocked dispensaries — temporarily excluded from all frontend queries
+// ---------------------------------------------------------------------------
+
+const BLOCKED_DISPENSARY_PREFIXES = ['zen-leaf'];
+
+function isBlockedDispensary(dispensaryId: string): boolean {
+  return BLOCKED_DISPENSARY_PREFIXES.some((p) => dispensaryId.startsWith(p));
+}
+
+// ---------------------------------------------------------------------------
 // Types for SEO page data
 // ---------------------------------------------------------------------------
 
@@ -59,6 +69,7 @@ export interface SeoDispensaryInfo {
 // ---------------------------------------------------------------------------
 
 export async function fetchDealsForDispensary(dispensaryId: string): Promise<SeoDeal[]> {
+  if (isBlockedDispensary(dispensaryId)) return [];
   const supabase = getServerSupabase();
   if (!supabase) return [];
 
@@ -107,7 +118,7 @@ export async function fetchDealsForDispensary(dispensaryId: string): Promise<Seo
 // Fetch active deals for a specific category
 // ---------------------------------------------------------------------------
 
-export async function fetchDealsForCategory(category: Category): Promise<SeoDeal[]> {
+export async function fetchDealsForCategory(category: Category, region = 'southern-nv'): Promise<SeoDeal[]> {
   const supabase = getServerSupabase();
   if (!supabase) return [];
 
@@ -117,9 +128,10 @@ export async function fetchDealsForCategory(category: Category): Promise<SeoDeal
       .select(
         `id, name, brand, category, sale_price, original_price, discount_percent,
          deal_score, weight_value, weight_unit, product_url, strain_type,
-         dispensary_id, dispensary:dispensaries!inner(id, name)`
+         dispensary_id, dispensary:dispensaries!inner(id, name, region)`
       )
       .eq('is_active', true)
+      .eq('dispensaries.region', region)
       .eq('category', category)
       .gt('deal_score', 0)
       .gt('sale_price', 0)
@@ -128,25 +140,27 @@ export async function fetchDealsForCategory(category: Category): Promise<SeoDeal
 
     if (error || !data) return [];
 
-    return data.map((row: Record<string, unknown>) => {
-      const disp = row.dispensary as { id: string; name: string } | null;
-      return {
-        id: row.id as string,
-        name: row.name as string,
-        brand: (row.brand as string) || 'Unknown',
-        category: (row.category as Category) || 'flower',
-        sale_price: row.sale_price as number,
-        original_price: row.original_price as number | null,
-        discount_percent: row.discount_percent as number | null,
-        deal_score: row.deal_score as number,
-        weight_value: row.weight_value as number | null,
-        weight_unit: row.weight_unit as string | null,
-        product_url: row.product_url as string | null,
-        strain_type: row.strain_type as string | null,
-        dispensary_id: row.dispensary_id as string,
-        dispensary_name: disp?.name || (row.dispensary_id as string),
-      };
-    });
+    return data
+      .filter((row: Record<string, unknown>) => !isBlockedDispensary(row.dispensary_id as string))
+      .map((row: Record<string, unknown>) => {
+        const disp = row.dispensary as { id: string; name: string } | null;
+        return {
+          id: row.id as string,
+          name: row.name as string,
+          brand: (row.brand as string) || 'Unknown',
+          category: (row.category as Category) || 'flower',
+          sale_price: row.sale_price as number,
+          original_price: row.original_price as number | null,
+          discount_percent: row.discount_percent as number | null,
+          deal_score: row.deal_score as number,
+          weight_value: row.weight_value as number | null,
+          weight_unit: row.weight_unit as string | null,
+          product_url: row.product_url as string | null,
+          strain_type: row.strain_type as string | null,
+          dispensary_id: row.dispensary_id as string,
+          dispensary_name: disp?.name || (row.dispensary_id as string),
+        };
+      });
   } catch {
     return [];
   }
@@ -156,7 +170,7 @@ export async function fetchDealsForCategory(category: Category): Promise<SeoDeal
 // Fetch all active deals (for hub pages)
 // ---------------------------------------------------------------------------
 
-export async function fetchAllActiveDeals(): Promise<SeoDeal[]> {
+export async function fetchAllActiveDeals(region = 'southern-nv'): Promise<SeoDeal[]> {
   const supabase = getServerSupabase();
   if (!supabase) return [];
 
@@ -166,9 +180,10 @@ export async function fetchAllActiveDeals(): Promise<SeoDeal[]> {
       .select(
         `id, name, brand, category, sale_price, original_price, discount_percent,
          deal_score, weight_value, weight_unit, product_url, strain_type,
-         dispensary_id, dispensary:dispensaries!inner(id, name)`
+         dispensary_id, dispensary:dispensaries!inner(id, name, region)`
       )
       .eq('is_active', true)
+      .eq('dispensaries.region', region)
       .gt('deal_score', 0)
       .gt('sale_price', 0)
       .order('deal_score', { ascending: false })
@@ -176,25 +191,27 @@ export async function fetchAllActiveDeals(): Promise<SeoDeal[]> {
 
     if (error || !data) return [];
 
-    return data.map((row: Record<string, unknown>) => {
-      const disp = row.dispensary as { id: string; name: string } | null;
-      return {
-        id: row.id as string,
-        name: row.name as string,
-        brand: (row.brand as string) || 'Unknown',
-        category: (row.category as Category) || 'flower',
-        sale_price: row.sale_price as number,
-        original_price: row.original_price as number | null,
-        discount_percent: row.discount_percent as number | null,
-        deal_score: row.deal_score as number,
-        weight_value: row.weight_value as number | null,
-        weight_unit: row.weight_unit as string | null,
-        product_url: row.product_url as string | null,
-        strain_type: row.strain_type as string | null,
-        dispensary_id: row.dispensary_id as string,
-        dispensary_name: disp?.name || (row.dispensary_id as string),
-      };
-    });
+    return data
+      .filter((row: Record<string, unknown>) => !isBlockedDispensary(row.dispensary_id as string))
+      .map((row: Record<string, unknown>) => {
+        const disp = row.dispensary as { id: string; name: string } | null;
+        return {
+          id: row.id as string,
+          name: row.name as string,
+          brand: (row.brand as string) || 'Unknown',
+          category: (row.category as Category) || 'flower',
+          sale_price: row.sale_price as number,
+          original_price: row.original_price as number | null,
+          discount_percent: row.discount_percent as number | null,
+          deal_score: row.deal_score as number,
+          weight_value: row.weight_value as number | null,
+          weight_unit: row.weight_unit as string | null,
+          product_url: row.product_url as string | null,
+          strain_type: row.strain_type as string | null,
+          dispensary_id: row.dispensary_id as string,
+          dispensary_name: disp?.name || (row.dispensary_id as string),
+        };
+      });
   } catch {
     return [];
   }

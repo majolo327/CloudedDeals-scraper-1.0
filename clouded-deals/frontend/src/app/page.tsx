@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Star, Heart, Search, Bookmark, Compass, AlertCircle } from 'lucide-react';
+import { Star, Heart, Search, Compass, AlertCircle } from 'lucide-react';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { fetchDeals, fetchExpiredDeals, fetchDispensaries } from '@/lib/api';
 import type { BrowseDispensary, FetchDealsResult, FetchDispensariesResult } from '@/lib/api';
@@ -25,7 +25,9 @@ import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { useDealHistory } from '@/hooks/useDealHistory';
 import { initializeAnonUser, trackEvent, trackPageView, trackDealModalOpen } from '@/lib/analytics';
 import { FTUEFlow, isFTUECompleted } from '@/components/ftue';
+import { CookieConsent } from '@/components/CookieConsent';
 import { createShareLink } from '@/lib/share';
+import { formatUpdateTime } from '@/utils';
 
 type AppPage = 'home' | 'search' | 'browse' | 'saved' | 'about' | 'terms' | 'privacy';
 
@@ -42,6 +44,7 @@ export default function Home() {
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [highlightSaved] = useState(false);
   const [searchInitialQuery, setSearchInitialQuery] = useState('');
+  const [swipeOpen, setSwipeOpen] = useState(false);
   const [showFTUE, setShowFTUE] = useState(() => {
     if (typeof window === 'undefined') return false;
     return !isFTUECompleted();
@@ -93,6 +96,19 @@ export default function Home() {
       prevPageRef.current = activePage;
     }
   }, [activePage, isAgeVerified]);
+
+  // Listen for navigation events from CookieConsent (privacy link)
+  useEffect(() => {
+    function handleNav(e: Event) {
+      const page = (e as CustomEvent).detail;
+      if (page === 'privacy' || page === 'terms' || page === 'about') {
+        setActivePage(page);
+        window.scrollTo(0, 0);
+      }
+    }
+    window.addEventListener('navigate', handleNav);
+    return () => window.removeEventListener('navigate', handleNav);
+  }, []);
 
   // Track referral clicks from share links
   useEffect(() => {
@@ -296,11 +312,13 @@ export default function Home() {
 
   return (
     <div className="min-h-screen text-white" style={{ backgroundColor: 'var(--surface-0)' }}>
-      {/* Ambient gradient */}
-      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-950/15 via-transparent to-transparent pointer-events-none" />
+      {/* Ambient gradient — Roku-style light source from above.
+           Desktop: tighter ellipse + secondary accent for depth on wide viewports. */}
+      <div className="fixed inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -5%, rgba(88, 28, 135, 0.18) 0%, rgba(88, 28, 135, 0.06) 40%, transparent 70%)' }} />
+      <div className="fixed inset-0 pointer-events-none hidden sm:block" style={{ background: 'radial-gradient(ellipse 50% 35% at 50% -2%, rgba(139, 92, 246, 0.08) 0%, transparent 60%), radial-gradient(ellipse 30% 20% at 50% 0%, rgba(168, 85, 247, 0.05) 0%, transparent 50%)' }} />
 
       {/* Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl border-b" style={{ backgroundColor: 'rgba(10, 14, 26, 0.92)', borderColor: 'var(--border-subtle)' }}>
+      <header className="sticky top-0 z-50 header-border-glow" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderBottom: '1px solid rgba(120, 100, 200, 0.08)', WebkitBackdropFilter: 'blur(40px) saturate(1.3)', backdropFilter: 'blur(40px) saturate(1.3)' }}>
         <div className="max-w-6xl mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button onClick={() => setActivePage('home')} className="focus:outline-none">
@@ -354,9 +372,12 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Mobile: just show deal count */}
+          {/* Mobile: deal count + last update time */}
           <div className="sm:hidden flex items-center gap-2 text-xs text-slate-500">
             <span>{todaysDeals.length} {isShowingExpired ? "yesterday's" : ''} deals</span>
+            {!isShowingExpired && todaysDeals.length > 0 && (
+              <span className="text-slate-600">{formatUpdateTime(todaysDeals)}</span>
+            )}
           </div>
         </div>
       </header>
@@ -366,14 +387,24 @@ export default function Home() {
         {/* Deals tab: shows loading/error/expired states */}
         {activePage === 'home' && (
           loading ? (
-            <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
-              <TopPickSkeleton />
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <DealCardSkeleton key={i} />
-                ))}
+            <>
+              {/* Category bar skeleton */}
+              <div className="sticky top-14 sm:top-16 z-40 border-b" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderColor: 'rgba(120, 100, 200, 0.06)' }}>
+                <div className="max-w-6xl mx-auto px-4 h-11 flex items-center gap-2">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="h-6 rounded-full animate-pulse" style={{ width: `${40 + i * 5}px`, background: 'rgba(45,50,80,0.3)' }} />
+                  ))}
+                </div>
               </div>
-            </div>
+              <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
+                <TopPickSkeleton />
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 xl:gap-5">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <DealCardSkeleton key={i} />
+                  ))}
+                </div>
+              </div>
+            </>
           ) : error && !isShowingExpired ? (
             <div className="flex flex-col items-center justify-center py-20 text-center max-w-6xl mx-auto px-4">
               <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mb-4">
@@ -412,6 +443,8 @@ export default function Home() {
               savedCount={savedCount}
               isExpired={isShowingExpired}
               onShareSaves={handleShareSaves}
+              swipeOpen={swipeOpen}
+              onSwipeOpenChange={setSwipeOpen}
             />
           )
         )}
@@ -454,6 +487,10 @@ export default function Home() {
             addToast={addToast}
             history={dealHistory.history}
             onClearHistory={dealHistory.clearHistory}
+            onOpenSwipeMode={() => {
+              setActivePage('home');
+              setSwipeOpen(true);
+            }}
           />
         )}
 
@@ -512,14 +549,17 @@ export default function Home() {
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
+      {/* Cookie / localStorage consent banner */}
+      <CookieConsent />
+
       {/* Mobile bottom nav bar */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-xl border-t" style={{ backgroundColor: 'rgba(10, 14, 26, 0.95)', borderColor: 'var(--border-subtle)' }} aria-label="Main navigation">
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 border-t" style={{ backgroundColor: 'rgba(10, 12, 26, 0.95)', borderColor: 'rgba(120, 100, 200, 0.08)', WebkitBackdropFilter: 'blur(40px) saturate(1.3)', backdropFilter: 'blur(40px) saturate(1.3)' }} aria-label="Main navigation">
         <div className="flex items-center justify-around px-2 pb-[env(safe-area-inset-bottom)]" role="tablist">
           {[
             { id: 'home' as const, label: 'Deals', icon: Star },
             { id: 'search' as const, label: 'Search', icon: Search },
             { id: 'browse' as const, label: 'Browse', icon: Compass },
-            { id: 'saved' as const, label: 'Saved', icon: Bookmark },
+            { id: 'saved' as const, label: 'Saved', icon: Heart },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -527,13 +567,13 @@ export default function Home() {
               aria-selected={activePage === tab.id}
               aria-label={tab.label}
               onClick={() => setActivePage(tab.id)}
-              className={`flex flex-col items-center gap-0.5 px-3 py-2 min-w-[56px] min-h-[48px] text-[11px] font-medium transition-colors ${
+              className={`flex flex-col items-center gap-0.5 px-3 py-2 min-w-[56px] min-h-[48px] text-[11px] font-medium transition-all duration-200 ${
                 activePage === tab.id
-                  ? 'text-purple-400'
+                  ? 'text-purple-400 nav-glow-active scale-105'
                   : 'text-slate-500 active:text-slate-300'
               }`}
             >
-              <tab.icon className="w-5 h-5" />
+              <tab.icon className={`w-5 h-5 transition-transform duration-200 ${activePage === tab.id ? 'drop-shadow-[0_0_6px_rgba(168,85,247,0.4)]' : ''}`} />
               {tab.label}
             </button>
           ))}
