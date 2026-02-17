@@ -10,7 +10,7 @@ import { ExpiredDealsBanner } from './ExpiredDealsBanner';
 import { FilterSheet } from './FilterSheet';
 import { StickyStatsBar } from './layout';
 import { DealCardSkeleton } from './Skeleton';
-import { getTimeUntilMidnight } from '@/utils';
+import { getTimeUntilMidnight, formatUpdateTime } from '@/utils';
 import { useDeck } from '@/hooks/useDeck';
 import { useUniversalFilters, formatDistance } from '@/hooks/useUniversalFilters';
 
@@ -144,12 +144,26 @@ export function DealsPage({
               <h2 className="text-sm font-medium text-slate-300">
                 {isExpired ? "Yesterday's deals" : "Today's deals"}{deals.length > 0 ? ` (${deals.length})` : ''}
               </h2>
-              {!isExpired && deals.length > 0 && (
-                <span className="flex items-center gap-1 text-[10px] text-emerald-500/70">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/60 animate-pulse" />
-                  Live
-                </span>
-              )}
+              {!isExpired && deals.length > 0 && (() => {
+                const updateText = formatUpdateTime(deals);
+                const latestMs = deals.reduce((max, d) => {
+                  const t = typeof d.created_at === 'string' ? new Date(d.created_at).getTime() : d.created_at.getTime();
+                  return t > max ? t : max;
+                }, 0);
+                const hoursOld = (Date.now() - latestMs) / (1000 * 60 * 60);
+                const isStale = hoursOld > 26;
+                return isStale ? (
+                  <span className="flex items-center gap-1 text-[10px] text-amber-400/80">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400/60" />
+                    {updateText || 'Stale'}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[10px] text-emerald-500/70">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/60 animate-pulse" />
+                    {updateText || 'Live'}
+                  </span>
+                );
+              })()}
             </div>
             <div className="flex items-center gap-2">
               {!isExpired && filteredDeals.length > 0 && (

@@ -23,6 +23,9 @@ export const STORAGE = {
   // Search
   RECENT_SEARCHES: 'clouded_recent_searches',
 
+  // Consent
+  COOKIE_CONSENT: 'clouded_cookie_consent',
+
   // Session-only
   REGION_DISMISSED: 'clouded_region_dismissed',
 } as const;
