@@ -43,8 +43,10 @@ _TD_SLUGS = {"td-gibson", "td-eastern", "td-decatur"}
 
 # Smart-wait timeouts: content-based polling returns instantly when content
 # appears, so the longer cap only matters if the page is slow to inject.
-_SMART_WAIT_MS = 90_000          # 90 s (up from 60 s — helps heavy pages)
-_SMART_WAIT_RETRY_MS = 60_000    # 60 s on retry attempts
+# Heavy pages (td-gibson, planet13) with many deal cards can take 2+ minutes
+# for the Dutchie embed to fully inject, especially on retry attempts.
+_SMART_WAIT_MS = 120_000         # 120 s — gives heavy pages enough time
+_SMART_WAIT_RETRY_MS = 90_000    # 90 s on retry attempts (up from 60 s)
 
 # Planet 13 / Medizin share planet13.com — a store selector in the header
 # must be confirmed so the Dutchie embed loads the correct dispensary menu.
@@ -267,10 +269,52 @@ async def _ensure_store_selected(page: Page, slug: str) -> None:
         logger.info("[%s] No store selector found — proceeding with current store", slug)
 
 
+async def _scroll_to_load_content(
+    target: Page | Frame,
+    slug: str,
+    *,
+    max_scrolls: int = 8,
+    scroll_pause_sec: float = 1.5,
+) -> None:
+    """Incrementally scroll to the bottom of *target* to trigger lazy loaders.
+
+    Many Dutchie sites (especially content-heavy ones like td-gibson) defer
+    rendering product cards until they enter the viewport.  This scrolls in
+    increments, pausing between each to let the site's IntersectionObserver
+    or scroll-based lazy loader fire.  Applied to all Dutchie sites as a
+    universal fallback — fast sites already have their cards and the scroll
+    is a no-op.
+    """
+    try:
+        for step in range(max_scrolls):
+            await target.evaluate(
+                """(step) => {
+                    const h = document.documentElement.scrollHeight || document.body.scrollHeight;
+                    const stepSize = Math.ceil(h / 6);
+                    window.scrollTo({ top: stepSize * (step + 1), behavior: 'smooth' });
+                }""",
+                step,
+            )
+            await asyncio.sleep(scroll_pause_sec)
+
+        # Final scroll to absolute bottom
+        await target.evaluate("() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })")
+        await asyncio.sleep(scroll_pause_sec)
+
+        # Scroll back to top so pagination buttons are accessible
+        await target.evaluate("() => window.scrollTo({ top: 0, behavior: 'smooth' })")
+        await asyncio.sleep(0.5)
+
+        logger.info("[%s] Scroll-to-load complete (%d increments)", slug, max_scrolls)
+    except Exception as exc:
+        # Non-fatal — some iframe contexts may restrict scrolling
+        logger.debug("[%s] Scroll-to-load failed (non-fatal): %s", slug, exc)
+
+
 async def _wait_for_product_cards(
     target: Page | Frame,
     slug: str,
-    timeout_ms: int = 30_000,
+    timeout_ms: int = 45_000,
 ) -> bool:
     """Wait for product cards to render inside *target* before extraction.
 
@@ -459,6 +503,13 @@ class DutchieScraper(BaseScraper):
         if embed_type == "iframe":
             await dismiss_age_gate(target)
 
+        # --- Scroll to trigger lazy-loaded content ----------------------------
+        # Many Dutchie sites (td-gibson, planet13, etc.) defer rendering
+        # product cards until they enter the viewport.  Scroll incrementally
+        # to the bottom to trigger IntersectionObservers / lazy loaders,
+        # then scroll back up.  Applied universally — fast sites are unaffected.
+        await _scroll_to_load_content(target, self.slug)
+
         # --- Wait for product cards to render --------------------------------
         # All Dutchie sites benefit: the smart-wait detects when the
         # container/iframe is injected, but product cards inside may not
@@ -560,6 +611,9 @@ class DutchieScraper(BaseScraper):
                     if embed_type == "iframe":
                         await dismiss_age_gate(target)
 
+                    await _scroll_to_load_content(target, self.slug)
+                    await _wait_for_product_cards(target, self.slug)
+
                     page_num = 1
                     while True:
                         products = await self._extract_products(target)
@@ -620,6 +674,8 @@ class DutchieScraper(BaseScraper):
                     logger.info("[%s] Fallback URL content found via %s", self.slug, fb_embed)
                     if fb_embed == "iframe":
                         await dismiss_age_gate(fb_target)
+                    await _scroll_to_load_content(fb_target, self.slug)
+                    await _wait_for_product_cards(fb_target, self.slug)
                     page_num = 1
                     while True:
                         products = await self._extract_products(fb_target)
@@ -697,6 +753,9 @@ class DutchieScraper(BaseScraper):
         logger.info("[%s] Fallback URL content found via %s", self.slug, fb_embed)
         if fb_embed == "iframe":
             await dismiss_age_gate(fb_target)
+
+        await _scroll_to_load_content(fb_target, self.slug)
+        await _wait_for_product_cards(fb_target, self.slug)
 
         all_products: list[dict[str, Any]] = []
         page_num = 1
