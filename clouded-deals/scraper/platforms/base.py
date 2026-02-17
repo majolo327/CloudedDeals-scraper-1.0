@@ -64,9 +64,11 @@ _JS_STEALTH = """
 }
 """
 
-# Third-party analytics domains that commonly break SPA hydration in headless
-# browsers (timing issues, missing APIs, bot detection).  Blocking these
-# speeds up page loads and reduces bot-detection triggers.
+# Third-party analytics domains that break SPA hydration in headless
+# browsers.  Originally used by Rise scraper only — do NOT apply globally
+# because many dispensary sites (Dutchie, Curaleaf) use GTM to inject their
+# menu embeds.  Blocking GTM prevents the Dutchie iframe from ever loading.
+# Keep this list for reference; individual scrapers can opt in if needed.
 _BLOCKED_ANALYTICS_PATTERNS = [
     "*google-analytics.com*",
     "*googletagmanager.com*",
@@ -145,13 +147,11 @@ class BaseScraper(abc.ABC):
         # Apply stealth overrides to every page before any navigation.
         await self._page.add_init_script(_JS_STEALTH)
 
-        # Block third-party analytics that trigger bot detection and slow
-        # down page loads across all platforms.
-        async def _block_route(route):
-            await route.abort()
-
-        for pattern in _BLOCKED_ANALYTICS_PATTERNS:
-            await self._page.route(pattern, _block_route)
+        # NOTE: Analytics blocking (_BLOCKED_ANALYTICS_PATTERNS) intentionally
+        # NOT applied here.  It was moved from Rise-only to BaseScraper in
+        # bc2010c but broke 16/18 Dutchie sites — many dispensaries use GTM
+        # to inject the Dutchie embed script.  Blocking GTM = no menu iframe.
+        # Individual scrapers (e.g. Rise) can opt in if needed.
 
         logger.info("[%s] Browser ready (shared=%s, stealth=on)", self.slug, bool(self._shared_browser))
         return self
