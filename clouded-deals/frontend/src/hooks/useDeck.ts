@@ -49,8 +49,8 @@ function persistDismissedIds(ids: Set<string>): void {
 
 // ── Deck state ──────────────────────────────────────────────────────
 
-/** How many cards to show at once in the grid */
-const VISIBLE_COUNT = 12;
+/** How many cards to show at once in the grid (3×3) */
+const VISIBLE_COUNT = 9;
 
 /** Deal score threshold for "jackpot" reveal animation */
 const JACKPOT_THRESHOLD = 80;

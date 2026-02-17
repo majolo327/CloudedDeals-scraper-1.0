@@ -101,7 +101,7 @@ export function DealsPage({
     return { filteredDeals: filtered, distanceMap };
   }, [deals, activeCategory, filterAndSortDeals]);
 
-  // Deck is always active — users interact with 12 cards at a time, never infinite scroll.
+  // Deck is always active — users interact with 9 cards at a time (3×3 grid), never infinite scroll.
   const isDefaultSort = !filters.sortBy || filters.sortBy === 'deal_score';
   const deck = useDeck(filteredDeals, { shuffle: isDefaultSort });
 
@@ -191,7 +191,7 @@ export function DealsPage({
 
           {/* Deal content — always grid mode */}
           {isLoading ? (
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4 xl:gap-5">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-5">
               {Array.from({ length: 9 }).map((_, i) => (
                 <DealCardSkeleton key={i} />
               ))}
@@ -236,7 +236,7 @@ export function DealsPage({
             </div>
           ) : (
             /* Grid mode — position-stable: replacements appear in-place */
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4 xl:gap-5">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-5">
               {deck.visible.map((deal, index) => {
                 const isDismissing = deck.dismissingId === deal.id;
                 const isAppearing = deck.appearingId === deal.id;
@@ -262,7 +262,7 @@ export function DealsPage({
                     style={
                       !isDismissing && !isAppearing
                         ? {
-                            animationDelay: `${Math.min(index, 11) * 30}ms`,
+                            animationDelay: `${Math.min(index, 8) * 30}ms`,
                             animationFillMode: 'both',
                           }
                         : undefined
@@ -312,7 +312,7 @@ export function DealsPage({
             </button>
 
             {pastDealsExpanded && (
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4 xl:gap-5 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-5 animate-in fade-in slide-in-from-top-2 duration-300">
                 {expiredDeals.map((deal) => (
                   <div key={deal.id}>
                     <DealCard
