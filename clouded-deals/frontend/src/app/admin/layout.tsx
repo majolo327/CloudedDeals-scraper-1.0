@@ -8,11 +8,8 @@ import { AdminPinGate, isAdminVerified, clearAdminVerification } from "@/compone
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: "grid" },
-  { href: "/admin/expansion", label: "Expansion", icon: "globe" },
-  { href: "/admin/analytics", label: "Analytics", icon: "chart" },
-  { href: "/admin/health", label: "Health", icon: "pulse" },
-  { href: "/admin/contacts", label: "Contacts", icon: "users" },
   { href: "/admin/scraper", label: "Scraper", icon: "terminal" },
+  { href: "/admin/analytics", label: "Analytics", icon: "chart" },
   { href: "/admin/settings", label: "Settings", icon: "sliders" },
 ] as const;
 

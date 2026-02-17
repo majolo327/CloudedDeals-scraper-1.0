@@ -2,7 +2,19 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAnalytics, exportEventsCSV } from '@/hooks/useAnalytics';
+import { supabase } from '@/lib/supabase';
 import type { FunnelStep, DeviceBreakdown, ReferrerSource, DailyVisitors, RetentionCohort, ViralMetrics } from '@/hooks/useAnalytics';
+
+interface ContactRow {
+  id: string;
+  anon_id: string | null;
+  phone: string | null;
+  email: string | null;
+  source: string;
+  saved_deals_count: number | null;
+  zip_entered: string | null;
+  created_at: string;
+}
 
 type DateRange = '24h' | '7d' | '30d' | 'all';
 
@@ -51,6 +63,9 @@ export default function AnalyticsPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [showOps, setShowOps] = useState(false);
+  const [showContacts, setShowContacts] = useState(false);
+  const [contacts, setContacts] = useState<ContactRow[]>([]);
+  const [contactsLoaded, setContactsLoaded] = useState(false);
 
   // Auto-refresh every 30s
   useEffect(() => {
@@ -66,6 +81,39 @@ export default function AnalyticsPage() {
     refresh();
     setLastRefreshed(new Date());
   }, [refresh]);
+
+  // Lazy-load contacts when section is opened
+  useEffect(() => {
+    if (!showContacts || contactsLoaded) return;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('user_contacts')
+          .select('*')
+          .order('created_at', { ascending: false });
+        setContacts((data || []) as ContactRow[]);
+      } catch {
+        // ignore
+      }
+      setContactsLoaded(true);
+    })();
+  }, [showContacts, contactsLoaded]);
+
+  const handleExportContacts = () => {
+    if (!contacts.length) return;
+    const headers = ['phone', 'email', 'source', 'saved_deals_count', 'zip_entered', 'created_at'];
+    const rows = contacts.map(c =>
+      headers.map(h => { const v = c[h as keyof ContactRow]; return v != null ? String(v) : ''; })
+    );
+    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `clouded-contacts-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (loading) {
     return (
@@ -337,6 +385,104 @@ export default function AnalyticsPage() {
                 </table>
               </div>
             </Card>
+          </div>
+        )}
+      </section>
+
+      {/* ================================================================ */}
+      {/* SECTION 5: CONTACTS & WAITLIST (collapsible)                    */}
+      {/* ================================================================ */}
+      <section>
+        <button
+          onClick={() => setShowContacts(!showContacts)}
+          className="w-full flex items-center justify-between rounded-xl border border-zinc-300 bg-white px-5 py-3 dark:border-zinc-700 dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+              Contacts &amp; Waitlist
+            </span>
+            {contactsLoaded && (
+              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-bold text-purple-700 dark:bg-purple-900/40 dark:text-purple-400">
+                {contacts.length}
+              </span>
+            )}
+          </div>
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            {showContacts ? '\u25B2' : '\u25BC'}
+          </span>
+        </button>
+
+        {showContacts && (
+          <div className="mt-4 space-y-6">
+            {!contactsLoaded ? (
+              <div className="h-32 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+            ) : (
+              <>
+                {/* Stats row */}
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+                  <ContactStatCard label="Total Contacts" value={contacts.length} />
+                  <ContactStatCard label="Phone Numbers" value={contacts.filter(c => c.phone).length} />
+                  <ContactStatCard label="Emails" value={contacts.filter(c => c.email).length} />
+                  <ContactStatCard label="From Saved Deals" value={contacts.filter(c => c.source === 'saved_deals_banner').length} />
+                </div>
+
+                {/* Table */}
+                <Card title={`Recent Contacts (${contacts.length})`}>
+                  <div className="flex justify-end mb-3">
+                    <button
+                      onClick={handleExportContacts}
+                      disabled={!contacts.length}
+                      className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                    >
+                      Export CSV
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="border-b border-zinc-200 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
+                        <tr>
+                          <th className="px-4 py-2 font-semibold">Phone</th>
+                          <th className="px-4 py-2 font-semibold">Email</th>
+                          <th className="px-4 py-2 font-semibold">Source</th>
+                          <th className="px-4 py-2 font-semibold">Saves</th>
+                          <th className="px-4 py-2 font-semibold">Zip</th>
+                          <th className="px-4 py-2 font-semibold">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                        {contacts.slice(0, 50).map((c) => (
+                          <tr key={c.id} className="text-zinc-700 dark:text-zinc-300">
+                            <td className="px-4 py-2 text-xs font-mono">{c.phone || '-'}</td>
+                            <td className="px-4 py-2 text-xs">{c.email || '-'}</td>
+                            <td className="px-4 py-2">
+                              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                                c.source === 'saved_deals_banner'
+                                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400'
+                                  : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
+                              }`}>
+                                {c.source === 'saved_deals_banner' ? 'Saved Deals' : c.source === 'out_of_market' ? 'Out of Market' : c.source}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-xs text-zinc-400">{c.saved_deals_count ?? '-'}</td>
+                            <td className="px-4 py-2 text-xs text-zinc-400">{c.zip_entered || '-'}</td>
+                            <td className="px-4 py-2 text-xs text-zinc-400 whitespace-nowrap">
+                              {new Date(c.created_at).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        ))}
+                        {contacts.length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="px-4 py-8 text-center text-zinc-400">
+                              No contacts captured yet.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </>
+            )}
           </div>
         )}
       </section>
@@ -879,6 +1025,17 @@ function ViralCard({ viral, range }: { viral: ViralMetrics; range: string }) {
           </div>
         )}
       </Card>
+    </div>
+  );
+}
+
+function ContactStatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-white px-4 py-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">{label}</p>
+      <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">
+        {value.toLocaleString()}
+      </p>
     </div>
   );
 }
