@@ -17,7 +17,7 @@ export function AboutPage() {
         </p>
 
         <p>
-          No accounts required. No ads. No sponsored placements. Every deal is
+          No accounts required. No sponsored placements. Every deal is
           ranked on its own merit.
         </p>
 
@@ -30,14 +30,14 @@ export function AboutPage() {
         <p>So we fixed it.</p>
 
         <p className="text-white font-semibold">
-          Clouded Deals is free. It will always be free for consumers.
+          Clouded Deals is free for consumers.
         </p>
       </div>
 
       {/* Trust commitment */}
       <div className="mt-10 p-5 rounded-xl border border-white/[0.06] bg-white/[0.02]">
         <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-          Every deal is ranked on merit. No sponsored placements. No ads. Ever.
+          Every deal is ranked on merit. No sponsored placements.
         </p>
       </div>
 
