@@ -55,13 +55,17 @@ const DISTANCE_OPTIONS: { id: DistanceRange; label: string; desc: string }[] = [
 function getWeightOptions(selectedCategories: Category[]): { id: string; label: string }[] {
   const options: { id: string; label: string }[] = [{ id: 'all', label: 'Any Size' }];
 
+  // Show "Disposable" when vape is selected (or no category filter)
+  const showDisposable = selectedCategories.length === 0
+    || selectedCategories.includes('vape');
+
   // If exactly one category is selected, show weights for that category
   if (selectedCategories.length === 1) {
     const cat = selectedCategories[0];
     const config = VALID_WEIGHTS_BY_CATEGORY[cat];
     if (config) {
-      // Vape: add "Disposable" quick-filter (matches 0.3-0.5g sizes)
-      if (cat === 'vape') {
+      // Disposable filters by product_subtype (AIO, RTU, all-in-one)
+      if (showDisposable) {
         options.push({ id: 'disposable', label: 'Disposable' });
       }
       for (const w of config.commonWeights) {
@@ -73,6 +77,9 @@ function getWeightOptions(selectedCategories: Category[]): { id: string; label: 
   }
 
   // No category or multiple: show universal common weights
+  if (showDisposable) {
+    options.push({ id: 'disposable', label: 'Disposable' });
+  }
   const universalWeights = ['0.5g', '1g', '3.5g', '7g', '14g', '28g', '100mg', '200mg'];
   for (const w of universalWeights) {
     options.push({ id: w, label: w });

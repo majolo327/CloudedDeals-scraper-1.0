@@ -251,12 +251,13 @@ export function SearchPage({
     }
     // Apply weight filter
     if (universalFilters.weightFilters.length > 0) {
-      const expanded: string[] = [];
-      for (const w of universalFilters.weightFilters) {
-        if (w === 'disposable') expanded.push('0.3g', '0.35g', '0.5g');
-        else expanded.push(w);
-      }
-      result = result.filter(d => d.weight && expanded.some(w => weightsMatch(d.weight, w)));
+      const hasDisposable = universalFilters.weightFilters.includes('disposable');
+      const weightOnly = universalFilters.weightFilters.filter(w => w !== 'disposable');
+      result = result.filter(d => {
+        if (hasDisposable && d.product_subtype === 'disposable') return true;
+        if (weightOnly.length > 0 && d.weight) return weightOnly.some(w => weightsMatch(d.weight, w));
+        return false;
+      });
     }
     // Apply sort
     if (universalFilters.sortBy === 'distance' && userCoords) {
@@ -287,12 +288,13 @@ export function SearchPage({
       result = result.filter(d => d.original_price ? ((d.original_price - d.deal_price) / d.original_price) * 100 >= universalFilters.minDiscount : false);
     }
     if (universalFilters.weightFilters.length > 0) {
-      const expanded: string[] = [];
-      for (const w of universalFilters.weightFilters) {
-        if (w === 'disposable') expanded.push('0.3g', '0.35g', '0.5g');
-        else expanded.push(w);
-      }
-      result = result.filter(d => d.weight && expanded.some(w => weightsMatch(d.weight, w)));
+      const hasDisposable = universalFilters.weightFilters.includes('disposable');
+      const weightOnly = universalFilters.weightFilters.filter(w => w !== 'disposable');
+      result = result.filter(d => {
+        if (hasDisposable && d.product_subtype === 'disposable') return true;
+        if (weightOnly.length > 0 && d.weight) return weightOnly.some(w => weightsMatch(d.weight, w));
+        return false;
+      });
     }
     return result;
   }, [baseCategoryExtendedDeals, activeDispensary, universalFilters]);

@@ -240,20 +240,18 @@ export function useUniversalFilters() {
       });
     }
 
-    // Weight filter — multi-select (match ANY selected weight)
+    // Weight filter — multi-select (match ANY selected weight or subtype)
     if (filters.weightFilters.length > 0) {
-      // Expand "disposable" into its constituent sizes
-      const expandedWeights: string[] = [];
-      for (const w of filters.weightFilters) {
-        if (w === 'disposable') {
-          expandedWeights.push('0.3g', '0.35g', '0.5g');
-        } else {
-          expandedWeights.push(w);
-        }
-      }
+      const hasDisposable = filters.weightFilters.includes('disposable');
+      const weightOnly = filters.weightFilters.filter(w => w !== 'disposable');
       result = result.filter(d => {
-        if (!d.weight) return false;
-        return expandedWeights.some(w => weightsMatch(d.weight, w));
+        // Match disposable by product_subtype (not weight range)
+        if (hasDisposable && d.product_subtype === 'disposable') return true;
+        // Match remaining weight selections by weight
+        if (weightOnly.length > 0 && d.weight) {
+          return weightOnly.some(w => weightsMatch(d.weight, w));
+        }
+        return false;
       });
     }
 
