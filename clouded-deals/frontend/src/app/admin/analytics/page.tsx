@@ -71,8 +71,8 @@ export default function AnalyticsPage() {
     return (
       <div className="space-y-6">
         <div className="h-12 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-28 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
           ))}
         </div>
@@ -894,11 +894,6 @@ function DispensaryCard({ dispensaries, range }: { dispensaries: DispensaryMetri
                 <span className="w-14 text-right text-xs font-mono font-bold text-zinc-600 dark:text-zinc-300">
                   {d.clicks} clicks
                 </span>
-                {d.saves > 0 && (
-                  <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700 dark:bg-green-900/40 dark:text-green-400">
-                    {d.saves} saves
-                  </span>
-                )}
               </div>
             );
           })}
@@ -1023,8 +1018,9 @@ function ViralCard({ viral, range }: { viral: ViralMetrics; range: string }) {
         )}
       </Card>
 
-      {/* Top Referrers Leaderboard */}
+      {/* Top Referrers Leaderboard — spans full width in the 2-col grid */}
       {viral.topReferrers.length > 0 && (
+        <div className="lg:col-span-2">
         <Card title="Top Referrers (who drives your growth?)">
           <div className="space-y-2">
             {viral.topReferrers.map((r, i) => (
@@ -1042,6 +1038,7 @@ function ViralCard({ viral, range }: { viral: ViralMetrics; range: string }) {
             ))}
           </div>
         </Card>
+        </div>
       )}
     </div>
   );

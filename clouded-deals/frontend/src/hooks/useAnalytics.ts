@@ -346,20 +346,15 @@ export function useAnalytics(range: DateRange = '7d') {
           }
         }
 
-        // B2B: dispensary-level clicks + saves
+        // B2B: dispensary-level outbound clicks (the primary B2B metric).
+        // Note: deal_saved events don't include dispensary in properties,
+        // so saves-per-dispensary isn't tracked here. Clicks are the real
+        // B2B value signal ("we drove X qualified clicks to your website").
         if (event.event_name === 'get_deal_click') {
           const p = event.properties as Record<string, unknown> | null;
           const disp = (p?.dispensary as string) || 'Unknown';
           if (!dispensaryClicks[disp]) dispensaryClicks[disp] = { clicks: 0, saves: 0 };
           dispensaryClicks[disp].clicks++;
-        }
-        if (['deal_saved', 'deal_save'].includes(event.event_name)) {
-          const p = event.properties as Record<string, unknown> | null;
-          const disp = (p?.dispensary as string) || null;
-          if (disp) {
-            if (!dispensaryClicks[disp]) dispensaryClicks[disp] = { clicks: 0, saves: 0 };
-            dispensaryClicks[disp].saves++;
-          }
         }
 
         // WoW buckets
@@ -591,12 +586,25 @@ export function useAnalytics(range: DateRange = '7d') {
       // WAU/MAU from 30-day event window
       const wauUsers = new Set<string>();
       const mauUsers = new Set<string>();
+      // Track daily unique users for average DAU calculation
+      const mauDailyUsers: Record<string, Set<string>> = {};
       for (const e of mauEvents) {
         mauUsers.add(e.anon_id);
-        if (e.created_at >= sevenDaysAgo) wauUsers.add(e.anon_id);
+        if (e.created_at >= sevenDaysAgo) {
+          wauUsers.add(e.anon_id);
+          // Accumulate per-day users for avg DAU
+          const dayKey = e.created_at.slice(0, 10);
+          if (!mauDailyUsers[dayKey]) mauDailyUsers[dayKey] = new Set();
+          mauDailyUsers[dayKey].add(e.anon_id);
+        }
       }
-      const dauToday = todayVisitors.size;
       const mauSize = mauUsers.size || 1;
+
+      // Average DAU over last 7 days (standard stickiness formula)
+      const dailySizes = Object.values(mauDailyUsers).map(s => s.size);
+      const avgDau = dailySizes.length > 0
+        ? dailySizes.reduce((a, b) => a + b, 0) / dailySizes.length
+        : todayVisitors.size;
 
       const activationRate = funnelVisitors.size > 0
         ? Math.round((funnelActivated.size / funnelVisitors.size) * 100) : 0;
@@ -610,7 +618,7 @@ export function useAnalytics(range: DateRange = '7d') {
         sharesWoW: wowPct(thisWeekShares, lastWeekShares),
         wau: wauUsers.size,
         mau: mauUsers.size,
-        stickiness: Math.round((dauToday / mauSize) * 100),
+        stickiness: Math.round((avgDau / mauSize) * 100),
         activationRate,
         eventsPerUser,
       };
