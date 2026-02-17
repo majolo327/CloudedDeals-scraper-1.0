@@ -55,11 +55,19 @@ const DISTANCE_OPTIONS: { id: DistanceRange; label: string; desc: string }[] = [
 function getWeightOptions(selectedCategories: Category[]): { id: string; label: string }[] {
   const options: { id: string; label: string }[] = [{ id: 'all', label: 'Any Size' }];
 
+  // Show "Disposable" when vape is selected (or no category filter)
+  const showDisposable = selectedCategories.length === 0
+    || selectedCategories.includes('vape');
+
   // If exactly one category is selected, show weights for that category
   if (selectedCategories.length === 1) {
     const cat = selectedCategories[0];
     const config = VALID_WEIGHTS_BY_CATEGORY[cat];
     if (config) {
+      // Disposable filters by product_subtype (AIO, RTU, all-in-one)
+      if (showDisposable) {
+        options.push({ id: 'disposable', label: 'Disposable' });
+      }
       for (const w of config.commonWeights) {
         const display = `${w}${config.unit}`;
         options.push({ id: display, label: display });
@@ -69,6 +77,9 @@ function getWeightOptions(selectedCategories: Category[]): { id: string; label: 
   }
 
   // No category or multiple: show universal common weights
+  if (showDisposable) {
+    options.push({ id: 'disposable', label: 'Disposable' });
+  }
   const universalWeights = ['0.5g', '1g', '3.5g', '7g', '14g', '28g', '100mg', '200mg'];
   for (const w of universalWeights) {
     options.push({ id: w, label: w });
@@ -133,7 +144,7 @@ export function FilterSheet({
     filters.priceRange !== 'all',
     filters.minDiscount > 0,
     filters.distanceRange !== 'all',
-    filters.weightFilter !== 'all',
+    filters.weightFilters.length > 0,
   ].filter(Boolean).length;
 
   const handleReset = () => {
@@ -380,12 +391,12 @@ export function FilterSheet({
                       <X className="w-3 h-3" />
                     </button>
                   )}
-                  {filters.weightFilter !== 'all' && (
+                  {filters.weightFilters.length > 0 && (
                     <button
-                      onClick={() => onFiltersChange({ ...filters, weightFilter: 'all' })}
+                      onClick={() => onFiltersChange({ ...filters, weightFilters: [] })}
                       className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-cyan-500/15 text-cyan-400 text-xs font-medium"
                     >
-                      {filters.weightFilter}
+                      {filters.weightFilters.join(', ')}
                       <X className="w-3 h-3" />
                     </button>
                   )}
@@ -572,22 +583,27 @@ export function FilterSheet({
                       </div>
                     )}
 
-                    {/* Dispensary */}
+                    {/* Dispensary — A-Z grouped with alphabet rail */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs text-slate-500">Dispensary</p>
+                        <p className="text-xs text-slate-500">
+                          Dispensary
+                          {filters.dispensaryIds.length > 0 && (
+                            <span className="ml-1 text-purple-400">({filters.dispensaryIds.length})</span>
+                          )}
+                        </p>
                         <div className="flex items-center gap-3">
                           <button
                             onClick={selectAllDispensaries}
                             className="px-2 py-1 min-h-[32px] text-[11px] text-purple-400 hover:text-purple-300 transition-colors"
                           >
-                            Select All
+                            All
                           </button>
                           <button
                             onClick={clearAllDispensaries}
                             className="px-2 py-1 min-h-[32px] text-[11px] text-slate-400 hover:text-slate-300 transition-colors"
                           >
-                            Clear
+                            None
                           </button>
                         </div>
                       </div>
@@ -602,33 +618,94 @@ export function FilterSheet({
                           className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500/50 transition-colors"
                         />
                       </div>
-                      <div className="space-y-1 max-h-40 overflow-y-auto rounded-lg bg-slate-800/50 p-2">
-                        {filteredDispensaries.map((d) => {
-                          const isChecked = filters.dispensaryIds.includes(d.id);
-                          return (
-                            <label
-                              key={d.id}
-                              className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-slate-800 cursor-pointer transition-colors"
-                            >
-                              <div
-                                className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
-                                  isChecked
-                                    ? 'bg-purple-500 border-purple-500'
-                                    : 'border-slate-600 bg-slate-800'
-                                }`}
-                              >
-                                {isChecked && <Check className="w-3 h-3 text-white" />}
+                      {/* A-Z grouped list with alphabet rail */}
+                      <div className="relative flex rounded-lg bg-slate-800/50 overflow-hidden" style={{ maxHeight: '220px' }}>
+                        {/* Scrollable dispensary list */}
+                        <div className="flex-1 overflow-y-auto py-1 pr-6" id="dispensary-scroll-list">
+                          {(() => {
+                            // Group filtered dispensaries by first letter
+                            const grouped: Record<string, typeof filteredDispensaries> = {};
+                            for (const d of filteredDispensaries) {
+                              const letter = (d.name[0] || '#').toUpperCase();
+                              const key = /[A-Z]/.test(letter) ? letter : '#';
+                              if (!grouped[key]) grouped[key] = [];
+                              grouped[key].push(d);
+                            }
+                            const letters = Object.keys(grouped).sort();
+                            return letters.map((letter) => (
+                              <div key={letter}>
+                                <div
+                                  id={`disp-letter-${letter}`}
+                                  className="sticky top-0 z-10 px-2 py-0.5 text-[10px] font-bold text-purple-400/70 uppercase"
+                                  style={{ backgroundColor: 'rgba(12, 14, 28, 0.95)' }}
+                                >
+                                  {letter}
+                                </div>
+                                {grouped[letter].map((d) => {
+                                  const isChecked = filters.dispensaryIds.includes(d.id);
+                                  return (
+                                    <label
+                                      key={d.id}
+                                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700/50 cursor-pointer transition-colors"
+                                    >
+                                      <div
+                                        className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                                          isChecked
+                                            ? 'bg-purple-500 border-purple-500'
+                                            : 'border-slate-600 bg-slate-800'
+                                        }`}
+                                      >
+                                        {isChecked && <Check className="w-3 h-3 text-white" />}
+                                      </div>
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => toggleDispensary(d.id)}
+                                        className="sr-only"
+                                      />
+                                      <span className="text-xs text-slate-300 truncate">{d.name}</span>
+                                    </label>
+                                  );
+                                })}
                               </div>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => toggleDispensary(d.id)}
-                                className="sr-only"
-                              />
-                              <span className="text-sm text-slate-300 truncate">{d.name}</span>
-                            </label>
-                          );
-                        })}
+                            ));
+                          })()}
+                        </div>
+                        {/* A-Z alphabet rail */}
+                        {!dispensarySearch && (
+                          <div className="absolute right-0 top-0 bottom-0 w-5 flex flex-col items-center justify-center py-1 gap-0"
+                            style={{ backgroundColor: 'rgba(12, 14, 28, 0.8)' }}
+                          >
+                            {(() => {
+                              const availableLetters = new Set(
+                                dispensaries.map(d => {
+                                  const l = (d.name[0] || '').toUpperCase();
+                                  return /[A-Z]/.test(l) ? l : '#';
+                                })
+                              );
+                              return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('').map((letter) => {
+                                const hasItems = availableLetters.has(letter);
+                                return (
+                                  <button
+                                    key={letter}
+                                    onClick={() => {
+                                      const el = document.getElementById(`disp-letter-${letter}`);
+                                      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    }}
+                                    disabled={!hasItems}
+                                    className={`text-[8px] leading-none py-px font-semibold transition-colors ${
+                                      hasItems
+                                        ? 'text-purple-400 hover:text-purple-300 active:text-white'
+                                        : 'text-slate-700'
+                                    }`}
+                                  >
+                                    {letter}
+                                  </button>
+                                );
+                              });
+                            })()}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -655,28 +732,42 @@ export function FilterSheet({
                 </div>
               </section>
 
-              {/* Weight / Size */}
+              {/* Weight / Size — multi-select */}
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
                   Size / Weight
+                  {filters.weightFilters.length > 0 && (
+                    <button
+                      onClick={() => onFiltersChange({ ...filters, weightFilters: [] })}
+                      className="ml-2 text-[10px] text-cyan-400/60 hover:text-cyan-400 normal-case font-normal"
+                    >
+                      clear
+                    </button>
+                  )}
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {weightOptions.map((opt) => (
+                  {weightOptions.filter(o => o.id !== 'all').map((opt) => {
+                    const isSelected = filters.weightFilters.includes(opt.id);
+                    return (
                     <button
                       key={opt.id}
                       onClick={() => {
-                        onFiltersChange({ ...filters, weightFilter: opt.id });
-                        if (opt.id !== 'all') trackEvent('filter_change', undefined, { weight: opt.id });
+                        const next = isSelected
+                          ? filters.weightFilters.filter(w => w !== opt.id)
+                          : [...filters.weightFilters, opt.id];
+                        onFiltersChange({ ...filters, weightFilters: next });
+                        if (next.length > 0) trackEvent('filter_change', undefined, { weights: next.join(',') });
                       }}
                       className={`px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all ${
-                        filters.weightFilter === opt.id
+                        isSelected
                           ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
                           : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
                       }`}
                     >
                       {opt.label}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
 

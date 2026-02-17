@@ -276,9 +276,11 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
           LIMIT_DISPENSARIES: ${{ github.event.inputs.limit_dispensaries || 'false' }}
           SINGLE_SITE: ${{ github.event.inputs.single_site || '' }}
-          # Force run for manual dispatch and non-NV scheduled regions
-          # (idempotency check doesn't track per-region yet).
-          FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.region.outputs.value != 'southern-nv' && 'true' || 'false' }}
+          # Force run — idempotency check in main.py only tracks
+          # platform_group, not region, so a Michigan run would
+          # incorrectly block NV.  Force all scheduled + dispatched
+          # runs until _already_scraped_today() is region-aware.
+          FORCE_RUN: "true"
           PLATFORM_GROUP: ${{ github.event.inputs.platform_group || 'stable' }}
           REGION: ${{ steps.region.outputs.value }}
         run: |

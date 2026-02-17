@@ -88,7 +88,7 @@ export function DealsPage({
 
   const hasActiveFilters = filters.categories.length > 0 || filters.dispensaryIds.length > 0 ||
     filters.priceRange !== 'all' || filters.minDiscount > 0 || filters.distanceRange !== 'all' ||
-    filters.weightFilter !== 'all';
+    filters.weightFilters.length > 0;
 
   // Apply category tab first, then universal filters.
   // distanceMap is pre-computed once inside filterAndSortDeals so we

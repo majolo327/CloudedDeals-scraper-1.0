@@ -250,8 +250,14 @@ export function SearchPage({
       result = result.filter(d => d.original_price ? ((d.original_price - d.deal_price) / d.original_price) * 100 >= universalFilters.minDiscount : false);
     }
     // Apply weight filter
-    if (universalFilters.weightFilter !== 'all') {
-      result = result.filter(d => weightsMatch(d.weight, universalFilters.weightFilter));
+    if (universalFilters.weightFilters.length > 0) {
+      const hasDisposable = universalFilters.weightFilters.includes('disposable');
+      const weightOnly = universalFilters.weightFilters.filter(w => w !== 'disposable');
+      result = result.filter(d => {
+        if (hasDisposable && d.product_subtype === 'disposable') return true;
+        if (weightOnly.length > 0 && d.weight) return weightOnly.some(w => weightsMatch(d.weight, w));
+        return false;
+      });
     }
     // Apply sort
     if (universalFilters.sortBy === 'distance' && userCoords) {
@@ -281,8 +287,14 @@ export function SearchPage({
     if (universalFilters.minDiscount > 0) {
       result = result.filter(d => d.original_price ? ((d.original_price - d.deal_price) / d.original_price) * 100 >= universalFilters.minDiscount : false);
     }
-    if (universalFilters.weightFilter !== 'all') {
-      result = result.filter(d => weightsMatch(d.weight, universalFilters.weightFilter));
+    if (universalFilters.weightFilters.length > 0) {
+      const hasDisposable = universalFilters.weightFilters.includes('disposable');
+      const weightOnly = universalFilters.weightFilters.filter(w => w !== 'disposable');
+      result = result.filter(d => {
+        if (hasDisposable && d.product_subtype === 'disposable') return true;
+        if (weightOnly.length > 0 && d.weight) return weightOnly.some(w => weightsMatch(d.weight, w));
+        return false;
+      });
     }
     return result;
   }, [baseCategoryExtendedDeals, activeDispensary, universalFilters]);
