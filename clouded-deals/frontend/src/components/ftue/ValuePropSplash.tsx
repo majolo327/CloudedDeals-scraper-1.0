@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, Search } from 'lucide-react';
+import { Search, MapPin, DollarSign, ArrowRight } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 
 interface ValuePropSplashProps {
