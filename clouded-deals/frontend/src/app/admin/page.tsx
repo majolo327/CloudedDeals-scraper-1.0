@@ -57,6 +57,7 @@ interface FlaggedDeal {
     name: string;
     brand: string | null;
     category: string | null;
+    product_subtype: string | null;
     sale_price: number | null;
     original_price: number | null;
     deal_score: number;
@@ -631,6 +632,15 @@ export default function AdminDashboard() {
 
 const CATEGORIES = ["flower", "preroll", "vape", "edible", "concentrate", "other"] as const;
 
+const SUBTYPES: { value: string; label: string; categories: string[] }[] = [
+  { value: "",                label: "None",            categories: [] },
+  { value: "disposable",     label: "Disposable Vape",  categories: ["vape"] },
+  { value: "cartridge",      label: "Vape Cartridge",   categories: ["vape"] },
+  { value: "pod",            label: "Vape Pod",         categories: ["vape"] },
+  { value: "infused_preroll", label: "Infused Pre-Roll", categories: ["preroll"] },
+  { value: "preroll_pack",   label: "Pre-Roll Pack",    categories: ["preroll"] },
+];
+
 function FlagRow({
   flag,
   dimmed,
@@ -714,6 +724,7 @@ function FlagRow({
                       name: prod?.name ?? flag.product_name,
                       brand: prod?.brand ?? flag.brand_name ?? "",
                       category: prod?.category ?? "",
+                      product_subtype: prod?.product_subtype ?? "",
                       sale_price: String(prod?.sale_price ?? flag.deal_price ?? ""),
                       original_price: String(prod?.original_price ?? ""),
                     });
@@ -756,6 +767,11 @@ function FlagRow({
             {prod.original_price ? ` (was $${prod.original_price})` : ""}
           </span>
           <span>{prod.category}</span>
+          {prod.product_subtype && (
+            <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 dark:bg-purple-900/40 dark:text-purple-400">
+              {SUBTYPES.find(s => s.value === prod.product_subtype)?.label ?? prod.product_subtype}
+            </span>
+          )}
           <span>Score: {prod.deal_score}</span>
           {!prod.is_active && (
             <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600 dark:bg-red-900/40 dark:text-red-400">
@@ -769,54 +785,80 @@ function FlagRow({
       {isEditing && (
         <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
           <div className="grid gap-3 sm:grid-cols-3">
-            <label className="flex flex-col gap-1 text-xs">
-              <span className="font-medium text-zinc-600 dark:text-zinc-400">Name</span>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Name</span>
               <input
                 type="text"
                 value={editForm.name ?? ""}
                 onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                className="h-9 rounded-md border border-zinc-300 bg-white px-2.5 text-[13px] font-medium text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs">
-              <span className="font-medium text-zinc-600 dark:text-zinc-400">Brand</span>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Brand</span>
               <input
                 type="text"
                 value={editForm.brand ?? ""}
                 onChange={(e) => setEditForm((f) => ({ ...f, brand: e.target.value }))}
-                className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                className="h-9 rounded-md border border-zinc-300 bg-white px-2.5 text-[13px] font-medium text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs">
-              <span className="font-medium text-zinc-600 dark:text-zinc-400">Category</span>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Category</span>
               <select
                 value={editForm.category ?? ""}
-                onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
-                className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                onChange={(e) => {
+                  const cat = e.target.value;
+                  setEditForm((f) => {
+                    // Auto-clear subtype if it doesn't belong to the new category
+                    const currentSub = SUBTYPES.find(s => s.value === f.product_subtype);
+                    const keepSub = currentSub && (currentSub.categories.length === 0 || currentSub.categories.includes(cat));
+                    return { ...f, category: cat, ...(keepSub ? {} : { product_subtype: "" }) };
+                  });
+                }}
+                className="h-9 rounded-md border border-zinc-300 bg-white px-2.5 text-[13px] font-medium text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
               >
                 {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c} value={c} className="text-[13px] text-zinc-900 dark:text-zinc-50 dark:bg-zinc-800">
+                    {c.charAt(0).toUpperCase() + c.slice(1)}
+                  </option>
                 ))}
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-xs">
-              <span className="font-medium text-zinc-600 dark:text-zinc-400">Sale Price ($)</span>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Subtype</span>
+              <select
+                value={editForm.product_subtype ?? ""}
+                onChange={(e) => setEditForm((f) => ({ ...f, product_subtype: e.target.value }))}
+                className="h-9 rounded-md border border-zinc-300 bg-white px-2.5 text-[13px] font-medium text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
+              >
+                {SUBTYPES
+                  .filter(s => s.categories.length === 0 || s.categories.includes(editForm.category ?? ""))
+                  .map((s) => (
+                    <option key={s.value} value={s.value} className="text-[13px] text-zinc-900 dark:text-zinc-50 dark:bg-zinc-800">
+                      {s.label}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Sale Price ($)</span>
               <input
                 type="number"
                 step="0.01"
                 value={editForm.sale_price ?? ""}
                 onChange={(e) => setEditForm((f) => ({ ...f, sale_price: e.target.value }))}
-                className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                className="h-9 rounded-md border border-zinc-300 bg-white px-2.5 text-[13px] font-medium text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs">
-              <span className="font-medium text-zinc-600 dark:text-zinc-400">Original Price ($)</span>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Original Price ($)</span>
               <input
                 type="number"
                 step="0.01"
                 value={editForm.original_price ?? ""}
                 onChange={(e) => setEditForm((f) => ({ ...f, original_price: e.target.value }))}
-                className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                className="h-9 rounded-md border border-zinc-300 bg-white px-2.5 text-[13px] font-medium text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
               />
             </label>
           </div>
@@ -827,12 +869,16 @@ function FlagRow({
                 if (editForm.name) updates.name = editForm.name;
                 if (editForm.brand) updates.brand = editForm.brand;
                 if (editForm.category) updates.category = editForm.category;
+                // Send product_subtype — empty string means null (clear it)
+                if ('product_subtype' in editForm) {
+                  updates.product_subtype = editForm.product_subtype || null;
+                }
                 if (editForm.sale_price) updates.sale_price = parseFloat(editForm.sale_price);
                 if (editForm.original_price) updates.original_price = parseFloat(editForm.original_price);
                 handleFlagAction(flag.deal_id, "edit_product", updates);
               }}
               disabled={isActing}
-              className="rounded-md bg-blue-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="rounded-md bg-blue-600 px-4 py-2 text-[13px] font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {isActing ? "Saving..." : "Save Changes"}
             </button>
