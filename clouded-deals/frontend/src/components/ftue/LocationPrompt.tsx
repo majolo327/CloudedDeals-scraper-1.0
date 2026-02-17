@@ -165,8 +165,8 @@ export function LocationPrompt({ onContinue }: LocationPromptProps) {
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
             Where are you?
           </h2>
-          <p className="text-base text-slate-400 max-w-sm leading-relaxed mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
-            We&apos;re live in Las Vegas right now. Enter your zip and we&apos;ll let you know if we&apos;re in your area.
+          <p className="text-lg text-slate-400 max-w-sm leading-relaxed mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
+            Enter your zip &mdash; we&apos;ll tell you when we launch near you.
           </p>
 
           <div className="w-full max-w-xs animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
@@ -217,7 +217,7 @@ export function LocationPrompt({ onContinue }: LocationPromptProps) {
           onClick={handleNotNow}
           className="text-sm text-slate-600 hover:text-slate-400 transition-colors py-2 px-3"
         >
-          Not Now
+          Skip for now
         </button>
       </div>
 
@@ -235,10 +235,10 @@ export function LocationPrompt({ onContinue }: LocationPromptProps) {
         </div>
 
         <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
-          See deals near you
+          Closest deals first
         </h2>
-        <p className="text-base text-slate-400 max-w-sm leading-relaxed animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
-          We&apos;ll show you how far each dispensary is and give you one-tap directions.
+        <p className="text-lg text-slate-400 max-w-sm leading-relaxed animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
+          One tap to open maps to any dispensary.
         </p>
       </div>
 
@@ -257,7 +257,7 @@ export function LocationPrompt({ onContinue }: LocationPromptProps) {
           ) : (
             <>
               <Navigation className="w-5 h-5" />
-              Enable Location
+              Show Nearest Deals
             </>
           )}
         </button>
@@ -265,7 +265,7 @@ export function LocationPrompt({ onContinue }: LocationPromptProps) {
           onClick={handleNotNow}
           className="w-full py-3 min-h-[48px] text-slate-500 hover:text-slate-300 text-sm font-medium transition-colors"
         >
-          Not Now
+          Skip for now
         </button>
       </div>
     </div>

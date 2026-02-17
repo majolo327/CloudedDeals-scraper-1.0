@@ -25,7 +25,9 @@ import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { useDealHistory } from '@/hooks/useDealHistory';
 import { initializeAnonUser, trackEvent, trackPageView, trackDealModalOpen } from '@/lib/analytics';
 import { FTUEFlow, isFTUECompleted } from '@/components/ftue';
+import { CookieConsent } from '@/components/CookieConsent';
 import { createShareLink } from '@/lib/share';
+import { formatUpdateTime } from '@/utils';
 
 type AppPage = 'home' | 'search' | 'browse' | 'saved' | 'about' | 'terms' | 'privacy';
 
@@ -94,6 +96,19 @@ export default function Home() {
       prevPageRef.current = activePage;
     }
   }, [activePage, isAgeVerified]);
+
+  // Listen for navigation events from CookieConsent (privacy link)
+  useEffect(() => {
+    function handleNav(e: Event) {
+      const page = (e as CustomEvent).detail;
+      if (page === 'privacy' || page === 'terms' || page === 'about') {
+        setActivePage(page);
+        window.scrollTo(0, 0);
+      }
+    }
+    window.addEventListener('navigate', handleNav);
+    return () => window.removeEventListener('navigate', handleNav);
+  }, []);
 
   // Track referral clicks from share links
   useEffect(() => {
@@ -357,9 +372,12 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Mobile: just show deal count */}
+          {/* Mobile: deal count + last update time */}
           <div className="sm:hidden flex items-center gap-2 text-xs text-slate-500">
             <span>{todaysDeals.length} {isShowingExpired ? "yesterday's" : ''} deals</span>
+            {!isShowingExpired && todaysDeals.length > 0 && (
+              <span className="text-slate-600">{formatUpdateTime(todaysDeals)}</span>
+            )}
           </div>
         </div>
       </header>
@@ -369,14 +387,24 @@ export default function Home() {
         {/* Deals tab: shows loading/error/expired states */}
         {activePage === 'home' && (
           loading ? (
-            <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
-              <TopPickSkeleton />
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 xl:gap-5">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <DealCardSkeleton key={i} />
-                ))}
+            <>
+              {/* Category bar skeleton */}
+              <div className="sticky top-14 sm:top-16 z-40 border-b" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderColor: 'rgba(120, 100, 200, 0.06)' }}>
+                <div className="max-w-6xl mx-auto px-4 h-11 flex items-center gap-2">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="h-6 rounded-full animate-pulse" style={{ width: `${40 + i * 5}px`, background: 'rgba(45,50,80,0.3)' }} />
+                  ))}
+                </div>
               </div>
-            </div>
+              <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
+                <TopPickSkeleton />
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 xl:gap-5">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <DealCardSkeleton key={i} />
+                  ))}
+                </div>
+              </div>
+            </>
           ) : error && !isShowingExpired ? (
             <div className="flex flex-col items-center justify-center py-20 text-center max-w-6xl mx-auto px-4">
               <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mb-4">
@@ -520,6 +548,9 @@ export default function Home() {
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+      {/* Cookie / localStorage consent banner */}
+      <CookieConsent />
 
       {/* Mobile bottom nav bar */}
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 border-t" style={{ backgroundColor: 'rgba(10, 12, 26, 0.95)', borderColor: 'rgba(120, 100, 200, 0.08)', WebkitBackdropFilter: 'blur(40px) saturate(1.3)', backdropFilter: 'blur(40px) saturate(1.3)' }} aria-label="Main navigation">

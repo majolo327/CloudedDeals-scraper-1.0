@@ -25,7 +25,7 @@ export const VALID_WEIGHTS_BY_CATEGORY: Record<string, CategoryWeightConfig> = {
   },
   vape: {
     unit: 'g',
-    commonWeights: [0.3, 0.35, 0.5, 0.85, 1],
+    commonWeights: [0.3, 0.35, 0.5, 0.85, 0.9, 1],
     minValid: 0.3,
     maxValid: 2,
   },
