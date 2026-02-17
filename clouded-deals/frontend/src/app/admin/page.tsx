@@ -105,8 +105,6 @@ const REGION_COLORS: Record<string, string> = {
   all: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
 };
 
-const CATEGORIES = ["flower", "preroll", "vape", "edible", "concentrate", "other"] as const;
-
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,6 +115,8 @@ export default function AdminDashboard() {
   const [editingFlag, setEditingFlag] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [exportCopied, setExportCopied] = useState(false);
 
   const fetchFlags = useCallback(async () => {
     setFlagsError(null);
@@ -148,20 +148,70 @@ export default function AdminDashboard() {
         body: JSON.stringify({ action, deal_id: dealId, updates }),
       });
       if (res.ok) {
-        // Remove from list on success
-        if (action === "hide_product" || action === "resolve") {
-          setFlags((prev) => prev.filter((f) => f.deal_id !== dealId));
-        }
-        if (action === "edit_product") {
-          // Refresh to get updated product data
-          await fetchFlags();
-          setEditingFlag(null);
-        }
+        // Re-fetch so resolved flags move to history instead of disappearing
+        await fetchFlags();
+        if (action === "edit_product") setEditingFlag(null);
       }
     } catch {
       // ignore
     }
     setActionLoading(null);
+  }
+
+  // Split flags into active (unreviewed) and history (reviewed)
+  const activeFlags = flags.filter((f) => !f.reviewed);
+  const historyFlags = flags.filter((f) => f.reviewed);
+
+  // Generate markdown export for all flags (active + history)
+  function exportFlagsMarkdown(subset: FlaggedDeal[]): string {
+    const lines: string[] = [
+      `# Flagged Products Export — ${new Date().toLocaleDateString()}`,
+      "",
+      `Total: ${subset.length} flagged product${subset.length !== 1 ? "s" : ""}`,
+      "",
+    ];
+
+    for (const flag of subset) {
+      const status = flag.reviewed ? "RESOLVED" : "ACTIVE";
+      const prod = flag.product;
+      lines.push(`## ${flag.product_name}`);
+      lines.push("");
+      lines.push(`| Field | Value |`);
+      lines.push(`|-------|-------|`);
+      lines.push(`| **Deal ID** | \`${flag.deal_id}\` |`);
+      lines.push(`| **Status** | ${status} |`);
+      lines.push(`| **Brand** | ${flag.brand_name ?? "—"} |`);
+      lines.push(`| **Dispensary** | ${flag.dispensary_name ?? "—"} |`);
+      lines.push(`| **Deal Price** | ${flag.deal_price != null ? `$${flag.deal_price}` : "—"} |`);
+      if (prod) {
+        lines.push(`| **DB Price** | $${prod.sale_price ?? "?"}${prod.original_price ? ` (was $${prod.original_price})` : ""} |`);
+        lines.push(`| **Category** | ${prod.category ?? "—"} |`);
+        lines.push(`| **Deal Score** | ${prod.deal_score} |`);
+        lines.push(`| **Active** | ${prod.is_active ? "Yes" : "No (hidden)"} |`);
+      }
+      lines.push(`| **Reports** | ${flag.report_count} (${[
+        flag.wrong_price_count > 0 ? `${flag.wrong_price_count} wrong price` : "",
+        flag.deal_gone_count > 0 ? `${flag.deal_gone_count} deal gone` : "",
+        flag.wrong_product_count > 0 ? `${flag.wrong_product_count} wrong product` : "",
+      ].filter(Boolean).join(", ") || "—"}) |`);
+      lines.push("");
+
+      // Individual reports with user notes
+      if (flag.reports.length > 0) {
+        lines.push("**Reports:**");
+        for (const r of flag.reports) {
+          const date = new Date(r.created_at).toLocaleString(undefined, {
+            month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+          });
+          lines.push(`- \`${r.report_type}\` — ${date}${r.report_message ? ` — "${r.report_message}"` : ""}`);
+        }
+        lines.push("");
+      }
+      lines.push("---");
+      lines.push("");
+    }
+
+    return lines.join("\n");
   }
 
   useEffect(() => {
@@ -339,25 +389,39 @@ export default function AdminDashboard() {
             <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
               Flagged Products
             </h3>
-            {flags.length > 0 && (() => {
-              const unreviewed = flags.filter(f => !f.reviewed).length;
-              return (
-                <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                  unreviewed > 0
-                    ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
-                    : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
-                }`}>
-                  {unreviewed > 0 ? unreviewed : flags.length} {unreviewed > 0 ? "new" : "resolved"}
-                </span>
-              );
-            })()}
+            {activeFlags.length > 0 && (
+              <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700 dark:bg-red-900/40 dark:text-red-400">
+                {activeFlags.length} new
+              </span>
+            )}
+            {historyFlags.length > 0 && (
+              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-bold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                {historyFlags.length} resolved
+              </span>
+            )}
           </div>
-          <button
-            onClick={fetchFlags}
-            className="text-xs text-zinc-400 hover:text-zinc-600"
-          >
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            {flags.length > 0 && (
+              <button
+                onClick={() => {
+                  const md = exportFlagsMarkdown(flags);
+                  navigator.clipboard.writeText(md).then(() => {
+                    setExportCopied(true);
+                    setTimeout(() => setExportCopied(false), 2000);
+                  });
+                }}
+                className="rounded-md border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 transition-colors"
+              >
+                {exportCopied ? "Copied!" : "Copy Markdown"}
+              </button>
+            )}
+            <button
+              onClick={fetchFlags}
+              className="text-xs text-zinc-400 hover:text-zinc-600"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
         {flagsLoading ? (
@@ -380,219 +444,86 @@ export default function AdminDashboard() {
             No flagged products — looking clean.
           </div>
         ) : (
-          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {flags.map((flag) => {
-              const isExpanded = expandedFlag === flag.deal_id;
-              const isEditing = editingFlag === flag.deal_id;
-              const isActing = actionLoading === flag.deal_id;
-              const prod = flag.product;
+          <div>
+            {/* Active flags (unreviewed) */}
+            {activeFlags.length > 0 && (
+              <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {activeFlags.map((flag) => (
+                  <FlagRow
+                    key={flag.deal_id}
+                    flag={flag}
+                    dimmed={false}
+                    expandedFlag={expandedFlag}
+                    setExpandedFlag={setExpandedFlag}
+                    editingFlag={editingFlag}
+                    setEditingFlag={setEditingFlag}
+                    editForm={editForm}
+                    setEditForm={setEditForm}
+                    actionLoading={actionLoading}
+                    handleFlagAction={handleFlagAction}
+                  />
+                ))}
+              </div>
+            )}
 
-              return (
-                <div key={flag.deal_id} className={`px-4 py-3 ${flag.reviewed ? "opacity-50" : ""}`}>
-                  {/* Flag header */}
-                  <div className="flex items-start justify-between gap-3">
-                    <button
-                      onClick={() => setExpandedFlag(isExpanded ? null : flag.deal_id)}
-                      className="flex-1 text-left"
-                    >
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                          {flag.product_name}
-                        </span>
-                        {flag.brand_name && (
-                          <span className="text-xs text-zinc-500">by {flag.brand_name}</span>
-                        )}
-                        {flag.dispensary_name && (
-                          <span className="text-xs text-zinc-400">@ {flag.dispensary_name}</span>
-                        )}
-                      </div>
-                      <div className="mt-1 flex items-center gap-2 flex-wrap">
-                        {flag.wrong_price_count > 0 && (
-                          <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/40 dark:text-red-400">
-                            Wrong Price ({flag.wrong_price_count})
-                          </span>
-                        )}
-                        {flag.wrong_product_count > 0 && (
-                          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">
-                            Wrong Product ({flag.wrong_product_count})
-                          </span>
-                        )}
-                        {flag.deal_gone_count > 0 && (
-                          <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400">
-                            Deal Gone ({flag.deal_gone_count})
-                          </span>
-                        )}
-                        <span className="text-[10px] text-zinc-400">
-                          {flag.report_count} report{flag.report_count > 1 ? "s" : ""}
-                        </span>
-                      </div>
-                    </button>
+            {/* No active flags message */}
+            {activeFlags.length === 0 && historyFlags.length > 0 && (
+              <div className="px-4 py-4 text-center text-sm text-zinc-400 border-b border-zinc-100 dark:border-zinc-800">
+                No active flags — all resolved.
+              </div>
+            )}
 
-                    {/* Action buttons */}
-                    <div className="flex items-center gap-1.5 shrink-0">
+            {/* History (reviewed) — collapsible */}
+            {historyFlags.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="flex w-full items-center justify-between px-4 py-2.5 text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 border-t border-zinc-100 dark:border-zinc-800 transition-colors"
+                >
+                  <span>History ({historyFlags.length} resolved)</span>
+                  <div className="flex items-center gap-2">
+                    {showHistory && (
                       <button
-                        onClick={() => {
-                          if (isEditing) {
-                            setEditingFlag(null);
-                          } else {
-                            setEditingFlag(flag.deal_id);
-                            setEditForm({
-                              name: prod?.name ?? flag.product_name,
-                              brand: prod?.brand ?? flag.brand_name ?? "",
-                              category: prod?.category ?? "",
-                              sale_price: String(prod?.sale_price ?? flag.deal_price ?? ""),
-                              original_price: String(prod?.original_price ?? ""),
-                            });
-                          }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const md = exportFlagsMarkdown(historyFlags);
+                          navigator.clipboard.writeText(md).then(() => {
+                            setExportCopied(true);
+                            setTimeout(() => setExportCopied(false), 2000);
+                          });
                         }}
-                        disabled={isActing}
-                        className="rounded-md border border-blue-200 px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                        className="rounded border border-zinc-200 px-2 py-0.5 text-[10px] font-medium text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                       >
-                        {isEditing ? "Cancel" : "Edit"}
+                        {exportCopied ? "Copied!" : "Export History"}
                       </button>
-                      <button
-                        onClick={() => handleFlagAction(flag.deal_id, "hide_product")}
-                        disabled={isActing}
-                        className="rounded-md border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
-                      >
-                        {isActing ? "..." : "Hide"}
-                      </button>
-                      <button
-                        onClick={() => handleFlagAction(flag.deal_id, "resolve")}
-                        disabled={isActing}
-                        className="rounded-md border border-green-200 px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50 disabled:opacity-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20"
-                      >
-                        Dismiss
-                      </button>
-                    </div>
+                    )}
+                    <svg className={`h-3.5 w-3.5 transition-transform ${showHistory ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
+                </button>
 
-                  {/* Current product values */}
-                  {prod && (
-                    <div className="mt-2 flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-                      <span>
-                        DB: ${prod.sale_price ?? "?"}
-                        {prod.original_price ? ` (was $${prod.original_price})` : ""}
-                      </span>
-                      <span>{prod.category}</span>
-                      <span>Score: {prod.deal_score}</span>
-                      {!prod.is_active && (
-                        <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600 dark:bg-red-900/40 dark:text-red-400">
-                          HIDDEN
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Edit form */}
-                  {isEditing && (
-                    <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
-                      <div className="grid gap-3 sm:grid-cols-3">
-                        <label className="flex flex-col gap-1 text-xs">
-                          <span className="font-medium text-zinc-600 dark:text-zinc-400">Name</span>
-                          <input
-                            type="text"
-                            value={editForm.name ?? ""}
-                            onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                            className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                          />
-                        </label>
-                        <label className="flex flex-col gap-1 text-xs">
-                          <span className="font-medium text-zinc-600 dark:text-zinc-400">Brand</span>
-                          <input
-                            type="text"
-                            value={editForm.brand ?? ""}
-                            onChange={(e) => setEditForm((f) => ({ ...f, brand: e.target.value }))}
-                            className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                          />
-                        </label>
-                        <label className="flex flex-col gap-1 text-xs">
-                          <span className="font-medium text-zinc-600 dark:text-zinc-400">Category</span>
-                          <select
-                            value={editForm.category ?? ""}
-                            onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
-                            className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                          >
-                            {CATEGORIES.map((c) => (
-                              <option key={c} value={c}>{c}</option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="flex flex-col gap-1 text-xs">
-                          <span className="font-medium text-zinc-600 dark:text-zinc-400">Sale Price ($)</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={editForm.sale_price ?? ""}
-                            onChange={(e) => setEditForm((f) => ({ ...f, sale_price: e.target.value }))}
-                            className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                          />
-                        </label>
-                        <label className="flex flex-col gap-1 text-xs">
-                          <span className="font-medium text-zinc-600 dark:text-zinc-400">Original Price ($)</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={editForm.original_price ?? ""}
-                            onChange={(e) => setEditForm((f) => ({ ...f, original_price: e.target.value }))}
-                            className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                          />
-                        </label>
-                      </div>
-                      <div className="mt-3 flex justify-end">
-                        <button
-                          onClick={() => {
-                            const updates: Record<string, unknown> = {};
-                            if (editForm.name) updates.name = editForm.name;
-                            if (editForm.brand) updates.brand = editForm.brand;
-                            if (editForm.category) updates.category = editForm.category;
-                            if (editForm.sale_price) updates.sale_price = parseFloat(editForm.sale_price);
-                            if (editForm.original_price) updates.original_price = parseFloat(editForm.original_price);
-                            handleFlagAction(flag.deal_id, "edit_product", updates);
-                          }}
-                          disabled={isActing}
-                          className="rounded-md bg-blue-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                        >
-                          {isActing ? "Saving..." : "Save Changes"}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Expanded reports */}
-                  {isExpanded && (
-                    <div className="mt-3 space-y-2">
-                      {flag.reports.map((r) => (
-                        <div
-                          key={r.id}
-                          className="rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-800/50"
-                        >
-                          <div className="flex items-center gap-2 text-xs">
-                            <ReportTypeBadge type={r.report_type} />
-                            <span className="text-zinc-500 dark:text-zinc-400">
-                              {r.anon_id ? r.anon_id.slice(0, 8) : "anon"}
-                            </span>
-                            <span className="text-zinc-400">
-                              {new Date(r.created_at).toLocaleString(undefined, {
-                                month: "short",
-                                day: "numeric",
-                                hour: "numeric",
-                                minute: "2-digit",
-                              })}
-                            </span>
-                          </div>
-                          {r.report_message && (
-                            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-                              &ldquo;{r.report_message}&rdquo;
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                {showHistory && (
+                  <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                    {historyFlags.map((flag) => (
+                      <FlagRow
+                        key={flag.deal_id}
+                        flag={flag}
+                        dimmed
+                        expandedFlag={expandedFlag}
+                        setExpandedFlag={setExpandedFlag}
+                        editingFlag={editingFlag}
+                        setEditingFlag={setEditingFlag}
+                        editForm={editForm}
+                        setEditForm={setEditForm}
+                        actionLoading={actionLoading}
+                        handleFlagAction={handleFlagAction}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -697,6 +628,252 @@ export default function AdminDashboard() {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+const CATEGORIES = ["flower", "preroll", "vape", "edible", "concentrate", "other"] as const;
+
+function FlagRow({
+  flag,
+  dimmed,
+  expandedFlag,
+  setExpandedFlag,
+  editingFlag,
+  setEditingFlag,
+  editForm,
+  setEditForm,
+  actionLoading,
+  handleFlagAction,
+}: {
+  flag: FlaggedDeal;
+  dimmed: boolean;
+  expandedFlag: string | null;
+  setExpandedFlag: (id: string | null) => void;
+  editingFlag: string | null;
+  setEditingFlag: (id: string | null) => void;
+  editForm: Record<string, string>;
+  setEditForm: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  actionLoading: string | null;
+  handleFlagAction: (dealId: string, action: string, updates?: Record<string, unknown>) => void;
+}) {
+  const isExpanded = expandedFlag === flag.deal_id;
+  const isEditing = editingFlag === flag.deal_id;
+  const isActing = actionLoading === flag.deal_id;
+  const prod = flag.product;
+
+  return (
+    <div className={`px-4 py-3 ${dimmed ? "opacity-50 hover:opacity-80 transition-opacity" : ""}`}>
+      {/* Flag header */}
+      <div className="flex items-start justify-between gap-3">
+        <button
+          onClick={() => setExpandedFlag(isExpanded ? null : flag.deal_id)}
+          className="flex-1 text-left"
+        >
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+              {flag.product_name}
+            </span>
+            {flag.brand_name && (
+              <span className="text-xs text-zinc-500">by {flag.brand_name}</span>
+            )}
+            {flag.dispensary_name && (
+              <span className="text-xs text-zinc-400">@ {flag.dispensary_name}</span>
+            )}
+          </div>
+          <div className="mt-1 flex items-center gap-2 flex-wrap">
+            {flag.wrong_price_count > 0 && (
+              <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/40 dark:text-red-400">
+                Wrong Price ({flag.wrong_price_count})
+              </span>
+            )}
+            {flag.wrong_product_count > 0 && (
+              <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">
+                Wrong Product ({flag.wrong_product_count})
+              </span>
+            )}
+            {flag.deal_gone_count > 0 && (
+              <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400">
+                Deal Gone ({flag.deal_gone_count})
+              </span>
+            )}
+            <span className="text-[10px] text-zinc-400">
+              {flag.report_count} report{flag.report_count > 1 ? "s" : ""}
+            </span>
+          </div>
+        </button>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {!dimmed && (
+            <>
+              <button
+                onClick={() => {
+                  if (isEditing) {
+                    setEditingFlag(null);
+                  } else {
+                    setEditingFlag(flag.deal_id);
+                    setEditForm({
+                      name: prod?.name ?? flag.product_name,
+                      brand: prod?.brand ?? flag.brand_name ?? "",
+                      category: prod?.category ?? "",
+                      sale_price: String(prod?.sale_price ?? flag.deal_price ?? ""),
+                      original_price: String(prod?.original_price ?? ""),
+                    });
+                  }
+                }}
+                disabled={isActing}
+                className="rounded-md border border-blue-200 px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/20"
+              >
+                {isEditing ? "Cancel" : "Edit"}
+              </button>
+              <button
+                onClick={() => handleFlagAction(flag.deal_id, "hide_product")}
+                disabled={isActing}
+                className="rounded-md border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
+              >
+                {isActing ? "..." : "Hide"}
+              </button>
+              <button
+                onClick={() => handleFlagAction(flag.deal_id, "resolve")}
+                disabled={isActing}
+                className="rounded-md border border-green-200 px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50 disabled:opacity-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20"
+              >
+                Dismiss
+              </button>
+            </>
+          )}
+          {dimmed && prod && !prod.is_active && (
+            <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600 dark:bg-red-900/40 dark:text-red-400">
+              HIDDEN
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Current product values */}
+      {prod && !dimmed && (
+        <div className="mt-2 flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+          <span>
+            DB: ${prod.sale_price ?? "?"}
+            {prod.original_price ? ` (was $${prod.original_price})` : ""}
+          </span>
+          <span>{prod.category}</span>
+          <span>Score: {prod.deal_score}</span>
+          {!prod.is_active && (
+            <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600 dark:bg-red-900/40 dark:text-red-400">
+              HIDDEN
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Edit form */}
+      {isEditing && (
+        <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="font-medium text-zinc-600 dark:text-zinc-400">Name</span>
+              <input
+                type="text"
+                value={editForm.name ?? ""}
+                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="font-medium text-zinc-600 dark:text-zinc-400">Brand</span>
+              <input
+                type="text"
+                value={editForm.brand ?? ""}
+                onChange={(e) => setEditForm((f) => ({ ...f, brand: e.target.value }))}
+                className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="font-medium text-zinc-600 dark:text-zinc-400">Category</span>
+              <select
+                value={editForm.category ?? ""}
+                onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
+                className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="font-medium text-zinc-600 dark:text-zinc-400">Sale Price ($)</span>
+              <input
+                type="number"
+                step="0.01"
+                value={editForm.sale_price ?? ""}
+                onChange={(e) => setEditForm((f) => ({ ...f, sale_price: e.target.value }))}
+                className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="font-medium text-zinc-600 dark:text-zinc-400">Original Price ($)</span>
+              <input
+                type="number"
+                step="0.01"
+                value={editForm.original_price ?? ""}
+                onChange={(e) => setEditForm((f) => ({ ...f, original_price: e.target.value }))}
+                className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              />
+            </label>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => {
+                const updates: Record<string, unknown> = {};
+                if (editForm.name) updates.name = editForm.name;
+                if (editForm.brand) updates.brand = editForm.brand;
+                if (editForm.category) updates.category = editForm.category;
+                if (editForm.sale_price) updates.sale_price = parseFloat(editForm.sale_price);
+                if (editForm.original_price) updates.original_price = parseFloat(editForm.original_price);
+                handleFlagAction(flag.deal_id, "edit_product", updates);
+              }}
+              disabled={isActing}
+              className="rounded-md bg-blue-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isActing ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Expanded reports */}
+      {isExpanded && (
+        <div className="mt-3 space-y-2">
+          {flag.reports.map((r) => (
+            <div
+              key={r.id}
+              className="rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-800/50"
+            >
+              <div className="flex items-center gap-2 text-xs">
+                <ReportTypeBadge type={r.report_type} />
+                <span className="text-zinc-500 dark:text-zinc-400">
+                  {r.anon_id ? r.anon_id.slice(0, 8) : "anon"}
+                </span>
+                <span className="text-zinc-400">
+                  {new Date(r.created_at).toLocaleString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
+              {r.report_message && (
+                <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
+                  &ldquo;{r.report_message}&rdquo;
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StatCard({
   label,
