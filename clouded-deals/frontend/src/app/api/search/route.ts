@@ -14,6 +14,12 @@ import { createServiceClient } from "@/lib/supabase";
 
 const MAX_QUERY_LENGTH = 100;
 
+const BLOCKED_DISPENSARY_PREFIXES = ['zen-leaf'];
+
+function isBlockedDispensary(dispensaryId: string): boolean {
+  return BLOCKED_DISPENSARY_PREFIXES.some((p) => dispensaryId.startsWith(p));
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const query = searchParams.get("q")?.trim();
@@ -66,7 +72,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ data: data ?? [], error: null });
+    const filtered = (data ?? []).filter((row: Record<string, unknown>) => {
+      const disp = row.dispensary as { id: string } | null | undefined;
+      return !disp || !isBlockedDispensary(disp.id);
+    });
+
+    return NextResponse.json({ data: filtered, error: null });
   } catch (err) {
     return NextResponse.json(
       { data: [], error: err instanceof Error ? err.message : "Search failed" },

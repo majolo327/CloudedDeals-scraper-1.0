@@ -322,16 +322,16 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
         return False
 
     # ------------------------------------------------------------------
-    # JANE LOOSE QUALIFICATION
-    # Jane does NOT display original prices — only the deal/current
-    # price.  We cannot calculate discount_percent, so we skip the
-    # discount and original-price checks.  Qualification is price cap
-    # only.  Brand is NOT required here — many Jane sites (Deep Roots,
-    # Sanctuary, Beyond/Hello) have unreliable brand extraction.
-    # Products with recognized brands score higher in Phase 2;
-    # brandless products get a lower score but aren't excluded.
+    # LOOSE QUALIFICATION — platforms without original price data
+    # Jane, Carrot, and AIQ do NOT display original prices — only the
+    # current/deal price.  We cannot calculate discount_percent, so we
+    # skip the discount and original-price checks.  Qualification is
+    # price cap only.  Brand is NOT required here — many of these sites
+    # have unreliable brand extraction.  Products with recognized brands
+    # score higher in Phase 2; brandless products get a lower score but
+    # aren't excluded.
     # ------------------------------------------------------------------
-    if source_platform == "jane":
+    if source_platform in ("jane", "carrot", "aiq"):
         return _passes_price_cap(sale_price, category, weight_value)
 
     # --- Standard filters (non-Jane platforms) ---
@@ -422,6 +422,65 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
         try:
             wv = float(weight_value)
             if wv < 50:
+                return False
+        except (ValueError, TypeError):
+            pass
+
+    return True
+
+
+def _dispensary_deal_floor(product_count: int) -> int:
+    """Minimum number of deals a dispensary should surface based on scraped product count.
+
+    Scales with store size so every dispensary gets fair representation:
+      10-49 products  → at least 1 deal
+      50-149 products → at least 2 deals
+      150+ products   → at least 3 deals
+    Stores with <10 products get no guaranteed floor.
+    """
+    if product_count >= 150:
+        return 3
+    if product_count >= 50:
+        return 2
+    if product_count >= 10:
+        return 1
+    return 0
+
+
+def passes_relaxed_quality_gate(product: dict[str, Any]) -> bool:
+    """Lenient quality gate used only for dispensary minimum-floor backfill.
+
+    Relaxes the strict gate by:
+      - Allowing missing brand (small stores often have poor brand extraction)
+      - Allowing missing weight (better to show a deal with "?" weight than nothing)
+    Still rejects genuinely garbage data (strain-only names, tiny names).
+    """
+    name = product.get("name") or ""
+
+    # Reject strain-type-only product names
+    if name.strip().lower() in _STRAIN_ONLY_NAMES:
+        return False
+
+    # Reject very short names (likely garbage)
+    if len(name.strip()) < 5:
+        return False
+
+    # Reject products where name == brand (redundant display)
+    brand = product.get("brand")
+    if brand and name.strip().lower() == brand.lower():
+        return False
+
+    # Reject repeated-word names
+    name_words = name.strip().lower().split()
+    if len(name_words) == 2 and name_words[0] == name_words[1]:
+        return False
+
+    # Reject tiny-dose edibles
+    category = product.get("category", "other")
+    weight_value = product.get("weight_value")
+    if category == "edible" and weight_value:
+        try:
+            if float(weight_value) < 50:
                 return False
         except (ValueError, TypeError):
             pass
@@ -539,12 +598,12 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
     # artifacts.  Prevents inflated scores from slipping into top 20.
     discount = min(discount, 80)
 
-    # Jane products have no original price / discount data.  Give them a
-    # flat baseline so they can compete with other platforms on
-    # brand/value/category alone.  Non-Jane platforms get up to 45 pts
+    # Platforms without original price / discount data (Jane, Carrot, AIQ).
+    # Give them a flat baseline so they can compete with other platforms on
+    # brand/value/category alone.  Non-loose platforms get up to 45 pts
     # (35 discount depth + 10 dollars saved); 15 roughly equals a 20%
-    # discount — keeps Jane products visible without inflating the feed.
-    if source_platform == "jane":
+    # discount — keeps these products visible without inflating the feed.
+    if source_platform in ("jane", "carrot", "aiq"):
         score += 15  # baseline in lieu of discount depth + dollars saved
     else:
         # 1. DISCOUNT DEPTH (up to 35 points)
@@ -1222,13 +1281,39 @@ def detect_deals(
 
     # Step 3: Quality gate — reject incomplete / garbage data
     quality_before = len(scored)
-    scored = [d for d in scored if passes_quality_gate(d)]
-    quality_rejected = quality_before - len(scored)
+    strict_passed = [d for d in scored if passes_quality_gate(d)]
+    strict_rejected = [d for d in scored if not passes_quality_gate(d)]
+    quality_rejected = quality_before - len(strict_passed)
     if quality_rejected > 0:
         logger.info(
             "Quality gate: %d/%d deals rejected (incomplete data)",
             quality_rejected, quality_before,
         )
+
+    # Step 3b: Dispensary minimum floor — if the strict quality gate
+    # killed too many deals, backfill from quality-gate rejects using
+    # a relaxed gate.  This ensures every store with real products gets
+    # fair representation instead of showing 0 deals due to missing
+    # metadata (no weight, no brand, etc.).
+    floor = _dispensary_deal_floor(len(products))
+    if floor > 0 and len(strict_passed) < floor and strict_rejected:
+        relaxed_backfill = [
+            d for d in strict_rejected
+            if passes_relaxed_quality_gate(d)
+        ]
+        # Sort by deal_score descending — best rejects first
+        relaxed_backfill.sort(key=lambda d: d["deal_score"], reverse=True)
+        needed = floor - len(strict_passed)
+        backfilled = relaxed_backfill[:needed]
+        if backfilled:
+            logger.info(
+                "Dispensary floor: backfilled %d deals (floor=%d, had %d, "
+                "%d products scraped)",
+                len(backfilled), floor, len(strict_passed), len(products),
+            )
+            strict_passed.extend(backfilled)
+
+    scored = strict_passed
 
     # Step 4: Similarity dedup — max 3 per brand+category per dispensary
     dedup_before = len(scored)

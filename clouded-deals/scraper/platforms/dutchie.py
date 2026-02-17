@@ -40,6 +40,12 @@ _DUTCHIE_CFG = PLATFORM_DEFAULTS["dutchie"]
 _BETWEEN_PAGES_SEC = _DUTCHIE_CFG["between_pages_sec"]          # 5 s
 
 _TD_SLUGS = {"td-gibson", "td-eastern", "td-decatur"}
+_HEAVY_PAGE_SLUGS = {"td-gibson", "planet-13", "planet13"}  # Massive pages — need longer content waits
+
+# Smart-wait timeouts: content-based polling returns instantly when content
+# appears, so the longer cap only matters if the page is slow to inject.
+_SMART_WAIT_MS = 90_000          # 90 s (up from 60 s — helps heavy pages)
+_SMART_WAIT_RETRY_MS = 60_000    # 60 s on retry attempts
 _PRODUCT_SELECTORS = [
     '[data-testid="product-card"]',
     '[data-testid*="product"]',
@@ -157,6 +163,41 @@ def _strip_specials_from_url(url: str) -> str | None:
     return None
 
 
+async def _wait_for_product_cards(
+    target: Page | Frame,
+    slug: str,
+    timeout_ms: int = 30_000,
+) -> bool:
+    """Wait for product cards to render inside *target* before extraction.
+
+    Heavy pages (td-gibson, planet13) inject the Dutchie container/iframe
+    quickly but take longer to populate with product cards.  This waits
+    for at least 3 product cards to appear, up to *timeout_ms*.
+    Returns True if cards were found, False on timeout.
+    """
+    js = """
+    () => {
+        const probes = [
+            '[data-testid="product-card"]',
+            '[data-testid*="product"]',
+            '[class*="ProductCard"]',
+            '[class*="product-card"]',
+        ];
+        for (const sel of probes) {
+            if (document.querySelectorAll(sel).length >= 3) return true;
+        }
+        return false;
+    }
+    """
+    try:
+        await target.wait_for_function(js, timeout=timeout_ms)
+        logger.info("[%s] Product cards populated in target", slug)
+        return True
+    except PlaywrightTimeout:
+        logger.warning("[%s] Product cards not populated after %ds — proceeding anyway", slug, timeout_ms // 1000)
+        return False
+
+
 class DutchieScraper(BaseScraper):
     """Scraper for sites powered by the Dutchie embedded iframe menu."""
 
@@ -214,18 +255,21 @@ class DutchieScraper(BaseScraper):
         if removed > 0:
             logger.info("[%s] Cleaned up %d lingering overlay(s) via JS", self.slug, removed)
 
-        # --- Smart-wait: poll DOM for Dutchie content (up to 60 s) --------
+        # --- Smart-wait: poll DOM for Dutchie content ---------------------
         # Instead of a fixed asyncio.sleep(20), this returns the MOMENT
         # any iframe / container / product cards appear in the DOM.
+        # 90 s cap (was 60 s) — content-based so fast sites return instantly;
+        # the longer cap helps heavy pages (td-gibson, planet13) that take
+        # longer for the Dutchie embed to inject.
         smart_wait_ok = False
         try:
             await self.page.wait_for_function(
-                _WAIT_FOR_DUTCHIE_JS, timeout=60_000,
+                _WAIT_FOR_DUTCHIE_JS, timeout=_SMART_WAIT_MS,
             )
             logger.info("[%s] Smart-wait: Dutchie content detected in DOM", self.slug)
             smart_wait_ok = True
         except PlaywrightTimeout:
-            logger.warning("[%s] Smart-wait: no Dutchie content after 60s — will try detection anyway", self.slug)
+            logger.warning("[%s] Smart-wait: no Dutchie content after %ds — will try detection anyway", self.slug, _SMART_WAIT_MS // 1000)
             # Re-check Cloudflare after smart-wait timeout — the page may
             # have been intermittently blocked (not detected on initial load
             # but Cloudflare challenge appeared during JS execution).  Bail
@@ -277,14 +321,14 @@ class DutchieScraper(BaseScraper):
             await self.handle_age_gate(post_wait_sec=3)
             await force_remove_age_gate(self.page)
 
-            # Smart-wait again after reload
+            # Smart-wait again after reload (shorter timeout on retry)
             try:
                 await self.page.wait_for_function(
-                    _WAIT_FOR_DUTCHIE_JS, timeout=60_000,
+                    _WAIT_FOR_DUTCHIE_JS, timeout=_SMART_WAIT_RETRY_MS,
                 )
                 logger.info("[%s] Smart-wait (retry): Dutchie content detected", self.slug)
             except PlaywrightTimeout:
-                logger.warning("[%s] Smart-wait (retry): still nothing after 60s", self.slug)
+                logger.warning("[%s] Smart-wait (retry): still nothing after %ds", self.slug, _SMART_WAIT_RETRY_MS // 1000)
 
             # On retry, don't use the hint — try the full cascade
             target, embed_type = await find_dutchie_content(
@@ -303,6 +347,12 @@ class DutchieScraper(BaseScraper):
         # Also try age gate inside an iframe (some sites double-gate).
         if embed_type == "iframe":
             await dismiss_age_gate(target)
+
+        # --- Wait for product cards to render (heavy pages need this) -----
+        # The smart-wait detects the container/iframe, but product cards
+        # inside may not have rendered yet on massive pages (td-gibson,
+        # planet13).  Wait for cards to populate before extraction.
+        await _wait_for_product_cards(target, self.slug)
 
         # --- Paginate and collect products --------------------------------
         all_products: list[dict[str, Any]] = []
@@ -368,11 +418,11 @@ class DutchieScraper(BaseScraper):
 
                 try:
                     await self.page.wait_for_function(
-                        _WAIT_FOR_DUTCHIE_JS, timeout=60_000,
+                        _WAIT_FOR_DUTCHIE_JS, timeout=_SMART_WAIT_RETRY_MS,
                     )
                     logger.info("[%s] Smart-wait: Dutchie content detected on base menu", self.slug)
                 except PlaywrightTimeout:
-                    logger.warning("[%s] Smart-wait: no content on base menu after 60s", self.slug)
+                    logger.warning("[%s] Smart-wait: no content on base menu after %ds", self.slug, _SMART_WAIT_RETRY_MS // 1000)
 
                 target, embed_type = await find_dutchie_content(
                     self.page,
@@ -424,7 +474,7 @@ class DutchieScraper(BaseScraper):
 
                 try:
                     await self.page.wait_for_function(
-                        _WAIT_FOR_DUTCHIE_JS, timeout=60_000,
+                        _WAIT_FOR_DUTCHIE_JS, timeout=_SMART_WAIT_RETRY_MS,
                     )
                 except PlaywrightTimeout:
                     pass
@@ -493,11 +543,11 @@ class DutchieScraper(BaseScraper):
 
         try:
             await self.page.wait_for_function(
-                _WAIT_FOR_DUTCHIE_JS, timeout=60_000,
+                _WAIT_FOR_DUTCHIE_JS, timeout=_SMART_WAIT_RETRY_MS,
             )
             logger.info("[%s] Smart-wait (fallback): Dutchie content detected", self.slug)
         except PlaywrightTimeout:
-            logger.warning("[%s] Smart-wait (fallback): no content after 60s", self.slug)
+            logger.warning("[%s] Smart-wait (fallback): no content after %ds", self.slug, _SMART_WAIT_RETRY_MS // 1000)
 
         # Auto-detect: dutchie.com fallback URLs are direct React SPAs —
         # skip the full 105s cascade (iframe 45s + js_embed 60s) that

@@ -7,6 +7,16 @@ import { DISPENSARIES as DISPENSARIES_STATIC } from '@/data/dispensaries';
 import type { Deal, Category, Dispensary, Brand } from '@/types';
 
 // --------------------------------------------------------------------------
+// Blocked dispensaries — temporarily excluded from all frontend queries
+// --------------------------------------------------------------------------
+
+const BLOCKED_DISPENSARY_PREFIXES = ['zen-leaf'];
+
+function isBlockedDispensary(dispensaryId: string): boolean {
+  return BLOCKED_DISPENSARY_PREFIXES.some((p) => dispensaryId.startsWith(p));
+}
+
+// --------------------------------------------------------------------------
 // Deal cache for offline support
 // --------------------------------------------------------------------------
 
@@ -285,6 +295,7 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
             if (!row.name || row.name.length < 5 || (row.sale_price ?? 0) <= 0) return false;
             // Guard: Supabase join can return array or null for dispensary in edge cases
             if (!row.dispensary || Array.isArray(row.dispensary)) return false;
+            if (isBlockedDispensary(row.dispensary.id)) return false;
             return true;
           })
           .map((row) => {
@@ -376,6 +387,7 @@ export async function fetchExpiredDeals(region?: string): Promise<FetchDealsResu
           .filter((row) => {
             if (!row.name || row.name.length < 5 || (row.sale_price ?? 0) <= 0) return false;
             if (!row.dispensary || Array.isArray(row.dispensary)) return false;
+            if (isBlockedDispensary(row.dispensary.id)) return false;
             return true;
           })
           .map(normalizeDeal)
@@ -460,7 +472,7 @@ export async function fetchDispensaries(region?: string): Promise<FetchDispensar
       }
     }
 
-    const dispensaries: BrowseDispensary[] = (data as DispensaryRow[]).map((row) => ({
+    const dispensaries: BrowseDispensary[] = (data as DispensaryRow[]).filter((row) => !isBlockedDispensary(row.id)).map((row) => ({
       id: row.id,
       name: row.name,
       slug: row.id,
@@ -536,6 +548,10 @@ export async function searchExtendedDeals(
       ? (data as unknown as ProductRow[])
           .filter((row: ProductRow) => row.name && row.name.length >= 5 && (row.sale_price ?? 0) > 0)
           .filter((row: ProductRow) => !JUNK_KEYWORDS.test(row.name ?? ''))
+          .filter((row: ProductRow) => {
+            const disp = row.dispensary as { id: string } | null | undefined;
+            return !disp || !isBlockedDispensary(disp.id);
+          })
           .map(normalizeDeal)
       : [];
 
@@ -598,6 +614,10 @@ export async function fetchDealsByIds(ids: string[]): Promise<Deal[]> {
 
     return (data as unknown as ProductRow[])
       .filter((row) => row.name && (row.sale_price ?? 0) > 0)
+      .filter((row) => {
+        const disp = row.dispensary as { id: string } | null | undefined;
+        return !disp || !isBlockedDispensary(disp.id);
+      })
       .map(normalizeDeal);
   } catch {
     return [];
