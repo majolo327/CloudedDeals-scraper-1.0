@@ -297,11 +297,13 @@ export default function Home() {
 
   return (
     <div className="min-h-screen text-white" style={{ backgroundColor: 'var(--surface-0)' }}>
-      {/* Ambient gradient — Roku-style light source from above */}
+      {/* Ambient gradient — Roku-style light source from above.
+           Desktop: tighter ellipse + secondary accent for depth on wide viewports. */}
       <div className="fixed inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -5%, rgba(88, 28, 135, 0.18) 0%, rgba(88, 28, 135, 0.06) 40%, transparent 70%)' }} />
+      <div className="fixed inset-0 pointer-events-none hidden sm:block" style={{ background: 'radial-gradient(ellipse 50% 35% at 50% -2%, rgba(139, 92, 246, 0.08) 0%, transparent 60%), radial-gradient(ellipse 30% 20% at 50% 0%, rgba(168, 85, 247, 0.05) 0%, transparent 50%)' }} />
 
       {/* Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-2xl header-border-glow" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderBottom: '1px solid rgba(120, 100, 200, 0.08)' }}>
+      <header className="sticky top-0 z-50 header-border-glow" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderBottom: '1px solid rgba(120, 100, 200, 0.08)', WebkitBackdropFilter: 'blur(40px) saturate(1.3)', backdropFilter: 'blur(40px) saturate(1.3)' }}>
         <div className="max-w-6xl mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button onClick={() => setActivePage('home')} className="focus:outline-none">
@@ -369,7 +371,7 @@ export default function Home() {
           loading ? (
             <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
               <TopPickSkeleton />
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 xl:gap-5">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <DealCardSkeleton key={i} />
                 ))}
@@ -520,7 +522,7 @@ export default function Home() {
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       {/* Mobile bottom nav bar */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-2xl border-t" style={{ backgroundColor: 'rgba(10, 12, 26, 0.95)', borderColor: 'rgba(120, 100, 200, 0.08)' }} aria-label="Main navigation">
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 border-t" style={{ backgroundColor: 'rgba(10, 12, 26, 0.95)', borderColor: 'rgba(120, 100, 200, 0.08)', WebkitBackdropFilter: 'blur(40px) saturate(1.3)', backdropFilter: 'blur(40px) saturate(1.3)' }} aria-label="Main navigation">
         <div className="flex items-center justify-around px-2 pb-[env(safe-area-inset-bottom)]" role="tablist">
           {[
             { id: 'home' as const, label: 'Deals', icon: Star },

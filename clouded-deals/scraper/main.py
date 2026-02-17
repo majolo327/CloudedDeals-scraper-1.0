@@ -424,7 +424,13 @@ _RE_OFFER_SECTION = re.compile(
     r"|(?:\bBundle\b.*$)"                       # "Bundle deal: …"
     r"|(?:\bDeal\s*:.*$)"                       # "Deal: 2/$60 …"
     r"|(?:\bPromo\s*:.*$)"                      # "Promo: …"
-    r"|(?:\bAlso\s+(?:included?|available)\b.*$)",  # "Also included: Rove, Reserve…"
+    r"|(?:\bAlso\s+(?:included?|available)\b.*$)"  # "Also included: Rove, Reserve…"
+    # Bundle pricing with fractional oz — "$35 1/4 oz", "$55 1/2 oz (Select Strains)"
+    # This is deal copy describing a bundle promotion, NOT the product's own weight.
+    # Without stripping, "1/4" is parsed as 7g and "$35" as the price.
+    r"|(?:\$\d+\.?\d*\s+1/[248]\s*(?:oz\.?)?\b.*$)"  # "$35 1/4 oz …" to end
+    r"|(?:any\s+(?:two|2|three|3)\b.*$)"       # "any two 3.5g for $35 …"
+    r"|(?:\bget\s+any\b.*$)",                   # "get any 2 eighths …"
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -433,9 +439,9 @@ def _strip_offer_text(raw_text: str) -> str:
     """Remove Special Offers / bundle deal sections from raw_text.
 
     This prevents brand names mentioned in offer text (e.g. "KYND 3.5g
-    Flower & HAZE 1g Live Resin") from contaminating brand detection.
-    The offer text is stripped ONLY for brand detection — the full
-    raw_text is still passed to parse_product for price/weight extraction.
+    Flower & HAZE 1g Live Resin") from contaminating brand detection,
+    AND prevents bundle deal pricing/weight (e.g. "$35 1/4 oz Select
+    Strains") from polluting the weight and price parsers.
     """
     if not raw_text:
         return ""
@@ -1121,8 +1127,15 @@ async def _scrape_site_inner(
                     category = name_category
 
 
-        # Parse full combined text for price, weight, THC
-        text = f"{raw_name} {raw_text} {price_text}"
+        # Parse combined text for price, weight, THC.
+        # IMPORTANT: Strip offer/bundle text from raw_text to prevent deal
+        # copy (e.g. "$35 1/4 oz. Select Strains") from polluting weight
+        # and price parsing.  The offer text mentions bundle pricing and
+        # fractional-oz weights that belong to the PROMOTION, not the
+        # actual product.  Without stripping, "1/4" gets parsed as 7g
+        # and "$35" gets parsed as the original price — both wrong.
+        stripped_raw_for_parse = _strip_offer_text(raw_text)
+        text = f"{raw_name} {stripped_raw_for_parse} {price_text}"
         product = logic.parse_product(text, dispensary["name"])
         if product is None:
             continue
@@ -1267,12 +1280,21 @@ async def _scrape_site_inner(
         display_name = re.sub(r"\s{2,}", " ", display_name).strip()
         display_name = display_name.strip(" -–—|") or raw_name or "Unknown"
 
+        # Run product classifier early so category corrections (e.g.
+        # "All-In-One" reclassified from concentrate → vape) are applied
+        # BEFORE deal detection scoring.  Without this, the deal detector
+        # uses the wrong category for price caps and scoring.
+        classification = classify_product(display_name, brand, effective_cat)
+        if classification["corrected_category"]:
+            category = classification["corrected_category"]
+            effective_cat = category
+
         # Map CloudedLogic output to the DB schema expected by _upsert_products
         enriched: dict[str, Any] = {
             **rp,
             "name": display_name,
             "brand": brand,
-            "category": product.get("category"),
+            "category": category if category and category != "other" else product.get("category"),
             "original_price": product.get("original_price"),
             "sale_price": product.get("deal_price"),
             "discount_percent": product.get("discount_percent"),
@@ -1282,6 +1304,8 @@ async def _scrape_site_inner(
             "cbd_percent": None,
             "raw_text": rp.get("raw_text", ""),
             "dispensary_id": slug,
+            "is_infused": classification["is_infused"],
+            "product_subtype": classification["product_subtype"],
         }
         parsed.append(enriched)
 
@@ -1610,11 +1634,13 @@ async def run(slug_filter: str | None = None) -> None:
         }
 
         # Domain-level throttle: when many sites share the same domain
-        # (e.g. 111 Michigan sites on dutchie.com), insert a minimum delay
-        # between requests to the same domain to avoid triggering WAF /
-        # bot detection.  Each domain gets its own asyncio.Lock so only
-        # one request at a time negotiates the cooldown.
-        _DOMAIN_MIN_INTERVAL = 2.0  # seconds between requests to same domain
+        # (e.g. 111 Michigan sites on dutchie.com), insert a randomized
+        # delay between requests to avoid triggering WAF / bot detection.
+        # Each domain gets its own asyncio.Lock so only one request at a
+        # time negotiates the cooldown.  Range 3-7s mimics human browsing
+        # cadence and prevents predictable request patterns.
+        _DOMAIN_MIN_INTERVAL = float(os.getenv("DOMAIN_MIN_INTERVAL", "3.0"))
+        _DOMAIN_MAX_JITTER = float(os.getenv("DOMAIN_MAX_JITTER", "4.0"))
         domain_locks: dict[str, asyncio.Lock] = {}
         domain_last_request: dict[str, float] = {}
 
@@ -1630,12 +1656,14 @@ async def run(slug_filter: str | None = None) -> None:
 
             async with global_semaphore:
                 async with plat_sem:
-                    # Domain-level cooldown — serialize the timing check
+                    # Domain-level cooldown — serialize the timing check.
+                    # Randomized wait (3-7s default) mimics human browsing
+                    # cadence and avoids predictable request fingerprints.
                     async with domain_locks[domain]:
                         elapsed_since = time.time() - domain_last_request.get(domain, 0)
-                        if elapsed_since < _DOMAIN_MIN_INTERVAL:
-                            jitter = random.uniform(0, 1.0)
-                            wait = _DOMAIN_MIN_INTERVAL - elapsed_since + jitter
+                        cooldown = _DOMAIN_MIN_INTERVAL + random.uniform(0, _DOMAIN_MAX_JITTER)
+                        if elapsed_since < cooldown:
+                            wait = cooldown - elapsed_since
                             logger.debug(
                                 "[%s] Domain throttle: waiting %.1fs for %s",
                                 dispensary["slug"], wait, domain,

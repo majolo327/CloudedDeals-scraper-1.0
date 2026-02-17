@@ -2,7 +2,6 @@ name: Daily Scraper
 
 # Dynamic run name — each scheduled region is identifiable at a glance in the
 # Actions UI (e.g. "Scrape — nevada", "Scrape — michigan (2/4)").
-# Uses contains() instead of == for resilient cron-expression matching.
 run-name: >-
   Scrape — ${{
     github.event_name == 'workflow_dispatch'
@@ -192,6 +191,8 @@ jobs:
             echo "value=ohio-1" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.schedule }}" = "2 15 * * *" ]; then
             echo "value=ohio-2" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 16 * * *" ]; then
+            echo "value=southern-nv" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.schedule }}" = "0 17 * * *" ]; then
             echo "value=michigan-1" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.schedule }}" = "2 17 * * *" ]; then
@@ -227,8 +228,18 @@ jobs:
           elif [ "${{ github.event.schedule }}" = "2 23 * * *" ]; then
             echo "value=massachusetts-2" >> $GITHUB_OUTPUT
           else
-            echo "value=southern-nv" >> $GITHUB_OUTPUT
+            echo "::error::Unknown schedule '${{ github.event.schedule }}' — cannot determine region"
+            exit 1
           fi
+
+      - name: Startup jitter
+        if: github.event_name == 'schedule'
+        run: |
+          # Random 0-180s delay so daily crons don't start at the exact
+          # same second every day — reduces bot-detection fingerprint.
+          JITTER=$((RANDOM % 180))
+          echo "Sleeping ${JITTER}s for cron jitter…"
+          sleep "$JITTER"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -257,7 +268,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python test_connection.py
 
-      - name: Run scraper
+      - name: "Run scraper [${{ steps.region.outputs.value }}]"
         working-directory: clouded-deals/scraper
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -272,8 +283,8 @@ jobs:
           REGION: ${{ steps.region.outputs.value }}
         run: |
           echo "=== Scraper Configuration ==="
-          echo "Group:      $PLATFORM_GROUP"
           echo "Region:     $REGION"
+          echo "Group:      $PLATFORM_GROUP"
           echo "Dry run:    $DRY_RUN"
           echo "Limited:    $LIMIT_DISPENSARIES"
           echo "Single:     $SINGLE_SITE"
@@ -286,17 +297,19 @@ jobs:
             python main.py
           fi
 
-      - name: Show scrape summary
+      - name: "Show scrape summary [${{ steps.region.outputs.value }}]"
         if: always()
         working-directory: clouded-deals/scraper
+        env:
+          REGION: ${{ steps.region.outputs.value }}
         run: |
           if [ -f scrape_summary.txt ]; then
-            echo "### Scrape Summary" >> $GITHUB_STEP_SUMMARY
+            echo "### Scrape Summary — ${REGION}" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             cat scrape_summary.txt >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo ""
-            echo "=== Scrape Summary ==="
+            echo "=== Scrape Summary — ${REGION} ==="
             cat scrape_summary.txt
           else
             echo "No scrape_summary.txt found (scraper may have crashed before report)"
@@ -316,7 +329,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: scrape-summary-${{ github.event.inputs.platform_group || 'stable' }}-${{ github.run_id }}
+          name: scrape-summary-${{ steps.region.outputs.value }}-${{ github.run_id }}
           path: |
             clouded-deals/scraper/scrape_summary.txt
           retention-days: 30

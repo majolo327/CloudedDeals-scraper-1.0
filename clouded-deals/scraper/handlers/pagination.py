@@ -8,6 +8,7 @@ is the *expected* termination signal, NOT an error.
 
 import asyncio
 import logging
+import random
 
 from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 
@@ -44,7 +45,13 @@ _JS_DISMISS_OVERLAYS = """
 
 # How long to wait for content to settle after a page change.
 # PRD: 5 s between pages for Dutchie, 3 s for Curaleaf.
-_POST_NAV_SETTLE_SEC = 5
+# Randomized ±1.5s to avoid predictable timing patterns.
+_POST_NAV_SETTLE_BASE = 5
+
+
+def _settle_delay(base: float = _POST_NAV_SETTLE_BASE) -> float:
+    """Return a randomized settle delay around *base* seconds."""
+    return base + random.uniform(-1.0, 2.0)
 
 
 # ------------------------------------------------------------------
@@ -151,7 +158,7 @@ async def navigate_dutchie_page(
 
             label = f"Navigated to Dutchie page {page_number}"
             if await _click_with_fallback(target, locator, selector, label):
-                await asyncio.sleep(_POST_NAV_SETTLE_SEC)
+                await asyncio.sleep(_settle_delay(5))
                 return True
 
         if attempt < _DUTCHIE_NAV_MAX_RETRIES:
@@ -232,7 +239,7 @@ async def navigate_curaleaf_page(
 
         label = f"Navigated to Curaleaf page {page_number}"
         if await _click_with_fallback(page, locator, selector, label):
-            await asyncio.sleep(3)  # PRD: 3 s between Curaleaf pages
+            await asyncio.sleep(_settle_delay(3))
             return True
 
     logger.info(
@@ -246,22 +253,43 @@ async def navigate_curaleaf_page(
 # ------------------------------------------------------------------
 
 _JANE_MAX_LOAD_MORE = 30
-_JANE_LOAD_MORE_SETTLE_SEC = 2.0  # Settle time after each View More click
+_JANE_LOAD_MORE_SETTLE_BASE = 2.0  # Settle time after each View More click
 _JANE_VIEW_MORE_TIMEOUT_MS = 12_000  # 12 s — Jane pages render slowly
 
 # JS to scroll to the bottom of the page / frame to expose the
-# "View More" button.  Some Jane embeds only render the button after
-# the user scrolls near the end of the product list.
+# "View More" button.  Uses human-like scroll patterns: variable
+# distances (200-500px), variable pauses (100-500ms), and occasional
+# longer "reading" pauses to mimic real user behavior.
 _JS_SCROLL_TO_BOTTOM = """
 async () => {
     const delay = ms => new Promise(r => setTimeout(r, ms));
-    // Scroll down in large steps to trigger lazy-load / button reveal
-    for (let i = 0; i < 5; i++) {
-        window.scrollBy(0, window.innerHeight);
-        await delay(300);
+    const totalHeight = document.body.scrollHeight;
+    let currentPos = window.scrollY;
+
+    while (currentPos < totalHeight - 200) {
+        // Variable scroll distance (200-500px per step)
+        const step = 200 + Math.floor(Math.random() * 300);
+        window.scrollBy({ top: step, behavior: 'smooth' });
+        currentPos += step;
+
+        // Variable pause between scrolls (100-500ms)
+        await delay(100 + Math.floor(Math.random() * 400));
+
+        // ~15% chance of a longer "reading" pause (0.5-1.5s)
+        if (Math.random() < 0.15) {
+            await delay(500 + Math.floor(Math.random() * 1000));
+        }
+
+        // Re-check in case content loaded and height changed
+        if (currentPos >= document.body.scrollHeight - 200) break;
     }
-    // Also try scrolling the first scrollable container (for iframes
-    // where the window itself isn't scrollable).
+
+    // Final scroll to absolute bottom
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    await delay(200);
+
+    // Also handle scrollable containers (for iframes where the
+    // window itself isn't scrollable).
     const containers = document.querySelectorAll(
         '[style*="overflow"], [class*="scroll"], [class*="menu-list"], main'
     );
@@ -348,7 +376,7 @@ async def handle_jane_view_more(
             logger.info(
                 "Jane 'View More' click %d/%d succeeded", clicks, max_attempts
             )
-            await asyncio.sleep(_JANE_LOAD_MORE_SETTLE_SEC)
+            await asyncio.sleep(_settle_delay(_JANE_LOAD_MORE_SETTLE_BASE))
             break  # restart selector loop for next attempt
 
         if not clicked:

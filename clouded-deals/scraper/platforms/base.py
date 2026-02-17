@@ -23,12 +23,61 @@ from playwright.async_api import (
     Playwright,
 )
 
-from config.dispensaries import BROWSER_ARGS, GOTO_TIMEOUT_MS, PLATFORM_DEFAULTS, USER_AGENT, VIEWPORT, WAIT_UNTIL
+from config.dispensaries import (
+    BROWSER_ARGS, GOTO_TIMEOUT_MS, PLATFORM_DEFAULTS, STEALTH_INIT_SCRIPT,
+    USER_AGENT, VIEWPORT, WAIT_UNTIL, get_user_agent, get_viewport,
+)
 from handlers import dismiss_age_gate
 
 DEBUG_DIR = Path(os.getenv("DEBUG_DIR", "debug_screenshots"))
 
 logger = logging.getLogger(__name__)
+
+# JS to override webdriver detection and mimic a real browser for all scrapers.
+# Previously only applied in Rise — now global so every platform benefits.
+_JS_STEALTH = """
+() => {
+    // Remove webdriver flag
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    // Fake Chrome runtime (headless lacks this)
+    if (!window.chrome) window.chrome = {};
+    if (!window.chrome.runtime) window.chrome.runtime = {};
+    // Fake plugins/languages to look like a real browser
+    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+    Object.defineProperty(navigator, 'plugins', {
+        get: () => {
+            const fakes = [
+                { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+                { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
+                { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
+            ];
+            const arr = Object.create(PluginArray.prototype);
+            fakes.forEach((p, i) => { arr[i] = p; });
+            Object.defineProperty(arr, 'length', { get: () => fakes.length });
+            return arr;
+        },
+    });
+    // Remove automation-related properties
+    delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
+    delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
+    delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
+}
+"""
+
+# Third-party analytics domains that commonly break SPA hydration in headless
+# browsers (timing issues, missing APIs, bot detection).  Blocking these
+# speeds up page loads and reduces bot-detection triggers.
+_BLOCKED_ANALYTICS_PATTERNS = [
+    "*google-analytics.com*",
+    "*googletagmanager.com*",
+    "*facebook.net*",
+    "*doubleclick.net*",
+    "*hotjar.com*",
+    "*segment.io*",
+    "*amplitude.com*",
+    "*tiktok.com*",
+    "*snap.com*",
+]
 
 
 class BaseScraper(abc.ABC):
@@ -83,11 +132,28 @@ class BaseScraper(abc.ABC):
                 args=BROWSER_ARGS,
             )
         self._context = await self._browser.new_context(
-            viewport=VIEWPORT,
-            user_agent=USER_AGENT,
+            viewport=get_viewport(),
+            user_agent=get_user_agent(),
+            locale="en-US",
+            timezone_id="America/New_York",
         )
+        # Inject stealth script BEFORE any page navigation so automation
+        # signals are masked from the very first request.
+        await self._context.add_init_script(STEALTH_INIT_SCRIPT)
         self._page = await self._context.new_page()
-        logger.info("[%s] Browser ready (shared=%s)", self.slug, bool(self._shared_browser))
+
+        # Apply stealth overrides to every page before any navigation.
+        await self._page.add_init_script(_JS_STEALTH)
+
+        # Block third-party analytics that trigger bot detection and slow
+        # down page loads across all platforms.
+        async def _block_route(route):
+            await route.abort()
+
+        for pattern in _BLOCKED_ANALYTICS_PATTERNS:
+            await self._page.route(pattern, _block_route)
+
+        logger.info("[%s] Browser ready (shared=%s, stealth=on)", self.slug, bool(self._shared_browser))
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
