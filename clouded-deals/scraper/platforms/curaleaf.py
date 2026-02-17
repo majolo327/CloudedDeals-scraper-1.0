@@ -73,10 +73,10 @@ _BY_BRAND = re.compile(
     re.IGNORECASE,
 )
 
-# Cap pagination to avoid 240 s site timeout.  Curaleaf sites have 500–700+
-# products across 12-14 pages.  15 pages × 51 products ≈ 765, which captures
-# the full catalog for all known Curaleaf/Zen Leaf sites and finishes in ~230 s.
-_MAX_PAGES = 15
+# Cap pagination at 25 pages.  Curaleaf sites have 500–700+ products across
+# 12-14 pages typically, but some stores are expanding.  25 pages × 51
+# products ≈ 1275, giving headroom for growth while staying within timeout.
+_MAX_PAGES = 25
 
 # Curaleaf product card selectors (tried in order).
 _PRODUCT_SELECTORS = [
@@ -118,22 +118,45 @@ _REGION_TO_STATE: dict[str, tuple[str, str]] = {
 }
 
 
+# Map state-code subdomains (e.g. oh.curaleaf.com) to region slugs.
+_SUBDOMAIN_TO_REGION: dict[str, str] = {
+    "oh": "ohio",
+    "nv": "southern-nv",
+    "mi": "michigan",
+    "il": "illinois",
+    "az": "arizona",
+    "mo": "missouri",
+    "nj": "new-jersey",
+    "co": "colorado",
+    "ny": "new-york",
+    "ma": "massachusetts",
+    "pa": "pennsylvania",
+}
+
+
 def _infer_state(url: str, dispensary: dict[str, Any]) -> tuple[str, str]:
     """Infer state name and abbreviation for the Curaleaf age gate.
 
     Resolution order:
-      1. URL path: ``/shop/{state}/...`` → lookup in _REGION_TO_STATE
-      2. Dispensary config ``region`` field → lookup in _REGION_TO_STATE
-      3. Fallback: ("Nevada", "NV") for backward compatibility
+      1. Subdomain: ``oh.curaleaf.com`` → lookup via _SUBDOMAIN_TO_REGION
+      2. URL path: ``/shop/{state}/...`` → lookup in _REGION_TO_STATE
+      3. Dispensary config ``region`` field → lookup in _REGION_TO_STATE
+      4. Fallback: ("Nevada", "NV") for backward compatibility
     """
-    # Try extracting from /shop/{state}/ URL pattern
-    match = re.search(r"/shop/([\w-]+)/", url)
+    # Try subdomain (e.g. oh.curaleaf.com → "ohio")
+    match_sub = re.search(r"^https?://(\w+)\.curaleaf\.com", url)
+    if match_sub:
+        sub = match_sub.group(1).lower()
+        region_from_sub = _SUBDOMAIN_TO_REGION.get(sub)
+        if region_from_sub and region_from_sub in _REGION_TO_STATE:
+            return _REGION_TO_STATE[region_from_sub]
+
+    # Try extracting from /shop/{state}/ URL pattern (trailing slash optional)
+    match = re.search(r"/shop/([\w-]+)(?:/|$)", url)
     if match:
         slug = match.group(1).lower()
         if slug in _REGION_TO_STATE:
             return _REGION_TO_STATE[slug]
-        # Unknown slug — replace hyphens with spaces for dropdown matching
-        return slug.replace("-", " ").title(), slug.replace("-", "")[:2].upper()
 
     # Try the dispensary config "region" field
     region = dispensary.get("region", "").lower()
@@ -369,10 +392,15 @@ class CuraleafScraper(BaseScraper):
                 continue
 
         # Wait for redirect back to store page.
-        # Curaleaf uses two URL patterns: /stores/ (NV, AZ) and /shop/ (MI, IL).
+        # Curaleaf uses multiple URL patterns:
+        #   /stores/  (NV, AZ)
+        #   /shop/    (MI, IL)
+        #   /dispensary/ (legacy format, some AZ/MI stores)
         # Check which pattern matches the original URL and wait for that.
         if "/shop/" in self.url:
             redirect_pattern = "**/shop/**"
+        elif "/dispensary/" in self.url:
+            redirect_pattern = "**/dispensary/**"
         else:
             redirect_pattern = "**/stores/**"
         try:
