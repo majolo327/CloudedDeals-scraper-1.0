@@ -995,8 +995,8 @@ def _expire_stale_deal_history(group_slugs: list[str] | None = None) -> None:
 # ---------------------------------------------------------------------------
 
 
-_SITE_TIMEOUT_SEC = 360  # 6 min — heavy Dutchie pages (Gibson, Planet13) need scroll + lazy-load time.  Up from 300 s.
-_RETRY_TIMEOUT_SEC = 240  # 4 min for retries — up from 180 s.  Heavy pages with many deal cards need time to scroll and render.
+_SITE_TIMEOUT_SEC = 480  # 8 min — Dutchie cascade (90s smart-wait + 105s detection + 30s card-wait + extraction) needs room.
+_RETRY_TIMEOUT_SEC = 300  # 5 min for retries — enough for a full detection pass on slow sites.
 _MAX_RETRIES = 2  # 2 attempts total — saves ~5 min per broken site vs 3
 _RETRY_DELAYS = [5, 15]  # Backoff between retries
 
