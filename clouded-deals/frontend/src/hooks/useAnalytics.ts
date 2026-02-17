@@ -278,7 +278,7 @@ export function useAnalytics(range: DateRange = '7d') {
       // Weekly buckets for WoW comparison (current week vs prior week)
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
-      let thisWeekVisitors = new Set<string>(), lastWeekVisitors = new Set<string>();
+      const thisWeekVisitors = new Set<string>(), lastWeekVisitors = new Set<string>();
       let thisWeekSaves = 0, lastWeekSaves = 0;
       let thisWeekClicks = 0, lastWeekClicks = 0;
       let thisWeekShares = 0, lastWeekShares = 0;
