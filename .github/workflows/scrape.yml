@@ -8,9 +8,6 @@ run-name: >-
     github.event_name == 'workflow_dispatch'
       && format('{0}{1}', github.event.inputs.region || 'all',
            github.event.inputs.dry_run == 'true' && ' (dry-run)' || '')
-    || contains(github.event.schedule || '', '0 11') && 'pennsylvania'
-    || contains(github.event.schedule || '', '0 12') && 'massachusetts (1/2)'
-    || contains(github.event.schedule || '', '2 12') && 'massachusetts (2/2)'
     || contains(github.event.schedule || '', '0 13') && 'new-york (1/2)'
     || contains(github.event.schedule || '', '2 13') && 'new-york (2/2)'
     || contains(github.event.schedule || '', '0 14') && 'new-jersey (1/2)'
@@ -32,6 +29,9 @@ run-name: >-
     || contains(github.event.schedule || '', '4 20') && 'colorado (3/3)'
     || contains(github.event.schedule || '', '0 21') && 'missouri (1/2)'
     || contains(github.event.schedule || '', '2 21') && 'missouri (2/2)'
+    || contains(github.event.schedule || '', '0 22') && 'pennsylvania'
+    || contains(github.event.schedule || '', '0 23') && 'massachusetts (1/2)'
+    || contains(github.event.schedule || '', '2 23') && 'massachusetts (2/2)'
     || 'scheduled'
   }}
 
@@ -39,16 +39,10 @@ on:
   schedule:
     # 24 cron jobs across 11 states, each state in its own hour slot.
     # States with 60+ sites are sharded into parallel jobs of ≤50 sites
-    # each via round-robin in main.py.  Spread 6 AM–4 PM EST so GHA
+    # each via round-robin in main.py.  Spread 8 AM–6 PM EST so GHA
     # runners aren't competing.  NV is the production anchor at 8 AM PST.
+    # PA & MA run late afternoon so store menus are fully updated.
     # GHA crons run 5-30 min late — account for that.
-    #
-    # ── 6:00 AM EST — Pennsylvania ────────────────────────────────
-    - cron: "0 11 * * *"    # pennsylvania       — 6:00 AM EST  (~43 sites)
-    #
-    # ── 7:00 AM EST — Massachusetts ───────────────────────────────
-    - cron: "0 12 * * *"    # massachusetts-1    — 7:00 AM EST  (shard 1/2, ~56 sites)
-    - cron: "2 12 * * *"    # massachusetts-2    — 7:02 AM EST  (shard 2/2, ~55 sites)
     #
     # ── 8:00 AM EST — New York ────────────────────────────────────
     - cron: "0 13 * * *"    # new-york-1         — 8:00 AM EST  (shard 1/2, ~37 sites)
@@ -88,6 +82,15 @@ on:
     # ── 3:00 PM CST — Missouri ────────────────────────────────────
     - cron: "0 21 * * *"    # missouri-1         — 3:00 PM CST  (shard 1/2, ~45 sites)
     - cron: "2 21 * * *"    # missouri-2         — 3:02 PM CST  (shard 2/2, ~44 sites)
+    #
+    # ── 5:00 PM EST — Pennsylvania ────────────────────────────────
+    # (late afternoon — stores open & menus updated all day)
+    - cron: "0 22 * * *"    # pennsylvania       — 5:00 PM EST  (~43 sites)
+    #
+    # ── 6:00 PM EST — Massachusetts ───────────────────────────────
+    # (late afternoon — stores open & menus updated all day)
+    - cron: "0 23 * * *"    # massachusetts-1    — 6:00 PM EST  (shard 1/2, ~56 sites)
+    - cron: "2 23 * * *"    # massachusetts-2    — 6:02 PM EST  (shard 2/2, ~55 sites)
   workflow_dispatch:
     inputs:
       platform_group:
@@ -177,12 +180,6 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "value=${{ github.event.inputs.region || 'all' }}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 11 * * *" ]; then
-            echo "value=pennsylvania" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 12 * * *" ]; then
-            echo "value=massachusetts-1" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "2 12 * * *" ]; then
-            echo "value=massachusetts-2" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.schedule }}" = "0 13 * * *" ]; then
             echo "value=new-york-1" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.schedule }}" = "2 13 * * *" ]; then
@@ -223,6 +220,12 @@ jobs:
             echo "value=missouri-1" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.schedule }}" = "2 21 * * *" ]; then
             echo "value=missouri-2" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 22 * * *" ]; then
+            echo "value=pennsylvania" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 23 * * *" ]; then
+            echo "value=massachusetts-1" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "2 23 * * *" ]; then
+            echo "value=massachusetts-2" >> $GITHUB_OUTPUT
           else
             echo "value=southern-nv" >> $GITHUB_OUTPUT
           fi
