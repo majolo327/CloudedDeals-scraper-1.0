@@ -15,6 +15,8 @@ interface DealCardProps {
   onDismiss?: () => void;
   onClick: () => void;
   distanceLabel?: string;
+  /** Shown as a subtle personalization signal, e.g. "For You" or "Your brand" */
+  recommendationLabel?: string;
 }
 
 const categoryLabels: Record<string, string> = {
@@ -25,7 +27,7 @@ const categoryLabels: Record<string, string> = {
   preroll: 'Pre-Roll',
 };
 
-export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onSave, onDismiss, onClick, distanceLabel }: DealCardProps) {
+export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onSave, onDismiss, onClick, distanceLabel, recommendationLabel }: DealCardProps) {
   const distance = useMemo(() => {
     const userCoords = getUserCoords();
     if (!userCoords) return null;
@@ -70,6 +72,11 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
           {isExpired && (
             <span className="text-[11px] font-medium text-slate-400 bg-slate-500/10 px-1.5 py-0.5 rounded-md">
               Yesterday
+            </span>
+          )}
+          {recommendationLabel && !isExpired && (
+            <span className="text-[10px] font-medium text-purple-300/80 bg-purple-500/10 px-1.5 py-0.5 rounded-md">
+              {recommendationLabel}
             </span>
           )}
         </div>

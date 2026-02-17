@@ -34,6 +34,7 @@ interface DealsPageProps {
     onboardingComplete: boolean;
     onboardingProgress: { current: number; total: number; isCompleted: boolean };
     nextChallenge: { challenge: ChallengeDefinition; progress: { progress: number; isCompleted: boolean } } | null;
+    earnedBadges?: ChallengeDefinition[];
   };
   topBrands?: [string, number][];
 }
@@ -90,6 +91,16 @@ export function DealsPage({
   const hasActiveFilters = filters.categories.length > 0 || filters.dispensaryIds.length > 0 ||
     filters.priceRange !== 'all' || filters.minDiscount > 0 || filters.distanceRange !== 'all' ||
     filters.weightFilter !== 'all';
+
+  // Build a set of top brand names for "For You" badges on deal cards.
+  // Only activates after 3+ saves of a brand (same threshold as the "Your brands" row).
+  const topBrandNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const [name, count] of topBrands) {
+      if (count >= 3) names.add(name.toLowerCase());
+    }
+    return names;
+  }, [topBrands]);
 
   // Apply category tab first, then universal filters.
   // distanceMap is pre-computed once inside filterAndSortDeals so we
@@ -188,6 +199,7 @@ export function DealsPage({
               onboardingComplete={challengeData.onboardingComplete}
               onboardingProgress={challengeData.onboardingProgress}
               nextChallenge={challengeData.nextChallenge}
+              earnedBadges={challengeData.earnedBadges}
             />
           )}
 
@@ -322,6 +334,11 @@ export function DealsPage({
                       onDismiss={() => { deck.dismissDeal(deal.id); onDismissDeal?.(); }}
                       onClick={() => setSelectedDeal(deal)}
                       distanceLabel={distance !== null ? formatDistance(distance) : undefined}
+                      recommendationLabel={
+                        topBrandNames.has((deal.brand?.name || '').toLowerCase())
+                          ? 'For You'
+                          : undefined
+                      }
                     />
                   </div>
                 );

@@ -45,9 +45,11 @@ interface SavedPageProps {
   addToast?: (message: string, type: 'success' | 'info') => void;
   history?: HistoryEntry[];
   onClearHistory?: () => void;
+  /** Total deal count used with CloudedDeals (used + expired from history) */
+  lifetimeDealsUsed?: number;
 }
 
-export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClearHistory }: SavedPageProps) {
+export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClearHistory, lifetimeDealsUsed }: SavedPageProps) {
   const { savedDeals, toggleSavedDeal, isDealUsed, markDealUsed } = useSavedDeals();
   const [shareState, setShareState] = useState<'idle' | 'sharing' | 'copied'>('idle');
   const [showContactBanner, setShowContactBanner] = useState(false);
@@ -100,6 +102,25 @@ export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClear
     if (!deal.original_price || deal.original_price <= deal.deal_price) return sum;
     return sum + (deal.original_price - deal.deal_price);
   }, 0);
+
+  // Lifetime savings: sum of discounts from all history entries (purchased/expired)
+  // plus today's used deals. Creates identity attachment.
+  const lifetimeSavings = useMemo(() => {
+    let total = 0;
+    for (const entry of history) {
+      const orig = entry.deal.original_price;
+      if (orig && orig > entry.deal.deal_price) {
+        total += orig - entry.deal.deal_price;
+      }
+    }
+    // Add today's used deals too
+    for (const deal of usedDeals) {
+      if (deal.original_price && deal.original_price > deal.deal_price) {
+        total += deal.original_price - deal.deal_price;
+      }
+    }
+    return total;
+  }, [history, usedDeals]);
 
   // Show contact banner: 10+ saves, no contact captured, not dismissed within 7 days
   useEffect(() => {
@@ -231,6 +252,14 @@ export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClear
                     </p>
                     <p className="text-[10px] text-slate-500">potential savings</p>
                   </div>
+                </div>
+              )}
+              {lifetimeSavings > 0 && (
+                <div className="text-right">
+                  <p className="text-xs font-semibold text-slate-300">
+                    ${lifetimeSavings.toFixed(0)}
+                  </p>
+                  <p className="text-[10px] text-slate-500">lifetime</p>
                 </div>
               )}
               {/* Share My Saves button */}

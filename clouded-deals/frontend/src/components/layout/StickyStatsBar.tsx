@@ -10,7 +10,17 @@ interface StickyStatsBarProps {
   children?: React.ReactNode;
 }
 
+/** Returns a short tier label for streaks that makes them feel rewarding. */
+function getStreakTier(streak: number): { label: string; color: string } | null {
+  if (streak >= 30) return { label: '30d', color: 'text-amber-400' };
+  if (streak >= 14) return { label: '14d', color: 'text-purple-400' };
+  if (streak >= 7) return { label: '7d', color: 'text-purple-400/80' };
+  if (streak >= 3) return { label: `${streak}d`, color: 'text-slate-400' };
+  return null;
+}
+
 export function StickyStatsBar({
+  streak,
   activeCategory = 'all',
   onCategoryChange,
   children,
@@ -23,6 +33,8 @@ export function StickyStatsBar({
     { id: 'edible', label: 'Edible' },
     { id: 'preroll', label: 'Preroll' },
   ];
+
+  const streakTier = getStreakTier(streak);
 
   return (
     <div
@@ -47,6 +59,13 @@ export function StickyStatsBar({
                 {category.label}
               </button>
             ))}
+          </div>
+        )}
+        {/* Streak indicator — visible at 3+ days, rewards consistency */}
+        {streakTier && (
+          <div className={`ml-auto flex items-center gap-1 text-xs font-medium ${streakTier.color} shrink-0`}>
+            <span className="text-[11px]" aria-hidden="true">{streak >= 7 ? '\uD83D\uDD25' : '\u26A1'}</span>
+            <span className="tabular-nums">{streakTier.label}</span>
           </div>
         )}
       </div>

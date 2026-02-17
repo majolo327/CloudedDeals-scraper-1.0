@@ -9,6 +9,8 @@ interface ChallengeBarProps {
     challenge: ChallengeDefinition;
     progress: { progress: number; isCompleted: boolean };
   } | null;
+  /** Badges earned so far — shown when all challenges are complete */
+  earnedBadges?: ChallengeDefinition[];
 }
 
 function getTarget(challenge: ChallengeDefinition): number {
@@ -23,6 +25,7 @@ export function ChallengeBar({
   onboardingComplete,
   onboardingProgress,
   nextChallenge,
+  earnedBadges = [],
 }: ChallengeBarProps) {
   // Onboarding phase — slim single-line bar
   if (!onboardingComplete) {
@@ -46,6 +49,23 @@ export function ChallengeBar({
         <span className="text-[11px] text-slate-500 tabular-nums">
           {current}/{total}
         </span>
+      </div>
+    );
+  }
+
+  // All challenges completed — show earned badges as a compact achievement row
+  if (!nextChallenge && earnedBadges.length > 0) {
+    return (
+      <div className="flex items-center gap-2 mb-3 px-1 overflow-x-auto scrollbar-hide">
+        {earnedBadges.map((c) => (
+          <span
+            key={c.id}
+            className="text-[11px] px-1.5 py-0.5 rounded-full bg-white/5 text-slate-400 whitespace-nowrap shrink-0"
+            title={c.name}
+          >
+            {c.badge}
+          </span>
+        ))}
       </div>
     );
   }

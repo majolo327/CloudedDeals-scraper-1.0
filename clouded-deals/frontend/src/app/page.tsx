@@ -476,6 +476,7 @@ export default function Home() {
                 onboardingComplete: challenges.onboardingComplete,
                 onboardingProgress: challenges.onboardingProgress,
                 nextChallenge: challenges.nextChallenge,
+                earnedBadges: challenges.earnedBadges,
               }}
               topBrands={topBrands}
             />
