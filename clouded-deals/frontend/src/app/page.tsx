@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Star, Heart, Search, Bookmark, Compass, AlertCircle } from 'lucide-react';
+import { Star, Heart, Search, Compass, AlertCircle } from 'lucide-react';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { fetchDeals, fetchExpiredDeals, fetchDispensaries } from '@/lib/api';
 import type { BrowseDispensary, FetchDealsResult, FetchDispensariesResult } from '@/lib/api';
@@ -559,7 +559,7 @@ export default function Home() {
             { id: 'home' as const, label: 'Deals', icon: Star },
             { id: 'search' as const, label: 'Search', icon: Search },
             { id: 'browse' as const, label: 'Browse', icon: Compass },
-            { id: 'saved' as const, label: 'Saved', icon: Bookmark },
+            { id: 'saved' as const, label: 'Saved', icon: Heart },
           ].map((tab) => (
             <button
               key={tab.id}

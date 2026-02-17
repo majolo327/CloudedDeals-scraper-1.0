@@ -696,6 +696,14 @@ These are the tactical engineering tasks that make the product production-grade.
 
 ---
 
+## Legal
+
+- **Incorporation:** Clouded Inc. is registered in Delaware. Privacy Policy and Terms of Service updated Feb 2026 — old domains (useclouded.com, onclouded.com) and physical address removed, contact email standardized to hello@cloudeddeals.com.
+- **TODO:** Register as a foreign entity in Nevada (operating in NV but incorporated in DE). Needs lawyer review.
+- **TODO:** Lawyer review of Privacy Policy and Terms of Service for compliance.
+
+---
+
 ## What's Next — Full Roadmap
 
 Everything below is sequenced deliberately. Each phase depends on the one before it. Don't skip ahead.

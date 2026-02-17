@@ -40,12 +40,18 @@ _DUTCHIE_CFG = PLATFORM_DEFAULTS["dutchie"]
 _BETWEEN_PAGES_SEC = _DUTCHIE_CFG["between_pages_sec"]          # 5 s
 
 _TD_SLUGS = {"td-gibson", "td-eastern", "td-decatur"}
-_HEAVY_PAGE_SLUGS = {"td-gibson", "planet-13", "planet13"}  # Massive pages — need longer content waits
 
 # Smart-wait timeouts: content-based polling returns instantly when content
 # appears, so the longer cap only matters if the page is slow to inject.
 _SMART_WAIT_MS = 90_000          # 90 s (up from 60 s — helps heavy pages)
 _SMART_WAIT_RETRY_MS = 60_000    # 60 s on retry attempts
+
+# Planet 13 / Medizin share planet13.com — a store selector in the header
+# must be confirmed so the Dutchie embed loads the correct dispensary menu.
+_P13_STORE_MAP: dict[str, str] = {
+    "planet13": "planet 13",
+    "medizin": "medizin",
+}
 _PRODUCT_SELECTORS = [
     '[data-testid="product-card"]',
     '[data-testid*="product"]',
@@ -163,6 +169,104 @@ def _strip_specials_from_url(url: str) -> str | None:
     return None
 
 
+async def _ensure_store_selected(page: Page, slug: str) -> None:
+    """Ensure the correct store is selected on planet13.com.
+
+    Planet 13 and Medizin share the same domain.  The site shows a store
+    picker in the upper left ("Shopping at: ...").  If the wrong store is
+    selected, the Dutchie embed loads the wrong menu.  This clicks the
+    store selector and picks the correct location based on slug.
+    """
+    expected = _P13_STORE_MAP.get(slug)
+    if expected is None:
+        return  # not a P13/Medizin site
+
+    logger.info("[%s] Checking store selector for planet13.com", slug)
+
+    # Strategy 1: look for a store selector button/link with "Shopping at"
+    # or similar text, or a location picker element.
+    store_selector_patterns = [
+        'button:has-text("Shopping at")',
+        'a:has-text("Shopping at")',
+        '[class*="store-selector"]',
+        '[class*="storeSelector"]',
+        '[class*="location-picker"]',
+        '[class*="locationPicker"]',
+        '[data-testid*="store"]',
+        '[class*="StorePicker"]',
+        '[class*="store-picker"]',
+    ]
+
+    selector_el = None
+    for sel in store_selector_patterns:
+        try:
+            loc = page.locator(sel).first
+            if await loc.count() > 0:
+                selector_el = loc
+                logger.info("[%s] Found store selector via %r", slug, sel)
+                break
+        except Exception:
+            continue
+
+    if selector_el is None:
+        # Strategy 2: find any clickable element whose text contains
+        # a store name in the upper portion of the page (top 200px).
+        try:
+            store_el = await page.evaluate("""
+            () => {
+                const els = document.querySelectorAll('button, a, [role="button"]');
+                for (const el of els) {
+                    const rect = el.getBoundingClientRect();
+                    const text = (el.textContent || '').toLowerCase();
+                    if (rect.top < 200 && (
+                        text.includes('shopping at') ||
+                        text.includes('select store') ||
+                        text.includes('choose location') ||
+                        text.includes('planet 13') ||
+                        text.includes('medizin')
+                    )) {
+                        return el.textContent.trim();
+                    }
+                }
+                return null;
+            }
+            """)
+            if store_el:
+                logger.info("[%s] Found store indicator text: %r", slug, store_el[:80])
+                # Check if the correct store is already selected
+                if expected in store_el.lower():
+                    logger.info("[%s] Correct store already selected", slug)
+                    return
+        except Exception:
+            pass
+
+    # If we found a selector element, check if it shows the right store
+    if selector_el is not None:
+        try:
+            current_text = (await selector_el.inner_text()).lower()
+            if expected in current_text:
+                logger.info("[%s] Correct store already selected: %r", slug, current_text[:80])
+                return
+
+            # Wrong store — click to open the picker
+            logger.info("[%s] Wrong store selected (%r) — clicking to change", slug, current_text[:80])
+            await selector_el.click()
+            await asyncio.sleep(1)
+
+            # Look for the correct store option and click it
+            option = page.locator(f'text=/{expected}/i').first
+            if await option.count() > 0:
+                await option.click()
+                logger.info("[%s] Selected store: %s", slug, expected)
+                await asyncio.sleep(3)  # wait for menu to reload
+            else:
+                logger.warning("[%s] Could not find store option %r in picker", slug, expected)
+        except Exception as exc:
+            logger.warning("[%s] Store selector interaction failed: %s", slug, exc)
+    else:
+        logger.info("[%s] No store selector found — proceeding with current store", slug)
+
+
 async def _wait_for_product_cards(
     target: Page | Frame,
     slug: str,
@@ -170,10 +274,11 @@ async def _wait_for_product_cards(
 ) -> bool:
     """Wait for product cards to render inside *target* before extraction.
 
-    Heavy pages (td-gibson, planet13) inject the Dutchie container/iframe
-    quickly but take longer to populate with product cards.  This waits
-    for at least 3 product cards to appear, up to *timeout_ms*.
-    Returns True if cards were found, False on timeout.
+    All Dutchie sites benefit from this — the smart-wait detects the
+    container/iframe injection, but product cards inside may not have
+    rendered yet.  Returns True if cards were found, False on timeout.
+    Used as the primary pre-extraction gate and as a retry fallback
+    when the first extraction yields 0 products.
     """
     js = """
     () => {
@@ -235,6 +340,12 @@ class DutchieScraper(BaseScraper):
                 return await self._scrape_with_fallback(fallback_url, embed_hint)
             logger.error("[%s] Cloudflare blocked and no fallback URL — aborting", self.slug)
             return []
+
+        # --- Planet 13 / Medizin store selector ----------------------------
+        # P13 and Medizin share planet13.com — ensure the store picker in
+        # the header shows the correct location before triggering the
+        # Dutchie embed.
+        await _ensure_store_selected(self.page, self.slug)
 
         # --- Set age gate cookies -----------------------------------------
         await self.page.evaluate(_AGE_GATE_COOKIE_JS)
@@ -348,10 +459,10 @@ class DutchieScraper(BaseScraper):
         if embed_type == "iframe":
             await dismiss_age_gate(target)
 
-        # --- Wait for product cards to render (heavy pages need this) -----
-        # The smart-wait detects the container/iframe, but product cards
-        # inside may not have rendered yet on massive pages (td-gibson,
-        # planet13).  Wait for cards to populate before extraction.
+        # --- Wait for product cards to render --------------------------------
+        # All Dutchie sites benefit: the smart-wait detects when the
+        # container/iframe is injected, but product cards inside may not
+        # have rendered yet.  This is the primary pre-extraction gate.
         await _wait_for_product_cards(target, self.slug)
 
         # --- Paginate and collect products --------------------------------
@@ -361,6 +472,19 @@ class DutchieScraper(BaseScraper):
 
         while True:
             products = await self._extract_products(target)
+
+            # --- Retry-on-zero fallback for page 1 ------------------------
+            # If the first extraction yields 0 products, the DOM may still
+            # be rendering (common on TD sites, Planet 13, and other heavy
+            # pages).  Wait longer for cards and retry once before giving up.
+            if page_num == 1 and len(products) == 0 and len(all_products) == 0:
+                logger.warning("[%s] Page 1 extraction got 0 products — waiting longer and retrying", self.slug)
+                await force_remove_age_gate(self.page)
+                cards_found = await _wait_for_product_cards(target, self.slug, timeout_ms=45_000)
+                if cards_found:
+                    products = await self._extract_products(target)
+                    logger.info("[%s] Retry extraction got %d products", self.slug, len(products))
+
             all_products.extend(products)
             logger.info(
                 "[%s] Page %d → %d products (total %d)",

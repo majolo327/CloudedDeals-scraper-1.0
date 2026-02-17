@@ -363,41 +363,45 @@ RECON_SITES: list[dict[str, str]] = [
         "expected_platform": "rise",
     },
 
-    # --- Unknown / needs identification -------------------------------------
+    # --- Identified AIQ (was unknown) -----------------------------------------
     {
         "slug": "green-hualapai",
         "name": "Green. Hualapai",
         "url": "https://greennv.com/menu/",
-        "expected_platform": "unknown",
+        "expected_platform": "aiq",
     },
-    {
-        "slug": "euphoria-wellness",
-        "name": "Euphoria Wellness",
-        "url": "https://euphoriawellnessnv.com/menu/",
-        "expected_platform": "unknown",
-    },
+
+    # --- Identified Carrot (was unknown) --------------------------------------
     {
         "slug": "inyo",
         "name": "Inyo Fine Cannabis",
         "url": "https://inyolasvegas.com/delivery-pickup-orders/",
-        "expected_platform": "unknown",
+        "expected_platform": "carrot",
     },
     {
         "slug": "jennys",
         "name": "Jenny's Dispensary",
-        "url": "https://jennysdispensary.com/store/",
-        "expected_platform": "unknown",
+        "url": "https://jennysdispensary.com/store/category/specials",
+        "expected_platform": "carrot",
     },
     {
         "slug": "showgrow",
         "name": "ShowGrow",
         "url": "https://store.showgrowvegas.com/",
-        "expected_platform": "unknown",
+        "expected_platform": "carrot",
     },
     {
         "slug": "silver-sage",
         "name": "Silver Sage Wellness",
-        "url": "https://store.sswlv.com/",
+        "url": "https://store.sswlv.com/category/specials",
+        "expected_platform": "carrot",
+    },
+
+    # --- Still unknown / needs identification ---------------------------------
+    {
+        "slug": "euphoria-wellness",
+        "name": "Euphoria Wellness",
+        "url": "https://euphoriawellnessnv.com/menu/",
         "expected_platform": "unknown",
     },
     {
