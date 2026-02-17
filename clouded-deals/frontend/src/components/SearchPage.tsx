@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Search, Package, MapPin, ChevronRight, X, Clock, Store, ExternalLink, Tag } from 'lucide-react';
+import { Search, Package, MapPin, ChevronRight, ChevronDown, X, Clock, Store, ExternalLink, Tag } from 'lucide-react';
 import type { Deal, Brand } from '@/types';
 import { InlineFeedbackPrompt } from './FeedbackWidget';
 import { ExpiredDealsBanner } from './ExpiredDealsBanner';
@@ -81,6 +81,7 @@ export function SearchPage({
   const [isSearching, setIsSearching] = useState(false);
   const [extendedDeals, setExtendedDeals] = useState<Deal[]>([]);
   const [extendedLoading, setExtendedLoading] = useState(false);
+  const [expandedDispensary, setExpandedDispensary] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout>();
 
@@ -152,9 +153,10 @@ export function SearchPage({
     return () => { cancelled = true; };
   }, [debouncedQuery, curatedDealIds]);
 
-  // Reset dispensary filter when search changes
+  // Reset dispensary filter + accordion when search changes
   useEffect(() => {
     setActiveDispensary('all');
+    setExpandedDispensary(null);
   }, [debouncedQuery]);
 
   const handleCategoryFilter = useCallback((cat: FilterCategory) => {
@@ -167,6 +169,16 @@ export function SearchPage({
 
   const brandDealCounts = useMemo(() => countDealsByBrand(deals), [deals]);
   const dispensaryDealCounts = useMemo(() => countDealsByDispensary(deals), [deals]);
+
+  /** Deals grouped by dispensary ID — powers the accordion expansion */
+  const dealsByDispensary = useMemo(() => {
+    const map: Record<string, Deal[]> = {};
+    for (const d of deals) {
+      if (!map[d.dispensary.id]) map[d.dispensary.id] = [];
+      map[d.dispensary.id].push(d);
+    }
+    return map;
+  }, [deals]);
 
   // ---- Matching brands ----
   const matchingBrands = useMemo(() => {
@@ -432,7 +444,7 @@ export function SearchPage({
                 </div>
               )}
 
-              {/* ---- Dispensary Results ---- */}
+              {/* ---- Dispensary Results (accordion — tap to expand deals) ---- */}
               {matchingDispensaries.length > 0 && (
                 <div className="mb-6">
                   <div className="flex items-center gap-2 mb-3">
@@ -442,55 +454,103 @@ export function SearchPage({
                   <div className="space-y-2">
                     {matchingDispensaries.map((disp) => {
                       const dealCount = dispensaryDealCounts[disp.id] || 0;
+                      const isCardExpanded = expandedDispensary === disp.id;
+                      const dispDeals = dealsByDispensary[disp.id] || [];
                       return (
-                        <div
-                          key={disp.id}
-                          className="glass frost rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:bg-white/[0.06] transition-colors"
-                          onClick={() => setActiveDispensary(disp.id)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setActiveDispensary(disp.id); }}
-                        >
-                          <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
-                            <MapPin className="w-5 h-5 text-slate-400" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium text-white truncate">{disp.name}</p>
+                        <div key={disp.id}>
+                          <div
+                            className={`glass frost p-3 flex items-center gap-3 cursor-pointer hover:bg-white/[0.06] transition-colors ${
+                              isCardExpanded ? 'rounded-t-xl' : 'rounded-xl'
+                            }`}
+                            onClick={() => {
+                              setExpandedDispensary(prev => prev === disp.id ? null : disp.id);
+                              if (!isCardExpanded && dealCount > 0) {
+                                trackEvent('dispensary_deals_expanded', disp.id, { deal_count: dealCount });
+                              }
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setExpandedDispensary(prev => prev === disp.id ? null : disp.id); }}
+                          >
+                            <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
+                              <MapPin className="w-5 h-5 text-slate-400" />
                             </div>
-                            <p className="text-xs text-slate-500 truncate">{disp.address}</p>
-                            <div className="flex items-center gap-3 mt-1">
-                              {dealCount > 0 && (
-                                <span className="text-[10px] text-purple-400 font-medium">
-                                  {dealCount} deal{dealCount !== 1 ? 's' : ''} {isExpired ? 'yesterday' : 'today'}
-                                </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium text-white truncate">{disp.name}</p>
+                              </div>
+                              <p className="text-xs text-slate-500 truncate">{disp.address}</p>
+                              <div className="flex items-center gap-3 mt-1">
+                                {dealCount > 0 && (
+                                  <span className="text-[10px] text-purple-400 font-semibold underline underline-offset-2 decoration-purple-400/30">
+                                    {dealCount} deal{dealCount !== 1 ? 's' : ''} {isExpired ? 'yesterday' : 'today'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <a
+                                href={getMapsUrl(disp.address)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="p-2 rounded-lg bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                                aria-label="Get directions"
+                                title="Directions"
+                              >
+                                <MapPin className="w-4 h-4" />
+                              </a>
+                              <a
+                                href={disp.menu_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="p-2 rounded-lg bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                                aria-label="View menu"
+                                title="Menu"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                              <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isCardExpanded ? 'rotate-180' : ''}`} />
+                            </div>
+                          </div>
+                          {/* Accordion: inline deals for this dispensary */}
+                          {isCardExpanded && (
+                            <div className="glass frost rounded-b-xl border-t border-slate-700/50 p-3">
+                              {dispDeals.length > 0 ? (
+                                <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+                                  {dispDeals.map((deal) => {
+                                    const dist = getDistance(deal.dispensary.latitude, deal.dispensary.longitude);
+                                    return (
+                                      <DealCard
+                                        key={deal.id}
+                                        deal={deal}
+                                        isSaved={savedDeals.has(deal.id)}
+                                        isExpired={isExpired}
+                                        onSave={() => toggleSavedDeal(deal.id)}
+                                        onClick={() => {
+                                          trackEvent('deal_viewed', deal.id, {
+                                            category: deal.category,
+                                            brand: deal.brand.name,
+                                            source: 'dispensary_accordion',
+                                          });
+                                          setSelectedDeal(deal);
+                                        }}
+                                        distanceLabel={dist !== null ? formatDistance(dist) : undefined}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-slate-500 text-center py-2">
+                                  No featured deals today &mdash; check their{' '}
+                                  <a href={disp.menu_url} target="_blank" rel="noopener noreferrer" className="text-purple-400 underline" onClick={(e) => e.stopPropagation()}>
+                                    full menu
+                                  </a>
+                                </p>
                               )}
                             </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <a
-                              href={getMapsUrl(disp.address)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="p-2 rounded-lg bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-                              aria-label="Get directions"
-                              title="Directions"
-                            >
-                              <MapPin className="w-4 h-4" />
-                            </a>
-                            <a
-                              href={disp.menu_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="p-2 rounded-lg bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-                              aria-label="View menu"
-                              title="Menu"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </a>
-                          </div>
+                          )}
                         </div>
                       );
                     })}
