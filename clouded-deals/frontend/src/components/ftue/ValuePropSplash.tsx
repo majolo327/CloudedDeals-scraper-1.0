@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, MapPin, DollarSign, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 
 interface ValuePropSplashProps {
@@ -39,60 +39,28 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
 
         {/* Headline */}
         <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 max-w-md leading-tight animate-in fade-in slide-in-from-bottom-2 duration-500">
-          Every Deal. Every Dispensary.{' '}
+          Stop overpaying{' '}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-purple-400">
-            One Place.
+            for weed.
           </span>
         </h2>
 
-        {/* Subtext */}
-        <p className="text-base text-slate-400 max-w-sm leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
-          We checked every dispensary this morning so you don&apos;t have to. Hand-curated deals, updated daily.
+        {/* Subtext — dynamic deal count baked in, single line */}
+        <p className="text-lg text-slate-300 max-w-sm leading-relaxed mb-6 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
+          {dealCount > 0
+            ? `${dealCount} deals updated today. Every dispensary in Vegas.`
+            : 'Every deal from every dispensary in Vegas. Updated daily.'}
         </p>
 
-        {/* Feature callouts */}
-        <div className="w-full max-w-sm space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
-          {[
-            {
-              icon: Search,
-              title: 'Search & Filter',
-              desc: 'Flower, vapes, edibles, concentrates, pre-rolls — search any brand or dispensary by name',
-              color: 'text-purple-400 bg-purple-500/10',
-            },
-            {
-              icon: MapPin,
-              title: 'One-Tap Directions',
-              desc: 'Every dispensary in Vegas, one tap away. Sort by distance.',
-              color: 'text-emerald-400 bg-emerald-500/10',
-            },
-            {
-              icon: DollarSign,
-              title: 'Updated Daily',
-              desc: dealCount > 0
-                ? `${dealCount} deals today. Updated before you wake up.`
-                : '27 dispensaries. Every deal. Updated daily.',
-              color: 'text-amber-400 bg-amber-500/10',
-            },
-          ].map((feature) => (
-            <div
-              key={feature.title}
-              className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.04]"
-            >
-              <div className={`w-9 h-9 rounded-lg ${feature.color} flex items-center justify-center shrink-0 mt-0.5`}>
-                <feature.icon className="w-4 h-4" />
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-semibold text-white">{feature.title}</p>
-                <p className="text-xs text-slate-500 leading-relaxed">{feature.desc}</p>
-              </div>
-            </div>
-          ))}
+        {/* Scannable value props — replaces 3 tiny feature cards */}
+        <div className="w-full max-w-sm space-y-2 mb-2 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
+          <p className="text-base text-slate-400">
+            Search any strain, brand, or dispensary.
+          </p>
+          <p className="text-base text-slate-400">
+            Sort by distance. Tap for directions.
+          </p>
         </div>
-
-        {/* Future teaser */}
-        <p className="mt-6 text-[11px] text-slate-600 max-w-xs leading-relaxed animate-in fade-in duration-500 delay-300">
-          Coming soon: brand loyalty perks, VIP rewards &amp; giveaways
-        </p>
       </div>
 
       {/* CTA */}
@@ -104,7 +72,7 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
           }}
           className="w-full py-4 min-h-[56px] bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white font-semibold text-base rounded-2xl shadow-lg shadow-purple-500/20 transition-all flex items-center justify-center gap-2"
         >
-          Show Me Deals
+          See Today&apos;s Deals
           <ArrowRight className="w-5 h-5" />
         </button>
       </div>

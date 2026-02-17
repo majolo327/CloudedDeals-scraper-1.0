@@ -87,7 +87,7 @@ const FAQS = [
   {
     question: 'Is CloudedDeals free to use?',
     answer:
-      'Yes, CloudedDeals is completely free. No account needed. We check every dispensary every morning and bring every deal into one place — no ads, no sponsored placements.',
+      'Yes, CloudedDeals is completely free. No account needed. We check every dispensary every morning and bring every deal into one place — no sponsored placements.',
   },
 ];
 

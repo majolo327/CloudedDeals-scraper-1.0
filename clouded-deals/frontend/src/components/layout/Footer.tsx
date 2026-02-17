@@ -71,7 +71,7 @@ export function Footer({ onNavigateToForBusiness, onNavigate, onNavigateToAbout,
         )}
         {/* Trust commitment */}
         <p className="text-center text-xs text-slate-500 leading-relaxed mb-4">
-          Every deal is ranked on merit. No sponsored placements. No ads. Ever.
+          Every deal is ranked on merit. No sponsored placements.
         </p>
 
         {onNavigateToAbout && (
