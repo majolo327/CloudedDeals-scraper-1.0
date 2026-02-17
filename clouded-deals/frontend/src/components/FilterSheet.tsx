@@ -137,7 +137,7 @@ export function FilterSheet({
     filters.priceRange !== 'all',
     filters.minDiscount > 0,
     filters.distanceRange !== 'all',
-    filters.weightFilter !== 'all',
+    filters.weightFilters.length > 0,
   ].filter(Boolean).length;
 
   const handleReset = () => {
@@ -384,12 +384,12 @@ export function FilterSheet({
                       <X className="w-3 h-3" />
                     </button>
                   )}
-                  {filters.weightFilter !== 'all' && (
+                  {filters.weightFilters.length > 0 && (
                     <button
-                      onClick={() => onFiltersChange({ ...filters, weightFilter: 'all' })}
+                      onClick={() => onFiltersChange({ ...filters, weightFilters: [] })}
                       className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-cyan-500/15 text-cyan-400 text-xs font-medium"
                     >
-                      {filters.weightFilter}
+                      {filters.weightFilters.join(', ')}
                       <X className="w-3 h-3" />
                     </button>
                   )}
@@ -725,28 +725,42 @@ export function FilterSheet({
                 </div>
               </section>
 
-              {/* Weight / Size */}
+              {/* Weight / Size — multi-select */}
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
                   Size / Weight
+                  {filters.weightFilters.length > 0 && (
+                    <button
+                      onClick={() => onFiltersChange({ ...filters, weightFilters: [] })}
+                      className="ml-2 text-[10px] text-cyan-400/60 hover:text-cyan-400 normal-case font-normal"
+                    >
+                      clear
+                    </button>
+                  )}
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {weightOptions.map((opt) => (
+                  {weightOptions.filter(o => o.id !== 'all').map((opt) => {
+                    const isSelected = filters.weightFilters.includes(opt.id);
+                    return (
                     <button
                       key={opt.id}
                       onClick={() => {
-                        onFiltersChange({ ...filters, weightFilter: opt.id });
-                        if (opt.id !== 'all') trackEvent('filter_change', undefined, { weight: opt.id });
+                        const next = isSelected
+                          ? filters.weightFilters.filter(w => w !== opt.id)
+                          : [...filters.weightFilters, opt.id];
+                        onFiltersChange({ ...filters, weightFilters: next });
+                        if (next.length > 0) trackEvent('filter_change', undefined, { weights: next.join(',') });
                       }}
                       className={`px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all ${
-                        filters.weightFilter === opt.id
+                        isSelected
                           ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
                           : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
                       }`}
                     >
                       {opt.label}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
 

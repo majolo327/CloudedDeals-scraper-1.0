@@ -21,7 +21,7 @@ export interface UniversalFilterState {
   sortBy: SortOption;
   distanceRange: DistanceRange;
   quickFilter: QuickFilter;
-  weightFilter: string;
+  weightFilters: string[];
 }
 
 export const DEFAULT_UNIVERSAL_FILTERS: UniversalFilterState = {
@@ -32,7 +32,7 @@ export const DEFAULT_UNIVERSAL_FILTERS: UniversalFilterState = {
   sortBy: 'deal_score',
   distanceRange: 'all',
   quickFilter: 'none',
-  weightFilter: 'all',
+  weightFilters: [],
 };
 
 const FILTERS_STORAGE_KEY = 'clouded_filters_v1';
@@ -68,6 +68,11 @@ export function useUniversalFilters() {
       const stored = localStorage.getItem(FILTERS_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
+        // Migrate old single weightFilter → weightFilters array
+        if ('weightFilter' in parsed && !('weightFilters' in parsed)) {
+          parsed.weightFilters = parsed.weightFilter && parsed.weightFilter !== 'all' ? [parsed.weightFilter] : [];
+          delete parsed.weightFilter;
+        }
         return { ...DEFAULT_UNIVERSAL_FILTERS, ...parsed };
       }
     } catch { /* ignore */ }
@@ -140,7 +145,7 @@ export function useUniversalFilters() {
       filters.minDiscount > 0,
       filters.distanceRange !== 'all',
       filters.quickFilter !== 'none',
-      filters.weightFilter !== 'all',
+      filters.weightFilters.length > 0,
     ].filter(Boolean).length;
   }, [filters]);
 
@@ -235,17 +240,21 @@ export function useUniversalFilters() {
       });
     }
 
-    // Weight filter (fuzzy: 850mg matches 0.85g, 1/8 matches 3.5g, etc.)
-    if (filters.weightFilter !== 'all') {
-      if (filters.weightFilter === 'disposable') {
-        // Disposable vapes: match 0.3g, 0.35g, 0.5g (<=0.5g)
-        result = result.filter(d => {
-          if (!d.weight) return false;
-          return weightsMatch(d.weight, '0.3g') || weightsMatch(d.weight, '0.35g') || weightsMatch(d.weight, '0.5g');
-        });
-      } else {
-        result = result.filter(d => weightsMatch(d.weight, filters.weightFilter));
+    // Weight filter — multi-select (match ANY selected weight)
+    if (filters.weightFilters.length > 0) {
+      // Expand "disposable" into its constituent sizes
+      const expandedWeights: string[] = [];
+      for (const w of filters.weightFilters) {
+        if (w === 'disposable') {
+          expandedWeights.push('0.3g', '0.35g', '0.5g');
+        } else {
+          expandedWeights.push(w);
+        }
       }
+      result = result.filter(d => {
+        if (!d.weight) return false;
+        return expandedWeights.some(w => weightsMatch(d.weight, w));
+      });
     }
 
     // Distance range — cumulative (within X miles, not exclusive bands)
