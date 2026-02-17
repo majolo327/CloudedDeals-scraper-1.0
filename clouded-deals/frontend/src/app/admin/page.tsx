@@ -50,6 +50,7 @@ interface FlaggedDeal {
   wrong_price_count: number;
   deal_gone_count: number;
   wrong_product_count: number;
+  reviewed: boolean;
   reports: FlagReport[];
   product: {
     id: string;
@@ -111,20 +112,25 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [flags, setFlags] = useState<FlaggedDeal[]>([]);
   const [flagsLoading, setFlagsLoading] = useState(true);
+  const [flagsError, setFlagsError] = useState<string | null>(null);
   const [expandedFlag, setExpandedFlag] = useState<string | null>(null);
   const [editingFlag, setEditingFlag] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const fetchFlags = useCallback(async () => {
+    setFlagsError(null);
     try {
       const res = await fetch("/api/admin/flags");
       if (res.ok) {
         const body = await res.json();
         setFlags(body.flags ?? []);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setFlagsError(body.error || `API returned ${res.status}`);
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      setFlagsError(err instanceof Error ? err.message : "Failed to fetch flags");
     }
     setFlagsLoading(false);
   }, []);
@@ -333,11 +339,18 @@ export default function AdminDashboard() {
             <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
               Flagged Products
             </h3>
-            {flags.length > 0 && (
-              <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700 dark:bg-red-900/40 dark:text-red-400">
-                {flags.length}
-              </span>
-            )}
+            {flags.length > 0 && (() => {
+              const unreviewed = flags.filter(f => !f.reviewed).length;
+              return (
+                <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                  unreviewed > 0
+                    ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+                    : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                }`}>
+                  {unreviewed > 0 ? unreviewed : flags.length} {unreviewed > 0 ? "new" : "resolved"}
+                </span>
+              );
+            })()}
           </div>
           <button
             onClick={fetchFlags}
@@ -350,6 +363,17 @@ export default function AdminDashboard() {
         {flagsLoading ? (
           <div className="p-4">
             <div className="h-20 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />
+          </div>
+        ) : flagsError ? (
+          <div className="px-4 py-6 text-center">
+            <p className="text-sm text-red-500 dark:text-red-400 mb-1">Failed to load flags</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">{flagsError}</p>
+            <button
+              onClick={fetchFlags}
+              className="text-xs text-blue-500 hover:text-blue-400 underline"
+            >
+              Retry
+            </button>
           </div>
         ) : flags.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-zinc-400">
@@ -364,7 +388,7 @@ export default function AdminDashboard() {
               const prod = flag.product;
 
               return (
-                <div key={flag.deal_id} className="px-4 py-3">
+                <div key={flag.deal_id} className={`px-4 py-3 ${flag.reviewed ? "opacity-50" : ""}`}>
                   {/* Flag header */}
                   <div className="flex items-start justify-between gap-3">
                     <button

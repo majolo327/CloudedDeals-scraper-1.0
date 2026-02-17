@@ -237,7 +237,15 @@ export function useUniversalFilters() {
 
     // Weight filter (fuzzy: 850mg matches 0.85g, 1/8 matches 3.5g, etc.)
     if (filters.weightFilter !== 'all') {
-      result = result.filter(d => weightsMatch(d.weight, filters.weightFilter));
+      if (filters.weightFilter === 'disposable') {
+        // Disposable vapes: match 0.3g, 0.35g, 0.5g (<=0.5g)
+        result = result.filter(d => {
+          if (!d.weight) return false;
+          return weightsMatch(d.weight, '0.3g') || weightsMatch(d.weight, '0.35g') || weightsMatch(d.weight, '0.5g');
+        });
+      } else {
+        result = result.filter(d => weightsMatch(d.weight, filters.weightFilter));
+      }
     }
 
     // Distance range — cumulative (within X miles, not exclusive bands)

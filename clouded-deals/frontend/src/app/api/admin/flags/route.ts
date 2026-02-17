@@ -11,32 +11,47 @@ import { createServiceClient } from '@/lib/supabase';
  */
 
 export async function GET() {
+  let sb;
   try {
-    const sb = createServiceClient();
+    sb = createServiceClient();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[flags] Service client init failed:', msg);
+    return NextResponse.json(
+      { error: `Service client unavailable: ${msg}. Check SUPABASE_SERVICE_ROLE_KEY env var.` },
+      { status: 503 }
+    );
+  }
 
-    // Fetch unreviewed reports with product join
+  try {
+    // Fetch ALL reports (both reviewed and unreviewed) to show historical flags too
     const { data: reports, error } = await sb
       .from('deal_reports')
       .select('*')
-      .eq('reviewed', false)
       .order('created_at', { ascending: false })
-      .limit(200);
+      .limit(500);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('[flags] Query error:', error.message);
+      return NextResponse.json({ error: `DB query failed: ${error.message}` }, { status: 500 });
     }
 
-    // Group by deal_id
+    if (!reports || reports.length === 0) {
+      return NextResponse.json({ flags: [], total_reports: 0 });
+    }
+
+    // Group by deal_id — unreviewed first, then reviewed
     const grouped: Record<string, {
       deal_id: string;
       product_name: string;
       brand_name: string | null;
       dispensary_name: string | null;
       deal_price: number | null;
+      reviewed: boolean;
       reports: typeof reports;
     }> = {};
 
-    for (const r of reports ?? []) {
+    for (const r of reports) {
       if (!grouped[r.deal_id]) {
         grouped[r.deal_id] = {
           deal_id: r.deal_id,
@@ -44,10 +59,14 @@ export async function GET() {
           brand_name: r.brand_name,
           dispensary_name: r.dispensary_name,
           deal_price: r.deal_price,
+          reviewed: true, // will flip to false if any report is unreviewed
           reports: [],
         };
       }
       grouped[r.deal_id].reports.push(r);
+      if (!r.reviewed) {
+        grouped[r.deal_id].reviewed = false;
+      }
     }
 
     // For each flagged deal, fetch current product data
@@ -84,19 +103,31 @@ export async function GET() {
       product: productMap[g.deal_id] ?? null,
     }));
 
-    // Sort by report count descending
-    flags.sort((a, b) => b.report_count - a.report_count);
+    // Sort: unreviewed first, then by report count descending
+    flags.sort((a, b) => {
+      if (a.reviewed !== b.reviewed) return a.reviewed ? 1 : -1;
+      return b.report_count - a.report_count;
+    });
 
-    return NextResponse.json({ flags });
+    return NextResponse.json({ flags, total_reports: reports.length });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Unknown error' },
-      { status: 500 }
-    );
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[flags] Unexpected error:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
 export async function PATCH(request: NextRequest) {
+  let sb;
+  try {
+    sb = createServiceClient();
+  } catch (err) {
+    return NextResponse.json(
+      { error: `Service client unavailable: ${err instanceof Error ? err.message : 'Unknown'}` },
+      { status: 503 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { action, deal_id, updates } = body;
@@ -104,8 +135,6 @@ export async function PATCH(request: NextRequest) {
     if (!action || !deal_id) {
       return NextResponse.json({ error: 'Missing action or deal_id' }, { status: 400 });
     }
-
-    const sb = createServiceClient();
 
     if (action === 'edit_product') {
       // Update product fields
