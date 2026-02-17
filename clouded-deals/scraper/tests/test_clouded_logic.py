@@ -115,6 +115,11 @@ class TestDetectCategory:
         "STIIIZY Pod 0.5g",
         "Disposable Pen 0.3g",
         "Select Essentials Pod 0.5g",
+        "STIIIZY All In One Live Resin 0.5g",
+        "Strawberry AIO Pen 1g",
+        "Ready To Use Vape Pen 0.5g",
+        "Ready-To-Use Live Resin 0.5g",
+        "All-In-One Disposable 0.3g",
     ])
     def test_vape(self, logic, text):
         assert logic.detect_category(text) == "vape"
@@ -403,6 +408,58 @@ class TestDetectBrand:
     def test_cookies_at_start_is_brand(self, logic):
         """'Cookies' at the start IS the Cookies brand."""
         assert logic.detect_brand("Cookies Gary Payton 3.5g") == "Cookies"
+
+    # ---- Expanded cookie-strain blocker coverage ----
+    # GSC is one of the most-crossed parents in cannabis; these strains
+    # should NEVER be tagged as Cookies brand.
+
+    @pytest.mark.parametrize("text", [
+        "Lilac Cookies Badder 1g",
+        "Pink Cookies 3.5g",
+        "Monster Cookies Flower 7g",
+        "Samoa Cookies 3.5g",
+        "Space Cookies 1g Cart",
+        "Key Lime Cookies 3.5g",
+        "Mint Cookies Flower 3.5g",
+        "Banana Cookies Live Resin 1g",
+        "Royal Cookies 3.5g",
+        "Tangerine Cookies 3.5g",
+        "Mac Cookies Flower 3.5g",
+        "Golden Cookies 3.5g",
+        "Frosted Cookies 3.5g",
+        "Peach Cookies 3.5g",
+        "Papaya Cookies 1g",
+        "Mochi Cookies 3.5g",
+        "Diesel Cookies Flower 3.5g",
+        "Gorilla Cookies 3.5g",
+        "Dosi Cookies 3.5g",
+        "Wedding Cookies 3.5g",
+        "GMO Cookies 3.5g",
+        "Cream Cookies 3.5g",
+        "Funky Cookies 3.5g",
+        "Snow Cookies 3.5g",
+        "Moon Cookies 3.5g",
+        "Dirty Cookies 3.5g",
+        "Sour Cookies 3.5g",
+        "Butter Cookies 3.5g",
+        "Honey Cookies 3.5g",
+        "Rainbow Cookies 3.5g",
+        "Red Velvet Cookies 3.5g",
+        "Ice Cream Cookies 3.5g",
+        "Exotic Cookies 3.5g",
+        "Cosmic Cookies 3.5g",
+    ])
+    def test_cookie_cross_strains_not_cookies_brand(self, logic, text):
+        """Common GSC-cross strains must NOT be detected as Cookies brand."""
+        assert logic.detect_brand(text) is None
+
+    def test_cookies_and_cream_strain_not_brand(self, logic):
+        """'Cookies and Cream' is a strain (Starfighter x GSC), not Cookies brand."""
+        assert logic.detect_brand("Cookies and Cream 3.5g") is None
+
+    def test_cookies_n_cream_strain_not_brand(self, logic):
+        """'Cookies N Cream' variant spelling is also a strain."""
+        assert logic.detect_brand("Cookies N Cream 3.5g") is None
 
     def test_brand_with_another_brand_in_strain(self, logic):
         """When a real brand is present alongside a strain-embedded brand word,

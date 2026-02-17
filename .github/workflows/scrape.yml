@@ -1,11 +1,95 @@
 name: Daily Scraper
 
+# Dynamic run name — each scheduled region is identifiable at a glance in the
+# Actions UI (e.g. "Scrape — nevada", "Scrape — michigan (2/4)").
+run-name: >-
+  Scrape — ${{
+    github.event_name == 'workflow_dispatch'
+      && format('{0}{1}', github.event.inputs.region || 'all',
+           github.event.inputs.dry_run == 'true' && ' (dry-run)' || '')
+    || contains(github.event.schedule || '', '0 13') && 'new-york (1/2)'
+    || contains(github.event.schedule || '', '2 13') && 'new-york (2/2)'
+    || contains(github.event.schedule || '', '0 14') && 'new-jersey (1/2)'
+    || contains(github.event.schedule || '', '2 14') && 'new-jersey (2/2)'
+    || contains(github.event.schedule || '', '0 15') && 'ohio (1/2)'
+    || contains(github.event.schedule || '', '2 15') && 'ohio (2/2)'
+    || contains(github.event.schedule || '', '0 16') && 'southern-nv'
+    || contains(github.event.schedule || '', '0 17') && 'michigan (1/4)'
+    || contains(github.event.schedule || '', '2 17') && 'michigan (2/4)'
+    || contains(github.event.schedule || '', '4 17') && 'michigan (3/4)'
+    || contains(github.event.schedule || '', '6 17') && 'michigan (4/4)'
+    || contains(github.event.schedule || '', '0 18') && 'illinois (1/3)'
+    || contains(github.event.schedule || '', '2 18') && 'illinois (2/3)'
+    || contains(github.event.schedule || '', '4 18') && 'illinois (3/3)'
+    || contains(github.event.schedule || '', '0 19') && 'arizona (1/2)'
+    || contains(github.event.schedule || '', '2 19') && 'arizona (2/2)'
+    || contains(github.event.schedule || '', '0 20') && 'colorado (1/3)'
+    || contains(github.event.schedule || '', '2 20') && 'colorado (2/3)'
+    || contains(github.event.schedule || '', '4 20') && 'colorado (3/3)'
+    || contains(github.event.schedule || '', '0 21') && 'missouri (1/2)'
+    || contains(github.event.schedule || '', '2 21') && 'missouri (2/2)'
+    || contains(github.event.schedule || '', '0 22') && 'pennsylvania'
+    || contains(github.event.schedule || '', '0 23') && 'massachusetts (1/2)'
+    || contains(github.event.schedule || '', '2 23') && 'massachusetts (2/2)'
+    || 'scheduled'
+  }}
+
 on:
   schedule:
-    # Cron targets 7:00 AM PST / 8:00 AM PDT (15:00 UTC). GitHub Actions
-    # cron typically runs 15-30 min late, so actual start lands ~7:15-7:30
-    # AM PST (winter) or ~8:15-8:30 AM PDT (summer).
-    - cron: "0 15 * * *"
+    # 24 cron jobs across 11 states, each state in its own hour slot.
+    # States with 60+ sites are sharded into parallel jobs of ≤50 sites
+    # each via round-robin in main.py.  Spread 8 AM–6 PM EST so GHA
+    # runners aren't competing.  NV is the production anchor at 8 AM PST.
+    # PA & MA run late afternoon so store menus are fully updated.
+    # GHA crons run 5-30 min late — account for that.
+    #
+    # ── 8:00 AM EST — New York ────────────────────────────────────
+    - cron: "0 13 * * *"    # new-york-1         — 8:00 AM EST  (shard 1/2, ~37 sites)
+    - cron: "2 13 * * *"    # new-york-2         — 8:02 AM EST  (shard 2/2, ~37 sites)
+    #
+    # ── 9:00 AM EST — New Jersey ──────────────────────────────────
+    - cron: "0 14 * * *"    # new-jersey-1       — 9:00 AM EST  (shard 1/2, ~51 sites)
+    - cron: "2 14 * * *"    # new-jersey-2       — 9:02 AM EST  (shard 2/2, ~51 sites)
+    #
+    # ── 10:00 AM EST — Ohio ───────────────────────────────────────
+    - cron: "0 15 * * *"    # ohio-1             — 10:00 AM EST (shard 1/2, ~39 sites)
+    - cron: "2 15 * * *"    # ohio-2             — 10:02 AM EST (shard 2/2, ~39 sites)
+    #
+    # ── 8:00 AM PST — Nevada ★ production anchor ─────────────────
+    - cron: "0 16 * * *"    # southern-nv        — 8:00 AM PST  (53 sites) ★
+    #
+    # ── 12:00 PM EST — Michigan ───────────────────────────────────
+    - cron: "0 17 * * *"    # michigan-1         — 12:00 PM EST (shard 1/4, ~49 sites)
+    - cron: "2 17 * * *"    # michigan-2         — 12:02 PM EST (shard 2/4, ~49 sites)
+    - cron: "4 17 * * *"    # michigan-3         — 12:04 PM EST (shard 3/4, ~49 sites)
+    - cron: "6 17 * * *"    # michigan-4         — 12:06 PM EST (shard 4/4, ~49 sites)
+    #
+    # ── 1:00 PM EST — Illinois ────────────────────────────────────
+    - cron: "0 18 * * *"    # illinois-1         — 1:00 PM EST  (shard 1/3, ~55 sites)
+    - cron: "2 18 * * *"    # illinois-2         — 1:02 PM EST  (shard 2/3, ~55 sites)
+    - cron: "4 18 * * *"    # illinois-3         — 1:04 PM EST  (shard 3/3, ~55 sites)
+    #
+    # ── 12:00 PM MST — Arizona ────────────────────────────────────
+    - cron: "0 19 * * *"    # arizona-1          — 12:00 PM MST (shard 1/2, ~50 sites)
+    - cron: "2 19 * * *"    # arizona-2          — 12:02 PM MST (shard 2/2, ~50 sites)
+    #
+    # ── 1:00 PM MST — Colorado ────────────────────────────────────
+    - cron: "0 20 * * *"    # colorado-1         — 1:00 PM MST  (shard 1/3, ~44 sites)
+    - cron: "2 20 * * *"    # colorado-2         — 1:02 PM MST  (shard 2/3, ~44 sites)
+    - cron: "4 20 * * *"    # colorado-3         — 1:04 PM MST  (shard 3/3, ~45 sites)
+    #
+    # ── 3:00 PM CST — Missouri ────────────────────────────────────
+    - cron: "0 21 * * *"    # missouri-1         — 3:00 PM CST  (shard 1/2, ~45 sites)
+    - cron: "2 21 * * *"    # missouri-2         — 3:02 PM CST  (shard 2/2, ~44 sites)
+    #
+    # ── 5:00 PM EST — Pennsylvania ────────────────────────────────
+    # (late afternoon — stores open & menus updated all day)
+    - cron: "0 22 * * *"    # pennsylvania       — 5:00 PM EST  (~43 sites)
+    #
+    # ── 6:00 PM EST — Massachusetts ───────────────────────────────
+    # (late afternoon — stores open & menus updated all day)
+    - cron: "0 23 * * *"    # massachusetts-1    — 6:00 PM EST  (shard 1/2, ~56 sites)
+    - cron: "2 23 * * *"    # massachusetts-2    — 6:02 PM EST  (shard 2/2, ~55 sites)
   workflow_dispatch:
     inputs:
       platform_group:
@@ -16,6 +100,46 @@ on:
           - all
           - stable
           - new
+        default: "all"
+      region:
+        description: "Region/state to scrape (sharded states support -1, -2, etc.)"
+        required: false
+        type: choice
+        options:
+          - all
+          - southern-nv
+          - michigan
+          - michigan-1
+          - michigan-2
+          - michigan-3
+          - michigan-4
+          - illinois
+          - illinois-1
+          - illinois-2
+          - illinois-3
+          - arizona
+          - arizona-1
+          - arizona-2
+          - colorado
+          - colorado-1
+          - colorado-2
+          - colorado-3
+          - missouri
+          - missouri-1
+          - missouri-2
+          - new-jersey
+          - new-jersey-1
+          - new-jersey-2
+          - massachusetts
+          - massachusetts-1
+          - massachusetts-2
+          - ohio
+          - ohio-1
+          - ohio-2
+          - new-york
+          - new-york-1
+          - new-york-2
+          - pennsylvania
         default: "all"
       dry_run:
         description: "Dry run (scrape but don't write to DB)"
@@ -33,22 +157,89 @@ on:
         type: string
         default: ""
 
-# Concurrency is scoped by platform group so "stable" and "new" can
-# run in parallel without cancelling each other.
+# Concurrency is scoped per-region so each state runs independently.
+# Scheduled runs key off the cron expression; manual runs key off region input.
 concurrency:
-  group: scraper-${{ github.event.inputs.platform_group || 'stable' }}
+  group: scraper-${{ github.event.schedule || github.event.inputs.region || 'default' }}
   cancel-in-progress: false
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Determine region
+        id: region
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ github.event.inputs.region || 'all' }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 13 * * *" ]; then
+            echo "value=new-york-1" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "2 13 * * *" ]; then
+            echo "value=new-york-2" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 14 * * *" ]; then
+            echo "value=new-jersey-1" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "2 14 * * *" ]; then
+            echo "value=new-jersey-2" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 15 * * *" ]; then
+            echo "value=ohio-1" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "2 15 * * *" ]; then
+            echo "value=ohio-2" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 16 * * *" ]; then
+            echo "value=southern-nv" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 17 * * *" ]; then
+            echo "value=michigan-1" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "2 17 * * *" ]; then
+            echo "value=michigan-2" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "4 17 * * *" ]; then
+            echo "value=michigan-3" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "6 17 * * *" ]; then
+            echo "value=michigan-4" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 18 * * *" ]; then
+            echo "value=illinois-1" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "2 18 * * *" ]; then
+            echo "value=illinois-2" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "4 18 * * *" ]; then
+            echo "value=illinois-3" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 19 * * *" ]; then
+            echo "value=arizona-1" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "2 19 * * *" ]; then
+            echo "value=arizona-2" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 20 * * *" ]; then
+            echo "value=colorado-1" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "2 20 * * *" ]; then
+            echo "value=colorado-2" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "4 20 * * *" ]; then
+            echo "value=colorado-3" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 21 * * *" ]; then
+            echo "value=missouri-1" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "2 21 * * *" ]; then
+            echo "value=missouri-2" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 22 * * *" ]; then
+            echo "value=pennsylvania" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 23 * * *" ]; then
+            echo "value=massachusetts-1" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "2 23 * * *" ]; then
+            echo "value=massachusetts-2" >> $GITHUB_OUTPUT
+          else
+            echo "::error::Unknown schedule '${{ github.event.schedule }}' — cannot determine region"
+            exit 1
+          fi
+
+      - name: Startup jitter
+        if: github.event_name == 'schedule'
+        run: |
+          # Random 0-180s delay so daily crons don't start at the exact
+          # same second every day — reduces bot-detection fingerprint.
+          JITTER=$((RANDOM % 180))
+          echo "Sleeping ${JITTER}s for cron jitter…"
+          sleep "$JITTER"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -77,7 +268,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python test_connection.py
 
-      - name: Run scraper
+      - name: "Run scraper [${{ steps.region.outputs.value }}]"
         working-directory: clouded-deals/scraper
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -85,11 +276,16 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
           LIMIT_DISPENSARIES: ${{ github.event.inputs.limit_dispensaries || 'false' }}
           SINGLE_SITE: ${{ github.event.inputs.single_site || '' }}
-          FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
-          # Cron runs "stable" only; manual dispatch uses the selected group.
+          # Force run — idempotency check in main.py only tracks
+          # platform_group, not region, so a Michigan run would
+          # incorrectly block NV.  Force all scheduled + dispatched
+          # runs until _already_scraped_today() is region-aware.
+          FORCE_RUN: "true"
           PLATFORM_GROUP: ${{ github.event.inputs.platform_group || 'stable' }}
+          REGION: ${{ steps.region.outputs.value }}
         run: |
           echo "=== Scraper Configuration ==="
+          echo "Region:     $REGION"
           echo "Group:      $PLATFORM_GROUP"
           echo "Dry run:    $DRY_RUN"
           echo "Limited:    $LIMIT_DISPENSARIES"
@@ -103,17 +299,19 @@ jobs:
             python main.py
           fi
 
-      - name: Show scrape summary
+      - name: "Show scrape summary [${{ steps.region.outputs.value }}]"
         if: always()
         working-directory: clouded-deals/scraper
+        env:
+          REGION: ${{ steps.region.outputs.value }}
         run: |
           if [ -f scrape_summary.txt ]; then
-            echo "### Scrape Summary" >> $GITHUB_STEP_SUMMARY
+            echo "### Scrape Summary — ${REGION}" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             cat scrape_summary.txt >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo ""
-            echo "=== Scrape Summary ==="
+            echo "=== Scrape Summary — ${REGION} ==="
             cat scrape_summary.txt
           else
             echo "No scrape_summary.txt found (scraper may have crashed before report)"
@@ -123,7 +321,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: debug-screenshots-${{ github.event.inputs.platform_group || 'stable' }}-${{ github.run_id }}
+          name: debug-screenshots-${{ steps.region.outputs.value }}-${{ github.run_id }}
           path: |
             clouded-deals/scraper/debug_screenshots/
           retention-days: 7
@@ -133,7 +331,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: scrape-summary-${{ github.event.inputs.platform_group || 'stable' }}-${{ github.run_id }}
+          name: scrape-summary-${{ steps.region.outputs.value }}-${{ github.run_id }}
           path: |
             clouded-deals/scraper/scrape_summary.txt
           retention-days: 30
@@ -143,7 +341,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: scraper-logs-${{ github.event.inputs.platform_group || 'stable' }}-${{ github.run_id }}
+          name: scraper-logs-${{ steps.region.outputs.value }}-${{ github.run_id }}
           path: |
             clouded-deals/scraper/*.log
           retention-days: 7

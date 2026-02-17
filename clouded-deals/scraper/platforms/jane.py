@@ -16,6 +16,7 @@ Flow:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from typing import Any
@@ -168,8 +169,29 @@ class JaneScraper(BaseScraper):
                 return []
 
         # --- Progressive loading via "View More" -----------------------
+        # Retry up to 2 times with exponential backoff if View More fails
+        _view_more_attempts = 0
+        while _view_more_attempts < 3:
+            try:
+                view_more_clicks = await handle_jane_view_more(target)
+                break  # success
+            except Exception as exc:
+                _view_more_attempts += 1
+                if _view_more_attempts < 3:
+                    backoff = 2 ** _view_more_attempts  # 2s, 4s
+                    logger.warning(
+                        "[%s] 'View More' attempt %d failed (%s) — retrying in %ds",
+                        self.slug, _view_more_attempts, exc, backoff,
+                    )
+                    await asyncio.sleep(backoff)
+                else:
+                    logger.warning(
+                        "[%s] 'View More' loading failed after 3 attempts (%s) — keeping %d products",
+                        self.slug, exc, len(products),
+                    )
+                    view_more_clicks = 0
+
         try:
-            view_more_clicks = await handle_jane_view_more(target)
             if view_more_clicks > 0:
                 # Jane's "View More" appends products to the DOM, so
                 # re-extracting should return everything.  Keep the

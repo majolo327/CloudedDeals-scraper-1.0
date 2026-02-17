@@ -125,8 +125,10 @@ class TestExtractPrices:
         assert r["sale_price"] == 37.0
 
     def test_discount_label_save_filtered(self):
+        # "$30 $5 save" → $30 original, $5 discount → sale = $25
         r = extract_prices("$30 $5 save")
-        assert r["sale_price"] == 30.0
+        assert r["original_price"] == 30.0
+        assert r["sale_price"] == 25.0
 
 
 # =====================================================================
@@ -295,6 +297,15 @@ class TestDetectBrand:
 
     def test_variation_old_pal(self):
         assert detect_brand("Old Pal Flower 3.5g") == "OLD PAL"
+
+    def test_and_shine_exact(self):
+        assert detect_brand("&Shine OG Kush 0.3g") == "&Shine"
+
+    def test_and_shine_mid_text(self):
+        assert detect_brand("Sunset Sherbet &Shine 0.3g") == "&Shine"
+
+    def test_and_shine_variation_space(self):
+        assert detect_brand("& Shine Live Resin 1g") == "&Shine"
 
     def test_no_brand(self):
         assert detect_brand("Random Unknown Product") is None

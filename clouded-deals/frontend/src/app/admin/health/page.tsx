@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 interface PipelineMetrics {
   qualifying_deals: number;
@@ -28,26 +29,102 @@ interface HealthData {
   error?: string;
 }
 
-export default function HealthPage() {
+/**
+ * Admin Health page — queries Supabase directly (no public API endpoint).
+ * Protected by the admin PIN gate via the admin layout.
+ */
+export default function AdminHealthPage() {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/health")
-      .then((res) => res.json())
-      .then(setHealth)
-      .catch(() =>
+    if (!isSupabaseConfigured) {
+      setHealth({
+        status: "down",
+        database: "error",
+        pipeline: null,
+        tables: {},
+        checks: {},
+        timestamp: new Date().toISOString(),
+        error: "Supabase not configured",
+      });
+      setLoading(false);
+      return;
+    }
+
+    (async () => {
+      const timestamp = new Date().toISOString();
+
+      try {
+        // Table row counts
+        const tableNames = ["dispensaries", "products", "scrape_runs"] as const;
+        const tables: Record<string, number> = {};
+
+        for (const table of tableNames) {
+          const { count } = await supabase
+            .from(table)
+            .select("id", { count: "exact", head: true });
+          tables[table] = count ?? 0;
+        }
+
+        // Active deals count
+        const { count: activeDeals } = await supabase
+          .from("products")
+          .select("id", { count: "exact", head: true })
+          .gt("deal_score", 0)
+          .eq("is_active", true);
+        tables["active_deals"] = activeDeals ?? 0;
+
+        // Latest daily metrics
+        let pipeline: PipelineMetrics | null = null;
+        try {
+          const { data } = await supabase
+            .from("daily_metrics")
+            .select("*")
+            .order("run_date", { ascending: false })
+            .limit(1)
+            .single();
+          pipeline = data as PipelineMetrics | null;
+        } catch {
+          // Table may not exist
+        }
+
+        // Quality checks
+        const checks = {
+          hasDealsToday: (tables["active_deals"] ?? 0) > 0,
+          dealCount: tables["active_deals"] ?? 0,
+          edibleCount: pipeline?.edible_count ?? null,
+          prerollCount: pipeline?.preroll_count ?? null,
+          uniqueBrands: pipeline?.unique_brands ?? null,
+          uniqueDispensaries: pipeline?.unique_dispensaries ?? null,
+          avgScore: pipeline?.avg_deal_score ?? null,
+        };
+
+        let status: "healthy" | "degraded" | "down" = "healthy";
+        if (checks.dealCount === 0) {
+          status = "down";
+        } else if (
+          checks.dealCount < 50 ||
+          (checks.edibleCount !== null && checks.edibleCount < 5) ||
+          (checks.prerollCount !== null && checks.prerollCount < 3)
+        ) {
+          status = "degraded";
+        }
+
+        setHealth({ status, database: "connected", pipeline, tables, checks, timestamp });
+      } catch (err) {
         setHealth({
           status: "down",
           database: "error",
           pipeline: null,
           tables: {},
           checks: {},
-          timestamp: new Date().toISOString(),
-          error: "Failed to reach health endpoint",
-        })
-      )
-      .finally(() => setLoading(false));
+          timestamp,
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
+      setLoading(false);
+    })();
   }, []);
 
   const statusColor =
@@ -65,13 +142,9 @@ export default function HealthPage() {
         : "bg-red-500/10 border-red-500/20";
 
   return (
-    <div className="mx-auto max-w-xl px-4 py-12">
-      <h1 className="mb-6 text-2xl font-bold text-zinc-800 dark:text-zinc-100">
-        Health Check
-      </h1>
-
+    <div className="mx-auto max-w-xl">
       {loading ? (
-        <div className="text-sm text-zinc-500">Checking...</div>
+        <div className="text-sm text-zinc-500">Checking pipeline health...</div>
       ) : !health ? (
         <div className="text-sm text-red-500">Failed to load health data</div>
       ) : (
@@ -122,7 +195,7 @@ export default function HealthPage() {
                       {table}
                     </span>
                     <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                      {count}
+                      {typeof count === "number" ? count.toLocaleString() : count}
                     </span>
                   </div>
                 ))}
@@ -137,21 +210,21 @@ export default function HealthPage() {
                 Latest Scrape ({health.pipeline.run_date})
               </h2>
               <div className="space-y-2 text-sm">
-                <Row label="Deals curated" value={health.pipeline.qualifying_deals} />
-                <Row label="Avg score" value={health.pipeline.avg_deal_score} />
+                <MetricRow label="Deals curated" value={health.pipeline.qualifying_deals} />
+                <MetricRow label="Avg score" value={health.pipeline.avg_deal_score} />
                 <div className="border-t border-zinc-100 dark:border-zinc-800 pt-2 mt-2" />
-                <Row label="Flower" value={health.pipeline.flower_count} />
-                <Row label="Vape" value={health.pipeline.vape_count} />
-                <Row label="Edible" value={health.pipeline.edible_count} warn={health.pipeline.edible_count < 10} />
-                <Row label="Concentrate" value={health.pipeline.concentrate_count} />
-                <Row label="Preroll" value={health.pipeline.preroll_count} warn={health.pipeline.preroll_count < 5} />
+                <MetricRow label="Flower" value={health.pipeline.flower_count} />
+                <MetricRow label="Vape" value={health.pipeline.vape_count} />
+                <MetricRow label="Edible" value={health.pipeline.edible_count} warn={health.pipeline.edible_count < 10} />
+                <MetricRow label="Concentrate" value={health.pipeline.concentrate_count} />
+                <MetricRow label="Preroll" value={health.pipeline.preroll_count} warn={health.pipeline.preroll_count < 5} />
                 <div className="border-t border-zinc-100 dark:border-zinc-800 pt-2 mt-2" />
-                <Row label="Brands" value={health.pipeline.unique_brands} />
-                <Row label="Dispensaries" value={health.pipeline.unique_dispensaries} />
+                <MetricRow label="Brands" value={health.pipeline.unique_brands} />
+                <MetricRow label="Dispensaries" value={health.pipeline.unique_dispensaries} />
                 <div className="border-t border-zinc-100 dark:border-zinc-800 pt-2 mt-2" />
-                <Row label="STEAL deals" value={health.pipeline.steal_count} />
-                <Row label="FIRE deals" value={health.pipeline.fire_count} />
-                <Row label="SOLID deals" value={health.pipeline.solid_count} />
+                <MetricRow label="STEAL deals" value={health.pipeline.steal_count} />
+                <MetricRow label="FIRE deals" value={health.pipeline.fire_count} />
+                <MetricRow label="SOLID deals" value={health.pipeline.solid_count} />
               </div>
             </div>
           )}
@@ -173,7 +246,7 @@ export default function HealthPage() {
   );
 }
 
-function Row({
+function MetricRow({
   label,
   value,
   warn,

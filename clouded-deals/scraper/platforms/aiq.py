@@ -506,31 +506,37 @@ class AIQScraper(BaseScraper):
             pass
 
         # Click "Load More" / "View More" buttons until none remain
+        # Each click gets up to 2 retries with backoff before giving up.
         max_clicks = 30  # Green NV has 628 products — may need many clicks
         total_clicked = 0
         for click_num in range(max_clicks):
             clicked = False
             for selector in _LOAD_MORE_SELECTORS:
-                try:
-                    btn = target.locator(selector).first
-                    if await btn.count() > 0 and await btn.is_visible():
-                        await btn.click()
-                        clicked = True
-                        total_clicked += 1
-                        if total_clicked <= 3 or total_clicked % 10 == 0:
-                            logger.info(
-                                "[%s] Clicked '%s' (round %d)",
-                                self.slug, selector, click_num + 1,
-                            )
-                        await asyncio.sleep(1.5)
-                        # Scroll after each click to trigger lazy rendering
-                        try:
-                            await target.evaluate(_JS_SCROLL_AIQ_CONTAINER)
-                        except Exception:
-                            pass
-                        break
-                except Exception:
-                    continue
+                for _retry in range(3):
+                    try:
+                        btn = target.locator(selector).first
+                        if await btn.count() > 0 and await btn.is_visible():
+                            await btn.click()
+                            clicked = True
+                            total_clicked += 1
+                            if total_clicked <= 3 or total_clicked % 10 == 0:
+                                logger.info(
+                                    "[%s] Clicked '%s' (round %d)",
+                                    self.slug, selector, click_num + 1,
+                                )
+                            await asyncio.sleep(1.5)
+                            # Scroll after each click to trigger lazy rendering
+                            try:
+                                await target.evaluate(_JS_SCROLL_AIQ_CONTAINER)
+                            except Exception:
+                                pass
+                        break  # success or button not found
+                    except Exception:
+                        if _retry < 2:
+                            await asyncio.sleep(2 ** (_retry + 1))
+                        continue
+                if clicked:
+                    break
             if not clicked:
                 break
 

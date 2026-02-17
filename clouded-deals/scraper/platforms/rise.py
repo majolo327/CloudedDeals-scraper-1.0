@@ -133,51 +133,6 @@ _JS_WAIT_FOR_PRODUCTS = """
 }
 """
 
-# JS to override webdriver detection for anti-bot evasion
-_JS_STEALTH = """
-() => {
-    // Remove webdriver flag
-    Object.defineProperty(navigator, 'webdriver', { get: () => false });
-    // Fake Chrome runtime (headless lacks this)
-    if (!window.chrome) window.chrome = {};
-    if (!window.chrome.runtime) window.chrome.runtime = {};
-    // Fake plugins/languages to look like a real browser
-    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-    Object.defineProperty(navigator, 'plugins', {
-        get: () => {
-            // Mimic realistic Chrome PluginArray with named entries
-            const fakes = [
-                { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-                { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
-                { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
-            ];
-            const arr = Object.create(PluginArray.prototype);
-            fakes.forEach((p, i) => { arr[i] = p; });
-            Object.defineProperty(arr, 'length', { get: () => fakes.length });
-            return arr;
-        },
-    });
-    // Remove automation-related properties
-    delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
-    delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
-    delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
-}
-"""
-
-# Third-party analytics domains that commonly break Next.js hydration in
-# headless browsers (timing issues, missing APIs, bot detection).
-_BLOCKED_ANALYTICS_PATTERNS = [
-    "*google-analytics.com*",
-    "*googletagmanager.com*",
-    "*facebook.net*",
-    "*doubleclick.net*",
-    "*hotjar.com*",
-    "*segment.io*",
-    "*amplitude.com*",
-    "*tiktok.com*",
-    "*snap.com*",
-]
-
 
 class RiseScraper(BaseScraper):
     """Scraper for Rise (GTI) direct-page dispensary menus."""
@@ -187,17 +142,8 @@ class RiseScraper(BaseScraper):
     _RELOAD_DELAY_SEC = 5
 
     async def scrape(self) -> list[dict[str, Any]]:
-        # Apply stealth before navigation
-        await self.page.add_init_script(_JS_STEALTH)
-
-        # Block third-party analytics that commonly break Next.js hydration
-        # in headless browsers (timing conflicts, bot detection, missing APIs).
-        async def _block(route):
-            await route.abort()
-
-        for pattern in _BLOCKED_ANALYTICS_PATTERNS:
-            await self.page.route(pattern, _block)
-
+        # Stealth overrides and analytics blocking are now applied globally
+        # in BaseScraper.__aenter__ — no per-platform setup needed.
         await self.goto()
         products = await self._attempt_scrape()
 

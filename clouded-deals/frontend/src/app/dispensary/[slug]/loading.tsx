@@ -4,7 +4,7 @@ export default function Loading() {
       {/* Header skeleton */}
       <div
         className="sticky top-0 z-50 border-b h-14 sm:h-16"
-        style={{ backgroundColor: 'rgba(10, 14, 26, 0.92)', borderColor: 'var(--border-subtle)' }}
+        style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderColor: 'rgba(120, 100, 200, 0.08)' }}
       />
 
       <main className="max-w-6xl mx-auto px-4 py-6">
@@ -41,7 +41,7 @@ export default function Loading() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="rounded-xl border p-4 min-h-[180px]"
+              className="rounded-2xl border p-4 min-h-[180px]"
               style={{ backgroundColor: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}
             >
               <div className="h-3 w-16 rounded bg-white/5 mb-2" />

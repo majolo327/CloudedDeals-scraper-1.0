@@ -5,9 +5,6 @@ export { LocationSelector } from './LocationSelector';
 export { ToastContainer } from './Toast';
 export type { ToastData } from './Toast';
 
-// Cards
-export { CompactDealCard } from './cards';
-
 // Layout
 export { AgeGate, Footer, StickyStatsBar } from './layout';
 
@@ -16,9 +13,6 @@ export {
   AccuracyModal,
   DealModal,
   ShareModal,
-  DailyCompleteModal,
-  NineClearModal,
-  ComingSoonModal,
 } from './modals';
 
 // Badges
@@ -29,6 +23,5 @@ export { DealsPage } from './DealsPage';
 export { SearchPage } from './SearchPage';
 export { BrowsePage } from './BrowsePage';
 export { SavedPage } from './SavedPage';
-export { AuthPrompt } from './AuthPrompt';
 export { ContactBanner } from './ContactBanner';
 export { SmsWaitlist } from './SmsWaitlist';

@@ -25,6 +25,14 @@ _RE_WAS_NOW = re.compile(
     re.IGNORECASE,
 )
 
+# "was $15 now $7 off" — the "now" amount is a discount, not a sale price.
+_RE_WAS_NOW_OFF = re.compile(
+    r"was\s+\$\s*(?P<original>[\d]+(?:\.[\d]{1,2})?)"
+    r"\s+now\s+\$\s*(?P<discount>[\d]+(?:\.[\d]{1,2})?)"
+    r"\s*(?:off|save|discount)\b",
+    re.IGNORECASE,
+)
+
 # Any standalone "$XX.XX" token.
 _RE_DOLLAR = re.compile(r"\$\s*(?P<amt>[\d]+(?:\.[\d]{1,2})?)")
 
@@ -66,7 +74,19 @@ def extract_prices(text: str) -> dict[str, Any]:
         "discount_percent": None,
     }
 
-    # Strategy 1 — explicit "was / now" wording.
+    # Strategy 1a — "was $15 now $7 off" (discount amount, NOT sale price).
+    m = _RE_WAS_NOW_OFF.search(text)
+    if m:
+        orig = float(m.group("original"))
+        disc_amt = float(m.group("discount"))
+        inferred_sale = round(orig - disc_amt, 2)
+        if inferred_sale > 3:
+            result["original_price"] = orig
+            result["sale_price"] = inferred_sale
+            result["discount_percent"] = _calc_discount(orig, inferred_sale)
+            return result
+
+    # Strategy 1b — explicit "was / now" wording.
     m = _RE_WAS_NOW.search(text)
     if m:
         result["original_price"] = float(m.group("original"))
@@ -135,6 +155,12 @@ def extract_prices(text: str) -> dict[str, Any]:
     discount_label_spans = [
         (m.start(), m.end()) for m in _RE_DISCOUNT_LABEL.finditer(text)
     ]
+    # Capture discount amounts from labels (e.g. "$7 off" → 7.0)
+    discount_label_amounts = [
+        float(dm.group("amt"))
+        for dm in _RE_DOLLAR.finditer(text)
+        if any(start <= dm.start() < end for start, end in discount_label_spans)
+    ]
     amounts = []
     for m in _RE_DOLLAR.finditer(text):
         # Skip this dollar amount if it falls inside a discount label
@@ -151,6 +177,17 @@ def extract_prices(text: str) -> dict[str, Any]:
         result["original_price"] = original
         result["sale_price"] = sale
         result["discount_percent"] = _calc_discount(original, sale)
+    elif len(amounts) == 1 and discount_label_amounts:
+        # Single price + "$X off" label: compute sale = price - discount
+        price = amounts[0]
+        disc_amt = discount_label_amounts[0]
+        inferred_sale = round(price - disc_amt, 2)
+        if inferred_sale > 3:
+            result["original_price"] = price
+            result["sale_price"] = inferred_sale
+            result["discount_percent"] = _calc_discount(price, inferred_sale)
+        else:
+            result["sale_price"] = price
     elif len(amounts) == 1:
         result["sale_price"] = amounts[0]
 
@@ -166,9 +203,9 @@ def _calc_discount(original: float, sale: float) -> float | None:
 def validate_prices(parsed: dict[str, Any]) -> dict[str, Any]:
     """Post-parse price sanity checks. Fixes common scraping errors.
 
+    - Detects discount amounts misread as sale prices (FIRST)
     - Swaps original/sale when inverted
-    - Detects discount amounts misread as sale prices
-    - Flags suspiciously low prices
+    - Clears fake discounts where prices are equal
     """
     sale = parsed.get("sale_price")
     original = parsed.get("original_price")
@@ -176,25 +213,28 @@ def validate_prices(parsed: dict[str, Any]) -> dict[str, Any]:
     if not sale or sale <= 0:
         return parsed
 
-    # Rule 1: If sale_price > original_price, they're swapped
+    # Rule 1 (was Rule 3): Detect discount amounts misread as sale prices.
+    # Must run BEFORE swap logic so "$X off" values aren't reinterpreted.
+    # Heuristic: sale < $10 and sale < 25% of original → likely a discount
+    # amount (e.g. "$7 off" parsed as "$7").
+    if original and original > sale and sale < 10 and sale / original < 0.25:
+        inferred_sale = original - sale
+        if inferred_sale > 3:
+            parsed["sale_price"] = inferred_sale
+            sale = inferred_sale
+            parsed["discount_percent"] = _calc_discount(original, inferred_sale)
+
+    # Rule 2: If sale_price > original_price, they're swapped
     if original and original < sale:
         parsed["original_price"] = sale
         parsed["sale_price"] = original
         sale, original = original, sale
         parsed["discount_percent"] = _calc_discount(original, sale)
 
-    # Rule 2: If original == sale, no real discount
+    # Rule 3: If original == sale, no real discount
     if original and original == sale:
         parsed["original_price"] = None
         parsed["discount_percent"] = None
-
-    # Rule 3: If sale_price < $3 and we have an original, this might be
-    # a discount amount that slipped through (e.g., "$3 off" parsed as "$3")
-    if sale < 3 and original and original > sale:
-        inferred_sale = original - sale
-        if inferred_sale > 3:
-            parsed["sale_price"] = inferred_sale
-            parsed["discount_percent"] = _calc_discount(original, inferred_sale)
 
     return parsed
 
@@ -492,34 +532,20 @@ BRAND_VARIATIONS: dict[str, list[str]] = {
     "OLD PAL": ["Old Pal", "OLDPAL"],
     "Tyson 2.0": ["Tyson", "Mike Tyson"],
     "Khalifa Kush": ["KK", "Wiz Khalifa"],
-    "Cannabiotix": ["CBX", "C.B.X"],
-    "GLP": ["Green Life Productions", "Green Life"],
-    "Tumbleweed": ["Tumbleweed Extracts"],
-    "Flower One": ["Flower 1", "FlowerOne"],
-}
-
-# Generic words that should NEVER be treated as a brand match even if they
-# slip into KNOWN_BRANDS or match via fuzzy logic.  These are common
-# product-type, strain-type, colour, and promo words that would cause
-# false-positive brand detection on nearly every product listing.
-NOT_BRANDS: set[str] = {
-    # -- Promo / sale copy --
-    "sale", "special", "deal",
-    # -- Product types --
-    "gummies", "flower", "vape", "infused", "preroll", "edible",
-    "concentrate", "extract", "disposable", "tincture", "topical",
-    # -- Strain types --
-    "hybrid", "indica", "sativa", "cbd", "thc",
-    # -- Colours (marketing tiers, not brands) --
-    "black", "white", "blue", "green", "red", "gold", "silver",
-    # -- Generic food / flavour words --
-    "animal", "candy", "fruit", "berry", "cream", "sugar", "honey",
+    "&Shine": ["& Shine", "And Shine"],
 }
 
 # Pre-compile a single pattern for speed (case-insensitive) with word boundaries
 # to prevent false positives like "Raw" matching inside "Strawberry".
+# Brands starting with non-word chars (like "&Shine") use (?:^|\s) instead of \b.
+def _brand_boundary(brand: str) -> str:
+    escaped = re.escape(brand)
+    if brand and not brand[0].isalnum() and brand[0] != '_':
+        return r'(?:^|\s)' + escaped + r'\b'
+    return r'\b' + escaped + r'\b'
+
 _RE_BRAND = re.compile(
-    "|".join(r'\b' + re.escape(b) + r'\b' for b in sorted(KNOWN_BRANDS, key=len, reverse=True)),
+    "|".join(_brand_boundary(b) for b in sorted(KNOWN_BRANDS, key=len, reverse=True)),
     re.IGNORECASE,
 )
 
@@ -531,7 +557,7 @@ for _canon, _variants in BRAND_VARIATIONS.items():
 
 _RE_VARIATION = re.compile(
     "|".join(
-        r'\b' + re.escape(v) + r'\b'
+        _brand_boundary(v)
         for v in sorted(_VARIATION_TO_CANONICAL.keys(), key=len, reverse=True)
     ),
     re.IGNORECASE,
@@ -553,29 +579,33 @@ def detect_brand(text: str) -> str | None:
     # Strategy 1: exact match against canonical brand names.
     m = _RE_BRAND.search(text)
     if m:
-        matched = m.group(0)
-        # Reject matches that are generic / non-brand words
-        if matched.lower() in NOT_BRANDS:
-            pass  # fall through to variation check
-        else:
-            for brand in KNOWN_BRANDS:
-                if brand.lower() == matched.lower():
-                    return brand
-            return matched
+        # Strip leading whitespace from (?:^|\s) groups used by
+        # non-word-char brands like "&Shine".
+        matched = m.group(0).strip()
+        for brand in KNOWN_BRANDS:
+            if brand.lower() == matched.lower():
+                return brand
+        return matched
 
     # Strategy 2: check brand variations.
     if _RE_VARIATION is not None:
         m = _RE_VARIATION.search(text)
         if m:
-            canonical = _VARIATION_TO_CANONICAL[m.group(0).lower()]
-            if canonical.lower() not in NOT_BRANDS:
-                return canonical
+            return _VARIATION_TO_CANONICAL[m.group(0).strip().lower()]
 
     return None
 
 
 # =====================================================================
 # 4. Category detection
+# =====================================================================
+# DEPRECATED: These functions are NOT used in production.
+# The canonical category detection system is CloudedLogic.detect_category()
+# in clouded_logic.py (10-step hierarchical detection with vape/concentrate
+# disambiguation and weight-based inference).
+#
+# These simpler keyword-based functions remain only for test_parser.py
+# backwards compatibility.  Do NOT use them in new code.
 # =====================================================================
 
 CATEGORY_KEYWORDS: dict[str, list[str]] = {

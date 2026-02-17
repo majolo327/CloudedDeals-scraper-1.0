@@ -526,14 +526,15 @@ export function useAnalytics(range: DateRange = '7d') {
 
       if (topDealsRaw.length > 0) {
         const dealIds = topDealsRaw.map((d) => d.deal_id);
+        // deal_save_counts.deal_id references products.id (not the deals table)
         const { data: dealDetails } = await supabase
-          .from('deals')
-          .select('id, product_name, brand:brands(name)')
+          .from('products')
+          .select('id, name, brand')
           .in('id', dealIds);
 
         if (dealDetails) {
           const detailMap = new Map(
-            (dealDetails as unknown as { id: string; product_name: string; brand: { name: string }[] | null }[]).map(
+            (dealDetails as unknown as { id: string; name: string; brand: string | null }[]).map(
               (d) => [d.id, d]
             )
           );
@@ -542,8 +543,8 @@ export function useAnalytics(range: DateRange = '7d') {
             return {
               deal_id: td.deal_id,
               save_count: td.save_count,
-              product_name: detail?.product_name,
-              brand_name: detail?.brand?.[0]?.name,
+              product_name: detail?.name,
+              brand_name: detail?.brand ?? undefined,
             };
           });
         }

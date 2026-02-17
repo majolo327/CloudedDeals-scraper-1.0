@@ -2,7 +2,19 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAnalytics, exportEventsCSV } from '@/hooks/useAnalytics';
+import { supabase } from '@/lib/supabase';
 import type { FunnelStep, DeviceBreakdown, ReferrerSource, DailyVisitors, RetentionCohort, ViralMetrics, GrowthMetrics, DispensaryMetric } from '@/hooks/useAnalytics';
+
+interface ContactRow {
+  id: string;
+  anon_id: string | null;
+  phone: string | null;
+  email: string | null;
+  source: string;
+  saved_deals_count: number | null;
+  zip_entered: string | null;
+  created_at: string;
+}
 
 type DateRange = '24h' | '7d' | '30d' | 'all';
 
@@ -51,6 +63,9 @@ export default function AnalyticsPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [showOps, setShowOps] = useState(false);
+  const [showContacts, setShowContacts] = useState(false);
+  const [contacts, setContacts] = useState<ContactRow[]>([]);
+  const [contactsLoaded, setContactsLoaded] = useState(false);
 
   // Auto-refresh every 30s
   useEffect(() => {
@@ -66,6 +81,39 @@ export default function AnalyticsPage() {
     refresh();
     setLastRefreshed(new Date());
   }, [refresh]);
+
+  // Lazy-load contacts when section is opened
+  useEffect(() => {
+    if (!showContacts || contactsLoaded) return;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('user_contacts')
+          .select('*')
+          .order('created_at', { ascending: false });
+        setContacts((data || []) as ContactRow[]);
+      } catch {
+        // ignore
+      }
+      setContactsLoaded(true);
+    })();
+  }, [showContacts, contactsLoaded]);
+
+  const handleExportContacts = () => {
+    if (!contacts.length) return;
+    const headers = ['phone', 'email', 'source', 'saved_deals_count', 'zip_entered', 'created_at'];
+    const rows = contacts.map(c =>
+      headers.map(h => { const v = c[h as keyof ContactRow]; return v != null ? String(v) : ''; })
+    );
+    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `clouded-contacts-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (loading) {
     return (
@@ -269,12 +317,12 @@ export default function AnalyticsPage() {
       <section>
         <button
           onClick={() => setShowOps(!showOps)}
-          className="w-full flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-5 py-3 dark:border-zinc-800 dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+          className="w-full flex items-center justify-between rounded-xl border border-zinc-300 bg-white px-5 py-3 dark:border-zinc-700 dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
         >
-          <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+          <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             Operational
           </span>
-          <span className="text-xs text-zinc-400">
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
             {showOps ? '\u25B2' : '\u25BC'}
           </span>
         </button>
@@ -317,27 +365,27 @@ export default function AnalyticsPage() {
             <Card title="Live Event Stream">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="border-b border-zinc-100 text-xs text-zinc-500 dark:border-zinc-800">
+                  <thead className="border-b border-zinc-200 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
                     <tr>
-                      <th className="px-4 py-2 font-medium">Time</th>
-                      <th className="px-4 py-2 font-medium">Event</th>
-                      <th className="px-4 py-2 font-medium">User</th>
-                      <th className="px-4 py-2 font-medium">Properties</th>
+                      <th className="px-4 py-2 font-semibold">Time</th>
+                      <th className="px-4 py-2 font-semibold">Event</th>
+                      <th className="px-4 py-2 font-semibold">User</th>
+                      <th className="px-4 py-2 font-semibold">Properties</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                     {recentEvents.slice(0, 50).map((event) => (
-                      <tr key={event.id} className="text-zinc-700 dark:text-zinc-300">
+                      <tr key={event.id} className="text-zinc-800 dark:text-zinc-200">
                         <td className="whitespace-nowrap px-4 py-2 text-xs">
                           {formatTimeAgo(event.created_at)}
                         </td>
                         <td className="px-4 py-2">
                           <EventBadge name={event.event_name} />
                         </td>
-                        <td className="px-4 py-2 font-mono text-xs text-zinc-400">
+                        <td className="px-4 py-2 font-mono text-xs text-zinc-500 dark:text-zinc-400">
                           {event.anon_id.slice(0, 8)}
                         </td>
-                        <td className="px-4 py-2 text-xs text-zinc-400 max-w-xs truncate">
+                        <td className="px-4 py-2 text-xs text-zinc-500 dark:text-zinc-400 max-w-xs truncate">
                           {event.properties ? JSON.stringify(event.properties) : '-'}
                         </td>
                       </tr>
@@ -353,6 +401,104 @@ export default function AnalyticsPage() {
                 </table>
               </div>
             </Card>
+          </div>
+        )}
+      </section>
+
+      {/* ================================================================ */}
+      {/* SECTION 5: CONTACTS & WAITLIST (collapsible)                    */}
+      {/* ================================================================ */}
+      <section>
+        <button
+          onClick={() => setShowContacts(!showContacts)}
+          className="w-full flex items-center justify-between rounded-xl border border-zinc-300 bg-white px-5 py-3 dark:border-zinc-700 dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+              Contacts &amp; Waitlist
+            </span>
+            {contactsLoaded && (
+              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-bold text-purple-700 dark:bg-purple-900/40 dark:text-purple-400">
+                {contacts.length}
+              </span>
+            )}
+          </div>
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            {showContacts ? '\u25B2' : '\u25BC'}
+          </span>
+        </button>
+
+        {showContacts && (
+          <div className="mt-4 space-y-6">
+            {!contactsLoaded ? (
+              <div className="h-32 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+            ) : (
+              <>
+                {/* Stats row */}
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+                  <ContactStatCard label="Total Contacts" value={contacts.length} />
+                  <ContactStatCard label="Phone Numbers" value={contacts.filter(c => c.phone).length} />
+                  <ContactStatCard label="Emails" value={contacts.filter(c => c.email).length} />
+                  <ContactStatCard label="From Saved Deals" value={contacts.filter(c => c.source === 'saved_deals_banner').length} />
+                </div>
+
+                {/* Table */}
+                <Card title={`Recent Contacts (${contacts.length})`}>
+                  <div className="flex justify-end mb-3">
+                    <button
+                      onClick={handleExportContacts}
+                      disabled={!contacts.length}
+                      className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                    >
+                      Export CSV
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="border-b border-zinc-200 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
+                        <tr>
+                          <th className="px-4 py-2 font-semibold">Phone</th>
+                          <th className="px-4 py-2 font-semibold">Email</th>
+                          <th className="px-4 py-2 font-semibold">Source</th>
+                          <th className="px-4 py-2 font-semibold">Saves</th>
+                          <th className="px-4 py-2 font-semibold">Zip</th>
+                          <th className="px-4 py-2 font-semibold">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                        {contacts.slice(0, 50).map((c) => (
+                          <tr key={c.id} className="text-zinc-700 dark:text-zinc-300">
+                            <td className="px-4 py-2 text-xs font-mono">{c.phone || '-'}</td>
+                            <td className="px-4 py-2 text-xs">{c.email || '-'}</td>
+                            <td className="px-4 py-2">
+                              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                                c.source === 'saved_deals_banner'
+                                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400'
+                                  : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
+                              }`}>
+                                {c.source === 'saved_deals_banner' ? 'Saved Deals' : c.source === 'out_of_market' ? 'Out of Market' : c.source}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-xs text-zinc-400">{c.saved_deals_count ?? '-'}</td>
+                            <td className="px-4 py-2 text-xs text-zinc-400">{c.zip_entered || '-'}</td>
+                            <td className="px-4 py-2 text-xs text-zinc-400 whitespace-nowrap">
+                              {new Date(c.created_at).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        ))}
+                        {contacts.length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="px-4 py-8 text-center text-zinc-400">
+                              No contacts captured yet.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </>
+            )}
           </div>
         )}
       </section>
@@ -372,7 +518,7 @@ function trafficLight(value: number, greenThreshold: number, yellowThreshold: nu
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-3">
+    <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-3">
       {children}
     </h2>
   );
@@ -384,9 +530,9 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{title}</h3>
+    <div className="rounded-xl border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+        <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{title}</h3>
       </div>
       <div className="p-4">{children}</div>
     </div>
@@ -408,10 +554,10 @@ function ScoreboardCard({
   };
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white px-4 py-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">{label}</p>
+    <div className="rounded-xl border border-zinc-300 bg-white px-4 py-4 dark:border-zinc-700 dark:bg-zinc-900">
+      <p className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wide">{label}</p>
       <div className="flex items-center gap-2 mt-1.5">
-        <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
+        <p className="text-3xl font-bold text-zinc-900 dark:text-white">
           {typeof value === 'number' ? value.toLocaleString() : value}
         </p>
         {indicator && (
@@ -428,14 +574,14 @@ function ProgressCard({ current, goal, pct }: { current: number; goal: number; p
   const nextMilestone = milestones.find((m) => m > current) ?? goal;
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-gradient-to-r from-green-50 to-emerald-50 dark:border-zinc-800 dark:from-green-950/30 dark:to-emerald-950/30">
+    <div className="rounded-xl border border-green-300 bg-gradient-to-r from-green-50 to-emerald-50 dark:border-green-800 dark:from-green-950/50 dark:to-emerald-950/50">
       <div className="px-5 py-4">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+            <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
               Progress to {goal.toLocaleString()} Unique Visitors
             </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+            <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mt-0.5">
               Next milestone: {nextMilestone.toLocaleString()}
             </p>
           </div>
@@ -636,22 +782,22 @@ function RetentionCohortsCard({ cohorts }: { cohorts: RetentionCohort[] }) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-500">Cohort Week</th>
-                <th className="px-3 py-2 text-center text-xs font-medium text-zinc-500">Users</th>
-                <th className="px-3 py-2 text-center text-xs font-medium text-zinc-500">Day 1</th>
-                <th className="px-3 py-2 text-center text-xs font-medium text-zinc-500">Day 3</th>
-                <th className="px-3 py-2 text-center text-xs font-medium text-zinc-500">Day 7</th>
-                <th className="px-3 py-2 text-center text-xs font-medium text-zinc-500">Day 14</th>
+              <tr className="border-b border-zinc-200 dark:border-zinc-700">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400">Cohort Week</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-600 dark:text-zinc-400">Users</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-600 dark:text-zinc-400">Day 1</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-600 dark:text-zinc-400">Day 3</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-600 dark:text-zinc-400">Day 7</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-600 dark:text-zinc-400">Day 14</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {cohorts.map((c) => (
                 <tr key={c.cohortDate}>
-                  <td className="px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                  <td className="px-3 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-200">
                     {c.cohortDate}
                   </td>
-                  <td className="px-3 py-2 text-center text-xs font-bold text-zinc-600 dark:text-zinc-300">
+                  <td className="px-3 py-2 text-center text-xs font-bold text-zinc-800 dark:text-zinc-200">
                     {c.cohortSize}
                   </td>
                   {[c.day1, c.day3, c.day7, c.day14].map((pct, i) => (
@@ -924,9 +1070,9 @@ function ViralCard({ viral, range }: { viral: ViralMetrics; range: string }) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       {/* K-Factor headline card */}
-      <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-          <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Viral Coefficient (K-Factor)</h3>
+      <div className="rounded-xl border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Viral Coefficient (K-Factor)</h3>
         </div>
         <div className="p-5">
           <div className="flex items-center gap-4 mb-6">
@@ -938,33 +1084,33 @@ function ViralCard({ viral, range }: { viral: ViralMetrics; range: string }) {
                 kIndicator === 'green' ? 'bg-green-500' : kIndicator === 'yellow' ? 'bg-amber-400' : 'bg-red-500'
               }`} />
             </div>
-            <div className="text-xs text-zinc-500 dark:text-zinc-400">
-              <p>Target: <span className="font-bold text-zinc-700 dark:text-zinc-300">&ge; 0.3</span></p>
-              <p className="mt-0.5">Viral at: <span className="font-bold text-zinc-700 dark:text-zinc-300">&ge; 1.0</span></p>
-              <p className="mt-0.5 text-[10px]">{range} window</p>
+            <div className="text-xs text-zinc-600 dark:text-zinc-400">
+              <p>Target: <span className="font-bold text-zinc-800 dark:text-zinc-200">&ge; 0.3</span></p>
+              <p className="mt-0.5">Viral at: <span className="font-bold text-zinc-800 dark:text-zinc-200">&ge; 1.0</span></p>
+              <p className="mt-0.5 text-[11px]">{range} window</p>
             </div>
           </div>
 
           {/* Breakdown metrics */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg bg-zinc-50 dark:bg-zinc-800/50 px-3 py-2.5">
-              <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide">Shares</p>
-              <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{viral.sharesInRange}</p>
-              <p className="text-[10px] text-zinc-400">{viral.sharesToday} today</p>
+            <div className="rounded-lg bg-zinc-100 dark:bg-zinc-800 px-3 py-2.5">
+              <p className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wide">Shares</p>
+              <p className="text-lg font-bold text-zinc-900 dark:text-white">{viral.sharesInRange}</p>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{viral.sharesToday} today</p>
             </div>
-            <div className="rounded-lg bg-zinc-50 dark:bg-zinc-800/50 px-3 py-2.5">
-              <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide">Link Views</p>
-              <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{viral.sharedPageViews}</p>
-              <p className="text-[10px] text-zinc-400">{viral.shareViewRate}% view rate</p>
+            <div className="rounded-lg bg-zinc-100 dark:bg-zinc-800 px-3 py-2.5">
+              <p className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wide">Link Views</p>
+              <p className="text-lg font-bold text-zinc-900 dark:text-white">{viral.sharedPageViews}</p>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{viral.shareViewRate}% view rate</p>
             </div>
-            <div className="rounded-lg bg-zinc-50 dark:bg-zinc-800/50 px-3 py-2.5">
-              <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide">Ref. Clicks</p>
-              <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{viral.referralClicks}</p>
+            <div className="rounded-lg bg-zinc-100 dark:bg-zinc-800 px-3 py-2.5">
+              <p className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wide">Ref. Clicks</p>
+              <p className="text-lg font-bold text-zinc-900 dark:text-white">{viral.referralClicks}</p>
             </div>
-            <div className="rounded-lg bg-zinc-50 dark:bg-zinc-800/50 px-3 py-2.5">
-              <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide">Conversions</p>
-              <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{viral.referralConversions}</p>
-              <p className="text-[10px] text-zinc-400">{viral.clickToConversionRate}% click→save</p>
+            <div className="rounded-lg bg-zinc-100 dark:bg-zinc-800 px-3 py-2.5">
+              <p className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wide">Conversions</p>
+              <p className="text-lg font-bold text-zinc-900 dark:text-white">{viral.referralConversions}</p>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{viral.clickToConversionRate}% click→save</p>
             </div>
           </div>
         </div>
@@ -1040,6 +1186,17 @@ function ViralCard({ viral, range }: { viral: ViralMetrics; range: string }) {
         </Card>
         </div>
       )}
+    </div>
+  );
+}
+
+function ContactStatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-white px-4 py-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">{label}</p>
+      <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">
+        {value.toLocaleString()}
+      </p>
     </div>
   );
 }

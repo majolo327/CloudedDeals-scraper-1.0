@@ -48,14 +48,13 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
 
   return (
     <div
-      data-coach="deal-card"
       onClick={onClick}
-      className={`group glass frost rounded-xl p-3 sm:p-4 cursor-pointer transition-gentle card-interactive h-full flex flex-col ${
+      className={`group glass frost rounded-2xl p-3 sm:p-4 xl:p-5 cursor-pointer transition-gentle card-interactive h-full flex flex-col ${
         isExpired ? 'opacity-50 saturate-[0.6]' : ''
       } ${
         isSaved
           ? 'card-saved'
-          : 'hover:border-[rgba(99,115,171,0.22)] hover:bg-[rgba(28,35,56,0.8)]'
+          : 'hover:border-[rgba(120,100,200,0.2)] hover:bg-[rgba(22,28,52,0.85)]'
       }`}
     >
       {/* Top row: brand + save */}
@@ -81,7 +80,6 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
           )}
         </div>
         <button
-          data-coach="save-button"
           onClick={(e) => {
             e.stopPropagation();
             onSave();
@@ -122,7 +120,7 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
 
       {/* Price — sale price only, big and clean */}
       <div className="mb-2 sm:mb-3 flex items-baseline gap-1.5">
-        <span className="text-base sm:text-xl font-mono font-bold text-white">${deal.deal_price}</span>
+        <span className="text-base sm:text-xl font-mono font-bold text-white" style={{ textShadow: '0 0 12px rgba(168, 85, 247, 0.15)' }}>${deal.deal_price}</span>
         {deal.category === 'flower' && (() => {
           const ppg = getPricePerUnit(deal);
           return ppg ? <span className="text-[10px] text-slate-500 font-medium">{ppg}</span> : null;

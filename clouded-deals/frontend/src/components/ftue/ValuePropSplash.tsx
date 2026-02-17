@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, MapPin, DollarSign, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 
 interface ValuePropSplashProps {
@@ -11,9 +11,9 @@ interface ValuePropSplashProps {
 
 export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSplashProps) {
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col overflow-y-auto">
+    <div className="fixed inset-0 z-[100] flex flex-col overflow-y-auto" style={{ backgroundColor: 'var(--surface-0)' }}>
       {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-purple-950/25 via-slate-950 to-slate-950 pointer-events-none" />
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(88, 28, 135, 0.18) 0%, transparent 60%)' }} />
 
       {/* Skip */}
       <div className="relative z-10 flex justify-end p-4">
@@ -39,38 +39,40 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
 
         {/* Headline */}
         <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 max-w-md leading-tight animate-in fade-in slide-in-from-bottom-2 duration-500">
-          Every Deal. Every Dispensary.{' '}
+          Stop overpaying{' '}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-purple-400">
-            One Place.
+            for weed.
           </span>
         </h2>
 
-        {/* Subtext */}
-        <p className="text-base text-slate-400 max-w-sm leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
-          We checked every dispensary this morning so you don&apos;t have to. Save what you love, skip what you don&apos;t &mdash; your feed gets smarter.
+        {/* Subtext — dynamic deal count baked in, single line */}
+        <p className="text-lg text-slate-300 max-w-sm leading-relaxed mb-6 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
+          {dealCount > 0
+            ? `${dealCount} deals updated today. Every dispensary in Vegas.`
+            : 'Every deal from every dispensary in Vegas. Updated daily.'}
         </p>
 
-        {/* Feature callouts */}
+        {/* Feature callouts — action-oriented, scannable */}
         <div className="w-full max-w-sm space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
           {[
             {
               icon: Search,
-              title: 'Search & Filter',
-              desc: 'Flower, vapes, edibles, concentrates, pre-rolls — search any brand or dispensary by name',
+              title: 'Search any brand',
+              desc: 'Flower, vapes, edibles, concentrates — find your go-to or discover something new',
               color: 'text-purple-400 bg-purple-500/10',
             },
             {
               icon: MapPin,
-              title: 'One-Tap Directions',
-              desc: 'Every dispensary in Vegas, one tap away. Sort by distance.',
+              title: 'Get directions',
+              desc: 'One tap to any dispensary in Vegas, sorted by distance',
               color: 'text-emerald-400 bg-emerald-500/10',
             },
             {
               icon: DollarSign,
-              title: 'Updated Daily',
+              title: 'Save deals you like',
               desc: dealCount > 0
-                ? `${dealCount} deals today. Updated before you wake up.`
-                : '27 dispensaries. Every deal. Updated daily.',
+                ? `Tap the heart, build your list. ${dealCount} deals live right now.`
+                : 'Tap the heart to save. 27 dispensaries checked every morning.',
               color: 'text-amber-400 bg-amber-500/10',
             },
           ].map((feature) => (
@@ -83,16 +85,11 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
               </div>
               <div className="text-left">
                 <p className="text-sm font-semibold text-white">{feature.title}</p>
-                <p className="text-xs text-slate-500 leading-relaxed">{feature.desc}</p>
+                <p className="text-sm text-slate-400 leading-relaxed">{feature.desc}</p>
               </div>
             </div>
           ))}
         </div>
-
-        {/* Future teaser */}
-        <p className="mt-6 text-[11px] text-slate-600 max-w-xs leading-relaxed animate-in fade-in duration-500 delay-300">
-          Coming soon: brand loyalty perks, VIP rewards &amp; giveaways
-        </p>
       </div>
 
       {/* CTA */}
@@ -104,7 +101,7 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
           }}
           className="w-full py-4 min-h-[56px] bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white font-semibold text-base rounded-2xl shadow-lg shadow-purple-500/20 transition-all flex items-center justify-center gap-2"
         >
-          Show Me Deals
+          See Today&apos;s Deals
           <ArrowRight className="w-5 h-5" />
         </button>
       </div>

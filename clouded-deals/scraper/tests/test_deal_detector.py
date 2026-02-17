@@ -87,7 +87,7 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is False
 
     def test_at_min_discount_passes(self, make_product):
-        """15% discount is now the minimum (relaxed from 20%)."""
+        """15% discount is the minimum — prevents non-deals from displacing steals."""
         p = make_product(sale_price=15.0, original_price=30.0, discount_percent=15,
                          category="flower", weight_value=3.5)
         assert passes_hard_filters(p) is True
@@ -123,18 +123,18 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is False
 
     def test_flower_7g_at_cap(self, make_product):
-        p = make_product(category="flower", sale_price=45.0, original_price=90.0,
+        p = make_product(category="flower", sale_price=40.0, original_price=80.0,
                          discount_percent=50, weight_value=7)
         assert passes_hard_filters(p) is True
 
     def test_flower_7g_over_cap(self, make_product):
-        p = make_product(category="flower", sale_price=46.0, original_price=90.0,
+        p = make_product(category="flower", sale_price=41.0, original_price=80.0,
                          discount_percent=49, weight_value=7)
         assert passes_hard_filters(p) is False
 
     def test_flower_14g_at_cap(self, make_product):
-        p = make_product(category="flower", sale_price=65.0, original_price=100.0,
-                         discount_percent=35, weight_value=14)
+        p = make_product(category="flower", sale_price=55.0, original_price=100.0,
+                         discount_percent=45, weight_value=14)
         assert passes_hard_filters(p) is True
 
     def test_flower_no_weight_uses_35g_default(self, make_product):
@@ -145,13 +145,13 @@ class TestPassesHardFilters:
     # ── Flat-cap categories (relaxed) ────────────────────────────────
 
     def test_vape_at_cap(self, make_product):
-        p = make_product(category="vape", sale_price=35.0, original_price=70.0,
+        p = make_product(category="vape", sale_price=28.0, original_price=56.0,
                          discount_percent=50)
         assert passes_hard_filters(p) is True
 
     def test_vape_over_cap(self, make_product):
-        p = make_product(category="vape", sale_price=36.0, original_price=70.0,
-                         discount_percent=49)
+        p = make_product(category="vape", sale_price=29.0, original_price=56.0,
+                         discount_percent=48)
         assert passes_hard_filters(p) is False
 
     def test_edible_at_cap(self, make_product):
@@ -170,13 +170,13 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is True
 
     def test_preroll_at_cap(self, make_product):
-        p = make_product(category="preroll", sale_price=10.0, original_price=20.0,
+        p = make_product(category="preroll", sale_price=9.0, original_price=18.0,
                          discount_percent=50)
         assert passes_hard_filters(p) is True
 
     def test_preroll_over_cap(self, make_product):
-        p = make_product(category="preroll", sale_price=11.0, original_price=20.0,
-                         discount_percent=45)
+        p = make_product(category="preroll", sale_price=10.0, original_price=20.0,
+                         discount_percent=50)
         assert passes_hard_filters(p) is False
 
     # ── Unknown category ───────────────────────────────────────────
@@ -541,7 +541,7 @@ class TestSelectTopDeals:
     def test_tight_caps_when_pool_is_ample(self, make_product):
         """When the pool is diverse enough, round 1 fills > 85% and tight caps apply."""
         deals = []
-        brands = [f"Brand{i}" for i in range(40)]
+        brands = [f"Brand{i}" for i in range(60)]
         dispensaries = [f"Dispo{i}" for i in range(25)]
         categories = ["flower", "vape", "edible", "concentrate", "preroll"]
         score = 90
@@ -557,7 +557,7 @@ class TestSelectTopDeals:
                         deal_score=max(20, score - i - j),
                     ))
         result = select_top_deals(deals)
-        # With 40 brands × 5 cats × 3 = 600 deals, 25 dispensaries,
+        # With 60 brands × 5 cats × 3 = 900 deals, 25 dispensaries,
         # round 1 should fill fine and tight caps should hold.
         brand_counts = Counter(d["brand"] for d in result if d.get("brand"))
         for brand, count in brand_counts.items():
@@ -645,7 +645,7 @@ class TestConstants:
             assert isinstance(b, str) and len(b) > 0
 
     def test_category_price_caps_complete(self):
-        expected = {"flower", "vape", "edible", "concentrate", "preroll", "preroll_pack"}
+        expected = {"flower", "vape", "edible", "concentrate", "preroll", "preroll_pack", "infused_preroll"}
         assert expected == set(CATEGORY_PRICE_CAPS.keys())
 
     def test_flower_caps_all_weights(self):

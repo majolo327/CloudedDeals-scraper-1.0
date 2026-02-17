@@ -6,15 +6,19 @@
 
 ## What This Is
 
-A web scraper that visits 61 cannabis dispensary websites across Southern Nevada every morning, extracts their menus and pricing, detects deals worth showing users, scores them, and pushes the top 200 to our Supabase database. The frontend reads from that database.
+A web scraper that visits cannabis dispensary websites every morning, extracts their menus and pricing, detects deals worth showing users, scores them, and pushes the top 200 to our Supabase database. The frontend reads from that database.
 
-It runs as a GitHub Actions cron job. No servers to maintain.
+It runs as GitHub Actions cron jobs. No servers to maintain.
+
+**Multi-state data collection (Feb 2026):** We now scrape across 4 states — Nevada (production/consumer-facing), plus Michigan, Illinois, and Arizona for data collection and ML training purposes. New-state data is collected but NOT displayed on the consumer frontend. This gives us millions of data points for B2B value, brand intelligence, and ML model training before we ever launch in those markets.
 
 ---
 
 ## Coverage
 
-**61 active dispensaries** across 6 menu platforms:
+**382 active dispensaries** across 6 states and 6 menu platforms:
+
+### Nevada (Production — Consumer-Facing) — 63 dispensaries
 
 | Platform | Sites | Status | Examples |
 |----------|-------|--------|----------|
@@ -22,41 +26,94 @@ It runs as a GitHub Actions cron job. No servers to maintain.
 | **Curaleaf** | 4 | Stable (daily cron) | Curaleaf Western/Strip/NLV/Reef |
 | **Jane** | 19 | Stable (daily cron) | Oasis, Deep Roots, Cultivate, Thrive, Beyond/Hello, Exhale, Tree of Life, Sanctuary, The Source |
 | **Rise** | 9 | **Disabled** (Cloudflare Turnstile) | Rise x6, Cookies Strip, Cookies Flamingo, Rise Henderson |
-| **Carrot** | 6 | New (manual trigger) | Wallflower, Inyo, Jenny's, Euphoria, Silver Sage, ShowGrow |
-| **AIQ** | 5 | New (manual trigger) | Green NV, Pisos, Jardin, Nevada Made Casino Dr/Charleston |
+| **Carrot** | 6 | Stable (daily cron) | Wallflower, Inyo, Jenny's, Euphoria, Silver Sage, ShowGrow |
+| **AIQ** | 5 | Stable (daily cron) | Green NV, Pisos, Jardin, Nevada Made Casino Dr/Charleston |
 
 Plus 2 inactive AIQ sites (Nevada Made Henderson/Warm Springs — returning 403s).
 
 **Not covered:** Top Notch (Weedmaps — different ecosystem entirely).
 
+### Michigan (Data Collection — NOT Consumer-Facing) — 114 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Dutchie** | 111 | Lume (37), Skymint (11), JARS (12), Cloud Cannabis (8), Joyology (9), High Profile (6), Pinnacle (5), Pleasantrees (5), Herbana (3), Detroit independents (11), Lansing/Flint (4) |
+| **Curaleaf** | 3 | Curaleaf MI (2), Zen Leaf Buchanan (1) |
+
+### Illinois (Data Collection — NOT Consumer-Facing) — 88 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Rise** | 10 | Rise Mundelein, Niles, Naperville, Lake in the Hills, Effingham, Canton, Quincy, Joliet, Charleston, Joliet Rock Creek |
+| **Curaleaf** | 14 | Curaleaf IL (5), Zen Leaf IL (9) |
+| **Dutchie** | 35 | Ascend (10), Windy City (5), Thrive IL (5), Mission (3), Maribis (2), Curaleaf-Dutchie (5), Planet 13 IL, Village (2), Lux Leaf, Share |
+| **Jane** | 29 | Beyond/Hello (5), Verilife (8), Consume (6), nuEra (5), EarthMed (3), Hatch (2) |
+
+### Arizona (Data Collection — NOT Consumer-Facing) — 52 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Dutchie** | 44 | Trulieve/Harvest (12), Sol Flower (6), The Mint (4), Nature's Medicines (3), Nirvana (4), Ponderosa (7), Cookies, TruMed, Noble Herb, Earth's Healing, Tucson Saints, Story AZ, Curaleaf-Dutchie (2) |
+| **Curaleaf** | 8 | Curaleaf AZ (4), Zen Leaf AZ (4) |
+
+### Missouri (Data Collection — NOT Consumer-Facing) — 31 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Dutchie** | 31 | Key Missouri (9), Greenlight (10), From The Earth (3), Green Releaf (3), Terrabis (1), Bloc MO (2), Star Buds, Nature Med, Rock Port |
+
+**Market context:** $1.53B in 2025 sales (5th largest adult-use market nationally). 214 licensed dispensaries. Top brands: Illicit, Flora Farms, Vivid, Sinse, Proper, Clovr, Good Day Farm.
+
+### New Jersey (Data Collection — NOT Consumer-Facing) — 34 dispensaries
+
+| Platform | Sites | Chains |
+|----------|-------|--------|
+| **Dutchie** | 29 | Ascend (3), Curaleaf NJ (5, migrated to Dutchie!), AYR/GSD (3), MPX NJ (4), Sweetspot (3), Bloc NJ (3), Cookies Harrison, independents (7) |
+| **Rise** | 2 | Rise Bloomfield, Rise Paterson |
+| **Curaleaf** | 3 | Zen Leaf Elizabeth, Lawrence, Neptune |
+
+**Market context:** $1B+ in 2024 sales. 190+ licensed dispensaries. NYC metro 20M+ pop. Key insight: Curaleaf NJ migrated to Dutchie — scrapes via dutchie.py. Top brands: Rythm (GTI), Kind Tree (TerrAscend), Verano, Ozone (Ascend), Cookies, Fernway.
+
 ---
 
 ## How It Runs
 
-### Daily Automatic (Stable Group)
-- **When:** 8:00 AM Pacific, every day
-- **What runs:** Dutchie + Curaleaf + Jane = 41 dispensaries
-- **Duration:** ~30-60 min depending on site response times
-- **Where:** GitHub Actions (`.github/workflows/scrape.yml`)
-- **Cost:** Free tier GitHub Actions minutes
+### Daily Automatic (Staggered by Region)
+Each region runs on its own cron schedule, spaced by **local time zone**:
 
-### Manual Trigger (New Platforms or Full Run)
+| Region | Cron (UTC) | Local Time | Timezone | Dispensaries |
+|--------|-----------|------------|----------|--------------|
+| **southern-nv** | 16:00 | 8:00 AM PST | Pacific (UTC-8) | 63 |
+| **arizona** | 18:00 | 11:00 AM MST | Arizona (UTC-7, no DST) | 52 |
+| **illinois** | 19:30 | 1:30 PM CST | Central (UTC-6) | 88 |
+| **missouri** | 21:00 | 3:00 PM CST | Central (UTC-6) | 31 |
+| **michigan** | 22:00 | 5:00 PM EST | Eastern (UTC-5) | 114 |
+| **new-jersey** | 23:00 | 6:00 PM EST | Eastern (UTC-5) | 34 |
+
+- **Where:** GitHub Actions (`.github/workflows/scrape.yml`)
+- **Duration:** ~30-60 min per region
+- **Isolation:** Each region runs independently — failures don't affect other states
+- **Concurrency:** Each region has its own concurrency group so runs never queue behind other states
+
+### Manual Trigger
 Go to GitHub repo > **Actions** tab > **Daily Scraper** > **Run workflow**:
 
 | Input | Options | What it does |
 |-------|---------|--------------|
-| **Platform group** | `all` / `stable` / `new` | Which dispensaries to scrape |
+| **Platform group** | `all` / `stable` / `new` | Which platforms to scrape |
+| **Region** | `all` / `southern-nv` / `michigan` / `illinois` / `arizona` / `missouri` / `new-jersey` | Which state to scrape |
 | **Dry run** | true/false | Scrape but don't write to DB (for testing) |
 | **Limited** | true/false | Only 1 site per platform (quick smoke test) |
 | **Single site** | slug like `td-gibson` | Scrape just one site |
 
-**Key rule:** Stable and New groups don't interfere with each other. Running "stable" won't delete yesterday's "new" data. They can even run simultaneously.
-
-### Typical Morning Workflow
-1. 8 AM — Stable cron fires automatically (Dutchie/Curaleaf/Jane)
-2. ~9 AM — Check if it succeeded (Actions tab, green check)
-3. When ready — Manually trigger "new" group (Rise/Carrot/AIQ)
-4. Both groups' data coexists in the DB
+### Typical Daily Workflow
+1. 8:00 AM PST — Nevada production cron fires (63 dispensaries)
+2. 11:00 AM MST — Arizona cron fires (52 dispensaries)
+3. 1:30 PM CST — Illinois cron fires (88 dispensaries)
+4. 3:00 PM CST — Missouri cron fires (31 dispensaries)
+5. 5:00 PM EST — Michigan cron fires (114 dispensaries)
+6. 6:00 PM EST — New Jersey cron fires (34 dispensaries)
+7. ~7 PM EST / ~4 PM PST — All 6 regions complete, check Actions tab for green checks
 
 ---
 
@@ -123,7 +180,7 @@ Stratified by category to ensure variety:
 
 | Table | Purpose | Key fields |
 |-------|---------|------------|
-| `dispensaries` | All 63 sites (61 active) | slug, name, url, platform, is_active |
+| `dispensaries` | All 382 sites across 6 states | slug, name, url, platform, region, is_active |
 | `products` | Every scraped product | dispensary_id, name, brand, category, sale_price, original_price, discount_percent, deal_score, is_active, scraped_at |
 | `deals` | Top 200 qualifying deals | product_id, dispensary_id, deal_score |
 | `scrape_runs` | Audit trail per run | status, platform_group, total_products, qualifying_deals, runtime_seconds |
@@ -141,7 +198,7 @@ clouded-deals/scraper/
   deal_detector.py           # Deal scoring & top-200 selection
   product_classifier.py      # Infused/pack detection
   parser.py                  # Price/weight/THC extraction
-  config/dispensaries.py     # All 61 site configs + platform groups
+  config/dispensaries.py     # All 382 site configs + platform groups
   platforms/
     dutchie.py               # Dutchie scraper (iframe/JS embed)
     curaleaf.py              # Curaleaf scraper
@@ -173,6 +230,17 @@ Set as GitHub Actions secrets:
 | `SUPABASE_SERVICE_KEY` | Service role key (full DB access) |
 
 These are the only two secrets. Everything else is configured in code.
+
+**Environment variables (set in workflow, not secrets):**
+
+| Variable | Options | What it does |
+|----------|---------|--------------|
+| `PLATFORM_GROUP` | `all` / `stable` / `new` | Which platforms to include |
+| `REGION` | `all` / `southern-nv` / `michigan` / `illinois` / `arizona` | Which state to scrape |
+| `DRY_RUN` | `true` / `false` | Skip DB writes |
+| `FORCE_RUN` | `true` / `false` | Skip idempotency check |
+| `LIMIT_DISPENSARIES` | `true` / `false` | 1 site per platform |
+| `SINGLE_SITE` | slug | Scrape just one site |
 
 ---
 
@@ -578,6 +646,62 @@ These are the tactical engineering tasks that make the product production-grade.
 - [ ] SLV double age gate may break if Treez changes — monitor
 - [ ] Gamification features (streaks, challenges, milestones) may need tuning based on user feedback
 
+### 10. Security & Abuse Prevention
+
+**Current state (Feb 16, 2026):** Solid foundation in place. Three hardening items shipped today, remaining items sequenced by priority.
+
+#### Shipped
+
+- [x] **Per-IP rate limiting** on all API routes via Next.js edge middleware (sliding window, in-memory Map)
+  - `/api/search`: 20 req/60s (most abusable — arbitrary user queries)
+  - `/api/health`: 30 req/60s (public monitoring, returns status only — no business metrics)
+  - `/api/admin`: 20 req/60s (defense-in-depth behind PIN gate)
+  - `/api/deals`: 10 req/60s (cron-only endpoints)
+- [x] **Health endpoint hardened** — `/api/health` stripped to return only `{status, database, timestamp}`. Full pipeline metrics (deal counts, categories, brands, scores) moved to `/admin/health` behind PIN gate. Competitors can no longer poll business intelligence from the public endpoint
+- [x] **Search routed through API** — `searchExtendedDeals()` now calls `/api/search` server-side instead of querying Supabase directly from the browser. Rate-limited at 20 searches/min per IP. Prevents bots from enumerating the product catalog
+- [x] **Anonymous insert caps** (migration `035_anonymous_insert_rate_limits.sql`) — RLS policies cap daily inserts per anon_id:
+  - `analytics_events`: 500/day
+  - `user_events`: 500/day
+  - `user_saved_deals`: 100/day
+  - `user_dismissed_deals`: 500/day
+  - `deal_reports`: 20/day
+- [x] **Admin PIN gate** — 6-digit PIN with constant-time comparison, 5-attempt server-side lockout (15 min), protects all `/admin/*` routes
+- [x] **Bearer token auth** on deal posting endpoints (`ADMIN_API_KEY`)
+- [x] **Supabase RLS** on all tables — anon reads, service-role writes, user-scoped data
+- [x] **Security headers** — `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`
+- [x] **SQL injection prevention** — `escapeLike()` for search, parameterized queries throughout
+- [x] **Twitter OAuth 1.0a** — HMAC-SHA1 signing, nonce generation, credentials never in logs
+
+#### Before Public Beta (Priority: HIGH)
+
+- [ ] **Run migration `035_anonymous_insert_rate_limits.sql`** on production Supabase
+- [ ] **CSRF protection on admin endpoints** — add `X-Requested-With: XMLHttpRequest` header validation to `/api/admin/verify-pin` and `/api/deals/post`. A malicious site could trigger requests if admin session is active
+- [ ] **Security event logging** — log rate limit hits, failed PIN attempts, and suspicious patterns to Sentry or similar. Currently no audit trail for security events
+- [ ] **Content Security Policy (CSP)** — add CSP header via middleware to reduce XSS surface area
+
+#### Post-Beta (Priority: MEDIUM — first 30 days)
+
+- [ ] **Persistent rate limiting (Upstash Redis)** — current in-memory Map resets on every deploy. Attackers could brute-force during deployment windows. Upstash free tier ($0) provides persistent Redis-backed rate limiting
+- [ ] **Dependency security scanning** — add `npm audit --audit-level=high` and `pip audit` to CI workflows. Currently no automated vulnerability scanning
+- [ ] **Admin PIN rotation** — document quarterly PIN rotation process. Currently a static env var with no expiry
+- [ ] **Rate limit the main data endpoints** — `fetchDeals()` and `fetchDispensaries()` query Supabase directly from the browser. Consider routing through API endpoints with rate limiting, or adding Supabase's built-in rate limiting (pg_net) if available
+
+#### Future (Priority: LOW — when scaling)
+
+- [ ] **Cloudflare Bot Management** — when traffic justifies it, add bot detection and challenge pages
+- [ ] **Proper OAuth for admin** — replace PIN gate with Google OAuth or Supabase Auth magic links for multi-admin support
+- [ ] **API key management** — rotate keys automatically, support multiple keys for different services (cron, admin, monitoring)
+- [ ] **Database request signing** — verify that API requests to Supabase are coming from our frontend, not spoofed
+- [ ] **Disable Supabase SQL Playground** — in production settings, ensure the public SQL editor is not accessible
+
+---
+
+## Legal
+
+- **Incorporation:** Clouded Inc. is registered in Delaware. Privacy Policy and Terms of Service updated Feb 2026 — old domains (useclouded.com, onclouded.com) and physical address removed, contact email standardized to hello@cloudeddeals.com.
+- **TODO:** Register as a foreign entity in Nevada (operating in NV but incorporated in DE). Needs lawyer review.
+- **TODO:** Lawyer review of Privacy Policy and Terms of Service for compliance.
+
 ---
 
 ## What's Next — Full Roadmap
@@ -839,3 +963,42 @@ Multi-state expansion groundwork is complete and ready when Phase C begins:
 | `docs/research-michigan-illinois.md` | MI (1,000+ dispensaries, 55-65% platform overlap, 35-40 new brands) + IL (230 dispensaries, 65-75% overlap, 30-40 new brands). Platform audit of 20+ chains per state, brand ecosystem by category, state-specific price caps, technical feasibility, data model changes, rollout order |
 | `docs/research-batch2-markets.md` | Scored 8 candidates → selected AZ (43/50), MO (38/50), NJ (38/50). Per-market: dispensary lists, platform audits, brand maps, scrapeability. Combined platform coverage matrix across all 5 new states |
 | `docs/research-cross-market-synthesis.md` | 130-160 net-new brands with aliases + strain blockers. Master platform coverage (1,823 licensed dispensaries → ~1,280 scrapeable). Data normalization challenges for ML. Multi-state schema migration plan. LLM training data opportunities |
+
+---
+
+### Future Feature: Price Index / Price Comparison Grid
+
+**Status:** Concept only — not built. Requires higher data confidence first.
+
+**The idea:** A "Prices" tab showing the lowest price at each dispensary location for 7 specific product buckets:
+
+| Bucket | What it matches |
+|--------|----------------|
+| 3.5g Flower (eighth) | Flower products ~3.5g |
+| 7g Flower (quarter) | Flower products ~7g |
+| 14g Flower (half oz) | Flower products ~14g |
+| Disposable Vape (0.8-1g) | Vapes with disposable subtype |
+| 100mg Edible | Edibles ~100mg |
+| 1g Concentrate | Concentrates ~1g |
+| Preroll | Regular single prerolls (no infused, no packs) |
+
+When multiple brands tie at the lowest price, show all of them so users see their options.
+
+**Why not now:**
+- Data quality and confidence in scraped prices is not high enough yet. Weight parsing, category detection, and product classification still have gaps that would make a price index misleading.
+- Need reliable weight extraction across all 6 platforms before a price-per-weight comparison is trustworthy.
+- Infused preroll vs. regular preroll classification needs to be airtight — a $25 infused preroll shouldn't show as a $25 "preroll" next to $5 regular ones.
+- Disposable vape detection depends on `product_subtype` which isn't always populated.
+
+**Prerequisites before building:**
+- [ ] Weight extraction accuracy >95% across all platforms (currently estimated ~85%)
+- [ ] Product subtype classification coverage >90% for vapes and prerolls
+- [ ] Price validation layer that catches obvious scraping errors (e.g. $0.50 eighths, $500 prerolls)
+- [ ] Enough historical data to distinguish real prices from data errors with confidence
+- [ ] Rise/GTI scraping restored (9 dispensaries missing = incomplete comparison)
+
+**Technical approach (when ready):**
+- `fetchAllProducts()` API: query all active products (not just deal-scored ones), limit 5000
+- `priceComparison.ts` utility: classify products into buckets by category + weight range, find min price per dispensary per bucket, collect all brands tied at the min
+- `PriceComparisonPage.tsx` component: responsive table (desktop) / card grid (mobile), sortable by any column, expandable brand lists for ties
+- Column headers show the overall best price across all dispensaries

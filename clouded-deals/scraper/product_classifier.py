@@ -61,6 +61,7 @@ _VAPE_DISPOSABLE_INDICATORS = [
     re.compile(r"\bdisposable\b", re.IGNORECASE),
     re.compile(r"\ball[- ]?in[- ]?one\b", re.IGNORECASE),
     re.compile(r"\baio\b", re.IGNORECASE),
+    re.compile(r"\bready[- ]?to[- ]?use\b", re.IGNORECASE),
 ]
 
 _VAPE_CARTRIDGE_INDICATORS = [
@@ -168,12 +169,35 @@ def classify_product(
     _EDIBLE_INDICATORS = ("edible", "gummy", "gummies", "chocolate", "candy",
                           "brownie", "chew", "lozenge", "mint", "cookie",
                           "beverage", "drink", "bar", "caramel", "tincture",
-                          "capsule", "tablet", "tea", "honey", "butter")
+                          "capsule", "tablet", "tea", "honey", "butter",
+                          "multipack", "pieces", "softgel", "melatonin")
+    # Non-cannabis accessories that should never be reclassified as prerolls
+    _ACCESSORY_INDICATORS = ("screen", "screens", "papers", "rolling paper",
+                             "tips", "filter", "grinder", "lighter", "tray",
+                             "stash", "storage", "pipe", "bong", "rig",
+                             "torch", "dab tool", "nail",
+                             "hemp wrap", "hemp wraps", "wrapper")
+    # Empty cones (RAW, Pop Cones, etc.) are rolling papers, not prerolls
+    _CONE_ACCESSORY_BRANDS = ("raw", "pop cones", "elements", "ocb", "zig zag",
+                              "zig-zag", "hemper", "king palm")
     is_edible_context = (
         cat in ("edible",)
         or any(kw in name_lower for kw in _EDIBLE_INDICATORS)
     )
-    if not is_infused and not is_edible_context:
+    # Cone accessory: brand-based OR any "cone(s)" + pack pattern without
+    # infused/thc indicators (infused cones ARE cannabis products).
+    _is_cone_accessory = (
+        "cone" in name_lower
+        and not any(kw in name_lower for kw in ("infused", "thc", "live resin"))
+        and (any(b in name_lower for b in _CONE_ACCESSORY_BRANDS)
+             or bool(re.search(r'\d+\s*-?\s*pack\b|\d+\s*pk\b', name_lower)))
+    )
+    is_accessory = (
+        any(kw in name_lower for kw in _ACCESSORY_INDICATORS)
+        or _is_cone_accessory
+    )
+    is_concentrate_context = cat in ("concentrate", "vape")
+    if not is_infused and not is_edible_context and not is_accessory and not is_concentrate_context:
         is_pack = any(p.search(name_lower) for p in _PACK_INDICATORS)
         is_pack_brand = brand_lower in _PACK_BRANDS
 
@@ -190,6 +214,19 @@ def classify_product(
         vape_sub = _classify_vape_subtype(name_lower, brand_lower)
         if vape_sub:
             subtype = vape_sub
+
+    # --- Safety net: disposable vape indicators override wrong category ---
+    # Products with "all in one", "AIO", "disposable", "ready to use" in the
+    # name are vapes even if detect_category got it wrong (e.g. "flower"
+    # because the mg weight or keyword wasn't matched correctly).
+    if cat not in ("vape",) and subtype is None:
+        if any(p.search(name_lower) for p in _VAPE_DISPOSABLE_INDICATORS):
+            corrected_category = "vape"
+            subtype = "disposable"
+            logger.info(
+                "[CLASSIFY] %r recategorized: %s → vape (disposable indicator)",
+                name[:60], cat,
+            )
 
     return {
         "is_infused": is_infused,

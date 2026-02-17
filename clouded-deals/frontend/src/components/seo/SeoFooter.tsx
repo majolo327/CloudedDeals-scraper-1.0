@@ -25,7 +25,7 @@ export function SeoFooter() {
   return (
     <footer
       className="border-t mt-12"
-      style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'rgba(10, 14, 26, 0.6)' }}
+      style={{ borderColor: 'rgba(120, 100, 200, 0.06)', backgroundColor: 'rgba(10, 12, 28, 0.6)' }}
     >
       <div className="max-w-6xl mx-auto px-4 py-10">
         {/* Navigation columns */}
@@ -162,11 +162,16 @@ export function SeoFooter() {
         {/* Trust + disclaimer */}
         <div className="border-t pt-6" style={{ borderColor: 'var(--border-subtle)' }}>
           <p className="text-center text-xs text-slate-500 leading-relaxed mb-3">
-            Every deal is ranked on merit. No sponsored placements. No ads. Ever.
+            Every deal is ranked on merit. No sponsored placements.
           </p>
-          <p className="text-center text-xs text-slate-600 leading-relaxed max-w-lg mx-auto mb-3">
-            CloudedDeals is not a licensed cannabis retailer. All deals are subject to
-            dispensary verification. Prices shown do not include tax. For adults 21+ only.
+          <p className="text-center text-xs text-slate-600 leading-relaxed max-w-lg mx-auto mb-2">
+            CloudedDeals is not a licensed cannabis retailer and does not sell, distribute,
+            or deliver cannabis products. All deals are subject to dispensary verification.
+            Prices shown do not include tax. For adults 21+ only. This is not medical advice.
+          </p>
+          <p className="text-center text-[10px] text-slate-700 leading-relaxed max-w-lg mx-auto mb-3">
+            Cannabis is illegal under federal law. Do not transport cannabis across state lines.
+            Do not operate a vehicle under the influence. Keep out of reach of children.
           </p>
           <p className="text-xs text-slate-600 text-center">
             &copy; {new Date().getFullYear()} CloudedDeals. Las Vegas, NV.
