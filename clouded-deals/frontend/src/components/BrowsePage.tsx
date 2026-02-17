@@ -28,7 +28,7 @@ interface BrowsePageProps {
 }
 
 export function BrowsePage({ deals = [], onSelectBrand, onSelectDispensary }: BrowsePageProps) {
-  const [activeTab, setActiveTab] = useState<BrowseTab>('brands');
+  const [activeTab, setActiveTab] = useState<BrowseTab>('dispensaries');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Brand deal counts (from live Supabase deals)
@@ -61,17 +61,6 @@ export function BrowsePage({ deals = [], onSelectBrand, onSelectDispensary }: Br
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex gap-6 h-12">
             <button
-              onClick={() => setActiveTab('brands')}
-              className={`relative text-sm font-medium transition-colors ${
-                activeTab === 'brands' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
-              }`}
-            >
-              Brands
-              {activeTab === 'brands' && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500 rounded-full" />
-              )}
-            </button>
-            <button
               onClick={() => setActiveTab('dispensaries')}
               className={`relative text-sm font-medium transition-colors ${
                 activeTab === 'dispensaries' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
@@ -83,12 +72,29 @@ export function BrowsePage({ deals = [], onSelectBrand, onSelectDispensary }: Br
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500 rounded-full" />
               )}
             </button>
+            <button
+              onClick={() => setActiveTab('brands')}
+              className={`relative text-sm font-medium transition-colors ${
+                activeTab === 'brands' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              Brands
+              {activeTab === 'brands' && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500 rounded-full" />
+              )}
+            </button>
           </div>
         </div>
       </div>
 
       <main className="max-w-6xl mx-auto px-4 py-6">
-        {activeTab === 'brands' ? (
+        {activeTab === 'dispensaries' ? (
+          <DispensariesTab
+            dealCounts={dispensaryDealCounts}
+            onSelectDispensary={onSelectDispensary}
+            onScrollToLetter={(l) => scrollToLetter(l, 'disp')}
+          />
+        ) : (
           <BrandsTab
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -97,12 +103,6 @@ export function BrowsePage({ deals = [], onSelectBrand, onSelectDispensary }: Br
             onScrollToLetter={(l) => scrollToLetter(l, 'brand')}
             brandDealCounts={brandDealCounts}
             onSelectBrand={onSelectBrand}
-          />
-        ) : (
-          <DispensariesTab
-            dealCounts={dispensaryDealCounts}
-            onSelectDispensary={onSelectDispensary}
-            onScrollToLetter={(l) => scrollToLetter(l, 'disp')}
           />
         )}
       </main>
