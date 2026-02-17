@@ -76,6 +76,7 @@ export async function GET() {
       name: string;
       brand: string | null;
       category: string | null;
+      product_subtype: string | null;
       sale_price: number | null;
       original_price: number | null;
       deal_score: number;
@@ -86,7 +87,7 @@ export async function GET() {
     if (dealIds.length > 0) {
       const { data: products } = await sb
         .from('products')
-        .select('id, name, brand, category, sale_price, original_price, deal_score, is_active, dispensary_id')
+        .select('id, name, brand, category, product_subtype, sale_price, original_price, deal_score, is_active, dispensary_id')
         .in('id', dealIds);
 
       for (const p of products ?? []) {
@@ -138,7 +139,7 @@ export async function PATCH(request: NextRequest) {
 
     if (action === 'edit_product') {
       // Update product fields
-      const allowed = ['name', 'brand', 'category', 'sale_price', 'original_price', 'deal_score'];
+      const allowed = ['name', 'brand', 'category', 'product_subtype', 'sale_price', 'original_price', 'deal_score'];
       const safeUpdates: Record<string, unknown> = {};
       for (const key of allowed) {
         if (updates && key in updates) {
