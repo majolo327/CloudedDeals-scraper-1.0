@@ -995,8 +995,8 @@ def _expire_stale_deal_history(group_slugs: list[str] | None = None) -> None:
 # ---------------------------------------------------------------------------
 
 
-_SITE_TIMEOUT_SEC = 300  # 5 min — if a site hasn't produced results by now, it won't.  Down from 600 s to detect failures faster.
-_RETRY_TIMEOUT_SEC = 180  # 3 min for retries — down from 300 s.  Saves ~7 min per broken site vs old 600+300 budget.
+_SITE_TIMEOUT_SEC = 360  # 6 min — heavy Dutchie pages (Gibson, Planet13) need scroll + lazy-load time.  Up from 300 s.
+_RETRY_TIMEOUT_SEC = 240  # 4 min for retries — up from 180 s.  Heavy pages with many deal cards need time to scroll and render.
 _MAX_RETRIES = 2  # 2 attempts total — saves ~5 min per broken site vs 3
 _RETRY_DELAYS = [5, 15]  # Backoff between retries
 
