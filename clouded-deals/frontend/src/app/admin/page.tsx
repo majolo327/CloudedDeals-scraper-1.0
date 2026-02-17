@@ -276,22 +276,41 @@ export default function AdminDashboard() {
         ? "bg-yellow-500/10 border-yellow-500/20"
         : "bg-red-500/10 border-red-500/20";
 
+  const lastRun = data.runs[0];
+  const lastRunLabel = lastRun
+    ? new Date(lastRun.started_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+    : "—";
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Pipeline status banner */}
-      <div className={`rounded-xl border p-4 ${statusBg}`}>
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
-            Pipeline Status
-          </span>
+      <div className={`rounded-xl border p-3 flex items-center justify-between ${statusBg}`}>
+        <div className="flex items-center gap-3">
           <span className={`text-sm font-bold uppercase ${statusColor}`}>
             {data.pipelineStatus}
           </span>
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            Last run: {lastRunLabel}
+          </span>
+        </div>
+        <div className="flex gap-2">
+          <a
+            href="/admin/scraper"
+            className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 transition-colors"
+          >
+            Scraper
+          </a>
+          <a
+            href="/admin/settings"
+            className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 transition-colors"
+          >
+            Settings
+          </a>
         </div>
       </div>
 
       {/* Key stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Active Sites" value={data.activeSites.toLocaleString()} sub="dispensaries in DB" />
         <StatCard label="Products in DB" value={data.totalProducts.toLocaleString()} sub="unique products" />
         <StatCard
@@ -305,22 +324,6 @@ export default function AdminDashboard() {
           accent={data.successRate >= 91 ? "text-green-600 dark:text-green-400" : "text-orange-500"}
           sub="last 15 runs"
         />
-      </div>
-
-      {/* Quick actions */}
-      <div className="flex gap-3">
-        <a
-          href="/admin/scraper"
-          className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-        >
-          Scraper &amp; Regions
-        </a>
-        <a
-          href="/admin/settings"
-          className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-        >
-          Settings
-        </a>
       </div>
 
       {/* ── Flagged Products ──────────────────────────────────── */}
@@ -572,22 +575,24 @@ export default function AdminDashboard() {
 
       {/* Pipeline quality (from Health) */}
       {data.pipeline && (
-        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          <h3 className="mb-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-            Pipeline Quality — {data.pipeline.run_date}
-          </h3>
-          <div className="grid gap-x-8 gap-y-2 sm:grid-cols-2 lg:grid-cols-3 text-sm">
+        <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="border-b border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              Pipeline Quality — {data.pipeline.run_date}
+            </h3>
+          </div>
+          <div className="grid gap-x-8 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3 text-sm px-4 py-3">
             <MetricRow label="Deals curated" value={data.pipeline.qualifying_deals} />
             <MetricRow label="Avg score" value={data.pipeline.avg_deal_score} />
             <MetricRow label="Brands" value={data.pipeline.unique_brands} />
             <MetricRow label="Dispensaries" value={data.pipeline.unique_dispensaries} />
-            <div className="col-span-full border-t border-zinc-100 dark:border-zinc-800 my-1" />
+            <div className="col-span-full border-t border-zinc-100 dark:border-zinc-800 my-0.5" />
             <MetricRow label="Flower" value={data.pipeline.flower_count} />
             <MetricRow label="Vape" value={data.pipeline.vape_count} />
             <MetricRow label="Edible" value={data.pipeline.edible_count} warn={data.pipeline.edible_count < 10} />
             <MetricRow label="Concentrate" value={data.pipeline.concentrate_count} />
             <MetricRow label="Preroll" value={data.pipeline.preroll_count} warn={data.pipeline.preroll_count < 5} />
-            <div className="col-span-full border-t border-zinc-100 dark:border-zinc-800 my-1" />
+            <div className="col-span-full border-t border-zinc-100 dark:border-zinc-800 my-0.5" />
             <MetricRow label="STEAL deals" value={data.pipeline.steal_count} />
             <MetricRow label="FIRE deals" value={data.pipeline.fire_count} />
             <MetricRow label="SOLID deals" value={data.pipeline.solid_count} />
@@ -596,15 +601,15 @@ export default function AdminDashboard() {
       )}
 
       {/* Recent scrape runs */}
-      <div className="rounded-xl border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900">
-        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
-          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+      <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="border-b border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             Recent Scrape Runs
           </h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-zinc-200 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
+            <thead className="border-b border-zinc-200 text-xs text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
               <tr>
                 <th className="px-4 py-2 font-semibold">Started</th>
                 <th className="px-4 py-2 font-semibold">Region</th>
@@ -681,14 +686,14 @@ function StatCard({
   sub?: string;
 }) {
   return (
-    <div className="rounded-xl border border-zinc-300 bg-white px-4 py-4 dark:border-zinc-700 dark:bg-zinc-900">
-      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400">
+    <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         {label}
       </p>
-      <p className={`mt-1 text-2xl font-bold ${accent ?? "text-zinc-900 dark:text-white"}`}>
+      <p className={`mt-0.5 text-2xl font-bold ${accent ?? "text-zinc-900 dark:text-white"}`}>
         {value}
       </p>
-      {sub && <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{sub}</p>}
+      {sub && <p className="text-xs text-zinc-400 dark:text-zinc-500">{sub}</p>}
     </div>
   );
 }

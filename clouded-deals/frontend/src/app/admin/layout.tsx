@@ -7,10 +7,10 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { AdminPinGate, isAdminVerified, clearAdminVerification } from "@/components/admin/AdminPinGate";
 
 const NAV_ITEMS = [
-  { href: "/admin", label: "Dashboard", icon: "grid" },
-  { href: "/admin/scraper", label: "Scraper", icon: "terminal" },
-  { href: "/admin/analytics", label: "Analytics", icon: "chart" },
-  { href: "/admin/settings", label: "Settings", icon: "sliders" },
+  { href: "/admin", label: "Dashboard", sub: "Stats, flags, runs", icon: "grid" },
+  { href: "/admin/scraper", label: "Scraper", sub: "Trigger, regions, logs", icon: "terminal" },
+  { href: "/admin/analytics", label: "Analytics", sub: "Traffic, contacts", icon: "chart" },
+  { href: "/admin/settings", label: "Settings", sub: "Config", icon: "sliders" },
 ] as const;
 
 const ICONS: Record<string, string> = {
@@ -130,8 +130,8 @@ export default function AdminLayout({
           <p className="mt-0.5 text-xs text-zinc-400">Admin Panel</p>
         </div>
 
-        <nav className="flex-1 space-y-1 px-2 py-3">
-          {NAV_ITEMS.map(({ href, label, icon }) => {
+        <nav className="flex-1 space-y-0.5 px-2 py-3">
+          {NAV_ITEMS.map(({ href, label, sub, icon }) => {
             const active =
               href === "/admin"
                 ? pathname === "/admin"
@@ -140,14 +140,14 @@ export default function AdminLayout({
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 transition-colors ${
                   active
                     ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+                    : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800/60"
                 }`}
               >
                 <svg
-                  className="h-4 w-4"
+                  className="h-4 w-4 shrink-0"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -159,7 +159,12 @@ export default function AdminLayout({
                     d={ICONS[icon]}
                   />
                 </svg>
-                {label}
+                <div>
+                  <div className="text-sm font-medium leading-tight">{label}</div>
+                  <div className={`text-[10px] leading-tight ${active ? "text-green-600/70 dark:text-green-400/60" : "text-zinc-400 dark:text-zinc-500"}`}>
+                    {sub}
+                  </div>
+                </div>
               </Link>
             );
           })}
