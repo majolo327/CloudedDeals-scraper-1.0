@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAnalytics, exportEventsCSV } from '@/hooks/useAnalytics';
-import type { FunnelStep, DeviceBreakdown, ReferrerSource, DailyVisitors, RetentionCohort, ViralMetrics } from '@/hooks/useAnalytics';
+import type { FunnelStep, DeviceBreakdown, ReferrerSource, DailyVisitors, RetentionCohort, ViralMetrics, GrowthMetrics, DispensaryMetric } from '@/hooks/useAnalytics';
 
 type DateRange = '24h' | '7d' | '30d' | 'all';
 
@@ -100,7 +100,7 @@ export default function AnalyticsPage() {
   const {
     scoreboard, funnel, eventBreakdown, topDeals, hourlyActivity, recentEvents,
     dailyVisitors, devices, referrers, allTimeUniqueVisitors, retentionCohorts,
-    totalEventsInRange, viral,
+    totalEventsInRange, viral, growth, dispensaryMetrics,
   } = data;
 
   const progressPct = Math.min((allTimeUniqueVisitors / VISITOR_GOAL) * 100, 100);
@@ -183,7 +183,15 @@ export default function AnalyticsPage() {
       </section>
 
       {/* ================================================================ */}
-      {/* SECTION 2: THE PMF STORY                                         */}
+      {/* SECTION 2: GROWTH & ENGAGEMENT                                   */}
+      {/* ================================================================ */}
+      <section className="space-y-6">
+        <SectionHeading>Growth &amp; Engagement</SectionHeading>
+        <GrowthCard growth={growth} />
+      </section>
+
+      {/* ================================================================ */}
+      {/* SECTION 3: THE PMF STORY                                         */}
       {/* ================================================================ */}
       <section className="space-y-6">
         <SectionHeading>The PMF Story</SectionHeading>
@@ -240,7 +248,7 @@ export default function AnalyticsPage() {
       </section>
 
       {/* ================================================================ */}
-      {/* SECTION 3: VIRAL & SHARING                                       */}
+      {/* SECTION 4: VIRAL & SHARING                                       */}
       {/* ================================================================ */}
       <section className="space-y-6">
         <SectionHeading>Viral &amp; Sharing</SectionHeading>
@@ -248,7 +256,15 @@ export default function AnalyticsPage() {
       </section>
 
       {/* ================================================================ */}
-      {/* SECTION 4: OPERATIONAL (collapsible)                             */}
+      {/* SECTION 5: B2B READINESS                                         */}
+      {/* ================================================================ */}
+      <section className="space-y-6">
+        <SectionHeading>B2B Readiness</SectionHeading>
+        <DispensaryCard dispensaries={dispensaryMetrics} range={range} />
+      </section>
+
+      {/* ================================================================ */}
+      {/* SECTION 6: OPERATIONAL (collapsible)                             */}
       {/* ================================================================ */}
       <section>
         <button
@@ -765,6 +781,133 @@ function EventBadge({ name }: { name: string }) {
   );
 }
 
+function GrowthCard({ growth }: { growth: GrowthMetrics }) {
+  const wowArrow = (pct: number) => {
+    if (pct > 0) return { arrow: '\u2191', color: 'text-green-600 dark:text-green-400' };
+    if (pct < 0) return { arrow: '\u2193', color: 'text-red-500 dark:text-red-400' };
+    return { arrow: '\u2192', color: 'text-zinc-400' };
+  };
+
+  const wowItems: { label: string; value: number }[] = [
+    { label: 'Visitors', value: growth.visitorsWoW },
+    { label: 'Saves', value: growth.savesWoW },
+    { label: 'Clicks', value: growth.clicksWoW },
+    { label: 'Shares', value: growth.sharesWoW },
+  ];
+
+  const stickinessColor = growth.stickiness >= 20
+    ? 'text-green-600 dark:text-green-400'
+    : growth.stickiness >= 10
+      ? 'text-amber-600 dark:text-amber-400'
+      : 'text-red-500 dark:text-red-400';
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-3">
+      {/* WoW Growth */}
+      <Card title="Week-over-Week Growth">
+        <div className="space-y-3">
+          {wowItems.map(({ label, value }) => {
+            const { arrow, color } = wowArrow(value);
+            return (
+              <div key={label} className="flex items-center justify-between">
+                <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{label}</span>
+                <span className={`text-sm font-bold ${color}`}>
+                  {arrow} {value > 0 ? '+' : ''}{value}%
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* WAU / MAU / Stickiness */}
+      <Card title="Active Users">
+        <div className="space-y-4">
+          <div>
+            <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide">WAU (7d)</p>
+            <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{growth.wau.toLocaleString()}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide">MAU (30d)</p>
+            <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{growth.mau.toLocaleString()}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide">DAU/MAU Stickiness</p>
+            <div className="flex items-baseline gap-2">
+              <p className={`text-2xl font-bold ${stickinessColor}`}>{growth.stickiness}%</p>
+              <span className="text-[10px] text-zinc-400">target: &ge;20%</span>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Engagement Depth */}
+      <Card title="Engagement">
+        <div className="space-y-4">
+          <div>
+            <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide">Activation Rate</p>
+            <div className="flex items-baseline gap-2">
+              <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{growth.activationRate}%</p>
+              <span className="text-[10px] text-zinc-400">visitors who saved or clicked</span>
+            </div>
+            <div className="mt-1.5 h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-green-500/60 transition-all"
+                style={{ width: `${Math.min(growth.activationRate, 100)}%` }}
+              />
+            </div>
+          </div>
+          <div>
+            <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide">Events per User</p>
+            <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{growth.eventsPerUser}</p>
+            <p className="text-[10px] text-zinc-400">avg actions per visitor in range</p>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function DispensaryCard({ dispensaries, range }: { dispensaries: DispensaryMetric[]; range: string }) {
+  const maxClicks = Math.max(...dispensaries.map(d => d.clicks), 1);
+
+  return (
+    <Card title={`Dispensary Outbound Clicks (${range}) — B2B Sales Data`}>
+      {dispensaries.length === 0 ? (
+        <p className="text-sm text-zinc-400">No dispensary click data yet. Outbound &quot;Get Deal&quot; clicks will appear here by dispensary.</p>
+      ) : (
+        <div className="space-y-2">
+          {dispensaries.map((d, i) => {
+            const pct = maxClicks > 0 ? (d.clicks / maxClicks) * 100 : 0;
+            return (
+              <div key={d.dispensary} className="flex items-center gap-3">
+                <span className="w-5 text-center text-xs font-bold text-zinc-400">{i + 1}</span>
+                <span className="w-36 truncate text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  {d.dispensary}
+                </span>
+                <div className="flex-1 h-5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-emerald-500/50"
+                    style={{ width: `${Math.max(pct, 2)}%` }}
+                  />
+                </div>
+                <span className="w-14 text-right text-xs font-mono font-bold text-zinc-600 dark:text-zinc-300">
+                  {d.clicks} clicks
+                </span>
+                {d.saves > 0 && (
+                  <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700 dark:bg-green-900/40 dark:text-green-400">
+                    {d.saves} saves
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function ViralCard({ viral, range }: { viral: ViralMetrics; range: string }) {
   const kColor = viral.viralCoefficient >= 0.3
     ? 'text-green-600 dark:text-green-400'
@@ -879,6 +1022,27 @@ function ViralCard({ viral, range }: { viral: ViralMetrics; range: string }) {
           </div>
         )}
       </Card>
+
+      {/* Top Referrers Leaderboard */}
+      {viral.topReferrers.length > 0 && (
+        <Card title="Top Referrers (who drives your growth?)">
+          <div className="space-y-2">
+            {viral.topReferrers.map((r, i) => (
+              <div key={r.anonId} className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                <span className="w-5 text-center text-xs font-bold text-zinc-400">{i + 1}</span>
+                <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">{r.anonId.slice(0, 8)}</span>
+                <div className="flex-1" />
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                  {r.conversions} conversions
+                </span>
+                <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">
+                  {r.clicks} clicks
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

@@ -74,6 +74,41 @@ export interface ViralMetrics {
   shareViewRate: number;
   /** Referral clicks that converted to a save action */
   clickToConversionRate: number;
+  /** Users ranked by conversions they drove */
+  topReferrers: TopReferrer[];
+}
+
+export interface TopReferrer {
+  anonId: string;
+  conversions: number;
+  clicks: number;
+}
+
+export interface GrowthMetrics {
+  /** WoW change in unique visitors (%) */
+  visitorsWoW: number;
+  /** WoW change in saves (%) */
+  savesWoW: number;
+  /** WoW change in deal clicks (%) */
+  clicksWoW: number;
+  /** WoW change in shares (%) */
+  sharesWoW: number;
+  /** Weekly Active Users (distinct users with events in last 7d) */
+  wau: number;
+  /** Monthly Active Users (distinct users with events in last 30d) */
+  mau: number;
+  /** DAU/MAU stickiness ratio (%) — investors' favorite metric */
+  stickiness: number;
+  /** Activation rate: % of visitors who saved or clicked (%) */
+  activationRate: number;
+  /** Avg events per user in range (engagement depth) */
+  eventsPerUser: number;
+}
+
+export interface DispensaryMetric {
+  dispensary: string;
+  clicks: number;
+  saves: number;
 }
 
 export interface AnalyticsData {
@@ -90,6 +125,8 @@ export interface AnalyticsData {
   retentionCohorts: RetentionCohort[];
   totalEventsInRange: number;
   viral: ViralMetrics;
+  growth: GrowthMetrics;
+  dispensaryMetrics: DispensaryMetric[];
 }
 
 export interface EventRow {
@@ -139,8 +176,13 @@ export function useAnalytics(range: DateRange = '7d') {
         viral: {
           sharesToday: 0, sharesInRange: 0, sharedPageViews: 0,
           referralClicks: 0, referralConversions: 0, viralCoefficient: 0,
-          shareViewRate: 0, clickToConversionRate: 0,
+          shareViewRate: 0, clickToConversionRate: 0, topReferrers: [],
         },
+        growth: {
+          visitorsWoW: 0, savesWoW: 0, clicksWoW: 0, sharesWoW: 0,
+          wau: 0, mau: 0, stickiness: 0, activationRate: 0, eventsPerUser: 0,
+        },
+        dispensaryMetrics: [],
       });
       setLoading(false);
       return;
@@ -230,6 +272,17 @@ export function useAnalytics(range: DateRange = '7d') {
       let referralConversions = 0;                 // referral_conversion events
       const referralConverters = new Set<string>();// unique users who converted
 
+      // Growth / B2B accumulators
+      const dispensaryClicks: Record<string, { clicks: number; saves: number }> = {};
+      const referrerConversions: Record<string, { conversions: number; clicks: number }> = {};
+      // Weekly buckets for WoW comparison (current week vs prior week)
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
+      let thisWeekVisitors = new Set<string>(), lastWeekVisitors = new Set<string>();
+      let thisWeekSaves = 0, lastWeekSaves = 0;
+      let thisWeekClicks = 0, lastWeekClicks = 0;
+      let thisWeekShares = 0, lastWeekShares = 0;
+
       for (const event of events) {
         const dateKey = event.created_at.slice(0, 10);
 
@@ -276,6 +329,50 @@ export function useAnalytics(range: DateRange = '7d') {
         if (event.event_name === 'referral_conversion') {
           referralConversions++;
           referralConverters.add(event.anon_id);
+          // Track which referrer drove this conversion
+          const refProps = event.properties as Record<string, unknown> | null;
+          const refId = refProps?.referrer;
+          if (typeof refId === 'string') {
+            if (!referrerConversions[refId]) referrerConversions[refId] = { conversions: 0, clicks: 0 };
+            referrerConversions[refId].conversions++;
+          }
+        }
+        if (event.event_name === 'referral_click') {
+          const refProps = event.properties as Record<string, unknown> | null;
+          const refId = refProps?.referrer;
+          if (typeof refId === 'string') {
+            if (!referrerConversions[refId]) referrerConversions[refId] = { conversions: 0, clicks: 0 };
+            referrerConversions[refId].clicks++;
+          }
+        }
+
+        // B2B: dispensary-level clicks + saves
+        if (event.event_name === 'get_deal_click') {
+          const p = event.properties as Record<string, unknown> | null;
+          const disp = (p?.dispensary as string) || 'Unknown';
+          if (!dispensaryClicks[disp]) dispensaryClicks[disp] = { clicks: 0, saves: 0 };
+          dispensaryClicks[disp].clicks++;
+        }
+        if (['deal_saved', 'deal_save'].includes(event.event_name)) {
+          const p = event.properties as Record<string, unknown> | null;
+          const disp = (p?.dispensary as string) || null;
+          if (disp) {
+            if (!dispensaryClicks[disp]) dispensaryClicks[disp] = { clicks: 0, saves: 0 };
+            dispensaryClicks[disp].saves++;
+          }
+        }
+
+        // WoW buckets
+        if (event.created_at >= weekAgo) {
+          thisWeekVisitors.add(event.anon_id);
+          if (['deal_saved', 'deal_save'].includes(event.event_name)) thisWeekSaves++;
+          if (event.event_name === 'get_deal_click') thisWeekClicks++;
+          if (['deal_shared', 'share_saves'].includes(event.event_name)) thisWeekShares++;
+        } else if (event.created_at >= twoWeeksAgo) {
+          lastWeekVisitors.add(event.anon_id);
+          if (['deal_saved', 'deal_save'].includes(event.event_name)) lastWeekSaves++;
+          if (event.event_name === 'get_deal_click') lastWeekClicks++;
+          if (['deal_shared', 'share_saves'].includes(event.event_name)) lastWeekShares++;
         }
 
         // Device type
@@ -458,9 +555,6 @@ export function useAnalytics(range: DateRange = '7d') {
       }
 
       // ----- Viral coefficient -----
-      // K = (shares per user) * (conversion rate per share impression)
-      // shares per active user = sharesInRange / funnelActivated.size
-      // conversion rate = referralConversions / max(referralClicks, sharedPageViews)
       const activeUsers = funnelActivated.size || funnelVisitors.size || 1;
       const avgSharesPerUser = sharesInRange / activeUsers;
       const shareImpressions = Math.max(referralClicks, sharedPageViews, 1);
@@ -472,6 +566,12 @@ export function useAnalytics(range: DateRange = '7d') {
       const clickToConversionRate = referralClicks > 0
         ? Math.round((referralConversions / referralClicks) * 100) : 0;
 
+      // Top referrers (users who drove the most conversions)
+      const topReferrers: TopReferrer[] = Object.entries(referrerConversions)
+        .map(([anonId, data]) => ({ anonId, conversions: data.conversions, clicks: data.clicks }))
+        .sort((a, b) => b.conversions - a.conversions || b.clicks - a.clicks)
+        .slice(0, 10);
+
       const viral: ViralMetrics = {
         sharesToday,
         sharesInRange,
@@ -481,7 +581,45 @@ export function useAnalytics(range: DateRange = '7d') {
         viralCoefficient,
         shareViewRate,
         clickToConversionRate,
+        topReferrers,
       };
+
+      // ----- Growth metrics -----
+      const wowPct = (curr: number, prev: number) =>
+        prev > 0 ? Math.round(((curr - prev) / prev) * 100) : (curr > 0 ? 100 : 0);
+
+      // WAU/MAU from 30-day event window
+      const wauUsers = new Set<string>();
+      const mauUsers = new Set<string>();
+      for (const e of mauEvents) {
+        mauUsers.add(e.anon_id);
+        if (e.created_at >= sevenDaysAgo) wauUsers.add(e.anon_id);
+      }
+      const dauToday = todayVisitors.size;
+      const mauSize = mauUsers.size || 1;
+
+      const activationRate = funnelVisitors.size > 0
+        ? Math.round((funnelActivated.size / funnelVisitors.size) * 100) : 0;
+      const eventsPerUser = funnelVisitors.size > 0
+        ? parseFloat((events.length / funnelVisitors.size).toFixed(1)) : 0;
+
+      const growth: GrowthMetrics = {
+        visitorsWoW: wowPct(thisWeekVisitors.size, lastWeekVisitors.size),
+        savesWoW: wowPct(thisWeekSaves, lastWeekSaves),
+        clicksWoW: wowPct(thisWeekClicks, lastWeekClicks),
+        sharesWoW: wowPct(thisWeekShares, lastWeekShares),
+        wau: wauUsers.size,
+        mau: mauUsers.size,
+        stickiness: Math.round((dauToday / mauSize) * 100),
+        activationRate,
+        eventsPerUser,
+      };
+
+      // ----- B2B dispensary metrics -----
+      const dispensaryMetrics: DispensaryMetric[] = Object.entries(dispensaryClicks)
+        .map(([dispensary, data]) => ({ dispensary, clicks: data.clicks, saves: data.saves }))
+        .sort((a, b) => b.clicks - a.clicks)
+        .slice(0, 15);
 
       setData({
         scoreboard,
@@ -497,6 +635,8 @@ export function useAnalytics(range: DateRange = '7d') {
         retentionCohorts,
         totalEventsInRange: events.length,
         viral,
+        growth,
+        dispensaryMetrics,
       });
     } catch (err) {
       setError(String(err));
