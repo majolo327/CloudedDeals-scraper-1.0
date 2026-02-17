@@ -995,8 +995,8 @@ def _expire_stale_deal_history(group_slugs: list[str] | None = None) -> None:
 # ---------------------------------------------------------------------------
 
 
-_SITE_TIMEOUT_SEC = SITE_TIMEOUT_SEC  # 600 s (from config)
-_RETRY_TIMEOUT_SEC = 300  # Reduced timeout on retries — if first attempt timed out at 600s, a shorter window avoids wasting another 600s
+_SITE_TIMEOUT_SEC = 300  # 5 min — if a site hasn't produced results by now, it won't.  Down from 600 s to detect failures faster.
+_RETRY_TIMEOUT_SEC = 180  # 3 min for retries — down from 300 s.  Saves ~7 min per broken site vs old 600+300 budget.
 _MAX_RETRIES = 2  # 2 attempts total — saves ~5 min per broken site vs 3
 _RETRY_DELAYS = [5, 15]  # Backoff between retries
 
