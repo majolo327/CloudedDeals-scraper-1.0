@@ -102,6 +102,25 @@ export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClear
     return sum + (deal.original_price - deal.deal_price);
   }, 0);
 
+  // Lifetime savings: sum of discounts from all history entries (purchased/expired)
+  // plus today's used deals. Creates identity attachment.
+  const lifetimeSavings = useMemo(() => {
+    let total = 0;
+    for (const entry of history) {
+      const orig = entry.deal.original_price;
+      if (orig && orig > entry.deal.deal_price) {
+        total += orig - entry.deal.deal_price;
+      }
+    }
+    // Add today's used deals too
+    for (const deal of usedDeals) {
+      if (deal.original_price && deal.original_price > deal.deal_price) {
+        total += deal.original_price - deal.deal_price;
+      }
+    }
+    return total;
+  }, [history, usedDeals]);
+
   // Show contact banner: 10+ saves, no contact captured, not dismissed within 7 days
   useEffect(() => {
     const captured = localStorage.getItem('clouded_contact_captured') === 'true';
@@ -223,14 +242,27 @@ export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClear
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {potentialSavings > 0 && (
+              {(potentialSavings > 0 || lifetimeSavings > 0) && (
                 <div className="flex items-center gap-2">
                   <DollarSign className="w-4 h-4 text-emerald-400" />
                   <div className="text-right">
-                    <p className="text-sm font-bold text-emerald-400">
-                      ${potentialSavings.toFixed(2)}
-                    </p>
-                    <p className="text-[10px] text-slate-500">potential savings</p>
+                    {potentialSavings > 0 ? (
+                      <>
+                        <p className="text-sm font-bold text-emerald-400">
+                          ${potentialSavings.toFixed(2)}
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          potential savings{lifetimeSavings > 0 && ` · $${lifetimeSavings.toFixed(0)} lifetime`}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-bold text-slate-300">
+                          ${lifetimeSavings.toFixed(0)}
+                        </p>
+                        <p className="text-[10px] text-slate-500">lifetime savings</p>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
