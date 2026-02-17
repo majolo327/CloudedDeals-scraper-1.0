@@ -45,11 +45,9 @@ interface SavedPageProps {
   addToast?: (message: string, type: 'success' | 'info') => void;
   history?: HistoryEntry[];
   onClearHistory?: () => void;
-  /** Total deal count used with CloudedDeals (used + expired from history) */
-  lifetimeDealsUsed?: number;
 }
 
-export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClearHistory, lifetimeDealsUsed }: SavedPageProps) {
+export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClearHistory }: SavedPageProps) {
   const { savedDeals, toggleSavedDeal, isDealUsed, markDealUsed } = useSavedDeals();
   const [shareState, setShareState] = useState<'idle' | 'sharing' | 'copied'>('idle');
   const [showContactBanner, setShowContactBanner] = useState(false);
@@ -243,23 +241,28 @@ export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClear
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {potentialSavings > 0 && (
+              {(potentialSavings > 0 || lifetimeSavings > 0) && (
                 <div className="flex items-center gap-2">
                   <DollarSign className="w-4 h-4 text-emerald-400" />
                   <div className="text-right">
-                    <p className="text-sm font-bold text-emerald-400">
-                      ${potentialSavings.toFixed(2)}
-                    </p>
-                    <p className="text-[10px] text-slate-500">potential savings</p>
+                    {potentialSavings > 0 ? (
+                      <>
+                        <p className="text-sm font-bold text-emerald-400">
+                          ${potentialSavings.toFixed(2)}
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          potential savings{lifetimeSavings > 0 && ` · $${lifetimeSavings.toFixed(0)} lifetime`}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-bold text-slate-300">
+                          ${lifetimeSavings.toFixed(0)}
+                        </p>
+                        <p className="text-[10px] text-slate-500">lifetime savings</p>
+                      </>
+                    )}
                   </div>
-                </div>
-              )}
-              {lifetimeSavings > 0 && (
-                <div className="text-right">
-                  <p className="text-xs font-semibold text-slate-300">
-                    ${lifetimeSavings.toFixed(0)}
-                  </p>
-                  <p className="text-[10px] text-slate-500">lifetime</p>
                 </div>
               )}
               {/* Share My Saves button */}

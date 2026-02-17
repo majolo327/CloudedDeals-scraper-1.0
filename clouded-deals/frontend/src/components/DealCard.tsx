@@ -74,7 +74,7 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
               Yesterday
             </span>
           )}
-          {recommendationLabel && !isExpired && (
+          {recommendationLabel && !isExpired && !isUsed && (
             <span className="text-[10px] font-medium text-purple-300/80 bg-purple-500/10 px-1.5 py-0.5 rounded-md">
               {recommendationLabel}
             </span>

@@ -10,11 +10,11 @@ interface StickyStatsBarProps {
   children?: React.ReactNode;
 }
 
-/** Returns a short tier label for streaks that makes them feel rewarding. */
+/** Returns tier styling for streaks — always shows the actual count. */
 function getStreakTier(streak: number): { label: string; color: string } | null {
-  if (streak >= 30) return { label: '30d', color: 'text-amber-400' };
-  if (streak >= 14) return { label: '14d', color: 'text-purple-400' };
-  if (streak >= 7) return { label: '7d', color: 'text-purple-400/80' };
+  if (streak >= 30) return { label: `${streak}d`, color: 'text-amber-400' };
+  if (streak >= 14) return { label: `${streak}d`, color: 'text-purple-400' };
+  if (streak >= 7) return { label: `${streak}d`, color: 'text-purple-400/80' };
   if (streak >= 3) return { label: `${streak}d`, color: 'text-slate-400' };
   return null;
 }
