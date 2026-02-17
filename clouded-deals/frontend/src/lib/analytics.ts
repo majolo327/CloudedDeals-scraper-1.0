@@ -76,7 +76,8 @@ export type EventType =
   | 'shared_page_view'
   | 'shared_get_deal_click'
   | 'shared_page_cta'
-  | 'user_feedback';
+  | 'user_feedback'
+  | 'dispensary_deals_expanded';
 
 /**
  * Collect device and context metadata (non-PII) for analytics enrichment.
