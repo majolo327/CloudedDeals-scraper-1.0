@@ -687,7 +687,7 @@ def _upsert_products(
         # Classify product for infused/pack status
         brand = p.get("brand")
         category = p.get("category")
-        classification = classify_product(name, brand, category)
+        classification = classify_product(name, brand, category, weight_value=p.get("weight_value"))
         if classification["corrected_category"]:
             category = classification["corrected_category"]
 
@@ -1284,7 +1284,7 @@ async def _scrape_site_inner(
         # "All-In-One" reclassified from concentrate → vape) are applied
         # BEFORE deal detection scoring.  Without this, the deal detector
         # uses the wrong category for price caps and scoring.
-        classification = classify_product(display_name, brand, effective_cat)
+        classification = classify_product(display_name, brand, effective_cat, weight_value=weight_value)
         if classification["corrected_category"]:
             category = classification["corrected_category"]
             effective_cat = category

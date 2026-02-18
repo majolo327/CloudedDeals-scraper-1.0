@@ -35,13 +35,13 @@ logger = logging.getLogger("deal_detector")
 
 CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
     "flower": {
-        "3.5": 25,    # eighth — relaxed from $19
+        "3.5": 22,    # eighth — tightened from $25 ($22 is upper bound for deal-worthy eighths)
         "7": 40,      # quarter — tightened from $45
         "14": 55,     # half oz — tightened from $65 ($55 half oz is upper bound)
         "28": 100,    # full oz — relaxed from $79
     },
     "vape": 28,           # carts/pods — tightened from $35 ($24 .5g cart is already borderline)
-    "edible": 15,         # gummies/chocolates — tightened from $20 ($20 edible is a bad deal)
+    "edible": 14,         # gummies/chocolates — tightened from $15 ($15 edible is not a deal)
     "concentrate": {      # weight-based: live rosin can be pricier
         "0.5": 25,        # half gram
         "1": 45,          # gram — raised from flat $35
@@ -1254,6 +1254,20 @@ def detect_deals(
     (accessible via ``get_last_report_data()``).
     """
     global _last_report_data
+
+    # Step 0: Correct 1g flower → preroll (no 1g flower exists in retail;
+    # it's always a preroll or infused preroll that was miscategorized).
+    for product in products:
+        if (
+            product.get("category") == "flower"
+            and product.get("weight_value")
+        ):
+            try:
+                wv = float(product["weight_value"])
+            except (ValueError, TypeError):
+                wv = None
+            if wv is not None and 0.5 <= wv <= 1.5:
+                product["category"] = "preroll"
 
     # Step 1: Hard filter
     qualifying: list[dict[str, Any]] = []
