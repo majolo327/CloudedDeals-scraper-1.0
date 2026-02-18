@@ -92,6 +92,19 @@ async def _resolve_frame(
         )
         # Return the frame anyway — partial content is better than nothing.
 
+    # Guard: if the iframe is still about:blank, the embed hasn't actually
+    # loaded — the age gate callback may not have fired.  Wait up to 30 s
+    # for the frame to navigate to its real URL before giving up.
+    if frame.url in ("about:blank", ""):
+        logger.info("Iframe from %r is about:blank — waiting for real URL (up to 30 s)", selector)
+        for _ in range(30):
+            await asyncio.sleep(1)
+            if frame.url not in ("about:blank", ""):
+                break
+        if frame.url in ("about:blank", ""):
+            logger.warning("Iframe from %r still about:blank after 30 s — skipping", selector)
+            return None
+
     logger.info("Iframe found via %r — frame URL: %s", selector, frame.url)
 
     if post_wait_sec > 0:
