@@ -198,7 +198,7 @@ DISPENSARIES = [
         "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-henderson/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "js_embed",
+        "embed_type": "iframe",  # confirmed via debug logs — dtche param injects a Dutchie iframe
     },
     {
         "name": "The Dispensary - Eastern",
@@ -208,7 +208,7 @@ DISPENSARIES = [
         "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-eastern-express/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "js_embed",
+        "embed_type": "iframe",  # confirmed via debug logs — dtche param injects a Dutchie iframe
     },
     {
         "name": "The Dispensary - Decatur",
@@ -218,7 +218,7 @@ DISPENSARIES = [
         "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-las-vegas/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "js_embed",
+        "embed_type": "iframe",  # confirmed via debug logs — dtche param injects a Dutchie iframe
     },
     {
         "name": "Planet 13",
