@@ -394,6 +394,12 @@ _SALE_COPY_PATTERNS = [
     re.compile(r"^promo\b", re.IGNORECASE),
     re.compile(r"\|\s*\d+%\s*off", re.IGNORECASE),
     re.compile(r"off\s+(all|select|any)\s", re.IGNORECASE),
+    # Bundle pricing patterns — "3 for $50", "2/$40", "4 for $100"
+    # These are promotional bundles, not individual product deals.
+    re.compile(r"\b\d+\s+for\s+\$\d+", re.IGNORECASE),
+    re.compile(r"\b\d+\s*/\s*\$\d+"),                     # "2/$40"
+    # "Buy X Get Y" anywhere in name (not just start)
+    re.compile(r"\bbuy\s+\d+\s+get\b", re.IGNORECASE),
 ]
 
 
