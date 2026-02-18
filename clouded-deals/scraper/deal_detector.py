@@ -374,6 +374,19 @@ _STRAIN_ONLY_NAMES = {
 # Categories that should always have a detected weight
 _WEIGHT_REQUIRED_CATEGORIES = {"flower", "concentrate", "vape"}
 
+# Promotional / bundle text patterns — deals with these in the product
+# name are not individual products with verifiable quality.  Catches
+# items like "3 for $50 Trendi Cartridges" or "2/$40 Power Pack".
+_PROMO_TEXT_RE = re.compile(
+    r"\b\d+\s+for\s+\$\d+"           # "3 for $50"
+    r"|\b\d+\s*/\s*\$\d+"            # "2/$40"
+    r"|\bbuy\s+\d+\s+get\b"          # "buy 2 get 1"
+    r"|\bbogo\b"                      # "BOGO"
+    r"|\bmix\s*(?:and|&|n)\s*match\b" # "mix and match"
+    r"|\bbundle\b",                   # "bundle"
+    re.IGNORECASE,
+)
+
 
 def passes_quality_gate(product: dict[str, Any]) -> bool:
     """Return ``False`` if the product has garbage or incomplete data.
@@ -410,6 +423,12 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
     # Reject products where name is a repeated word (e.g. "Badder Badder")
     name_words = name.strip().lower().split()
     if len(name_words) == 2 and name_words[0] == name_words[1]:
+        return False
+
+    # Reject bundle/promo text that slipped through scraper filters —
+    # "3 for $50 Trendi Cartridges", "2/$40 Power Pack", etc.
+    # These are not individual product deals with verifiable quality.
+    if _PROMO_TEXT_RE.search(name):
         return False
 
     # Reject products with no weight in categories that need it

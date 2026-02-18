@@ -65,7 +65,7 @@ _VAPE_DISPOSABLE_INDICATORS = [
 ]
 
 _VAPE_CARTRIDGE_INDICATORS = [
-    re.compile(r"\bcart(?:ridge)?\b", re.IGNORECASE),
+    re.compile(r"\bcart(?:ridge)?s?\b", re.IGNORECASE),
     re.compile(r"\b510\b"),
 ]
 
@@ -245,6 +245,26 @@ def classify_product(
             subtype = "disposable"
             logger.info(
                 "[CLASSIFY] %r recategorized: %s → vape (disposable indicator)",
+                name[:60], cat,
+            )
+
+    # --- Safety net: cartridge/cart/pod keywords override wrong category ---
+    # Products with "cartridge", "cart", or "pod" in the name are vapes,
+    # not flower.  E.g. "3 for $50 Trendi Cartridges" miscategorized as
+    # flower because "3" matched flower weight patterns.
+    if cat not in ("vape",) and subtype is None and corrected_category != "vape":
+        if any(p.search(name_lower) for p in _VAPE_CARTRIDGE_INDICATORS):
+            corrected_category = "vape"
+            subtype = "cartridge"
+            logger.info(
+                "[CLASSIFY] %r recategorized: %s → vape (cartridge indicator)",
+                name[:60], cat,
+            )
+        elif any(p.search(name_lower) for p in _VAPE_POD_INDICATORS):
+            corrected_category = "vape"
+            subtype = "pod"
+            logger.info(
+                "[CLASSIFY] %r recategorized: %s → vape (pod indicator)",
                 name[:60], cat,
             )
 
