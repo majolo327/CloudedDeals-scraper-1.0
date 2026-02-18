@@ -125,6 +125,7 @@ def classify_product(
     name: str,
     brand: str | None,
     category: str | None,
+    weight_value: float | str | None = None,
 ) -> dict:
     """Classify a product for infused/pack status.
 
@@ -208,6 +209,25 @@ def classify_product(
                 logger.info(
                     "[CLASSIFY] %r recategorized → preroll (pack)", name[:60],
                 )
+
+    # --- 1g flower → preroll reclassification ---
+    # A "1g flower" product does not exist in cannabis retail — 1g is always
+    # a preroll or infused preroll.  Some dispensaries (notably STIIIZY)
+    # miscategorize prerolls as flower.  Correct the category here so the
+    # deal card shows "Pre-Roll" instead of "Flower 1g".
+    if cat == "flower" and weight_value is not None:
+        try:
+            wv = float(weight_value)
+        except (ValueError, TypeError):
+            wv = None
+        if wv is not None and 0.5 <= wv <= 1.5:
+            corrected_category = "preroll"
+            if is_infused:
+                subtype = "infused_preroll"
+            logger.info(
+                "[CLASSIFY] %r recategorized: flower %.1fg → preroll (no 1g flower exists)",
+                (name or "")[:60], wv,
+            )
 
     # --- Vape subtype detection ---
     if cat == "vape" and subtype is None:
