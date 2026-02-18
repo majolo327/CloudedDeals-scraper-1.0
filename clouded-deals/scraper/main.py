@@ -1500,8 +1500,9 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
 def _already_scraped_today() -> bool:
     """Check if a completed scrape run already exists for today (UTC).
 
-    When running a specific platform group, only checks for completed
-    runs of that same group — a "stable" run doesn't block a "new" run.
+    Scoped by both *platform_group* and *region* so that a completed
+    New York run doesn't block a Nevada run (or vice-versa), and a
+    "stable" run doesn't block a "new" run.
     """
     if DRY_RUN:
         return False
@@ -1515,6 +1516,7 @@ def _already_scraped_today() -> bool:
         .select("id")
         .eq("status", "completed")
         .eq("platform_group", PLATFORM_GROUP)
+        .eq("region", REGION)
         .gte("started_at", today_start)
     )
     query = query.limit(1)
