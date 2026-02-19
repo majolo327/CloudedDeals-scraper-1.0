@@ -461,6 +461,22 @@ class DutchieScraper(BaseScraper):
                 await self.save_debug_info("no_dutchie_content_primary")
                 return await self._scrape_with_fallback(fallback_url, embed_hint)
 
+            # --- Fast-bail for dutchie.com direct pages -------------------
+            # dutchie.com pages are React SPAs that render product cards
+            # within seconds of the age gate click.  If nothing appeared
+            # after the 120s smart-wait + 30s direct probe (~150s total),
+            # the dispensary menu is empty or disabled on Dutchie's end.
+            # Reloading won't help — skip the expensive 300s+ reload+retry
+            # cycle that would otherwise burn until the site timeout.
+            if embed_hint == "direct" and not smart_wait_ok:
+                logger.warning(
+                    "[%s] dutchie.com page loaded but no product cards after %ds — "
+                    "dispensary menu may be empty or disabled",
+                    self.slug, _SMART_WAIT_MS // 1000,
+                )
+                await self.save_debug_info("no_products_direct_bail")
+                return []
+
             # No fallback: reload page and retry the full click flow once
             logger.warning("[%s] No Dutchie content after click — trying reload + re-click", self.slug)
             await self.page.evaluate(_AGE_GATE_COOKIE_JS)
