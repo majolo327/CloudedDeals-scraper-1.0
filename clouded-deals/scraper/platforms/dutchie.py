@@ -383,14 +383,23 @@ class DutchieScraper(BaseScraper):
         # cascade will burn 300+ seconds timing out on selectors that
         # will never match.  Skip directly to fallback URL if available.
         if await self.detect_cloudflare_challenge():
-            if fallback_url and fallback_url != self.url:
-                logger.warning(
-                    "[%s] Cloudflare blocked on primary — skipping to fallback: %s",
-                    self.slug, fallback_url,
-                )
-                return await self._scrape_with_fallback(fallback_url, embed_hint)
-            logger.error("[%s] Cloudflare blocked and no fallback URL — aborting", self.slug)
-            return []
+            # Retry once after a brief wait — Cloudflare challenges are
+            # sometimes intermittent and a fresh page load can succeed.
+            logger.info("[%s] Cloudflare detected — retrying after 5s delay", self.slug)
+            await asyncio.sleep(5)
+            await self.page.reload(wait_until="load", timeout=60_000)
+            await asyncio.sleep(2 + random.uniform(0, 3))
+
+            if await self.detect_cloudflare_challenge():
+                if fallback_url and fallback_url != self.url:
+                    logger.warning(
+                        "[%s] Cloudflare blocked on primary (after retry) — skipping to fallback: %s",
+                        self.slug, fallback_url,
+                    )
+                    return await self._scrape_with_fallback(fallback_url, embed_hint)
+                logger.error("[%s] Cloudflare blocked and no fallback URL — aborting", self.slug)
+                return []
+            logger.info("[%s] Cloudflare challenge cleared on retry — proceeding", self.slug)
 
         # --- Planet 13 / Medizin store selector ----------------------------
         # P13 and Medizin share planet13.com — ensure the store picker in
