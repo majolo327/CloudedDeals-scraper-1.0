@@ -25,6 +25,7 @@ import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { useDealHistory } from '@/hooks/useDealHistory';
 import { initializeAnonUser, trackEvent, trackPageView, trackDealModalOpen } from '@/lib/analytics';
 import { FTUEFlow, isFTUECompleted } from '@/components/ftue';
+import type { UserCoords } from '@/components/ftue';
 import { CookieConsent } from '@/components/CookieConsent';
 import { createShareLink } from '@/lib/share';
 import { formatUpdateTime } from '@/utils';
@@ -291,8 +292,11 @@ export default function Home() {
     }
   }, [deals, savedDeals, addToast]);
 
-  const handleFTUEComplete = useCallback(() => {
+  const handleFTUEComplete = useCallback((_prefs: string[], coords: UserCoords | null) => {
     setShowFTUE(false);
+    // If geolocation was granted during FTUE, coords are already persisted
+    // in localStorage by LocationPrompt — no extra work needed here.
+    void coords;
   }, []);
 
   // AgeGate
@@ -305,7 +309,7 @@ export default function Home() {
     return (
       <FTUEFlow
         dealCount={todaysDeals.length}
-        onComplete={() => handleFTUEComplete()}
+        onComplete={handleFTUEComplete}
       />
     );
   }

@@ -1,0 +1,41 @@
+# CloudedDeals
+
+> Every deal from every Las Vegas dispensary, updated daily at 8 AM.
+
+CloudedDeals is a free cannabis deal comparison platform covering 27+ licensed Las Vegas dispensaries. We scrape dispensary menus every morning, classify products, score deals, and present the best prices in one place. No account required.
+
+## What We Cover
+
+- **27+ licensed dispensaries** across the Las Vegas Strip, Downtown, and local neighborhoods
+- **5 product categories**: flower, vapes, edibles, concentrates, and pre-rolls
+- **Daily price updates** at 8 AM Pacific from live dispensary menus
+- **Deal scoring** (0-100) based on price vs. market average
+
+## Key Pages
+
+- [All Las Vegas Dispensary Deals](https://cloudeddeals.com/las-vegas-dispensary-deals): Every deal from every dispensary, filterable and sortable
+- [Strip Dispensary Deals](https://cloudeddeals.com/strip-dispensary-deals): Deals from dispensaries near the Las Vegas Strip
+- [Flower Deals](https://cloudeddeals.com/deals/flower): Cannabis flower deals and prices
+- [Vape Deals](https://cloudeddeals.com/deals/vapes): Vape cartridge and pod deals
+- [Edible Deals](https://cloudeddeals.com/deals/edibles): Edible and gummy deals
+- [Concentrate Deals](https://cloudeddeals.com/deals/concentrates): Wax, shatter, and live resin deals
+- [Pre-Roll Deals](https://cloudeddeals.com/deals/prerolls): Pre-roll and joint deals
+- [Browse by Dispensary](https://cloudeddeals.com/browse): See all 27+ dispensaries
+
+## Top Dispensaries We Track
+
+- [Planet 13](https://cloudeddeals.com/dispensary/planet13): World's largest dispensary, on the Strip
+- [Curaleaf Strip](https://cloudeddeals.com/dispensary/curaleaf-strip): Major chain dispensary on Las Vegas Blvd
+- [The Dispensary - Gibson](https://cloudeddeals.com/dispensary/td-gibson): Premium local dispensary in Henderson
+- [Medizin](https://cloudeddeals.com/dispensary/medizin): Popular dispensary near the airport
+- [The Grove](https://cloudeddeals.com/dispensary/the-grove): Well-known dispensary with competitive deals
+- [Oasis](https://cloudeddeals.com/dispensary/oasis): Long-running Las Vegas dispensary
+
+## Detailed Info
+
+For comprehensive information about the site, see [llms-full.txt](https://cloudeddeals.com/llms-full.txt).
+
+## Contact
+
+- Website: https://cloudeddeals.com
+- Twitter/X: @CloudedDeals
