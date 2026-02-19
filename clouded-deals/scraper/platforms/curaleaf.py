@@ -78,6 +78,13 @@ _BY_BRAND = re.compile(
 # products ≈ 1275, giving headroom for growth while staying within timeout.
 _MAX_PAGES = 25
 
+# Stop pagination once we have enough raw products for deal detection.
+# Large Curaleaf stores (800–900+ products) spread across 16–18 pages take
+# ~30 s per page cycle, easily exceeding the 480 s site timeout.  600 raw
+# products is more than enough for the deal pipeline (which applies hard
+# filters, scoring, and dedup) while keeping total scrape time under 7 min.
+_MAX_PRODUCTS = 600
+
 # Curaleaf product card selectors (tried in order).
 _PRODUCT_SELECTORS = [
     '[data-testid*="product"]',
@@ -204,6 +211,14 @@ class CuraleafScraper(BaseScraper):
                 self.slug, page_num, len(products), len(all_products),
             )
 
+            # Product cap — stop early to stay within the site timeout.
+            if len(all_products) >= _MAX_PRODUCTS:
+                logger.info(
+                    "[%s] Reached product cap (%d >= %d) at page %d — stopping pagination",
+                    self.slug, len(all_products), _MAX_PRODUCTS, page_num,
+                )
+                break
+
             # Track consecutive empty pages — bail after 3 in a row
             # instead of silently paginating through blank pages.
             if len(products) == 0:
@@ -264,6 +279,12 @@ class CuraleafScraper(BaseScraper):
                     "[%s] Base menu page %d → %d products (total %d)",
                     self.slug, page_num, len(products), len(all_products),
                 )
+                if len(all_products) >= _MAX_PRODUCTS:
+                    logger.info(
+                        "[%s] Reached product cap (%d) on base menu — stopping",
+                        self.slug, len(all_products),
+                    )
+                    break
                 page_num += 1
                 try:
                     if not await navigate_curaleaf_page(self.page, page_num):
