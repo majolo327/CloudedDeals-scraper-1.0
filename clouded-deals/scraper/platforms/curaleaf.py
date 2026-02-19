@@ -33,9 +33,10 @@ from .base import BaseScraper
 logger = logging.getLogger(__name__)
 
 _CURALEAF_CFG = PLATFORM_DEFAULTS["curaleaf"]
-# Increased from 15s: Curaleaf's React SPA needs time for API calls to
-# complete and product cards to render after age gate navigation.
-_POST_AGE_GATE_WAIT = 20  # seconds
+# Reduced from 15s: Curaleaf's /stores/ pages render product cards within
+# a few seconds, and _extract_products() has its own 8s wait_for timeout.
+# 5s is enough for the React SPA to hydrate after the age gate redirect.
+_POST_AGE_GATE_WAIT = 5  # seconds
 
 # Strain types that are NOT real product names — skip to next line.
 _STRAIN_ONLY = {"indica", "sativa", "hybrid", "cbd", "thc"}
@@ -78,12 +79,13 @@ _BY_BRAND = re.compile(
 # products ≈ 1275, giving headroom for growth while staying within timeout.
 _MAX_PAGES = 25
 
-# Stop pagination once we have enough raw products for deal detection.
-# Large Curaleaf stores (800–900+ products) spread across 16–18 pages take
-# ~30 s per page cycle, easily exceeding the 480 s site timeout.  600 raw
-# products is more than enough for the deal pipeline (which applies hard
-# filters, scoring, and dedup) while keeping total scrape time under 7 min.
-_MAX_PRODUCTS = 600
+# Safety cap: stop pagination once we've collected this many products.
+# Large Curaleaf sites (NY) can have 800-1100+ products across 18+ pages.
+# With concurrent browser sharing, each page takes ~25s, so paginating
+# through all pages exceeds the per-site timeout (480s).  500 products
+# is sufficient for deal detection — the dedup step typically reduces
+# this to 100-200 unique products.
+_MAX_PRODUCTS = 500
 
 # Curaleaf product card selectors (tried in order).
 _PRODUCT_SELECTORS = [
@@ -256,11 +258,12 @@ class CuraleafScraper(BaseScraper):
                 self.slug, page_num, len(products), len(all_products),
             )
 
-            # Product cap — stop early to stay within the site timeout.
+            # Stop early if we've collected enough products.  Large sites
+            # (800-1100+ products) cause timeouts when paginating to the end.
             if len(all_products) >= _MAX_PRODUCTS:
                 logger.info(
-                    "[%s] Reached product cap (%d >= %d) at page %d — stopping pagination",
-                    self.slug, len(all_products), _MAX_PRODUCTS, page_num,
+                    "[%s] Collected %d products (cap=%d) — stopping pagination early",
+                    self.slug, len(all_products), _MAX_PRODUCTS,
                 )
                 break
 
@@ -458,26 +461,23 @@ class CuraleafScraper(BaseScraper):
                 continue
 
         # Wait for redirect back to store page.
-        # Curaleaf uses multiple URL patterns:
-        #   /stores/  (NV, AZ)
-        #   /shop/    (MI, IL)
+        # Curaleaf uses multiple URL patterns and may redirect between them:
+        #   /stores/  (NV, AZ, and now NY after age gate)
+        #   /shop/    (MI, IL, NY — original URL format)
         #   /dispensary/ (legacy format, some AZ/MI stores)
-        # Check which pattern matches the original URL and wait for that.
-        if "/shop/" in self.url:
-            redirect_pattern = "**/shop/**"
-        elif "/dispensary/" in self.url:
-            redirect_pattern = "**/dispensary/**"
-        else:
-            redirect_pattern = "**/stores/**"
+        # Accept ANY valid store pattern — Curaleaf now redirects /shop/ URLs
+        # to /stores/ after the age gate (observed Feb 2026).
         try:
-            await self.page.wait_for_url(redirect_pattern, timeout=15_000)
+            await self.page.wait_for_url(
+                lambda url: any(p in url for p in ("/shop/", "/stores/", "/dispensary/")),
+                timeout=15_000,
+            )
             logger.info("[%s] Redirected back to store: %s", self.slug, self.page.url)
         except PlaywrightTimeout:
             logger.warning(
-                "[%s] Did not redirect back to store after age gate (expected %s) — current URL: %s",
-                self.slug, redirect_pattern, self.page.url,
+                "[%s] Did not redirect back to store after age gate — current URL: %s",
+                self.slug, self.page.url,
             )
-            await self.save_debug_info("age_gate_stuck")
 
         # Dismiss cookie consent banner (OneTrust) immediately so it
         # doesn't block product extraction or pagination clicks.
