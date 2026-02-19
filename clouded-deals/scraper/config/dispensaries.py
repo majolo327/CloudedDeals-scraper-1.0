@@ -1749,16 +1749,16 @@ DISPENSARIES = [
     # ==================================================================
 
     # ── DUTCHIE PA ──────────────────────────────────────────────────
-    {"name": "Ethos NE Philadelphia", "slug": "ethos-pa-ne-philly", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ethos-northeast-philadelphia", "is_active": True, "region": "pennsylvania"},
-    {"name": "Ethos Pleasant Hills PGH", "slug": "ethos-pa-pleasant-hills", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ethos-pleasant-hills", "is_active": True, "region": "pennsylvania"},
-    {"name": "Curaleaf PA Philadelphia", "slug": "curaleaf-pa-philly", "platform": "dutchie", "url": "https://dutchie.com/dispensary/curaleaf-pa-philadelphia", "is_active": True, "region": "pennsylvania"},
-    {"name": "Curaleaf PA King of Prussia", "slug": "curaleaf-pa-kop", "platform": "dutchie", "url": "https://dutchie.com/dispensary/curaleaf-pa-king-of-prussia", "is_active": True, "region": "pennsylvania"},
-    {"name": "Trulieve PA Center City", "slug": "trulieve-pa-center-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/harvest-of-city-center-philadelphia", "is_active": True, "region": "pennsylvania"},
-    {"name": "Trulieve PA Squirrel Hill PGH", "slug": "trulieve-pa-squirrel-hill", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trulieve-squirrel-hill", "is_active": True, "region": "pennsylvania"},
-    {"name": "Liberty Philadelphia", "slug": "liberty-pa-philly", "platform": "dutchie", "url": "https://dutchie.com/dispensary/liberty-philadelphia", "is_active": True, "region": "pennsylvania"},
-    {"name": "Liberty Pittsburgh", "slug": "liberty-pa-pgh", "platform": "dutchie", "url": "https://dutchie.com/dispensary/liberty-pittsburgh", "is_active": True, "region": "pennsylvania"},
-    {"name": "AYR Bryn Mawr", "slug": "ayr-pa-bryn-mawr", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ayr-wellness-bryn-mawr", "is_active": True, "region": "pennsylvania"},
-    {"name": "Ascend PA Scranton", "slug": "ascend-pa-scranton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/scranton-pennsylvania", "is_active": True, "region": "pennsylvania"},
+    {"name": "Ethos NE Philadelphia", "slug": "ethos-pa-ne-philly", "platform": "dutchie", "url": "https://ethoscannabis.com/dispensary-locations/pennsylvania/northeast-philadelphia/medical-cannabis-menu/", "fallback_url": "https://dutchie.com/dispensary/ethos-northeast-philadelphia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Ethos Pleasant Hills PGH", "slug": "ethos-pa-pleasant-hills", "platform": "dutchie", "url": "https://ethoscannabis.com/dispensary-locations/pennsylvania/pittsburgh-south-at-pleasant-hills/medical-cannabis-menu/", "fallback_url": "https://dutchie.com/dispensary/ethos-pleasant-hills", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA Philadelphia", "slug": "curaleaf-pa-philly", "platform": "dutchie", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-philadelphia", "fallback_url": "https://dutchie.com/dispensary/curaleaf-pa-philadelphia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA King of Prussia", "slug": "curaleaf-pa-kop", "platform": "dutchie", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-king-of-prussia", "fallback_url": "https://dutchie.com/dispensary/curaleaf-pa-king-of-prussia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Trulieve PA Center City", "slug": "trulieve-pa-center-city", "platform": "dutchie", "url": "https://www.trulieve.com/dispensaries/pennsylvania/philadelphia-center-city", "fallback_url": "https://dutchie.com/dispensary/harvest-of-city-center-philadelphia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Trulieve PA Squirrel Hill PGH", "slug": "trulieve-pa-squirrel-hill", "platform": "dutchie", "url": "https://www.trulieve.com/dispensaries/pennsylvania/pittsburgh", "fallback_url": "https://dutchie.com/dispensary/trulieve-squirrel-hill", "is_active": True, "region": "pennsylvania"},
+    {"name": "Liberty Philadelphia", "slug": "liberty-pa-philly", "platform": "dutchie", "url": "https://libertycannabis.com/shop/philadelphia/", "fallback_url": "https://dutchie.com/dispensary/liberty-philadelphia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Liberty Pittsburgh", "slug": "liberty-pa-pgh", "platform": "dutchie", "url": "https://libertycannabis.com/shop/pittsburgh/", "fallback_url": "https://dutchie.com/dispensary/liberty-pittsburgh", "is_active": True, "region": "pennsylvania"},
+    {"name": "AYR Bryn Mawr", "slug": "ayr-pa-bryn-mawr", "platform": "dutchie", "url": "https://ayrdispensaries.com/pennsylvania/bryn-mawr/shop/", "fallback_url": "https://dutchie.com/dispensary/ayr-wellness-bryn-mawr", "is_active": True, "region": "pennsylvania"},
+    {"name": "Ascend PA Scranton", "slug": "ascend-pa-scranton", "platform": "dutchie", "url": "https://letsascend.com/menu/pa-scranton-menu-med", "fallback_url": "https://dutchie.com/dispensary/scranton-pennsylvania", "is_active": True, "region": "pennsylvania"},
 
     # ── RISE PA (GTI — largest state footprint: 19 locations) ───────
     #    PA is medical-only → /medical-menu/ (not /recreational-menu/)
