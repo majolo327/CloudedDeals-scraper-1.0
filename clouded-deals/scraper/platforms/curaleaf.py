@@ -33,9 +33,9 @@ from .base import BaseScraper
 logger = logging.getLogger(__name__)
 
 _CURALEAF_CFG = PLATFORM_DEFAULTS["curaleaf"]
-# Reduced from 30s: product card detection follows this sleep and has
-# its own 8s timeout, so the full 30s is unnecessary.
-_POST_AGE_GATE_WAIT = 15  # seconds
+# Increased from 15s: Curaleaf's React SPA needs time for API calls to
+# complete and product cards to render after age gate navigation.
+_POST_AGE_GATE_WAIT = 20  # seconds
 
 # Strain types that are NOT real product names — skip to next line.
 _STRAIN_ONLY = {"indica", "sativa", "hybrid", "cbd", "thc"}
@@ -78,6 +78,13 @@ _BY_BRAND = re.compile(
 # products ≈ 1275, giving headroom for growth while staying within timeout.
 _MAX_PAGES = 25
 
+# Stop pagination once we have enough raw products for deal detection.
+# Large Curaleaf stores (800–900+ products) spread across 16–18 pages take
+# ~30 s per page cycle, easily exceeding the 480 s site timeout.  600 raw
+# products is more than enough for the deal pipeline (which applies hard
+# filters, scoring, and dedup) while keeping total scrape time under 7 min.
+_MAX_PRODUCTS = 600
+
 # Curaleaf product card selectors (tried in order).
 _PRODUCT_SELECTORS = [
     '[data-testid*="product"]',
@@ -92,10 +99,44 @@ _PRODUCT_SELECTORS = [
     'div[class*="ProductItem"]',
     'div[class*="Item_"]',
     'li[class*="product"]',
+    # Zen Leaf / newer Curaleaf patterns
+    '[class*="menu-product"]',
+    '[class*="MenuProduct"]',
+    'div[class*="ProductGrid"] > div',
+    'div[class*="product-grid"] > div',
+    '[class*="StoreMenu"] [class*="card"]',
+    'a[href*="/shop/"][href*="/product"]',
     # Broad fallback: any card-like container with a "$" price inside
     '[class*="card"]',
     'article',
 ]
+
+# Smart-wait JS: polls the DOM for any sign of Curaleaf product content.
+# Returns true as soon as product cards or price elements appear.
+_WAIT_FOR_CURALEAF_PRODUCTS_JS = """
+() => {
+    // Check for product card selectors
+    const selectors = [
+        '[data-testid*="product"]',
+        '[data-testid*="Product"]',
+        '[class*="ProductCard"]',
+        '[class*="product-card"]',
+        'a[href*="/product/"]',
+        '[class*="menu-product"]',
+        '[class*="MenuProduct"]',
+        '[class*="ProductGrid"]',
+        '[class*="product-grid"]',
+    ];
+    for (const sel of selectors) {
+        if (document.querySelectorAll(sel).length >= 1) return true;
+    }
+    // Check for price elements (strong signal of product content)
+    const bodyText = document.body?.innerText || '';
+    const priceCount = (bodyText.match(/\\$\\d+/g) || []).length;
+    if (priceCount >= 3) return true;
+    return false;
+}
+"""
 
 
 # Map region slugs to full state names (for age gate dropdown) and abbreviations.
@@ -179,7 +220,8 @@ class CuraleafScraper(BaseScraper):
 
         logger.info("[%s] After age gate, URL is: %s", self.slug, self.page.url)
 
-        # Wait for React SPA to render products
+        # Wait for React SPA to render products.
+        # Phase 1: fixed wait for initial hydration + API calls
         logger.info("[%s] Waiting %ds for product cards to render…", self.slug, _POST_AGE_GATE_WAIT)
         await asyncio.sleep(_POST_AGE_GATE_WAIT)
 
@@ -190,6 +232,16 @@ class CuraleafScraper(BaseScraper):
                 logger.info("[%s] Dismissed %d overlay(s) after age gate", self.slug, removed)
         except Exception:
             pass
+
+        # Phase 2: smart-wait — poll DOM for product cards (up to 30s).
+        # Returns instantly if products already rendered during Phase 1.
+        try:
+            await self.page.wait_for_function(
+                _WAIT_FOR_CURALEAF_PRODUCTS_JS, timeout=30_000,
+            )
+            logger.info("[%s] Smart-wait: product content detected in DOM", self.slug)
+        except PlaywrightTimeout:
+            logger.warning("[%s] Smart-wait: no product content after 30s — trying extraction anyway", self.slug)
 
         # --- Paginate and collect products ------------------------------
         all_products: list[dict[str, Any]] = []
@@ -203,6 +255,14 @@ class CuraleafScraper(BaseScraper):
                 "[%s] Page %d → %d products (total %d)",
                 self.slug, page_num, len(products), len(all_products),
             )
+
+            # Product cap — stop early to stay within the site timeout.
+            if len(all_products) >= _MAX_PRODUCTS:
+                logger.info(
+                    "[%s] Reached product cap (%d >= %d) at page %d — stopping pagination",
+                    self.slug, len(all_products), _MAX_PRODUCTS, page_num,
+                )
+                break
 
             # Track consecutive empty pages — bail after 3 in a row
             # instead of silently paginating through blank pages.
@@ -264,6 +324,12 @@ class CuraleafScraper(BaseScraper):
                     "[%s] Base menu page %d → %d products (total %d)",
                     self.slug, page_num, len(products), len(all_products),
                 )
+                if len(all_products) >= _MAX_PRODUCTS:
+                    logger.info(
+                        "[%s] Reached product cap (%d) on base menu — stopping",
+                        self.slug, len(all_products),
+                    )
+                    break
                 page_num += 1
                 try:
                     if not await navigate_curaleaf_page(self.page, page_num):
@@ -433,7 +499,7 @@ class CuraleafScraper(BaseScraper):
         for selector in _PRODUCT_SELECTORS:
             try:
                 await self.page.locator(selector).first.wait_for(
-                    state="attached", timeout=8_000,
+                    state="attached", timeout=3_000,
                 )
             except PlaywrightTimeout:
                 continue

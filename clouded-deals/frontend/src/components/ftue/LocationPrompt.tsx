@@ -48,18 +48,31 @@ interface LocationPromptProps {
 
 export function LocationPrompt({ onContinue }: LocationPromptProps) {
   const [requesting, setRequesting] = useState(false);
-  const [promptState, setPromptState] = useState<PromptState>('location');
+  const [promptState, setPromptState] = useState<PromptState>(() => {
+    // If the browser doesn't support geolocation at all, skip straight to zip
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      return 'zip-fallback';
+    }
+    return 'location';
+  });
   const [zipInput, setZipInput] = useState('');
   const [resolvedState, setResolvedState] = useState('');
   const [resolvedZip, setResolvedZip] = useState('');
 
   const handleEnable = async () => {
+    // Double-check geolocation support
+    if (!navigator.geolocation) {
+      localStorage.setItem(LOCATION_KEY, 'denied');
+      setPromptState('zip-fallback');
+      return;
+    }
+
     setRequesting(true);
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: false,
-          timeout: 10000,
+          timeout: 15000,
           maximumAge: 300000,
         });
       });
@@ -75,6 +88,7 @@ export function LocationPrompt({ onContinue }: LocationPromptProps) {
         screen: 'location',
         result: 'granted',
       });
+      // Location granted — skip zip entirely, finish FTUE
       onContinue(coords);
     } catch {
       localStorage.setItem(LOCATION_KEY, 'denied');
@@ -82,7 +96,7 @@ export function LocationPrompt({ onContinue }: LocationPromptProps) {
         screen: 'location',
         result: 'denied',
       });
-      // Show zip fallback instead of immediately continuing
+      // Location denied — fall back to zip entry
       setPromptState('zip-fallback');
     } finally {
       setRequesting(false);

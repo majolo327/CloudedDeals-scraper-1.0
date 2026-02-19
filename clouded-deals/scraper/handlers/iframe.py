@@ -282,6 +282,7 @@ async def find_dutchie_content(
     iframe_timeout_ms: int = 30_000,
     js_embed_timeout_sec: float = 60,
     embed_type_hint: str | None = None,
+    hint_only: bool = False,
 ) -> tuple[Page | Frame | None, EmbedType | None]:
     """Locate Dutchie menu content — iframe first, JS embed fallback.
 
@@ -289,6 +290,11 @@ async def find_dutchie_content(
     the known embed type is tried first to avoid wasting time on
     detection phases that won't match.  This saves ~45 s on JS-embed
     sites that would otherwise wait for iframe detection to time out.
+
+    When *hint_only* is ``True``, the function returns ``(None, None)``
+    immediately if the hinted embed type is not found, skipping the
+    full cascade.  Use this for dutchie.com direct URLs where iframe
+    and JS-embed detection are irrelevant and would waste ~105 s.
 
     Returns
     -------
@@ -304,6 +310,9 @@ async def find_dutchie_content(
         if await _probe_js_embed(page, timeout_sec=js_embed_timeout_sec):
             logger.info("JS embed confirmed via hint — using main page as scrape target")
             return page, "js_embed"
+        if hint_only:
+            logger.info("JS embed hint didn't match and hint_only=True — skipping cascade")
+            return None, None
         logger.info("JS embed hint didn't match — falling through to full cascade")
 
     if embed_type_hint == "direct":
