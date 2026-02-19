@@ -19,5 +19,55 @@ Disallow: /saved
 Disallow: /saves/
 Disallow: /health
 
+# AI Crawlers — explicitly allowed
+# OpenAI (ChatGPT browsing + training)
+User-agent: GPTBot
+Allow: /
+
+# OpenAI (ChatGPT user-initiated browsing)
+User-agent: ChatGPT-User
+Allow: /
+
+# Anthropic (Claude)
+User-agent: ClaudeBot
+Allow: /
+
+# Google Gemini / AI Overviews
+User-agent: Google-Extended
+Allow: /
+
+# Perplexity AI
+User-agent: PerplexityBot
+Allow: /
+
+# Amazon / Alexa AI
+User-agent: Amazonbot
+Allow: /
+
+# Apple Intelligence / Siri
+User-agent: Applebot-Extended
+Allow: /
+
+# Meta AI
+User-agent: FacebookBot
+Allow: /
+
+# Microsoft / Copilot
+User-agent: Bingbot
+Allow: /
+
+# Common AI disallow for private paths
+User-agent: GPTBot
+Disallow: /admin
+Disallow: /api/
+Disallow: /auth/
+Disallow: /saved
+
+User-agent: ClaudeBot
+Disallow: /admin
+Disallow: /api/
+Disallow: /auth/
+Disallow: /saved
+
 # Sitemap
 Sitemap: https://cloudeddeals.com/sitemap.xml
