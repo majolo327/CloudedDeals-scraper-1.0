@@ -320,10 +320,11 @@ async def find_dutchie_content(
         if await _probe_direct_page(page, timeout_sec=30):
             logger.info("Direct page confirmed via hint — using main page as scrape target")
             return page, "direct"
-        if hint_only:
-            logger.info("Direct hint didn't match and hint_only=True — skipping cascade")
-            return None, None
-        logger.info("Direct hint didn't match — falling through to full cascade")
+        # dutchie.com pages are React SPAs — they will never match iframe
+        # or JS embed selectors.  Bail immediately instead of burning
+        # 105+ seconds on a cascade that cannot succeed.
+        logger.warning("Direct page has no product cards — skipping iframe/JS cascade")
+        return None, None
 
     # --- Try iframe -------------------------------------------------------
     # Always try iframe in the cascade.  If a js_embed/direct hint failed
