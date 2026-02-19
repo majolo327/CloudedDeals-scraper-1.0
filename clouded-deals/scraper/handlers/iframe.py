@@ -102,8 +102,31 @@ async def _resolve_frame(
             if frame.url not in ("about:blank", ""):
                 break
         if frame.url in ("about:blank", ""):
-            logger.warning("Iframe from %r still about:blank after 30 s — skipping", selector)
-            return None
+            # Force-navigate: the iframe element's src attribute is set to
+            # a real Dutchie URL but the embed's internal router never fires
+            # (age gate callback didn't trigger navigation).  Read src from
+            # the DOM and navigate the frame directly.
+            try:
+                src_attr = await locator.get_attribute("src")
+            except Exception:
+                src_attr = None
+            if src_attr and src_attr not in ("about:blank", ""):
+                logger.info(
+                    "Iframe from %r still about:blank — force-navigating to src=%s",
+                    selector, src_attr[:120],
+                )
+                try:
+                    await frame.goto(src_attr, wait_until="domcontentloaded", timeout=30_000)
+                    logger.info("Force-navigation succeeded — frame URL: %s", frame.url)
+                except PlaywrightTimeout:
+                    logger.warning("Force-navigation to %s timed out", src_attr[:120])
+                    # Frame may have partially loaded — continue anyway
+                except Exception:
+                    logger.warning("Force-navigation to %s failed", src_attr[:120], exc_info=True)
+                    return None
+            else:
+                logger.warning("Iframe from %r still about:blank and no src attr — skipping", selector)
+                return None
 
     logger.info("Iframe found via %r — frame URL: %s", selector, frame.url)
 
@@ -162,6 +185,25 @@ async def get_iframe(
                 await frame.wait_for_load_state("domcontentloaded", timeout=timeout_ms)
             except PlaywrightTimeout:
                 pass  # partial content is better than nothing
+
+            # Force-navigate if frame is stuck on about:blank (same fix
+            # as _resolve_frame — the embed's src is set but the frame
+            # never navigated).
+            if frame.url in ("about:blank", ""):
+                src_attr = await real_iframes[0].get_attribute("src") or ""
+                if src_attr and src_attr != "about:blank":
+                    logger.info(
+                        "Last-resort iframe is about:blank — force-navigating to src=%s",
+                        src_attr[:120],
+                    )
+                    try:
+                        await frame.goto(src_attr, wait_until="domcontentloaded", timeout=30_000)
+                    except PlaywrightTimeout:
+                        logger.warning("Last-resort force-navigation timed out")
+                    except Exception:
+                        logger.warning("Last-resort force-navigation failed", exc_info=True)
+                        return None
+
             logger.info(
                 "Last-resort: single iframe found — frame URL: %s", frame.url,
             )

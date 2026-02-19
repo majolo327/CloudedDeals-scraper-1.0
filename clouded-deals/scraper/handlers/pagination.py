@@ -12,6 +12,8 @@ import random
 
 from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 
+from .age_verification import force_remove_age_gate
+
 logger = logging.getLogger(__name__)
 
 # JavaScript to dismiss overlays that block pagination clicks on Curaleaf.
@@ -337,6 +339,14 @@ async def handle_jane_view_more(
     clicks = 0
 
     for attempt in range(1, max_attempts + 1):
+        # Remove any re-injected age gate overlays (Thrive sites re-inject
+        # #AVtextTop / #AVbg elements that intercept pointer events on the
+        # View More button).  Same pattern as Curaleaf's _JS_DISMISS_OVERLAYS.
+        try:
+            await force_remove_age_gate(target)
+        except Exception:
+            pass  # best-effort
+
         # Scroll to bottom to expose the View More button.  Jane sites
         # sometimes require vertical (and occasionally horizontal)
         # scrolling before the button becomes visible.
