@@ -156,6 +156,11 @@ on:
         required: false
         type: string
         default: ""
+      force_run:
+        description: "Force run even if this region already scraped today"
+        required: false
+        type: boolean
+        default: true
 
 # Concurrency is scoped per-region so each state runs independently.
 # Scheduled runs key off the cron expression; manual runs key off region input.
@@ -276,11 +281,10 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
           LIMIT_DISPENSARIES: ${{ github.event.inputs.limit_dispensaries || 'false' }}
           SINGLE_SITE: ${{ github.event.inputs.single_site || '' }}
-          # Force run — idempotency check in main.py only tracks
-          # platform_group, not region, so a Michigan run would
-          # incorrectly block NV.  Force all scheduled + dispatched
-          # runs until _already_scraped_today() is region-aware.
-          FORCE_RUN: "true"
+          # Idempotency check is now region-aware so scheduled runs
+          # rely on it to prevent duplicate scrapes.  Manual dispatches
+          # default to force_run=true to allow re-running a region.
+          FORCE_RUN: ${{ github.event.inputs.force_run || 'false' }}
           PLATFORM_GROUP: ${{ github.event.inputs.platform_group || 'stable' }}
           REGION: ${{ steps.region.outputs.value }}
         run: |

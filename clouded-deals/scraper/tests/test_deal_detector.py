@@ -17,6 +17,7 @@ from deal_detector import (
     MAX_SAME_DISPENSARY_TOTAL,
     PREMIUM_BRANDS,
     TARGET_DEAL_COUNT,
+    VAPE_SUBTYPE_PRICE_FLOORS,
     _score_brand,
     _score_unit_value,
     calculate_deal_score,
@@ -177,6 +178,68 @@ class TestPassesHardFilters:
     def test_preroll_over_cap(self, make_product):
         p = make_product(category="preroll", sale_price=10.0, original_price=20.0,
                          discount_percent=50)
+        assert passes_hard_filters(p) is False
+
+    # ── Vape subtype price floors (catches listing errors) ─────────
+
+    def test_disposable_1g_below_floor_rejected(self, make_product):
+        """$10.50 for a 1g disposable is a listing error (real floor $20-22)."""
+        p = make_product(category="vape", product_subtype="disposable",
+                         sale_price=10.50, original_price=30.0,
+                         discount_percent=65, weight_value=1.0)
+        assert passes_hard_filters(p) is False
+
+    def test_disposable_1g_at_floor_passes(self, make_product):
+        """$17 for a 1g disposable is at the minimum floor — passes."""
+        p = make_product(category="vape", product_subtype="disposable",
+                         sale_price=17.0, original_price=35.0,
+                         discount_percent=51, weight_value=1.0)
+        assert passes_hard_filters(p) is True
+
+    def test_disposable_half_gram_below_floor_rejected(self, make_product):
+        """$5 for a 0.5g disposable is too cheap — listing error."""
+        p = make_product(category="vape", product_subtype="disposable",
+                         sale_price=5.0, original_price=20.0,
+                         discount_percent=75, weight_value=0.5)
+        assert passes_hard_filters(p) is False
+
+    def test_disposable_half_gram_at_floor_passes(self, make_product):
+        p = make_product(category="vape", product_subtype="disposable",
+                         sale_price=8.0, original_price=20.0,
+                         discount_percent=60, weight_value=0.5)
+        assert passes_hard_filters(p) is True
+
+    def test_cart_1g_below_floor_rejected(self, make_product):
+        """$10 for a 1g cart is a listing error (real floor ~$17)."""
+        p = make_product(category="vape", product_subtype="cartridge",
+                         sale_price=10.0, original_price=30.0,
+                         discount_percent=67, weight_value=1.0)
+        assert passes_hard_filters(p) is False
+
+    def test_cart_1g_at_floor_passes(self, make_product):
+        p = make_product(category="vape", product_subtype="cartridge",
+                         sale_price=14.0, original_price=30.0,
+                         discount_percent=53, weight_value=1.0)
+        assert passes_hard_filters(p) is True
+
+    def test_pod_1g_below_floor_rejected(self, make_product):
+        p = make_product(category="vape", product_subtype="pod",
+                         sale_price=10.0, original_price=30.0,
+                         discount_percent=67, weight_value=1.0)
+        assert passes_hard_filters(p) is False
+
+    def test_vape_no_subtype_skips_floor_check(self, make_product):
+        """Vapes without a detected subtype should NOT be rejected by floor check."""
+        p = make_product(category="vape", product_subtype=None,
+                         sale_price=10.0, original_price=25.0,
+                         discount_percent=60, weight_value=1.0)
+        assert passes_hard_filters(p) is True
+
+    def test_disposable_floor_applies_on_jane(self, make_product):
+        """Vape subtype floors apply to ALL platforms including Jane."""
+        p = make_product(category="vape", product_subtype="disposable",
+                         sale_price=10.50, weight_value=1.0,
+                         source_platform="jane")
         assert passes_hard_filters(p) is False
 
     # ── Unknown category ───────────────────────────────────────────
@@ -666,3 +729,16 @@ class TestConstants:
     def test_hard_filters_has_max_discount(self):
         assert "max_discount_percent" in HARD_FILTERS
         assert HARD_FILTERS["max_discount_percent"] <= 90
+
+    def test_vape_subtype_floors_exist(self):
+        """All vape subtypes should have half-gram and full-gram floors."""
+        for subtype in ("disposable", "cartridge", "pod"):
+            assert subtype in VAPE_SUBTYPE_PRICE_FLOORS
+            floors = VAPE_SUBTYPE_PRICE_FLOORS[subtype]
+            assert "0.5" in floors
+            assert "1" in floors
+            assert floors["1"] > floors["0.5"]  # full-gram floor > half-gram
+
+    def test_disposable_floor_higher_than_cart(self):
+        """Disposables should have a higher price floor than carts (they include the battery)."""
+        assert VAPE_SUBTYPE_PRICE_FLOORS["disposable"]["1"] > VAPE_SUBTYPE_PRICE_FLOORS["cartridge"]["1"]

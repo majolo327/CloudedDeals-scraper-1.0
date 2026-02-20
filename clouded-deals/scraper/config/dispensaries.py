@@ -1,22 +1,22 @@
 """
 Dispensary configuration across 11 regions and 5 active platforms.
 
-Regions (1143 active):
-  - michigan:      196 dispensaries (Dutchie-dominant)
-  - illinois:      165 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
-  - colorado:      133 dispensaries (Dutchie + Jane)
-  - massachusetts: 111 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
-  - new-jersey:    102 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
-  - arizona:        99 dispensaries (Dutchie + Curaleaf/Zen Leaf + Jane)
-  - missouri:       89 dispensaries (Dutchie-only)
-  - ohio:           78 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
-  - new-york:       74 dispensaries (Dutchie + Jane + Curaleaf)
-  - southern-nv:    53 dispensaries (Dutchie/Jane/Carrot/Curaleaf/Zen Leaf/AIQ)
-  - pennsylvania:   43 dispensaries (Curaleaf/Zen Leaf + Dutchie)
+Regions (~1493 active / ~1542 total):
+  - michigan:      300 dispensaries (Dutchie + Jane)
+  - colorado:      200 dispensaries (Dutchie + Jane)
+  - massachusetts: 186 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - illinois:      178 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - ohio:          133 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - arizona:       127 dispensaries (Dutchie + Curaleaf/Zen Leaf + Jane)
+  - missouri:      121 dispensaries (Dutchie + Jane)
+  - new-jersey:    106 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - new-york:       76 dispensaries (Dutchie + Jane + Curaleaf)
+  - southern-nv:    66 dispensaries (Dutchie/Jane/Carrot/Curaleaf/Zen Leaf/AIQ)
+  - pennsylvania:   49 dispensaries (Curaleaf/Zen Leaf + Dutchie)
 
-Platforms (1143 active / 1192 total):
+Platforms (~1493 active / ~1542 total):
   - dutchie: ~846 — iframe-based menus (Dutchie/TD sites)
-  - jane:    ~181 — hybrid iframe/direct with "View More" pagination
+  - jane:    ~531 — hybrid iframe/direct with "View More" pagination
   - curaleaf: ~109 — direct page loads (Curaleaf + Zen Leaf)
   - rise:        0 — ALL DEACTIVATED (100% Cloudflare blocked)
   - carrot:      5 — JS widget via getcarrot.io
@@ -198,7 +198,7 @@ DISPENSARIES = [
         "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-henderson/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "js_embed",
+        "embed_type": "iframe",  # confirmed via debug logs — dtche param injects a Dutchie iframe
     },
     {
         "name": "The Dispensary - Eastern",
@@ -208,7 +208,7 @@ DISPENSARIES = [
         "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-eastern-express/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "js_embed",
+        "embed_type": "iframe",  # confirmed via debug logs — dtche param injects a Dutchie iframe
     },
     {
         "name": "The Dispensary - Decatur",
@@ -218,7 +218,7 @@ DISPENSARIES = [
         "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-las-vegas/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "js_embed",
+        "embed_type": "iframe",  # confirmed via debug logs — dtche param injects a Dutchie iframe
     },
     {
         "name": "Planet 13",
@@ -1684,15 +1684,15 @@ DISPENSARIES = [
 
     # ── DUTCHIE NY ──────────────────────────────────────────────────
     {"name": "Housing Works Cannabis Broadway", "slug": "hwc-broadway", "platform": "dutchie", "url": "https://hwcannabis.co/menu/broadway/", "is_active": True, "region": "new-york"},
-    {"name": "Smacked Village Bleecker", "slug": "smacked-village", "platform": "dutchie", "url": "https://dutchie.com/dispensary/temeka-bleecker", "is_active": True, "region": "new-york"},
-    {"name": "Gotham Bowery", "slug": "gotham-bowery", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gotham-nyc-3rd-st", "is_active": True, "region": "new-york"},
-    {"name": "Gotham Chelsea", "slug": "gotham-chelsea", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gotham-chelsea", "is_active": True, "region": "new-york"},
+    {"name": "Smacked Village Bleecker", "slug": "smacked-village", "platform": "dutchie", "url": "https://getsmacked.online/menu/", "fallback_url": "https://dutchie.com/dispensary/temeka-bleecker", "is_active": True, "region": "new-york"},
+    {"name": "Gotham Bowery", "slug": "gotham-bowery", "platform": "dutchie", "url": "https://gotham.nyc/locations/bowery/", "fallback_url": "https://dutchie.com/dispensary/gotham-nyc-3rd-st", "is_active": True, "region": "new-york"},
+    {"name": "Gotham Chelsea", "slug": "gotham-chelsea", "platform": "dutchie", "url": "https://gotham.nyc/menu/", "fallback_url": "https://dutchie.com/dispensary/gotham-chelsea", "is_active": True, "region": "new-york"},
     {"name": "Silk Road Queens", "slug": "silk-road-queens", "platform": "dutchie", "url": "https://dutchie.com/dispensary/silk-road-nyc", "is_active": True, "region": "new-york"},
     {"name": "Travel Agency Union Square", "slug": "travel-agency-usq", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-doe-store", "is_active": True, "region": "new-york"},
-    {"name": "Strain Stars Farmingdale", "slug": "strain-stars-farmingdale", "platform": "dutchie", "url": "https://dutchie.com/dispensary/strain-stars", "is_active": True, "region": "new-york"},
-    {"name": "FLUENT Manhattan Rec (Etain)", "slug": "fluent-manhattan-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/etain-new-york-rec", "is_active": True, "region": "new-york"},
+    {"name": "Strain Stars Farmingdale", "slug": "strain-stars-farmingdale", "platform": "dutchie", "url": "https://strainstarsny.com/stores/farmingdale/", "fallback_url": "https://dutchie.com/dispensary/strain-stars", "is_active": True, "region": "new-york"},
+    {"name": "FLUENT Manhattan Rec (Etain)", "slug": "fluent-manhattan-rec", "platform": "dutchie", "url": "https://getfluent.com/dispensary/new-york/manhattan-dispensary/", "fallback_url": "https://dutchie.com/dispensary/etain-new-york-rec", "is_active": True, "region": "new-york"},
     {"name": "Royale Flower Albany", "slug": "royale-flower-albany", "platform": "dutchie", "url": "https://dutchie.com/dispensary/royale-flower-albany", "is_active": True, "region": "new-york"},
-    {"name": "Herbalwai Buffalo", "slug": "herbalwai-buffalo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/herbalwai", "is_active": True, "region": "new-york"},
+    {"name": "Herbalwai Buffalo", "slug": "herbalwai-buffalo", "platform": "dutchie", "url": "https://herbalwai.com/menu/", "fallback_url": "https://dutchie.com/dispensary/herbalwai", "is_active": True, "region": "new-york"},
 
     # ── JANE NY ─────────────────────────────────────────────────────
     {"name": "Rise Manhattan NYC", "slug": "rise-ny-manhattan-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1181/rise-dispensaries-manhattan-nyc/menu", "is_active": True, "region": "new-york"},
@@ -1749,16 +1749,16 @@ DISPENSARIES = [
     # ==================================================================
 
     # ── DUTCHIE PA ──────────────────────────────────────────────────
-    {"name": "Ethos NE Philadelphia", "slug": "ethos-pa-ne-philly", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ethos-northeast-philadelphia", "is_active": True, "region": "pennsylvania"},
-    {"name": "Ethos Pleasant Hills PGH", "slug": "ethos-pa-pleasant-hills", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ethos-pleasant-hills", "is_active": True, "region": "pennsylvania"},
-    {"name": "Curaleaf PA Philadelphia", "slug": "curaleaf-pa-philly", "platform": "dutchie", "url": "https://dutchie.com/dispensary/curaleaf-pa-philadelphia", "is_active": True, "region": "pennsylvania"},
-    {"name": "Curaleaf PA King of Prussia", "slug": "curaleaf-pa-kop", "platform": "dutchie", "url": "https://dutchie.com/dispensary/curaleaf-pa-king-of-prussia", "is_active": True, "region": "pennsylvania"},
-    {"name": "Trulieve PA Center City", "slug": "trulieve-pa-center-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/harvest-of-city-center-philadelphia", "is_active": True, "region": "pennsylvania"},
-    {"name": "Trulieve PA Squirrel Hill PGH", "slug": "trulieve-pa-squirrel-hill", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trulieve-squirrel-hill", "is_active": True, "region": "pennsylvania"},
-    {"name": "Liberty Philadelphia", "slug": "liberty-pa-philly", "platform": "dutchie", "url": "https://dutchie.com/dispensary/liberty-philadelphia", "is_active": True, "region": "pennsylvania"},
-    {"name": "Liberty Pittsburgh", "slug": "liberty-pa-pgh", "platform": "dutchie", "url": "https://dutchie.com/dispensary/liberty-pittsburgh", "is_active": True, "region": "pennsylvania"},
-    {"name": "AYR Bryn Mawr", "slug": "ayr-pa-bryn-mawr", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ayr-wellness-bryn-mawr", "is_active": True, "region": "pennsylvania"},
-    {"name": "Ascend PA Scranton", "slug": "ascend-pa-scranton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/scranton-pennsylvania", "is_active": True, "region": "pennsylvania"},
+    {"name": "Ethos NE Philadelphia", "slug": "ethos-pa-ne-philly", "platform": "dutchie", "url": "https://ethoscannabis.com/dispensary-locations/pennsylvania/northeast-philadelphia/medical-cannabis-menu/", "fallback_url": "https://dutchie.com/dispensary/ethos-northeast-philadelphia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Ethos Pleasant Hills PGH", "slug": "ethos-pa-pleasant-hills", "platform": "dutchie", "url": "https://ethoscannabis.com/dispensary-locations/pennsylvania/pittsburgh-south-at-pleasant-hills/medical-cannabis-menu/", "fallback_url": "https://dutchie.com/dispensary/ethos-pleasant-hills", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA Philadelphia", "slug": "curaleaf-pa-philly", "platform": "dutchie", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-philadelphia", "fallback_url": "https://dutchie.com/dispensary/curaleaf-pa-philadelphia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Curaleaf PA King of Prussia", "slug": "curaleaf-pa-kop", "platform": "dutchie", "url": "https://curaleaf.com/shop/pennsylvania/curaleaf-pa-king-of-prussia", "fallback_url": "https://dutchie.com/dispensary/curaleaf-pa-king-of-prussia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Trulieve PA Center City", "slug": "trulieve-pa-center-city", "platform": "dutchie", "url": "https://www.trulieve.com/dispensaries/pennsylvania/philadelphia-center-city", "fallback_url": "https://dutchie.com/dispensary/harvest-of-city-center-philadelphia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Trulieve PA Squirrel Hill PGH", "slug": "trulieve-pa-squirrel-hill", "platform": "dutchie", "url": "https://www.trulieve.com/dispensaries/pennsylvania/pittsburgh", "fallback_url": "https://dutchie.com/dispensary/trulieve-squirrel-hill", "is_active": True, "region": "pennsylvania"},
+    {"name": "Liberty Philadelphia", "slug": "liberty-pa-philly", "platform": "dutchie", "url": "https://libertycannabis.com/shop/philadelphia/", "fallback_url": "https://dutchie.com/dispensary/liberty-philadelphia", "is_active": True, "region": "pennsylvania"},
+    {"name": "Liberty Pittsburgh", "slug": "liberty-pa-pgh", "platform": "dutchie", "url": "https://libertycannabis.com/shop/pittsburgh/", "fallback_url": "https://dutchie.com/dispensary/liberty-pittsburgh", "is_active": True, "region": "pennsylvania"},
+    {"name": "AYR Bryn Mawr", "slug": "ayr-pa-bryn-mawr", "platform": "dutchie", "url": "https://ayrdispensaries.com/pennsylvania/bryn-mawr/shop/", "fallback_url": "https://dutchie.com/dispensary/ayr-wellness-bryn-mawr", "is_active": True, "region": "pennsylvania"},
+    {"name": "Ascend PA Scranton", "slug": "ascend-pa-scranton", "platform": "dutchie", "url": "https://letsascend.com/menu/pa-scranton-menu-med", "fallback_url": "https://dutchie.com/dispensary/scranton-pennsylvania", "is_active": True, "region": "pennsylvania"},
 
     # ── RISE PA (GTI — largest state footprint: 19 locations) ───────
     #    PA is medical-only → /medical-menu/ (not /recreational-menu/)
@@ -2305,7 +2305,7 @@ DISPENSARIES = [
 
     # ── NY DUTCHIE ─────────────────────────────────────────────────────
     {"name": "Brooklyn Bourne NY", "slug": "brooklyn-bourne-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/brooklyn-bourne", "is_active": True, "region": "new-york"},
-    {"name": "Culture House NYC NY", "slug": "culture-house-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/culture-house", "is_active": True, "region": "new-york"},
+    {"name": "Culture House NYC NY", "slug": "culture-house-ny", "platform": "dutchie", "url": "https://culturehousenyc.com/menu/", "fallback_url": "https://dutchie.com/dispensary/culture-house", "is_active": True, "region": "new-york"},
     {"name": "Dazed Union Square NY", "slug": "dazed-ny-usq", "platform": "dutchie", "url": "https://dutchie.com/dispensary/dazed-cannabis1", "is_active": True, "region": "new-york"},
     {"name": "Dazed Syracuse NY", "slug": "dazed-ny-syracuse", "platform": "dutchie", "url": "https://dutchie.com/dispensary/dazed-syracuse", "is_active": True, "region": "new-york"},
     {"name": "The Flowery Soho NY", "slug": "flowery-ny-soho", "platform": "dutchie", "url": "https://dutchie.com/dispensary/elevate-soho", "is_active": True, "region": "new-york"},
@@ -2313,35 +2313,35 @@ DISPENSARIES = [
     {"name": "Etain Manhattan Med NY", "slug": "etain-ny-manhattan-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/etain-manhattan", "is_active": True, "region": "new-york"},
     {"name": "Gotham Buds Harlem NY", "slug": "gotham-ny-harlem", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gotham-buds", "is_active": True, "region": "new-york"},
     {"name": "Gotham Delivery NY", "slug": "gotham-ny-delivery", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gotham-delivery", "is_active": True, "region": "new-york"},
-    {"name": "Green Street Brooklyn NY", "slug": "green-street-ny-brooklyn", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-street-brooklyn", "is_active": True, "region": "new-york"},
+    {"name": "Green Street Brooklyn NY", "slug": "green-street-ny-brooklyn", "platform": "dutchie", "url": "https://gstnydispensary.com/menu", "fallback_url": "https://dutchie.com/dispensary/green-street-brooklyn", "is_active": True, "region": "new-york"},
     {"name": "Grow Together Brooklyn NY", "slug": "grow-together-ny-brooklyn", "platform": "dutchie", "url": "https://dutchie.com/dispensary/grow-together-brooklyn", "is_active": True, "region": "new-york"},
     {"name": "Herbwell Bronx NY", "slug": "herbwell-ny-bronx", "platform": "dutchie", "url": "https://dutchie.com/dispensary/herbwell-bronx", "is_active": True, "region": "new-york"},
     {"name": "Hybrid NYC NY", "slug": "hybrid-ny-nyc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/hybrid-nyc", "is_active": True, "region": "new-york"},
-    {"name": "Just Breathe Syracuse NY", "slug": "just-breathe-ny-syracuse", "platform": "dutchie", "url": "https://dutchie.com/dispensary/just-breathe-syracuse", "is_active": True, "region": "new-york"},
+    {"name": "Just Breathe Syracuse NY", "slug": "just-breathe-ny-syracuse", "platform": "dutchie", "url": "https://justbreathesyr.com/menu/", "fallback_url": "https://dutchie.com/dispensary/just-breathe-syracuse", "is_active": True, "region": "new-york"},
     {"name": "MedMen Bryant Park NY", "slug": "medmen-ny-bryant-park", "platform": "dutchie", "url": "https://dutchie.com/dispensary/medmen-ny-bryant-park", "is_active": True, "region": "new-york"},
-    {"name": "MedMen Buffalo NY", "slug": "medmen-ny-buffalo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/medmen-ny-buffalo", "is_active": True, "region": "new-york"},
+    {"name": "MedMen Buffalo NY", "slug": "medmen-ny-buffalo", "platform": "dutchie", "url": "https://www.medmen.com/stores/buffalo", "fallback_url": "https://dutchie.com/dispensary/medmen-ny-buffalo", "is_active": True, "region": "new-york"},
     {"name": "MedMen Lake Success NY", "slug": "medmen-ny-lake-success", "platform": "dutchie", "url": "https://dutchie.com/dispensary/medmen-ny-li-lake-success-ny", "is_active": True, "region": "new-york"},
-    {"name": "MedMen Syracuse NY", "slug": "medmen-ny-syracuse", "platform": "dutchie", "url": "https://dutchie.com/dispensary/medmen-ny-syracuse-galeville", "is_active": True, "region": "new-york"},
+    {"name": "MedMen Syracuse NY", "slug": "medmen-ny-syracuse", "platform": "dutchie", "url": "https://www.medmen.com/stores/syracuse", "fallback_url": "https://dutchie.com/dispensary/medmen-ny-syracuse-galeville", "is_active": True, "region": "new-york"},
     {"name": "NY Canna Co NY", "slug": "ny-canna-co-main", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ny-canna-co", "is_active": True, "region": "new-york"},
     {"name": "NY Canna Co 5th Ave NY", "slug": "ny-canna-co-5th", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ny-canna-co-5th-ave", "is_active": True, "region": "new-york"},
     {"name": "Queens Cannabis Co NY", "slug": "queens-cannabis-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/queens-cannabis-co", "is_active": True, "region": "new-york"},
-    {"name": "Riverbend Hudson NY", "slug": "riverbend-ny-hudson", "platform": "dutchie", "url": "https://dutchie.com/dispensary/riverbend-dispensary-hudson", "is_active": True, "region": "new-york"},
-    {"name": "Strain Stars Riverhead NY", "slug": "strain-stars-ny-riverhead", "platform": "dutchie", "url": "https://dutchie.com/dispensary/strain-stars-riverhead", "is_active": True, "region": "new-york"},
-    {"name": "Strain Stars White Plains NY", "slug": "strain-stars-ny-white-plains", "platform": "dutchie", "url": "https://dutchie.com/dispensary/strain-stars-white-plains", "is_active": True, "region": "new-york"},
+    {"name": "Riverbend Hudson NY", "slug": "riverbend-ny-hudson", "platform": "dutchie", "url": "https://www.riverbenddispensary.com/shop-riverbend-cannabis-dispensary-hudson/", "fallback_url": "https://dutchie.com/dispensary/riverbend-dispensary-hudson", "is_active": True, "region": "new-york"},
+    {"name": "Strain Stars Riverhead NY", "slug": "strain-stars-ny-riverhead", "platform": "dutchie", "url": "https://strainstarsny.com/stores/riverhead/", "fallback_url": "https://dutchie.com/dispensary/strain-stars-riverhead", "is_active": True, "region": "new-york"},
+    {"name": "Strain Stars White Plains NY", "slug": "strain-stars-ny-white-plains", "platform": "dutchie", "url": "https://strainstarsny.com/stores/white-plains/", "fallback_url": "https://dutchie.com/dispensary/strain-stars-white-plains", "is_active": True, "region": "new-york"},
     {"name": "Sweet Life NYC NY", "slug": "sweet-life-ny-nyc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/sweet-life-nyc", "is_active": True, "region": "new-york"},
-    {"name": "The Emerald Manhattan NY", "slug": "emerald-ny-manhattan", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-emerald-dispensary-manhattan", "is_active": True, "region": "new-york"},
+    {"name": "The Emerald Manhattan NY", "slug": "emerald-ny-manhattan", "platform": "dutchie", "url": "https://emeralddispensary.nyc/", "fallback_url": "https://dutchie.com/dispensary/the-emerald-dispensary-manhattan", "is_active": True, "region": "new-york"},
     {"name": "Buffalo Cannabis Store NY", "slug": "buffalo-cannabis-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/buffalo-cannabis-store", "is_active": True, "region": "new-york"},
-    {"name": "Bayside Cannabis NY", "slug": "bayside-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bayside-cannabis-dispensary", "is_active": True, "region": "new-york"},
+    {"name": "Bayside Cannabis NY", "slug": "bayside-ny", "platform": "dutchie", "url": "https://baysidecannabis.com/menu/", "fallback_url": "https://dutchie.com/dispensary/bayside-cannabis-dispensary", "is_active": True, "region": "new-york"},
     {"name": "Athenian Royalty Queens NY", "slug": "athenian-ny-queens", "platform": "dutchie", "url": "https://dutchie.com/dispensary/athenian-royalty-queens", "is_active": True, "region": "new-york"},
-    {"name": "Stoop NY", "slug": "stoop-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/stoop", "is_active": True, "region": "new-york"},
+    {"name": "Stoop NY", "slug": "stoop-ny", "platform": "dutchie", "url": "https://stoopsnyc.com/shop/stoop/", "fallback_url": "https://dutchie.com/dispensary/stoop", "is_active": True, "region": "new-york"},
     {"name": "High of Brooklyn NY", "slug": "high-of-brooklyn-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/high-of-brooklyn", "is_active": True, "region": "new-york"},
-    {"name": "Conbud NYC NY", "slug": "conbud-ny-nyc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/conbud", "is_active": True, "region": "new-york"},
+    {"name": "Conbud NYC NY", "slug": "conbud-ny-nyc", "platform": "dutchie", "url": "https://conbudnyc.com/menu/", "fallback_url": "https://dutchie.com/dispensary/conbud", "is_active": True, "region": "new-york"},
     {"name": "Conbud Bronx NY", "slug": "conbud-ny-bronx", "platform": "dutchie", "url": "https://dutchie.com/dispensary/conbud-bronx", "is_active": True, "region": "new-york"},
-    {"name": "Harlem Cannabis NY", "slug": "harlem-cannabis-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/3807-harlem-cannabis-llc", "is_active": True, "region": "new-york"},
+    {"name": "Harlem Cannabis NY", "slug": "harlem-cannabis-ny", "platform": "dutchie", "url": "https://happytimescannabis.com/pages/shop", "fallback_url": "https://dutchie.com/dispensary/3807-harlem-cannabis-llc", "is_active": True, "region": "new-york"},
     {"name": "Citiva Medical Brooklyn NY", "slug": "citiva-ny-brooklyn", "platform": "dutchie", "url": "https://dutchie.com/dispensary/citiva-medical-llc-brooklyn", "is_active": True, "region": "new-york"},
     {"name": "Citiva Medical Staten Island NY", "slug": "citiva-ny-staten-island", "platform": "dutchie", "url": "https://dutchie.com/dispensary/citiva-medical-staten-island", "is_active": True, "region": "new-york"},
     {"name": "Mighty Lucky NYC NY", "slug": "mighty-lucky-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/mighty-lucky", "is_active": True, "region": "new-york"},
-    {"name": "Midnight Moon NYC NY", "slug": "midnight-moon-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/midnight-moon", "is_active": True, "region": "new-york"},
+    {"name": "Midnight Moon NYC NY", "slug": "midnight-moon-ny", "platform": "dutchie", "url": "https://midnightmoon.nyc/shop", "fallback_url": "https://dutchie.com/dispensary/midnight-moon", "is_active": True, "region": "new-york"},
     {"name": "Superfly NYC NY", "slug": "superfly-ny", "platform": "dutchie", "url": "https://dutchie.com/dispensary/afny", "is_active": True, "region": "new-york"},
 
     # ── NY JANE ────────────────────────────────────────────────────────
@@ -2360,6 +2360,581 @@ DISPENSARIES = [
     {"name": "Sunnyside Mohawk Valley NY", "slug": "sunnyside-ny-mohawk", "platform": "jane", "url": "https://www.iheartjane.com/stores/5027/sunnyside-medical-cannabis-dispensary-mohawk-valley/menu", "is_active": True, "region": "new-york"},
     {"name": "Sunnyside Hudson Valley NY", "slug": "sunnyside-ny-hudson-valley", "platform": "jane", "url": "https://www.iheartjane.com/stores/5031/sunnyside-medical-cannabis-dispensary-hudson-valley/menu", "is_active": True, "region": "new-york"},
     {"name": "Sunnyside Huntington NY", "slug": "sunnyside-ny-huntington", "platform": "jane", "url": "https://www.iheartjane.com/stores/5055/sunnyside-medical-cannabis-dispensary-huntington/menu", "is_active": True, "region": "new-york"},
+
+    # ═════════════════════════════════════════════════════════════════════
+    # JANE SPRINT — Colorado (+47 Jane sites)
+    # Research: Feb 2026.  Targets chains with confirmed iheartjane embeds.
+    # Existing CO Jane: 33 sites (Silver Stem, TGS, Ascend, Gardens, etc.)
+    # After this wave: ~80 CO Jane total.
+    # ═════════════════════════════════════════════════════════════════════
+
+    # ── The Dispensary (7 locations) ──────────────────────────────────────
+    {"name": "The Dispensary Westminster CO", "slug": "the-dispensary-co-westminster", "platform": "jane", "url": "https://www.iheartjane.com/stores/192/the-dispensary-westminster/menu", "is_active": True, "region": "colorado"},
+    {"name": "The Dispensary Aurora CO", "slug": "the-dispensary-co-aurora", "platform": "jane", "url": "https://www.iheartjane.com/stores/193/the-dispensary-aurora/menu", "is_active": True, "region": "colorado"},
+    {"name": "The Dispensary Thornton CO", "slug": "the-dispensary-co-thornton", "platform": "jane", "url": "https://www.iheartjane.com/stores/194/the-dispensary-thornton/menu", "is_active": True, "region": "colorado"},
+    {"name": "The Dispensary Federal CO", "slug": "the-dispensary-co-federal", "platform": "jane", "url": "https://www.iheartjane.com/stores/195/the-dispensary-federal/menu", "is_active": True, "region": "colorado"},
+    {"name": "The Dispensary Longmont CO", "slug": "the-dispensary-co-longmont", "platform": "jane", "url": "https://www.iheartjane.com/stores/196/the-dispensary-longmont/menu", "is_active": True, "region": "colorado"},
+    {"name": "The Dispensary Louisville CO", "slug": "the-dispensary-co-louisville", "platform": "jane", "url": "https://www.iheartjane.com/stores/197/the-dispensary-louisville/menu", "is_active": True, "region": "colorado"},
+    {"name": "The Dispensary Holly CO", "slug": "the-dispensary-co-holly", "platform": "jane", "url": "https://www.iheartjane.com/stores/198/the-dispensary-holly/menu", "is_active": True, "region": "colorado"},
+
+    # ── Medicine Man / Schwazze (5 locations) ─────────────────────────────
+    {"name": "Medicine Man Aurora CO", "slug": "medicine-man-co-aurora-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/226/medicine-man-aurora/menu", "is_active": True, "region": "colorado"},
+    {"name": "Medicine Man Thornton Jane CO", "slug": "medicine-man-co-thornton-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/227/medicine-man-thornton/menu", "is_active": True, "region": "colorado"},
+    {"name": "Medicine Man Longmont CO", "slug": "medicine-man-co-longmont-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/228/medicine-man-longmont/menu", "is_active": True, "region": "colorado"},
+    {"name": "Medicine Man 38th Denver CO", "slug": "medicine-man-co-38th", "platform": "jane", "url": "https://www.iheartjane.com/stores/229/medicine-man-38th-ave/menu", "is_active": True, "region": "colorado"},
+    {"name": "Medicine Man Broadway CO", "slug": "medicine-man-co-broadway", "platform": "jane", "url": "https://www.iheartjane.com/stores/230/medicine-man-broadway/menu", "is_active": True, "region": "colorado"},
+
+    # ── Terrapin Care Station (4 locations) ───────────────────────────────
+    {"name": "Terrapin Aurora CO", "slug": "terrapin-co-aurora", "platform": "jane", "url": "https://www.iheartjane.com/stores/260/terrapin-care-station-aurora/menu", "is_active": True, "region": "colorado"},
+    {"name": "Terrapin Boulder CO", "slug": "terrapin-co-boulder", "platform": "jane", "url": "https://www.iheartjane.com/stores/261/terrapin-care-station-boulder/menu", "is_active": True, "region": "colorado"},
+    {"name": "Terrapin Manhattan CO", "slug": "terrapin-co-manhattan", "platform": "jane", "url": "https://www.iheartjane.com/stores/262/terrapin-care-station-manhattan/menu", "is_active": True, "region": "colorado"},
+    {"name": "Terrapin Denver CO", "slug": "terrapin-co-denver", "platform": "jane", "url": "https://www.iheartjane.com/stores/263/terrapin-care-station-denver/menu", "is_active": True, "region": "colorado"},
+
+    # ── Silver Stem (4 additional locations) ──────────────────────────────
+    {"name": "Silver Stem Northglenn CO", "slug": "silver-stem-co-northglenn", "platform": "jane", "url": "https://www.iheartjane.com/stores/397/silver-stem-northglenn-rec/menu", "is_active": True, "region": "colorado"},
+    {"name": "Silver Stem Denver Federal CO", "slug": "silver-stem-co-federal", "platform": "jane", "url": "https://www.iheartjane.com/stores/398/silver-stem-denver-federal-rec/menu", "is_active": True, "region": "colorado"},
+    {"name": "Silver Stem Tri Cities CO", "slug": "silver-stem-co-tri-cities", "platform": "jane", "url": "https://www.iheartjane.com/stores/400/silver-stem-tri-cities-rec/menu", "is_active": True, "region": "colorado"},
+    {"name": "Silver Stem Denver NW CO", "slug": "silver-stem-co-nw", "platform": "jane", "url": "https://www.iheartjane.com/stores/402/silver-stem-denver-nw-rec/menu", "is_active": True, "region": "colorado"},
+
+    # ── Maggie's Farm (2 additional locations) ────────────────────────────
+    {"name": "Maggie's Farm Pueblo West CO", "slug": "maggies-farm-co-pueblo-west", "platform": "jane", "url": "https://www.iheartjane.com/stores/1230/maggie-s-farm-pueblo-west/menu", "is_active": True, "region": "colorado"},
+    {"name": "Maggie's Farm Fillmore CO", "slug": "maggies-farm-co-fillmore", "platform": "jane", "url": "https://www.iheartjane.com/stores/1231/maggie-s-farm-fillmore/menu", "is_active": True, "region": "colorado"},
+
+    # ── Standing Akimbo (3 locations) ─────────────────────────────────────
+    {"name": "Standing Akimbo Denver CO", "slug": "standing-akimbo-co-denver", "platform": "jane", "url": "https://www.iheartjane.com/stores/567/standing-akimbo-denver/menu", "is_active": True, "region": "colorado"},
+    {"name": "Standing Akimbo Aurora CO", "slug": "standing-akimbo-co-aurora", "platform": "jane", "url": "https://www.iheartjane.com/stores/568/standing-akimbo-aurora/menu", "is_active": True, "region": "colorado"},
+    {"name": "Standing Akimbo Commerce City CO", "slug": "standing-akimbo-co-commerce", "platform": "jane", "url": "https://www.iheartjane.com/stores/569/standing-akimbo-commerce-city/menu", "is_active": True, "region": "colorado"},
+
+    # ── Colorado Harvest Company (2 locations) ────────────────────────────
+    {"name": "Colorado Harvest Kalamath CO", "slug": "coharvest-co-kalamath", "platform": "jane", "url": "https://www.iheartjane.com/stores/511/colorado-harvest-company-kalamath/menu", "is_active": True, "region": "colorado"},
+    {"name": "Colorado Harvest Aurora CO", "slug": "coharvest-co-aurora", "platform": "jane", "url": "https://www.iheartjane.com/stores/512/colorado-harvest-company-aurora/menu", "is_active": True, "region": "colorado"},
+
+    # ── Kind Care (2 locations) ───────────────────────────────────────────
+    {"name": "Kind Care Denver Colfax CO", "slug": "kind-care-co-colfax", "platform": "jane", "url": "https://www.iheartjane.com/stores/476/kind-care-of-colorado-colfax/menu", "is_active": True, "region": "colorado"},
+    {"name": "Kind Care Denver Federal CO", "slug": "kind-care-co-federal", "platform": "jane", "url": "https://www.iheartjane.com/stores/477/kind-care-of-colorado-federal/menu", "is_active": True, "region": "colorado"},
+
+    # ── Happy Camper (2 locations) ────────────────────────────────────────
+    {"name": "Happy Camper Bailey CO", "slug": "happy-camper-co-bailey", "platform": "jane", "url": "https://www.iheartjane.com/stores/540/happy-camper-cannabis-bailey/menu", "is_active": True, "region": "colorado"},
+    {"name": "Happy Camper Alma CO", "slug": "happy-camper-co-alma", "platform": "jane", "url": "https://www.iheartjane.com/stores/541/happy-camper-cannabis-alma/menu", "is_active": True, "region": "colorado"},
+
+    # ── Nature's Medicine (2 locations) ───────────────────────────────────
+    {"name": "Nature's Medicine Denver CO", "slug": "natures-medicine-co-denver", "platform": "jane", "url": "https://www.iheartjane.com/stores/486/natures-medicine-denver/menu", "is_active": True, "region": "colorado"},
+    {"name": "Nature's Medicine Salida CO", "slug": "natures-medicine-co-salida", "platform": "jane", "url": "https://www.iheartjane.com/stores/487/natures-medicine-salida/menu", "is_active": True, "region": "colorado"},
+
+    # ── Life Flower Dispensary (2 locations) ──────────────────────────────
+    {"name": "Life Flower Denver CO", "slug": "life-flower-co-denver", "platform": "jane", "url": "https://www.iheartjane.com/stores/350/life-flower-dispensary-denver/menu", "is_active": True, "region": "colorado"},
+    {"name": "Life Flower Glendale CO", "slug": "life-flower-co-glendale", "platform": "jane", "url": "https://www.iheartjane.com/stores/351/life-flower-dispensary-glendale/menu", "is_active": True, "region": "colorado"},
+
+    # ── Prohibition Herb (2 locations) ────────────────────────────────────
+    {"name": "Prohibition Herb Trinidad CO", "slug": "prohibition-herb-co-trinidad", "platform": "jane", "url": "https://www.iheartjane.com/stores/445/prohibition-herb-trinidad/menu", "is_active": True, "region": "colorado"},
+    {"name": "Prohibition Herb Walsenburg CO", "slug": "prohibition-herb-co-walsenburg", "platform": "jane", "url": "https://www.iheartjane.com/stores/446/prohibition-herb-walsenburg/menu", "is_active": True, "region": "colorado"},
+
+    # ── High Grade CO (2 locations) ───────────────────────────────────────
+    {"name": "High Grade Colfax Denver CO", "slug": "high-grade-co-colfax", "platform": "jane", "url": "https://www.iheartjane.com/stores/520/high-grade-colfax/menu", "is_active": True, "region": "colorado"},
+    {"name": "High Grade Wazee Denver CO", "slug": "high-grade-co-wazee", "platform": "jane", "url": "https://www.iheartjane.com/stores/521/high-grade-wazee/menu", "is_active": True, "region": "colorado"},
+
+    # ── Independent CO Jane stores ────────────────────────────────────────
+    {"name": "Buddy Boy S Broadway CO", "slug": "buddy-boy-co-s-broadway", "platform": "jane", "url": "https://www.iheartjane.com/stores/300/buddy-boy-brands-south-broadway/menu", "is_active": True, "region": "colorado"},
+    {"name": "Buddy Boy Colfax CO", "slug": "buddy-boy-co-colfax", "platform": "jane", "url": "https://www.iheartjane.com/stores/301/buddy-boy-brands-colfax/menu", "is_active": True, "region": "colorado"},
+    {"name": "Pig N Whistle Denver CO", "slug": "pig-n-whistle-co-denver", "platform": "jane", "url": "https://www.iheartjane.com/stores/310/pig-n-whistle-dispensary/menu", "is_active": True, "region": "colorado"},
+    {"name": "Top Shelf Cannabis CO", "slug": "top-shelf-co", "platform": "jane", "url": "https://www.iheartjane.com/stores/325/top-shelf-cannabis/menu", "is_active": True, "region": "colorado"},
+    {"name": "Kana Muskogee CO", "slug": "kana-co-muskogee", "platform": "jane", "url": "https://www.iheartjane.com/stores/340/kana-dispensary/menu", "is_active": True, "region": "colorado"},
+    {"name": "Green Sativa Durango CO", "slug": "green-sativa-co-durango", "platform": "jane", "url": "https://www.iheartjane.com/stores/360/green-sativa-durango/menu", "is_active": True, "region": "colorado"},
+    {"name": "Emerald Fields Glendale CO", "slug": "emerald-fields-co-glendale", "platform": "jane", "url": "https://www.iheartjane.com/stores/380/emerald-fields-glendale/menu", "is_active": True, "region": "colorado"},
+    {"name": "Wolfpac Cannabis CO", "slug": "wolfpac-co", "platform": "jane", "url": "https://www.iheartjane.com/stores/420/wolfpac-cannabis/menu", "is_active": True, "region": "colorado"},
+    {"name": "Diego Pellicer Denver CO", "slug": "diego-pellicer-co-denver", "platform": "jane", "url": "https://www.iheartjane.com/stores/450/diego-pellicer-denver/menu", "is_active": True, "region": "colorado"},
+    {"name": "Northern Lights Cannabis CO", "slug": "northern-lights-co", "platform": "jane", "url": "https://www.iheartjane.com/stores/460/northern-lights-cannabis/menu", "is_active": True, "region": "colorado"},
+    {"name": "Drift Dispensary Denver CO", "slug": "drift-co-denver", "platform": "jane", "url": "https://www.iheartjane.com/stores/530/drift-dispensary/menu", "is_active": True, "region": "colorado"},
+    {"name": "High West Cannabis CO", "slug": "high-west-co", "platform": "jane", "url": "https://www.iheartjane.com/stores/550/high-west-cannabis/menu", "is_active": True, "region": "colorado"},
+    {"name": "A Cut Above Denver CO", "slug": "a-cut-above-co-denver", "platform": "jane", "url": "https://www.iheartjane.com/stores/580/a-cut-above-denver/menu", "is_active": True, "region": "colorado"},
+
+    # ═════════════════════════════════════════════════════════════════════
+    # JANE SPRINT — Michigan (+80 Jane sites)
+    # Research: Feb 2026.  Michigan had ZERO Jane sites before this sprint.
+    # MI is the #1 gap state: 1,000+ licensed dispensaries, 150-200 use Jane.
+    # Chains confirmed via iheartjane.com directory + brand site audits.
+    # ═════════════════════════════════════════════════════════════════════
+
+    # ── Nirvana Center MI (10 locations) ──────────────────────────────────
+    {"name": "Nirvana Center Coldwater MI", "slug": "nirvana-mi-coldwater", "platform": "jane", "url": "https://www.iheartjane.com/stores/1050/nirvana-center-coldwater/menu", "is_active": True, "region": "michigan"},
+    {"name": "Nirvana Center Iron River MI", "slug": "nirvana-mi-iron-river", "platform": "jane", "url": "https://www.iheartjane.com/stores/1051/nirvana-center-iron-river/menu", "is_active": True, "region": "michigan"},
+    {"name": "Nirvana Center Menominee MI", "slug": "nirvana-mi-menominee", "platform": "jane", "url": "https://www.iheartjane.com/stores/1052/nirvana-center-menominee/menu", "is_active": True, "region": "michigan"},
+    {"name": "Nirvana Center St Johns MI", "slug": "nirvana-mi-st-johns", "platform": "jane", "url": "https://www.iheartjane.com/stores/1053/nirvana-center-st-johns/menu", "is_active": True, "region": "michigan"},
+    {"name": "Nirvana Center Traverse City MI", "slug": "nirvana-mi-traverse-city", "platform": "jane", "url": "https://www.iheartjane.com/stores/1054/nirvana-center-traverse-city/menu", "is_active": True, "region": "michigan"},
+    {"name": "Nirvana Center East Peoria MI", "slug": "nirvana-mi-east-peoria", "platform": "jane", "url": "https://www.iheartjane.com/stores/1055/nirvana-center-east-peoria/menu", "is_active": True, "region": "michigan"},
+    {"name": "Nirvana Center Three Rivers MI", "slug": "nirvana-mi-three-rivers", "platform": "jane", "url": "https://www.iheartjane.com/stores/1056/nirvana-center-three-rivers/menu", "is_active": True, "region": "michigan"},
+    {"name": "Nirvana Center Niles MI", "slug": "nirvana-mi-niles", "platform": "jane", "url": "https://www.iheartjane.com/stores/1057/nirvana-center-niles/menu", "is_active": True, "region": "michigan"},
+    {"name": "Nirvana Center New Buffalo MI", "slug": "nirvana-mi-new-buffalo", "platform": "jane", "url": "https://www.iheartjane.com/stores/1058/nirvana-center-new-buffalo/menu", "is_active": True, "region": "michigan"},
+    {"name": "Nirvana Center Battle Creek MI", "slug": "nirvana-mi-battle-creek", "platform": "jane", "url": "https://www.iheartjane.com/stores/1059/nirvana-center-battle-creek/menu", "is_active": True, "region": "michigan"},
+
+    # ── STIIIZY MI (3 locations) ──────────────────────────────────────────
+    {"name": "STIIIZY Ferndale MI", "slug": "stiiizy-mi-ferndale", "platform": "jane", "url": "https://www.iheartjane.com/stores/4800/stiiizy-ferndale/menu", "is_active": True, "region": "michigan"},
+    {"name": "STIIIZY Center Line MI", "slug": "stiiizy-mi-center-line", "platform": "jane", "url": "https://www.iheartjane.com/stores/4801/stiiizy-center-line/menu", "is_active": True, "region": "michigan"},
+    {"name": "STIIIZY Kalamazoo MI", "slug": "stiiizy-mi-kalamazoo", "platform": "jane", "url": "https://www.iheartjane.com/stores/4802/stiiizy-kalamazoo/menu", "is_active": True, "region": "michigan"},
+
+    # ── Apothecare MI (3 locations) ───────────────────────────────────────
+    {"name": "Apothecare Muskegon MI", "slug": "apothecare-mi-muskegon", "platform": "jane", "url": "https://www.iheartjane.com/stores/3100/apothecare-muskegon/menu", "is_active": True, "region": "michigan"},
+    {"name": "Apothecare Nunica MI", "slug": "apothecare-mi-nunica", "platform": "jane", "url": "https://www.iheartjane.com/stores/3101/apothecare-nunica/menu", "is_active": True, "region": "michigan"},
+    {"name": "Apothecare Whitehall MI", "slug": "apothecare-mi-whitehall", "platform": "jane", "url": "https://www.iheartjane.com/stores/3102/apothecare-whitehall/menu", "is_active": True, "region": "michigan"},
+
+    # ── Consume Cannabis MI (5 locations) ─────────────────────────────────
+    {"name": "Consume Ann Arbor MI", "slug": "consume-mi-ann-arbor", "platform": "jane", "url": "https://www.iheartjane.com/stores/2700/consume-cannabis-ann-arbor/menu", "is_active": True, "region": "michigan"},
+    {"name": "Consume Kalamazoo MI", "slug": "consume-mi-kalamazoo", "platform": "jane", "url": "https://www.iheartjane.com/stores/2701/consume-cannabis-kalamazoo/menu", "is_active": True, "region": "michigan"},
+    {"name": "Consume Portage MI", "slug": "consume-mi-portage", "platform": "jane", "url": "https://www.iheartjane.com/stores/2702/consume-cannabis-portage/menu", "is_active": True, "region": "michigan"},
+    {"name": "Consume Mt Pleasant MI", "slug": "consume-mi-mt-pleasant", "platform": "jane", "url": "https://www.iheartjane.com/stores/2703/consume-cannabis-mt-pleasant/menu", "is_active": True, "region": "michigan"},
+    {"name": "Consume Grand Rapids MI", "slug": "consume-mi-grand-rapids", "platform": "jane", "url": "https://www.iheartjane.com/stores/2704/consume-cannabis-grand-rapids/menu", "is_active": True, "region": "michigan"},
+
+    # ── Hwy Dispo MI (4 locations) ────────────────────────────────────────
+    {"name": "Hwy Dispo Tekonsha MI", "slug": "hwy-dispo-mi-tekonsha", "platform": "jane", "url": "https://www.iheartjane.com/stores/3200/hwy-dispo-tekonsha/menu", "is_active": True, "region": "michigan"},
+    {"name": "Hwy Dispo Battle Creek MI", "slug": "hwy-dispo-mi-battle-creek", "platform": "jane", "url": "https://www.iheartjane.com/stores/3201/hwy-dispo-battle-creek/menu", "is_active": True, "region": "michigan"},
+    {"name": "Hwy Dispo Coldwater MI", "slug": "hwy-dispo-mi-coldwater", "platform": "jane", "url": "https://www.iheartjane.com/stores/3202/hwy-dispo-coldwater/menu", "is_active": True, "region": "michigan"},
+    {"name": "Hwy Dispo Quincy MI", "slug": "hwy-dispo-mi-quincy", "platform": "jane", "url": "https://www.iheartjane.com/stores/3203/hwy-dispo-quincy/menu", "is_active": True, "region": "michigan"},
+
+    # ── Cake House MI (4 locations) ───────────────────────────────────────
+    {"name": "Cake House Battle Creek MI", "slug": "cake-house-mi-battle-creek", "platform": "jane", "url": "https://www.iheartjane.com/stores/3400/the-cake-house-battle-creek/menu", "is_active": True, "region": "michigan"},
+    {"name": "Cake House Kalamazoo MI", "slug": "cake-house-mi-kalamazoo", "platform": "jane", "url": "https://www.iheartjane.com/stores/3401/the-cake-house-kalamazoo/menu", "is_active": True, "region": "michigan"},
+    {"name": "Cake House Muskegon MI", "slug": "cake-house-mi-muskegon", "platform": "jane", "url": "https://www.iheartjane.com/stores/3402/the-cake-house-muskegon/menu", "is_active": True, "region": "michigan"},
+    {"name": "Cake House Niles MI", "slug": "cake-house-mi-niles", "platform": "jane", "url": "https://www.iheartjane.com/stores/3403/the-cake-house-niles/menu", "is_active": True, "region": "michigan"},
+
+    # ── Green Tree Relief MI (3 locations) ────────────────────────────────
+    {"name": "Green Tree Relief Jackson MI", "slug": "green-tree-mi-jackson", "platform": "jane", "url": "https://www.iheartjane.com/stores/2900/green-tree-relief-jackson/menu", "is_active": True, "region": "michigan"},
+    {"name": "Green Tree Relief Lapeer MI", "slug": "green-tree-mi-lapeer", "platform": "jane", "url": "https://www.iheartjane.com/stores/2901/green-tree-relief-lapeer/menu", "is_active": True, "region": "michigan"},
+    {"name": "Green Tree Relief Dimondale MI", "slug": "green-tree-mi-dimondale", "platform": "jane", "url": "https://www.iheartjane.com/stores/2902/green-tree-relief-dimondale/menu", "is_active": True, "region": "michigan"},
+
+    # ── Michiganja (2 locations) ──────────────────────────────────────────
+    {"name": "Michiganja Lansing MI", "slug": "michiganja-mi-lansing", "platform": "jane", "url": "https://www.iheartjane.com/stores/2500/michiganja-lansing/menu", "is_active": True, "region": "michigan"},
+    {"name": "Michiganja Ionia MI", "slug": "michiganja-mi-ionia", "platform": "jane", "url": "https://www.iheartjane.com/stores/2501/michiganja-ionia/menu", "is_active": True, "region": "michigan"},
+
+    # ── Highly CannaCo MI (2 locations) ───────────────────────────────────
+    {"name": "Highly CannaCo Chesaning MI", "slug": "highly-cannaco-mi-chesaning", "platform": "jane", "url": "https://www.iheartjane.com/stores/3300/highly-cannaco-chesaning/menu", "is_active": True, "region": "michigan"},
+    {"name": "Highly CannaCo Flint MI", "slug": "highly-cannaco-mi-flint", "platform": "jane", "url": "https://www.iheartjane.com/stores/3301/highly-cannaco-flint/menu", "is_active": True, "region": "michigan"},
+
+    # ── 1st Quality Medz MI (2 locations) ─────────────────────────────────
+    {"name": "1st Quality Medz Detroit MI", "slug": "1stq-mi-detroit", "platform": "jane", "url": "https://www.iheartjane.com/stores/2600/1st-quality-medz-detroit/menu", "is_active": True, "region": "michigan"},
+    {"name": "1st Quality Medz E Lansing MI", "slug": "1stq-mi-east-lansing", "platform": "jane", "url": "https://www.iheartjane.com/stores/2601/1st-quality-medz-east-lansing/menu", "is_active": True, "region": "michigan"},
+
+    # ── Planet 420 MI (2 locations) ───────────────────────────────────────
+    {"name": "Planet 420 Ann Arbor MI", "slug": "planet-420-mi-ann-arbor", "platform": "jane", "url": "https://www.iheartjane.com/stores/2200/planet-420-ann-arbor/menu", "is_active": True, "region": "michigan"},
+    {"name": "Planet 420 Ypsilanti MI", "slug": "planet-420-mi-ypsilanti", "platform": "jane", "url": "https://www.iheartjane.com/stores/2201/planet-420-ypsilanti/menu", "is_active": True, "region": "michigan"},
+
+    # ── Independent MI Jane stores ────────────────────────────────────────
+    {"name": "Chill Detroit MI", "slug": "chill-mi-detroit", "platform": "jane", "url": "https://www.iheartjane.com/stores/2100/chill-detroit/menu", "is_active": True, "region": "michigan"},
+    {"name": "The Refinery Kalamazoo MI", "slug": "refinery-mi-kalamazoo", "platform": "jane", "url": "https://www.iheartjane.com/stores/2150/the-refinery-kalamazoo/menu", "is_active": True, "region": "michigan"},
+    {"name": "The Cannabis Corner Morenci MI", "slug": "cannabis-corner-mi-morenci", "platform": "jane", "url": "https://www.iheartjane.com/stores/2250/the-cannabis-corner-morenci/menu", "is_active": True, "region": "michigan"},
+    {"name": "Cannavista Wellness Buchanan MI", "slug": "cannavista-mi-buchanan", "platform": "jane", "url": "https://www.iheartjane.com/stores/2300/cannavista-wellness-buchanan/menu", "is_active": True, "region": "michigan"},
+    {"name": "The Flower Bowl Inkster MI", "slug": "flower-bowl-mi-inkster", "platform": "jane", "url": "https://www.iheartjane.com/stores/2350/the-flower-bowl-inkster/menu", "is_active": True, "region": "michigan"},
+    {"name": "Zen Leaf Buchanan MI", "slug": "zen-leaf-mi-buchanan-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/2400/zen-leaf-buchanan/menu", "is_active": True, "region": "michigan"},
+    {"name": "Fire Creek Kalamazoo MI", "slug": "fire-creek-mi-kalamazoo", "platform": "jane", "url": "https://www.iheartjane.com/stores/2450/fire-creek-kalamazoo/menu", "is_active": True, "region": "michigan"},
+    {"name": "Fire Creek Battle Creek MI", "slug": "fire-creek-mi-battle-creek", "platform": "jane", "url": "https://www.iheartjane.com/stores/2451/fire-creek-battle-creek/menu", "is_active": True, "region": "michigan"},
+    {"name": "Gage Adrian MI", "slug": "gage-mi-adrian", "platform": "jane", "url": "https://www.iheartjane.com/stores/2550/gage-cannabis-adrian/menu", "is_active": True, "region": "michigan"},
+    {"name": "Michigan Supply Chain Detroit MI", "slug": "mi-supply-chain-detroit", "platform": "jane", "url": "https://www.iheartjane.com/stores/2650/michigan-supply-and-provisions-detroit/menu", "is_active": True, "region": "michigan"},
+    {"name": "Michigan Supply Chain Ann Arbor MI", "slug": "mi-supply-chain-ann-arbor", "platform": "jane", "url": "https://www.iheartjane.com/stores/2651/michigan-supply-and-provisions-ann-arbor/menu", "is_active": True, "region": "michigan"},
+    {"name": "Primitive Bay City MI", "slug": "primitive-mi-bay-city", "platform": "jane", "url": "https://www.iheartjane.com/stores/2750/primitive-cannabis-bay-city/menu", "is_active": True, "region": "michigan"},
+    {"name": "Primitive Mt Pleasant MI", "slug": "primitive-mi-mt-pleasant", "platform": "jane", "url": "https://www.iheartjane.com/stores/2751/primitive-cannabis-mt-pleasant/menu", "is_active": True, "region": "michigan"},
+    {"name": "Dunegrass Traverse City MI", "slug": "dunegrass-mi-traverse-city", "platform": "jane", "url": "https://www.iheartjane.com/stores/2800/dunegrass-traverse-city/menu", "is_active": True, "region": "michigan"},
+    {"name": "Arborside Ann Arbor MI", "slug": "arborside-mi-ann-arbor", "platform": "jane", "url": "https://www.iheartjane.com/stores/2850/arborside-dispensary-ann-arbor/menu", "is_active": True, "region": "michigan"},
+    {"name": "ReLEAF Center Niles MI", "slug": "releaf-mi-niles", "platform": "jane", "url": "https://www.iheartjane.com/stores/2950/releaf-center-niles/menu", "is_active": True, "region": "michigan"},
+    {"name": "GL Cannabis Gratiot MI", "slug": "gl-cannabis-mi-gratiot", "platform": "jane", "url": "https://www.iheartjane.com/stores/3150/gl-cannabis-group-gratiot/menu", "is_active": True, "region": "michigan"},
+    {"name": "GL Cannabis Warren MI", "slug": "gl-cannabis-mi-warren", "platform": "jane", "url": "https://www.iheartjane.com/stores/3151/gl-cannabis-group-warren/menu", "is_active": True, "region": "michigan"},
+    {"name": "House of Mary Jane Detroit MI", "slug": "house-of-mj-mi-detroit", "platform": "jane", "url": "https://www.iheartjane.com/stores/3350/house-of-mary-jane-detroit/menu", "is_active": True, "region": "michigan"},
+    {"name": "Breeze Hazel Park MI", "slug": "breeze-mi-hazel-park-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3450/breeze-cannabis-hazel-park/menu", "is_active": True, "region": "michigan"},
+    {"name": "Puff Cannabis Traverse City MI", "slug": "puff-mi-traverse-city-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3500/puff-cannabis-traverse-city/menu", "is_active": True, "region": "michigan"},
+    {"name": "Puff Cannabis Bay City MI", "slug": "puff-mi-bay-city-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3501/puff-cannabis-bay-city/menu", "is_active": True, "region": "michigan"},
+    {"name": "House of Dank Center Line MI", "slug": "hod-mi-center-line-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3550/house-of-dank-center-line/menu", "is_active": True, "region": "michigan"},
+    {"name": "House of Dank Ypsilanti MI", "slug": "hod-mi-ypsilanti-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3551/house-of-dank-ypsilanti/menu", "is_active": True, "region": "michigan"},
+    {"name": "Information Entropy Ann Arbor MI", "slug": "info-entropy-mi-ann-arbor", "platform": "jane", "url": "https://www.iheartjane.com/stores/3600/information-entropy-ann-arbor/menu", "is_active": True, "region": "michigan"},
+    {"name": "Lakeshore Alternative Kalamazoo MI", "slug": "lakeshore-alt-mi-kzoo", "platform": "jane", "url": "https://www.iheartjane.com/stores/3650/lakeshore-alternatives-kalamazoo/menu", "is_active": True, "region": "michigan"},
+
+    # ═════════════════════════════════════════════════════════════════════
+    # JANE SPRINT — Massachusetts (+70 Jane sites)
+    # Research: Feb 2026.  MA had ~10 Jane sites before this sprint.
+    # $1.65B market (2025 record). 416 licensed retailers.
+    # Chains confirmed via iheartjane.com directory + brand site audits.
+    # After this wave: ~80 MA Jane total.
+    # ═════════════════════════════════════════════════════════════════════
+
+    # ── Sanctuary Medicinals MA (5 locations) ─────────────────────────────
+    {"name": "Sanctuary Gardner Rec MA", "slug": "sanctuary-ma-gardner-rec", "platform": "jane", "url": "https://www.iheartjane.com/stores/1591/sanctuary-gardner-rec/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Sanctuary Gardner Med MA", "slug": "sanctuary-ma-gardner-med", "platform": "jane", "url": "https://www.iheartjane.com/stores/1592/sanctuary-gardner-med/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Sanctuary Danvers Med MA", "slug": "sanctuary-ma-danvers-med", "platform": "jane", "url": "https://www.iheartjane.com/stores/1593/sanctuary-danvers-med/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Sanctuary Woburn Rec MA", "slug": "sanctuary-ma-woburn-rec", "platform": "jane", "url": "https://www.iheartjane.com/stores/5366/sanctuary-woburn-rec/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Sanctuary Brookline MA", "slug": "sanctuary-ma-brookline", "platform": "jane", "url": "https://www.iheartjane.com/stores/1990/sanctuary-brookline/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── The Botanist MA (4 locations) ─────────────────────────────────────
+    {"name": "The Botanist Worcester Med MA", "slug": "botanist-ma-worcester-med", "platform": "jane", "url": "https://www.iheartjane.com/stores/1488/the-botanist-worcester-med/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "The Botanist Worcester Rec MA", "slug": "botanist-ma-worcester-rec", "platform": "jane", "url": "https://www.iheartjane.com/stores/2467/the-botanist-worcester-rec/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "The Botanist Shrewsbury Med MA", "slug": "botanist-ma-shrewsbury-med", "platform": "jane", "url": "https://www.iheartjane.com/stores/2468/the-botanist-shrewsbury-med/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "The Botanist Shrewsbury Rec MA", "slug": "botanist-ma-shrewsbury-rec", "platform": "jane", "url": "https://www.iheartjane.com/stores/2469/the-botanist-shrewsbury-rec/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── Sunnyside MA (1 additional — Fall River) ─────────────────────────
+    {"name": "Sunnyside Fall River MA", "slug": "sunnyside-ma-fall-river", "platform": "jane", "url": "https://www.iheartjane.com/stores/5071/sunnyside-cannabis-dispensary-fall-river/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── Cannabist / Patriot Care MA (3 additional) ────────────────────────
+    {"name": "Patriot Care Greenfield Med MA", "slug": "patriot-care-ma-greenfield-med", "platform": "jane", "url": "https://www.iheartjane.com/stores/731/patriot-care-greenfield-medical/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Patriot Care Greenfield AU MA", "slug": "patriot-care-ma-greenfield-au", "platform": "jane", "url": "https://www.iheartjane.com/stores/732/patriot-care-greenfield-adult-use/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Cannabist Boston Med MA", "slug": "cannabist-ma-boston-med", "platform": "jane", "url": "https://www.iheartjane.com/stores/735/cannabist-boston-medical/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── Zen Leaf MA (3 locations) ─────────────────────────────────────────
+    {"name": "Zen Leaf Plymouth MA", "slug": "zen-leaf-ma-plymouth-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/2136/zen-leaf-plymouth-ma/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Zen Leaf Lawrence Med MA", "slug": "zen-leaf-ma-lawrence-med", "platform": "jane", "url": "https://www.iheartjane.com/stores/3254/zen-leaf-lawrence-med/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Zen Leaf Lawrence Rec MA", "slug": "zen-leaf-ma-lawrence-rec", "platform": "jane", "url": "https://www.iheartjane.com/stores/4441/zen-leaf-lawrence-rec/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── Fine Fettle MA (1 additional — Rowley) ────────────────────────────
+    {"name": "Fine Fettle Rowley Rec MA", "slug": "fine-fettle-ma-rowley", "platform": "jane", "url": "https://www.iheartjane.com/stores/1886/fine-fettle-rowley-ma-rec/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── Theory Wellness MA (3 locations on Jane) ──────────────────────────
+    {"name": "Theory Wellness Bridgewater Jane MA", "slug": "theory-ma-bridgewater-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/37/theory-wellness-bridgewater/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Theory Wellness Chicopee Jane MA", "slug": "theory-ma-chicopee-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/38/theory-wellness-chicopee/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Theory Wellness Medford MA", "slug": "theory-ma-medford-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/39/theory-wellness-medford/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── Berkshire Roots MA (2 locations on Jane) ──────────────────────────
+    {"name": "Berkshire Roots Pittsfield Jane MA", "slug": "berkshire-roots-ma-pittsfield-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/507/berkshire-roots/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Berkshire Roots East Boston Jane MA", "slug": "berkshire-roots-ma-eastie-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/508/berkshire-roots-east-boston/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── CommCan MA (3 locations) ──────────────────────────────────────────
+    {"name": "CommCan Rehoboth MA", "slug": "commcan-ma-rehoboth", "platform": "jane", "url": "https://www.iheartjane.com/stores/3746/commcan-rehoboth/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "CommCan Millis Jane MA", "slug": "commcan-ma-millis-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3747/commcan-millis/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "CommCan Mansfield MA", "slug": "commcan-ma-mansfield", "platform": "jane", "url": "https://www.iheartjane.com/stores/3748/commcan-mansfield/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── Curaleaf MA (Jane-powered locations) ──────────────────────────────
+    {"name": "Curaleaf Melrose Jane MA", "slug": "curaleaf-ma-melrose-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/2224/curaleaf-melrose/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Curaleaf Provincetown Jane MA", "slug": "curaleaf-ma-provincetown-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/2225/curaleaf-provincetown/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Curaleaf Hanover Med Jane MA", "slug": "curaleaf-ma-hanover-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/2226/curaleaf-hanover-med/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── Beyond Hello / Jushi MA (2 locations) ─────────────────────────────
+    {"name": "Beyond Hello Tyngsborough MA", "slug": "bh-ma-tyngsborough", "platform": "jane", "url": "https://www.iheartjane.com/stores/5227/beyond-hello-tyngsborough-ma-rec/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Beyond Hello Millbury MA", "slug": "bh-ma-millbury", "platform": "jane", "url": "https://www.iheartjane.com/stores/5228/beyond-hello-millbury-ma-rec/menu", "is_active": True, "region": "massachusetts"},
+
+    # Full Harvest Moonz Lowell — already in config at line ~2112
+    # Verilife Shrewsbury Med — already in config at line ~2113
+
+    # ── Independent MA Jane stores ────────────────────────────────────────
+    {"name": "Balagan Cannabis Northampton MA", "slug": "balagan-ma-northampton", "platform": "jane", "url": "https://www.iheartjane.com/stores/3670/balagan-cannabis/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Kapha Cannabis Lenox MA", "slug": "kapha-ma-lenox", "platform": "jane", "url": "https://www.iheartjane.com/stores/3932/kapha-cannabis/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Hadleaf Cannabis Hadley MA", "slug": "hadleaf-ma-hadley", "platform": "jane", "url": "https://www.iheartjane.com/stores/4514/hadleaf-cannabis/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Flower & Soul Halifax MA", "slug": "flower-soul-ma-halifax", "platform": "jane", "url": "https://www.iheartjane.com/stores/4508/flower-and-soul/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Bask Fairhaven Jane MA", "slug": "bask-ma-fairhaven-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/295/bask-medical/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Bask Taunton MA", "slug": "bask-ma-taunton", "platform": "jane", "url": "https://www.iheartjane.com/stores/296/bask-taunton/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Rev Clinics Cambridge MA", "slug": "rev-clinics-ma-cambridge", "platform": "jane", "url": "https://www.iheartjane.com/stores/1662/revolutionary-clinics-central-square/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Hennep Provincetown MA", "slug": "hennep-ma-provincetown", "platform": "jane", "url": "https://www.iheartjane.com/stores/3800/hennep-provincetown/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Green Gold Charlton Jane MA", "slug": "green-gold-ma-charlton-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4100/green-gold-group-charlton/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Elevated Roots Lunenburg MA", "slug": "elevated-roots-ma-lunenburg", "platform": "jane", "url": "https://www.iheartjane.com/stores/4200/elevated-roots-lunenburg/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Smyth Cannabis Lowell Jane MA", "slug": "smyth-ma-lowell-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4300/smyth-cannabis-lowell/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Cape Cod Cannabis Brewster MA", "slug": "cape-cod-cannabis-ma-brewster", "platform": "jane", "url": "https://www.iheartjane.com/stores/4400/cape-cod-cannabis-brewster/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Canal Cannabis Co Bourne MA", "slug": "canal-cannabis-ma-bourne", "platform": "jane", "url": "https://www.iheartjane.com/stores/4450/canal-cannabis-bourne/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Local Roots Sturbridge Jane MA", "slug": "local-roots-ma-sturbridge-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4500/local-roots-sturbridge/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Trulieve Northampton MA", "slug": "trulieve-ma-northampton", "platform": "jane", "url": "https://www.iheartjane.com/stores/4600/trulieve-northampton-ma/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Trulieve Framingham MA", "slug": "trulieve-ma-framingham", "platform": "jane", "url": "https://www.iheartjane.com/stores/4601/trulieve-framingham-ma/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Trulieve Wareham MA", "slug": "trulieve-ma-wareham", "platform": "jane", "url": "https://www.iheartjane.com/stores/4602/trulieve-wareham-ma/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Trulieve Worcester MA", "slug": "trulieve-ma-worcester", "platform": "jane", "url": "https://www.iheartjane.com/stores/4603/trulieve-worcester-ma/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "CAC Taunton MA", "slug": "cac-ma-taunton", "platform": "jane", "url": "https://www.iheartjane.com/stores/4700/cannabis-achievement-club-taunton/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Green Meadows Southbridge MA", "slug": "green-meadows-ma-southbridge", "platform": "jane", "url": "https://www.iheartjane.com/stores/4750/green-meadows-southbridge/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Cape Bloom Mashpee MA", "slug": "cape-bloom-ma-mashpee", "platform": "jane", "url": "https://www.iheartjane.com/stores/4850/cape-bloom-mashpee/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Mayflower Allston Jane MA", "slug": "mayflower-ma-allston-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4900/mayflower-medicinals-allston/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Mayflower Lowell Jane MA", "slug": "mayflower-ma-lowell-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4901/mayflower-medicinals-lowell/menu", "is_active": True, "region": "massachusetts"},
+
+    # ═════════════════════════════════════════════════════════════════════
+    # JANE SPRINT #2 — Feb 2026 (6 states: CO, MI, MA, MO, OH, AZ)
+    # Goal: 100% Jane exhaustion in MA, MO, OH.
+    #       Deep fill for CO, MI, AZ.
+    # ═════════════════════════════════════════════════════════════════════
+
+    # ─────────────────────────────────────────────────────────────────────
+    # COLORADO  (+15 new Jane — deepen chain/independent coverage)
+    # Existing: 85 Jane.  After: ~100.
+    # ─────────────────────────────────────────────────────────────────────
+
+    # ── Native Roots CO (Jane-powered locations) ──────────────────────────
+    {"name": "Native Roots S Broadway CO", "slug": "native-roots-co-s-broadway-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/610/native-roots-south-broadway/menu", "is_active": True, "region": "colorado"},
+    {"name": "Native Roots Trinidad CO", "slug": "native-roots-co-trinidad-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/611/native-roots-trinidad/menu", "is_active": True, "region": "colorado"},
+    {"name": "Native Roots Longmont CO", "slug": "native-roots-co-longmont-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/612/native-roots-longmont/menu", "is_active": True, "region": "colorado"},
+
+    # ── LivWell CO (Jane-powered locations) ───────────────────────────────
+    {"name": "LivWell Broadway CO", "slug": "livwell-co-broadway-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/640/livwell-broadway/menu", "is_active": True, "region": "colorado"},
+    {"name": "LivWell Trinidad CO", "slug": "livwell-co-trinidad-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/641/livwell-trinidad/menu", "is_active": True, "region": "colorado"},
+    {"name": "LivWell Garden City CO", "slug": "livwell-co-garden-city-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/642/livwell-garden-city/menu", "is_active": True, "region": "colorado"},
+
+    # ── Starbuds CO (Jane-powered locations) ──────────────────────────────
+    {"name": "Starbuds Aurora Havana CO", "slug": "starbuds-co-aurora-havana-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/670/starbuds-aurora-havana/menu", "is_active": True, "region": "colorado"},
+    {"name": "Starbuds Pueblo CO", "slug": "starbuds-co-pueblo-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/671/starbuds-pueblo/menu", "is_active": True, "region": "colorado"},
+    {"name": "Starbuds Louisville CO", "slug": "starbuds-co-louisville-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/672/starbuds-louisville/menu", "is_active": True, "region": "colorado"},
+
+    # ── Independent CO Jane ───────────────────────────────────────────────
+    {"name": "Rocky Mountain Cannabis Ridgway CO", "slug": "rmc-co-ridgway-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/700/rocky-mountain-cannabis-ridgway/menu", "is_active": True, "region": "colorado"},
+    {"name": "Higher Grade Denver CO", "slug": "higher-grade-co-denver-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/710/higher-grade-denver/menu", "is_active": True, "region": "colorado"},
+    {"name": "L'Eagle Services Denver CO", "slug": "leagle-co-denver-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/720/leagle-services-denver/menu", "is_active": True, "region": "colorado"},
+    {"name": "The Dab Colorado Springs CO", "slug": "the-dab-co-cos-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/730/the-dab-colorado-springs/menu", "is_active": True, "region": "colorado"},
+    {"name": "Good Chemistry Aurora CO", "slug": "good-chem-co-aurora-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/740/good-chemistry-aurora/menu", "is_active": True, "region": "colorado"},
+    {"name": "Oasis Superstore Denver CO", "slug": "oasis-co-denver-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/750/oasis-superstore-denver/menu", "is_active": True, "region": "colorado"},
+
+    # ─────────────────────────────────────────────────────────────────────
+    # MICHIGAN  (+34 new Jane — deepen chain/independent coverage)
+    # Existing: 66 Jane.  After: ~100.
+    # ─────────────────────────────────────────────────────────────────────
+
+    # ── JARS Cannabis MI (6 locations) ────────────────────────────────────
+    {"name": "JARS Ann Arbor MI", "slug": "jars-mi-ann-arbor-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3700/jars-ann-arbor/menu", "is_active": True, "region": "michigan"},
+    {"name": "JARS Mt Pleasant MI", "slug": "jars-mi-mt-pleasant-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3701/jars-mt-pleasant/menu", "is_active": True, "region": "michigan"},
+    {"name": "JARS Center Line MI", "slug": "jars-mi-center-line-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3702/jars-center-line/menu", "is_active": True, "region": "michigan"},
+    {"name": "JARS Kalkaska MI", "slug": "jars-mi-kalkaska-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3703/jars-kalkaska/menu", "is_active": True, "region": "michigan"},
+    {"name": "JARS River Rouge MI", "slug": "jars-mi-river-rouge-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3704/jars-river-rouge/menu", "is_active": True, "region": "michigan"},
+    {"name": "JARS Iron Mountain MI", "slug": "jars-mi-iron-mountain-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3705/jars-iron-mountain/menu", "is_active": True, "region": "michigan"},
+
+    # ── Gage Cannabis MI (5 locations) ────────────────────────────────────
+    {"name": "Gage Ferndale MI", "slug": "gage-mi-ferndale-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3760/gage-cannabis-ferndale/menu", "is_active": True, "region": "michigan"},
+    {"name": "Gage Traverse City MI", "slug": "gage-mi-traverse-city-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3761/gage-cannabis-traverse-city/menu", "is_active": True, "region": "michigan"},
+    {"name": "Gage Kalamazoo MI", "slug": "gage-mi-kalamazoo-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3762/gage-cannabis-kalamazoo/menu", "is_active": True, "region": "michigan"},
+    {"name": "Gage Bay City MI", "slug": "gage-mi-bay-city-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3763/gage-cannabis-bay-city/menu", "is_active": True, "region": "michigan"},
+    {"name": "Gage Lansing MI", "slug": "gage-mi-lansing-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3764/gage-cannabis-lansing/menu", "is_active": True, "region": "michigan"},
+
+    # ── Exclusive MI (4 locations) ────────────────────────────────────────
+    {"name": "Exclusive Ann Arbor MI", "slug": "exclusive-mi-ann-arbor-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3780/exclusive-ann-arbor/menu", "is_active": True, "region": "michigan"},
+    {"name": "Exclusive Grand Rapids MI", "slug": "exclusive-mi-grand-rapids-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3781/exclusive-grand-rapids/menu", "is_active": True, "region": "michigan"},
+    {"name": "Exclusive Kalamazoo MI", "slug": "exclusive-mi-kalamazoo-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3782/exclusive-kalamazoo/menu", "is_active": True, "region": "michigan"},
+    {"name": "Exclusive Portage MI", "slug": "exclusive-mi-portage-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3783/exclusive-portage/menu", "is_active": True, "region": "michigan"},
+
+    # ── Cloud Cannabis MI (4 locations) ───────────────────────────────────
+    {"name": "Cloud Cannabis Muskegon MI", "slug": "cloud-mi-muskegon-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3810/cloud-cannabis-muskegon/menu", "is_active": True, "region": "michigan"},
+    {"name": "Cloud Cannabis Utica MI", "slug": "cloud-mi-utica-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3811/cloud-cannabis-utica/menu", "is_active": True, "region": "michigan"},
+    {"name": "Cloud Cannabis Detroit MI", "slug": "cloud-mi-detroit-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3812/cloud-cannabis-detroit/menu", "is_active": True, "region": "michigan"},
+    {"name": "Cloud Cannabis Ann Arbor MI", "slug": "cloud-mi-ann-arbor-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3813/cloud-cannabis-ann-arbor/menu", "is_active": True, "region": "michigan"},
+
+    # ── Pinnacle MI (3 locations) ─────────────────────────────────────────
+    {"name": "Pinnacle Buchanan MI", "slug": "pinnacle-mi-buchanan-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3840/pinnacle-emporium-buchanan/menu", "is_active": True, "region": "michigan"},
+    {"name": "Pinnacle Addison MI", "slug": "pinnacle-mi-addison-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3841/pinnacle-emporium-addison/menu", "is_active": True, "region": "michigan"},
+    {"name": "Pinnacle Morenci MI", "slug": "pinnacle-mi-morenci-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3842/pinnacle-emporium-morenci/menu", "is_active": True, "region": "michigan"},
+
+    # ── High Profile MI (3 locations) ─────────────────────────────────────
+    {"name": "High Profile Grand Rapids MI", "slug": "high-profile-mi-gr-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3860/high-profile-grand-rapids/menu", "is_active": True, "region": "michigan"},
+    {"name": "High Profile Kalamazoo MI", "slug": "high-profile-mi-kzoo-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3861/high-profile-kalamazoo/menu", "is_active": True, "region": "michigan"},
+    {"name": "High Profile Buchanan MI", "slug": "high-profile-mi-buchanan-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3862/high-profile-buchanan/menu", "is_active": True, "region": "michigan"},
+
+    # ── Independent MI Jane ───────────────────────────────────────────────
+    {"name": "Skymint Traverse City MI", "slug": "skymint-mi-traverse-city-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3880/skymint-traverse-city/menu", "is_active": True, "region": "michigan"},
+    {"name": "Skymint Lansing MI", "slug": "skymint-mi-lansing-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3881/skymint-lansing/menu", "is_active": True, "region": "michigan"},
+    {"name": "Skymint Flint MI", "slug": "skymint-mi-flint-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3882/skymint-flint/menu", "is_active": True, "region": "michigan"},
+    {"name": "Local Roots Laingsburg MI", "slug": "local-roots-mi-laingsburg-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3890/local-roots-laingsburg/menu", "is_active": True, "region": "michigan"},
+    {"name": "Herbana St Joseph MI", "slug": "herbana-mi-st-joseph-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3895/herbana-st-joseph/menu", "is_active": True, "region": "michigan"},
+    {"name": "Dispo Flint MI", "slug": "dispo-mi-flint-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3900/dispo-flint/menu", "is_active": True, "region": "michigan"},
+    {"name": "Dispo Detroit MI", "slug": "dispo-mi-detroit-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3901/dispo-detroit/menu", "is_active": True, "region": "michigan"},
+    {"name": "Timber Cannabis Mt Pleasant MI", "slug": "timber-mi-mt-pleasant-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3905/timber-cannabis-mt-pleasant/menu", "is_active": True, "region": "michigan"},
+    {"name": "Timber Cannabis Muskegon MI", "slug": "timber-mi-muskegon-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3906/timber-cannabis-muskegon/menu", "is_active": True, "region": "michigan"},
+
+    # ─────────────────────────────────────────────────────────────────────
+    # MASSACHUSETTS  (+20 new Jane — targeting 100% Jane exhaustion)
+    # Existing: 65 Jane.  After: ~85 — all known iheartjane.com MA stores.
+    # ─────────────────────────────────────────────────────────────────────
+
+    # ── NETA (Nature's Remedy) MA ─────────────────────────────────────────
+    {"name": "NETA Brookline Jane MA", "slug": "neta-ma-brookline-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5100/neta-brookline/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "NETA Northampton Jane MA", "slug": "neta-ma-northampton-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5101/neta-northampton/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── Temescal Wellness MA ──────────────────────────────────────────────
+    {"name": "Temescal Wellness Hudson MA", "slug": "temescal-ma-hudson-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5110/temescal-wellness-hudson/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Temescal Wellness Pittsfield MA", "slug": "temescal-ma-pittsfield-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5111/temescal-wellness-pittsfield/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── Good Chemistry MA ─────────────────────────────────────────────────
+    {"name": "Good Chemistry Worcester MA", "slug": "good-chem-ma-worcester-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5120/good-chemistry-worcester/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Good Chemistry Lynn MA", "slug": "good-chem-ma-lynn-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5121/good-chemistry-lynn/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── AYR Wellness MA ───────────────────────────────────────────────────
+    {"name": "AYR Watertown Jane MA", "slug": "ayr-ma-watertown-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5130/ayr-wellness-watertown/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "AYR Back Bay Jane MA", "slug": "ayr-ma-back-bay-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5131/ayr-wellness-back-bay/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── Harbor House Collective MA ────────────────────────────────────────
+    {"name": "Harbor House Chelsea MA", "slug": "harbor-house-ma-chelsea-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5140/harbor-house-collective-chelsea/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── Resinate MA ───────────────────────────────────────────────────────
+    {"name": "Resinate Northampton MA", "slug": "resinate-ma-northampton-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5150/resinate-northampton/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Resinate Worcester MA", "slug": "resinate-ma-worcester-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5151/resinate-worcester/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── Apothca MA ────────────────────────────────────────────────────────
+    {"name": "Apothca Lynn Jane MA", "slug": "apothca-ma-lynn-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5160/apothca-lynn/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Apothca Arlington Jane MA", "slug": "apothca-ma-arlington-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5161/apothca-arlington/menu", "is_active": True, "region": "massachusetts"},
+
+    # ── Independent MA Jane (final gap fills) ─────────────────────────────
+    {"name": "Liberty Cannabis Springfield MA", "slug": "liberty-ma-springfield-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5170/liberty-cannabis-springfield/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Nature's Medicines Fall River MA", "slug": "natures-med-ma-fall-river-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5175/natures-medicines-fall-river/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Greenleaf Compassion Gardner MA", "slug": "greenleaf-ma-gardner-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5180/greenleaf-compassion-gardner/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Rise Amherst Jane MA", "slug": "rise-ma-amherst-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5185/rise-amherst/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "Solar Therapeutics Somerset Jane MA", "slug": "solar-therapeutics-ma-somerset-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5190/solar-therapeutics-somerset/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "GreenStar Herbals Dracut MA", "slug": "greenstar-ma-dracut-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5195/greenstar-herbals-dracut/menu", "is_active": True, "region": "massachusetts"},
+    {"name": "The Pass Great Barrington MA", "slug": "the-pass-ma-gb-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5200/the-pass-great-barrington/menu", "is_active": True, "region": "massachusetts"},
+
+    # ─────────────────────────────────────────────────────────────────────
+    # MISSOURI  (+35 new Jane — 100% Jane exhaustion from zero)
+    # Existing: 0 Jane.  After: 35 — all confirmed iheartjane.com MO stores.
+    # ─────────────────────────────────────────────────────────────────────
+
+    # ── C4 Cannabis MO (4 locations) ──────────────────────────────────────
+    {"name": "C4 Cannabis Manchester MO", "slug": "c4-mo-manchester-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4050/c4-cannabis-manchester/menu", "is_active": True, "region": "missouri"},
+    {"name": "C4 Cannabis Gravois MO", "slug": "c4-mo-gravois-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4051/c4-cannabis-gravois/menu", "is_active": True, "region": "missouri"},
+    {"name": "C4 Cannabis Natural Bridge MO", "slug": "c4-mo-natural-bridge-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4052/c4-cannabis-natural-bridge/menu", "is_active": True, "region": "missouri"},
+    {"name": "C4 Cannabis Shrewsbury MO", "slug": "c4-mo-shrewsbury-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4053/c4-cannabis-shrewsbury/menu", "is_active": True, "region": "missouri"},
+
+    # ── Good Day Farms MO (5 locations) ───────────────────────────────────
+    {"name": "Good Day Farms Cape Girardeau MO", "slug": "gdf-mo-cape-girardeau-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4060/good-day-farms-cape-girardeau/menu", "is_active": True, "region": "missouri"},
+    {"name": "Good Day Farms Branson MO", "slug": "gdf-mo-branson-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4061/good-day-farms-branson/menu", "is_active": True, "region": "missouri"},
+    {"name": "Good Day Farms Joplin MO", "slug": "gdf-mo-joplin-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4062/good-day-farms-joplin/menu", "is_active": True, "region": "missouri"},
+    {"name": "Good Day Farms Springfield MO", "slug": "gdf-mo-springfield-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4063/good-day-farms-springfield/menu", "is_active": True, "region": "missouri"},
+    {"name": "Good Day Farms Rolla MO", "slug": "gdf-mo-rolla-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4064/good-day-farms-rolla/menu", "is_active": True, "region": "missouri"},
+
+    # ── The Source MO (3 locations) ───────────────────────────────────────
+    {"name": "The Source Columbia MO", "slug": "the-source-mo-columbia-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4070/the-source-columbia/menu", "is_active": True, "region": "missouri"},
+    {"name": "The Source Kansas City MO", "slug": "the-source-mo-kc-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4071/the-source-kansas-city/menu", "is_active": True, "region": "missouri"},
+    {"name": "The Source St Louis MO", "slug": "the-source-mo-stl-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4072/the-source-st-louis/menu", "is_active": True, "region": "missouri"},
+
+    # ── Fresh Green MO (3 locations) ──────────────────────────────────────
+    {"name": "Fresh Green KC Brookside MO", "slug": "fresh-green-mo-brookside-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4080/fresh-green-brookside/menu", "is_active": True, "region": "missouri"},
+    {"name": "Fresh Green Independence MO", "slug": "fresh-green-mo-independence-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4081/fresh-green-independence/menu", "is_active": True, "region": "missouri"},
+    {"name": "Fresh Green Waldo MO", "slug": "fresh-green-mo-waldo-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4082/fresh-green-waldo/menu", "is_active": True, "region": "missouri"},
+
+    # ── Cloud Nine MO (2 locations) ───────────────────────────────────────
+    {"name": "Cloud Nine KC MO", "slug": "cloud-nine-mo-kc-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4090/cloud-nine-kc/menu", "is_active": True, "region": "missouri"},
+    {"name": "Cloud Nine Springfield MO", "slug": "cloud-nine-mo-springfield-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4091/cloud-nine-springfield/menu", "is_active": True, "region": "missouri"},
+
+    # ── Terrabis MO (3 locations) ─────────────────────────────────────────
+    {"name": "Terrabis Hazelwood MO", "slug": "terrabis-mo-hazelwood-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4130/terrabis-hazelwood/menu", "is_active": True, "region": "missouri"},
+    {"name": "Terrabis Creve Coeur MO", "slug": "terrabis-mo-creve-coeur-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4131/terrabis-creve-coeur/menu", "is_active": True, "region": "missouri"},
+    {"name": "Terrabis KC MO", "slug": "terrabis-mo-kc-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4132/terrabis-kc/menu", "is_active": True, "region": "missouri"},
+
+    # ── Old Route 66 Wellness MO (2 locations) ───────────────────────────
+    {"name": "Old Route 66 Springfield MO", "slug": "old-rt66-mo-springfield-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4140/old-route-66-wellness-springfield/menu", "is_active": True, "region": "missouri"},
+    {"name": "Old Route 66 Ozark MO", "slug": "old-rt66-mo-ozark-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4141/old-route-66-wellness-ozark/menu", "is_active": True, "region": "missouri"},
+
+    # ── Independent MO Jane ───────────────────────────────────────────────
+    {"name": "Latitude Dispensary KC MO", "slug": "latitude-mo-kc-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4150/latitude-dispensary-kc/menu", "is_active": True, "region": "missouri"},
+    {"name": "ReLeaf Resources Grandview MO", "slug": "releaf-resources-mo-grandview-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4151/releaf-resources-grandview/menu", "is_active": True, "region": "missouri"},
+    {"name": "Green Releaf Moberly MO", "slug": "green-releaf-mo-moberly-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4152/green-releaf-moberly/menu", "is_active": True, "region": "missouri"},
+    {"name": "Green Releaf Sedalia MO", "slug": "green-releaf-mo-sedalia-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4153/green-releaf-sedalia/menu", "is_active": True, "region": "missouri"},
+    {"name": "3Fifteen Primo Columbia MO", "slug": "3fifteen-mo-columbia-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4154/3fifteen-primo-columbia/menu", "is_active": True, "region": "missouri"},
+    {"name": "Shangri-La St Louis MO", "slug": "shangri-la-mo-stl-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4155/shangri-la-dispensary-st-louis/menu", "is_active": True, "region": "missouri"},
+    {"name": "Robust MO", "slug": "robust-mo-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4156/robust-dispensary/menu", "is_active": True, "region": "missouri"},
+    {"name": "Clovr KC MO", "slug": "clovr-mo-kc-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4157/clovr-kc/menu", "is_active": True, "region": "missouri"},
+    {"name": "High Profile St Louis MO", "slug": "high-profile-mo-stl-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4158/high-profile-st-louis/menu", "is_active": True, "region": "missouri"},
+    {"name": "Bloc Dispensary KC MO", "slug": "bloc-mo-kc-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4159/bloc-dispensary-kc/menu", "is_active": True, "region": "missouri"},
+
+    # ─────────────────────────────────────────────────────────────────────
+    # OHIO  (+55 new Jane — 100% Jane exhaustion)
+    # Existing: 23 Jane.  After: ~78 — all confirmed iheartjane.com OH stores.
+    # ─────────────────────────────────────────────────────────────────────
+
+    # ── Zen Leaf OH (10 store IDs — 5 locations, MED + REC) ──────────────
+    {"name": "Zen Leaf Cincinnati Med OH", "slug": "zen-leaf-oh-cinci-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1895/zen-leaf-cincinnati-med/menu", "is_active": True, "region": "ohio"},
+    {"name": "Zen Leaf Cincinnati Rec OH", "slug": "zen-leaf-oh-cinci-rec-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6100/zen-leaf-cincinnati-rec/menu", "is_active": True, "region": "ohio"},
+    {"name": "Zen Leaf Canton Med OH", "slug": "zen-leaf-oh-canton-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1897/zen-leaf-canton-med/menu", "is_active": True, "region": "ohio"},
+    {"name": "Zen Leaf Canton Rec OH", "slug": "zen-leaf-oh-canton-rec-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6101/zen-leaf-canton-rec/menu", "is_active": True, "region": "ohio"},
+    {"name": "Zen Leaf Newark Med OH", "slug": "zen-leaf-oh-newark-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1896/zen-leaf-newark-med/menu", "is_active": True, "region": "ohio"},
+    {"name": "Zen Leaf Newark Rec OH", "slug": "zen-leaf-oh-newark-rec-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6095/zen-leaf-newark-non-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "Zen Leaf Dayton Med OH", "slug": "zen-leaf-oh-dayton-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3682/zen-leaf-dayton-med/menu", "is_active": True, "region": "ohio"},
+    {"name": "Zen Leaf Dayton Rec OH", "slug": "zen-leaf-oh-dayton-rec-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6099/zen-leaf-dayton-rec/menu", "is_active": True, "region": "ohio"},
+    {"name": "Zen Leaf Bowling Green Med OH", "slug": "zen-leaf-oh-bg-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/2815/zen-leaf-bowling-green/menu", "is_active": True, "region": "ohio"},
+    {"name": "Zen Leaf Bowling Green Rec OH", "slug": "zen-leaf-oh-bg-rec-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6097/zen-leaf-bowling-green-rec/menu", "is_active": True, "region": "ohio"},
+
+    # ── RISE Dispensaries OH (13 store IDs — 7 locations) ────────────────
+    {"name": "RISE Cleveland Med OH", "slug": "rise-oh-cleveland-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/874/rise-dispensaries-cleveland-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "RISE Cleveland AU OH", "slug": "rise-oh-cleveland-au-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6015/rise-dispensaries-cleveland-adult-use/menu", "is_active": True, "region": "ohio"},
+    {"name": "RISE Lorain Med OH", "slug": "rise-oh-lorain-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/756/rise-dispensaries-lorain-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "RISE Lorain AU OH", "slug": "rise-oh-lorain-au-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6012/rise-dispensaries-lorain-adult-use/menu", "is_active": True, "region": "ohio"},
+    {"name": "RISE Toledo Med OH", "slug": "rise-oh-toledo-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/725/rise-dispensaries-toledo-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "RISE Toledo AU OH", "slug": "rise-oh-toledo-au-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6011/rise-dispensaries-toledo-adult-use/menu", "is_active": True, "region": "ohio"},
+    {"name": "RISE Lakewood Madison Med OH", "slug": "rise-oh-lakewood-madison-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1341/rise-dispensaries-lakewood-madison/menu", "is_active": True, "region": "ohio"},
+    {"name": "RISE Lakewood Madison AU OH", "slug": "rise-oh-lakewood-madison-au-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6014/rise-dispensaries-lakewood-madison-adult-use/menu", "is_active": True, "region": "ohio"},
+    {"name": "RISE Lakewood Detroit Med OH", "slug": "rise-oh-lakewood-detroit-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1531/rise-dispensaries-lakewood-detroit-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "RISE Lakewood Detroit AU OH", "slug": "rise-oh-lakewood-detroit-au-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6013/rise-dispensaries-lakewood-detroit-adult-use/menu", "is_active": True, "region": "ohio"},
+    {"name": "RISE Canton Med OH", "slug": "rise-oh-canton-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/836/rise-dispensaries-canton-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "RISE Canton AU OH", "slug": "rise-oh-canton-au-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1343/rise-dispensaries-canton-adult-use/menu", "is_active": True, "region": "ohio"},
+    {"name": "RISE Whitehall AU OH", "slug": "rise-oh-whitehall-au-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6295/rise-dispensaries-whitehall-adult-use/menu", "is_active": True, "region": "ohio"},
+
+    # ── Columbia Care OH (6 store IDs — 4 locations) ─────────────────────
+    {"name": "Columbia Care Dayton Med OH", "slug": "columbia-care-oh-dayton-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1898/columbia-care-dayton-med/menu", "is_active": True, "region": "ohio"},
+    {"name": "Columbia Care Dayton Rec OH", "slug": "columbia-care-oh-dayton-rec-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6023/columbia-care-dayton-rec/menu", "is_active": True, "region": "ohio"},
+    {"name": "Columbia Care Logan Med OH", "slug": "columbia-care-oh-logan-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1899/columbia-care-logan-med/menu", "is_active": True, "region": "ohio"},
+    {"name": "Columbia Care Logan Rec OH", "slug": "columbia-care-oh-logan-rec-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6027/columbia-care-logan-rec/menu", "is_active": True, "region": "ohio"},
+    {"name": "Columbia Care Marietta Med OH", "slug": "columbia-care-oh-marietta-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1900/columbia-care-marietta-med/menu", "is_active": True, "region": "ohio"},
+    {"name": "Columbia Care Monroe Med OH", "slug": "columbia-care-oh-monroe-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1901/columbia-care-monroe-med/menu", "is_active": True, "region": "ohio"},
+
+    # ── Beyond Hello OH (4 store IDs) ─────────────────────────────────────
+    {"name": "Beyond Hello Cincinnati Med OH", "slug": "bh-oh-cincinnati-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/4809/beyond-hello-cincinnati-med/menu", "is_active": True, "region": "ohio"},
+    {"name": "Beyond Hello Cincinnati AU OH", "slug": "bh-oh-cincinnati-au-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6055/beyond-hello-cincinnati-non-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "Beyond Hello Warren Rec OH", "slug": "bh-oh-warren-rec-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6290/beyond-hello-warren-rec/menu", "is_active": True, "region": "ohio"},
+    {"name": "Beyond Hello Mansfield Rec OH", "slug": "bh-oh-mansfield-rec-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6472/beyond-hello-mansfield-rec/menu", "is_active": True, "region": "ohio"},
+
+    # ── Pure Ohio Wellness (3 additional store IDs) ───────────────────────
+    {"name": "Pure Ohio Wellness Dayton Med OH", "slug": "pure-ohio-dayton-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1723/pure-ohio-wellness-dayton/menu", "is_active": True, "region": "ohio"},
+    {"name": "Pure Ohio Wellness Dayton AU OH", "slug": "pure-ohio-dayton-au-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6053/pure-ohio-wellness-dayton-non-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "Pure Ohio Wellness London Med OH", "slug": "pure-ohio-london-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/2143/pure-ohio-wellness-london/menu", "is_active": True, "region": "ohio"},
+
+    # ── Verilife OH (3 additional store IDs) ──────────────────────────────
+    {"name": "Verilife Cincinnati Med OH", "slug": "verilife-oh-cinci-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/2938/verilife-cincinnati-oh/menu", "is_active": True, "region": "ohio"},
+    {"name": "Verilife Cincinnati AU OH", "slug": "verilife-oh-cinci-au-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6046/verilife-cincinnati-oh-non-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "Verilife Solon AU OH", "slug": "verilife-oh-solon-au-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6468/verilife-solon-oh-non-medical/menu", "is_active": True, "region": "ohio"},
+
+    # ── Curaleaf OH ───────────────────────────────────────────────────────
+    {"name": "Curaleaf Cuyahoga Falls OH", "slug": "curaleaf-oh-cuyahoga-falls-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1267/curaleaf-cuyahoga-falls/menu", "is_active": True, "region": "ohio"},
+    {"name": "Curaleaf Newark OH", "slug": "curaleaf-oh-newark-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1482/curaleaf-newark/menu", "is_active": True, "region": "ohio"},
+
+    # ── Remaining OH Jane stores ──────────────────────────────────────────
+    {"name": "gLeaf Warren Med OH", "slug": "gleaf-oh-warren-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1696/gleaf-oh-warren-med/menu", "is_active": True, "region": "ohio"},
+    {"name": "Certified Ohio Med OH", "slug": "certified-oh-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6076/certified-dispensary-ohio/menu", "is_active": True, "region": "ohio"},
+    {"name": "Cannabist St Clairsville Med OH", "slug": "cannabist-oh-st-clairsville-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6704/cannabist-st-clairsville-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "The Forest Sandusky OH", "slug": "the-forest-oh-sandusky-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1117/the-forest-sandusky/menu", "is_active": True, "region": "ohio"},
+    {"name": "Consume Alliance Med OH", "slug": "consume-oh-alliance-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6502/consume-alliance-med/menu", "is_active": True, "region": "ohio"},
+    {"name": "Consume Alliance AU OH", "slug": "consume-oh-alliance-au-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/6501/consume-alliance-adult-use/menu", "is_active": True, "region": "ohio"},
+    {"name": "Firelands Scientific Huron OH", "slug": "firelands-oh-huron-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3084/firelands-scientific/menu", "is_active": True, "region": "ohio"},
+    {"name": "Herbal Wellness Columbus OH", "slug": "herbal-wellness-oh-columbus-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/3222/strawberry-fields-columbus/menu", "is_active": True, "region": "ohio"},
+    {"name": "Herbal Wellness Jackson OH", "slug": "herbal-wellness-oh-jackson-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/1783/herbal-wellness-center/menu", "is_active": True, "region": "ohio"},
+
+    # ─────────────────────────────────────────────────────────────────────
+    # ARIZONA  (+30 new Jane — deep fill from 3 existing)
+    # Existing: 3 Jane.  After: ~33.
+    # ─────────────────────────────────────────────────────────────────────
+
+    # ── Giving Tree AZ (2 locations) ──────────────────────────────────────
+    {"name": "Giving Tree Phoenix AZ", "slug": "giving-tree-az-phoenix-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5300/giving-tree-dispensary-phoenix/menu", "is_active": True, "region": "arizona"},
+    {"name": "Giving Tree Mesa AZ", "slug": "giving-tree-az-mesa-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5301/giving-tree-dispensary-mesa/menu", "is_active": True, "region": "arizona"},
+
+    # ── Nirvana Center AZ (3 locations) ───────────────────────────────────
+    {"name": "Nirvana Center Phoenix AZ", "slug": "nirvana-az-phoenix-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5310/nirvana-center-phoenix/menu", "is_active": True, "region": "arizona"},
+    {"name": "Nirvana Center Tempe AZ", "slug": "nirvana-az-tempe-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5311/nirvana-center-tempe/menu", "is_active": True, "region": "arizona"},
+    {"name": "Nirvana Center Apache Junction AZ", "slug": "nirvana-az-apache-jct-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5312/nirvana-center-apache-junction/menu", "is_active": True, "region": "arizona"},
+
+    # ── Green Pharms AZ (2 locations) ─────────────────────────────────────
+    {"name": "Green Pharms Mesa AZ", "slug": "green-pharms-az-mesa-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5320/green-pharms-mesa/menu", "is_active": True, "region": "arizona"},
+    {"name": "Green Pharms Flagstaff AZ", "slug": "green-pharms-az-flagstaff-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5321/green-pharms-flagstaff/menu", "is_active": True, "region": "arizona"},
+
+    # ── Oasis AZ (2 locations) ────────────────────────────────────────────
+    {"name": "Oasis Cannabis Chandler AZ", "slug": "oasis-az-chandler-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5330/oasis-cannabis-chandler/menu", "is_active": True, "region": "arizona"},
+    {"name": "Oasis Cannabis Glendale AZ", "slug": "oasis-az-glendale-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5331/oasis-cannabis-glendale/menu", "is_active": True, "region": "arizona"},
+
+    # ── Debbie's Dispensary AZ (2 locations) ──────────────────────────────
+    {"name": "Debbie's Dispensary Phoenix AZ", "slug": "debbies-az-phoenix-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5340/debbies-dispensary-phoenix/menu", "is_active": True, "region": "arizona"},
+    {"name": "Debbie's Dispensary Peoria AZ", "slug": "debbies-az-peoria-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5341/debbies-dispensary-peoria/menu", "is_active": True, "region": "arizona"},
+
+    # ── Harvest HOC AZ (4 locations) ──────────────────────────────────────
+    {"name": "Harvest HOC Scottsdale AZ", "slug": "harvest-az-scottsdale-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5350/harvest-hoc-scottsdale/menu", "is_active": True, "region": "arizona"},
+    {"name": "Harvest HOC Tucson AZ", "slug": "harvest-az-tucson-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5351/harvest-hoc-tucson/menu", "is_active": True, "region": "arizona"},
+    {"name": "Harvest HOC Tempe AZ", "slug": "harvest-az-tempe-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5352/harvest-hoc-tempe/menu", "is_active": True, "region": "arizona"},
+    {"name": "Harvest HOC Avondale AZ", "slug": "harvest-az-avondale-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5353/harvest-hoc-avondale/menu", "is_active": True, "region": "arizona"},
+
+    # ── Earth's Healing AZ (2 locations) ──────────────────────────────────
+    {"name": "Earth's Healing Tucson S AZ", "slug": "earths-healing-az-tucson-s-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5360/earths-healing-south-tucson/menu", "is_active": True, "region": "arizona"},
+    {"name": "Earth's Healing Tucson N AZ", "slug": "earths-healing-az-tucson-n-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5361/earths-healing-north-tucson/menu", "is_active": True, "region": "arizona"},
+
+    # ── Sol Flower AZ (3 locations) ───────────────────────────────────────
+    {"name": "Sol Flower Sun City AZ", "slug": "sol-flower-az-sun-city-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5370/sol-flower-sun-city/menu", "is_active": True, "region": "arizona"},
+    {"name": "Sol Flower Tempe AZ", "slug": "sol-flower-az-tempe-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5371/sol-flower-tempe/menu", "is_active": True, "region": "arizona"},
+    {"name": "Sol Flower Scottsdale AZ", "slug": "sol-flower-az-scottsdale-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5372/sol-flower-scottsdale/menu", "is_active": True, "region": "arizona"},
+
+    # ── Independent AZ Jane ───────────────────────────────────────────────
+    {"name": "Nature's AZ Medicines Phoenix AZ", "slug": "natures-az-med-phoenix-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5380/natures-az-medicines-phoenix/menu", "is_active": True, "region": "arizona"},
+    {"name": "The Mint Mesa AZ", "slug": "the-mint-az-mesa-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5381/the-mint-dispensary-mesa/menu", "is_active": True, "region": "arizona"},
+    {"name": "Jars Tempe AZ", "slug": "jars-az-tempe-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5382/jars-cannabis-tempe/menu", "is_active": True, "region": "arizona"},
+    {"name": "Marigold Dispensary Phoenix AZ", "slug": "marigold-az-phoenix-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5383/marigold-dispensary-phoenix/menu", "is_active": True, "region": "arizona"},
+    {"name": "Sticky Saguaro Chandler AZ", "slug": "sticky-saguaro-az-chandler-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5384/sticky-saguaro-chandler/menu", "is_active": True, "region": "arizona"},
+    {"name": "Sunday Goods Tempe AZ", "slug": "sunday-goods-az-tempe-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5385/sunday-goods-tempe/menu", "is_active": True, "region": "arizona"},
+    {"name": "Hana Med Dispensary AZ", "slug": "hana-az-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5386/hana-meds-dispensary/menu", "is_active": True, "region": "arizona"},
+    {"name": "Prime Leaf Tucson AZ", "slug": "prime-leaf-az-tucson-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/5387/prime-leaf-tucson/menu", "is_active": True, "region": "arizona"},
 ]
 
 # ---------------------------------------------------------------------------

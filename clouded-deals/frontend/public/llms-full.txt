@@ -1,0 +1,129 @@
+# CloudedDeals — Complete Reference
+
+> Every deal from every Las Vegas dispensary, updated daily at 8 AM.
+
+CloudedDeals (https://cloudeddeals.com) is a free cannabis deal comparison platform for Las Vegas. We scrape menus from 27+ licensed dispensaries every morning at 8 AM Pacific, classify products into categories, calculate deal scores, and display the best prices. No account is needed to browse deals.
+
+---
+
+## How It Works
+
+1. Every morning at 8 AM PT, automated scrapers visit the online menus of 27+ licensed Las Vegas dispensaries
+2. Products are extracted, classified (flower, vapes, edibles, concentrates, pre-rolls), and priced
+3. Each deal receives a score from 0-100 based on how the price compares to the market average for that product type and weight
+4. Deals are published on cloudeddeals.com, searchable and filterable by dispensary, category, price, and zone
+
+---
+
+## Coverage
+
+### Dispensary Zones
+
+- **Strip**: Dispensaries on or near the Las Vegas Strip (tourists)
+- **Downtown**: Dispensaries in the downtown / Fremont area
+- **Local**: Dispensaries throughout the Las Vegas valley (locals)
+
+### Product Categories
+
+| Category | What's Included |
+|----------|----------------|
+| Flower | Cannabis buds — eighths, quarters, halves, ounces |
+| Vapes | Cartridges, pods, disposable vape pens |
+| Edibles | Gummies, chocolates, beverages, capsules |
+| Concentrates | Wax, shatter, live resin, rosin, diamonds |
+| Pre-Rolls | Pre-rolled joints, infused pre-rolls, multi-packs |
+
+### Dispensaries Tracked (27)
+
+**Strip Zone:**
+- Planet 13 — 2548 W Desert Inn Rd (world's largest dispensary)
+- Curaleaf Strip — 4550 S Maryland Pkwy, Suite 8
+- Thrive Strip — 2755 S Industrial Rd, Suite 100
+- Greenlight Downtown — 1455 S Grand Central Pkwy
+
+**Local Zone (Henderson, Decatur, etc.):**
+- The Dispensary - Gibson — 50 N Gibson Rd, Suite 170 & 175
+- The Dispensary - Decatur — 5347 S Decatur Blvd
+- Medizin — 4850 W Sunset Rd, Suite 130
+- The Grove — 4647 Swenson St
+- Oasis — 1800 Industrial Rd, Suite 180
+- Cultivate Spring — 4055 S Buffalo Dr, Suite 100
+- Cultivate Durango — 6540 Blue Diamond Rd, Suite 180
+- Deep Roots Cheyenne — 3400 Western Ave
+- Deep Roots Craig — 3400 Craig Rd
+- Deep Roots Blue Diamond — 7980 Blue Diamond Rd
+- Deep Roots Parkson — 4563 Blue Diamond Rd
+- Mint Paradise — 4609 W Flamingo Rd
+- Mint Rainbow — 6530 S Rainbow Blvd, Suite 1
+- Thrive Sahara — 1112 S Commerce St
+- Thrive Cheyenne — 3890 N Rancho Dr
+- Thrive Main — 6870 S Rainbow Blvd, Suite 120
+- Beyond Hello Sahara — 1921 Western Ave
+- Beyond Hello Twain — 4255 S Durango Dr
+
+**Curaleaf Locations:**
+- Curaleaf Western — 1736 Western Ave
+- Curaleaf Cheyenne — 3690 N Rancho Dr
+- Curaleaf The Reef — 3400 Western Ave, Suite 101
+
+**Greenlight:**
+- Greenlight Paradise — 7575 Norman Rockwell Ln
+
+---
+
+## Page Structure
+
+### Main Pages
+| URL | Description |
+|-----|-------------|
+| https://cloudeddeals.com | Homepage — today's top deals across all dispensaries |
+| https://cloudeddeals.com/las-vegas-dispensary-deals | All deals hub — every deal from every dispensary |
+| https://cloudeddeals.com/strip-dispensary-deals | Strip-zone deals for tourists |
+| https://cloudeddeals.com/browse | Browse all dispensaries |
+| https://cloudeddeals.com/search | Search deals by keyword |
+| https://cloudeddeals.com/about | About CloudedDeals |
+
+### Category Pages
+| URL | Description |
+|-----|-------------|
+| https://cloudeddeals.com/deals/flower | All flower deals with prices and scores |
+| https://cloudeddeals.com/deals/vapes | All vape deals |
+| https://cloudeddeals.com/deals/edibles | All edible deals |
+| https://cloudeddeals.com/deals/concentrates | All concentrate deals |
+| https://cloudeddeals.com/deals/prerolls | All pre-roll deals |
+
+### Dispensary Pages (27 pages)
+Each dispensary has a dedicated page at `https://cloudeddeals.com/dispensary/{slug}` showing:
+- Today's deals at that dispensary
+- Dispensary location and zone
+- About section with local context
+- Links to other dispensaries in the same zone
+
+---
+
+## Frequently Asked Questions
+
+**Q: How often are deals updated?**
+A: Every day at 8 AM Pacific. We scrape live dispensary menus each morning.
+
+**Q: How many dispensaries do you cover?**
+A: 27+ licensed Las Vegas dispensaries across the Strip, Downtown, and local neighborhoods.
+
+**Q: Is CloudedDeals free?**
+A: Yes, completely free. No account required to browse deals.
+
+**Q: What is the deal score?**
+A: A 0-100 score based on how the deal price compares to the average market price for that product type and weight. Higher scores mean better deals.
+
+**Q: Do you cover dispensaries outside Las Vegas?**
+A: Currently Las Vegas only. Multi-state expansion is planned.
+
+**Q: Can I buy products through CloudedDeals?**
+A: No. CloudedDeals is a comparison and discovery tool. We link to dispensary menus where you can place orders directly.
+
+---
+
+## Contact
+
+- Website: https://cloudeddeals.com
+- Twitter/X: @CloudedDeals

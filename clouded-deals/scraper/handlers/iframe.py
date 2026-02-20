@@ -92,6 +92,19 @@ async def _resolve_frame(
         )
         # Return the frame anyway — partial content is better than nothing.
 
+    # Guard: if the iframe is still about:blank, the embed hasn't actually
+    # loaded — the age gate callback may not have fired.  Wait up to 30 s
+    # for the frame to navigate to its real URL before giving up.
+    if frame.url in ("about:blank", ""):
+        logger.info("Iframe from %r is about:blank — waiting for real URL (up to 30 s)", selector)
+        for _ in range(30):
+            await asyncio.sleep(1)
+            if frame.url not in ("about:blank", ""):
+                break
+        if frame.url in ("about:blank", ""):
+            logger.warning("Iframe from %r still about:blank after 30 s — skipping", selector)
+            return None
+
     logger.info("Iframe found via %r — frame URL: %s", selector, frame.url)
 
     if post_wait_sec > 0:
@@ -149,6 +162,25 @@ async def get_iframe(
                 await frame.wait_for_load_state("domcontentloaded", timeout=timeout_ms)
             except PlaywrightTimeout:
                 pass  # partial content is better than nothing
+
+            # Force-navigate if frame is stuck on about:blank (same fix
+            # as _resolve_frame — the embed's src is set but the frame
+            # never navigated).
+            if frame.url in ("about:blank", ""):
+                src_attr = await real_iframes[0].get_attribute("src") or ""
+                if src_attr and src_attr != "about:blank":
+                    logger.info(
+                        "Last-resort iframe is about:blank — force-navigating to src=%s",
+                        src_attr[:120],
+                    )
+                    try:
+                        await frame.goto(src_attr, wait_until="domcontentloaded", timeout=30_000)
+                    except PlaywrightTimeout:
+                        logger.warning("Last-resort force-navigation timed out")
+                    except Exception:
+                        logger.warning("Last-resort force-navigation failed", exc_info=True)
+                        return None
+
             logger.info(
                 "Last-resort: single iframe found — frame URL: %s", frame.url,
             )
@@ -269,6 +301,7 @@ async def find_dutchie_content(
     iframe_timeout_ms: int = 30_000,
     js_embed_timeout_sec: float = 60,
     embed_type_hint: str | None = None,
+    hint_only: bool = False,
 ) -> tuple[Page | Frame | None, EmbedType | None]:
     """Locate Dutchie menu content — iframe first, JS embed fallback.
 
@@ -276,6 +309,11 @@ async def find_dutchie_content(
     the known embed type is tried first to avoid wasting time on
     detection phases that won't match.  This saves ~45 s on JS-embed
     sites that would otherwise wait for iframe detection to time out.
+
+    When *hint_only* is ``True``, the function returns ``(None, None)``
+    immediately if the hinted embed type is not found, skipping the
+    full cascade.  Use this for dutchie.com direct URLs where iframe
+    and JS-embed detection are irrelevant and would waste ~105 s.
 
     Returns
     -------
@@ -291,6 +329,9 @@ async def find_dutchie_content(
         if await _probe_js_embed(page, timeout_sec=js_embed_timeout_sec):
             logger.info("JS embed confirmed via hint — using main page as scrape target")
             return page, "js_embed"
+        if hint_only:
+            logger.info("JS embed hint didn't match and hint_only=True — skipping cascade")
+            return None, None
         logger.info("JS embed hint didn't match — falling through to full cascade")
 
     if embed_type_hint == "direct":
@@ -298,7 +339,11 @@ async def find_dutchie_content(
         if await _probe_direct_page(page, timeout_sec=30):
             logger.info("Direct page confirmed via hint — using main page as scrape target")
             return page, "direct"
-        logger.info("Direct hint didn't match — falling through to full cascade")
+        # dutchie.com pages are React SPAs — they will never match iframe
+        # or JS embed selectors.  Bail immediately instead of burning
+        # 105+ seconds on a cascade that cannot succeed.
+        logger.warning("Direct page has no product cards — skipping iframe/JS cascade")
+        return None, None
 
     # --- Try iframe -------------------------------------------------------
     # Always try iframe in the cascade.  If a js_embed/direct hint failed
