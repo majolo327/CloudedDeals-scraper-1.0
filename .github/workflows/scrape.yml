@@ -259,7 +259,7 @@ jobs:
         run: |
           pip install -r requirements.txt
           playwright install-deps
-          playwright install chromium
+          playwright install chrome chromium
 
       - name: Test Supabase connection
         working-directory: clouded-deals/scraper
