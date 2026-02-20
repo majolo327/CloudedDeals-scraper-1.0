@@ -1279,6 +1279,20 @@ def detect_deals(
     """
     global _last_report_data
 
+    # Step 0: Correct 1g flower → preroll (no 1g flower exists in retail;
+    # it's always a preroll or infused preroll that was miscategorized).
+    for product in products:
+        if (
+            product.get("category") == "flower"
+            and product.get("weight_value")
+        ):
+            try:
+                wv = float(product["weight_value"])
+            except (ValueError, TypeError):
+                wv = None
+            if wv is not None and 0.5 <= wv <= 1.5:
+                product["category"] = "preroll"
+
     # Step 1: Hard filter (with price-cap rejection counting)
     qualifying: list[dict[str, Any]] = []
     price_cap_rejects = 0
