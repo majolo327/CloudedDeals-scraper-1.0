@@ -410,6 +410,48 @@ body {
 
   .slide-in-from-bottom-4 { animation: slideInFromBottom 0.3s var(--ease-smooth) forwards; }
   .slide-in-from-top-4 { animation: slideInFromTop 0.3s var(--ease-smooth) forwards; }
+
+  /* ---- Safe-area-aware positioning ---- */
+
+  /* Sticky elements below the header: accounts for header height + safe area top */
+  .safe-top-sticky {
+    top: calc(3.5rem + env(safe-area-inset-top, 0px));
+  }
+  @media (min-width: 640px) {
+    .safe-top-sticky {
+      top: calc(4rem + env(safe-area-inset-top, 0px));
+    }
+  }
+
+  /* Main content bottom padding: clears mobile bottom nav + safe area */
+  .safe-pb-nav {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+  @media (min-width: 640px) {
+    .safe-pb-nav {
+      padding-bottom: 0;
+    }
+  }
+
+  /* Bottom CTA bar: sits above the mobile bottom nav (which includes safe area) */
+  .safe-bottom-cta {
+    bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+  @media (min-width: 640px) {
+    .safe-bottom-cta {
+      bottom: 0;
+    }
+  }
+
+  /* Bottom floating elements: positioned above the bottom nav on mobile */
+  .safe-bottom-float {
+    bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+  @media (min-width: 640px) {
+    .safe-bottom-float {
+      bottom: 1.5rem;
+    }
+  }
 }
 
 @keyframes slideInFromBottom {

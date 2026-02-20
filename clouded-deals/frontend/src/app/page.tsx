@@ -322,7 +322,7 @@ export default function Home() {
       <div className="fixed inset-0 pointer-events-none hidden sm:block" style={{ background: 'radial-gradient(ellipse 50% 35% at 50% -2%, rgba(139, 92, 246, 0.08) 0%, transparent 60%), radial-gradient(ellipse 30% 20% at 50% 0%, rgba(168, 85, 247, 0.05) 0%, transparent 50%)' }} />
 
       {/* Header */}
-      <header className="sticky top-0 z-50 header-border-glow" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderBottom: '1px solid rgba(120, 100, 200, 0.08)', WebkitBackdropFilter: 'blur(40px) saturate(1.3)', backdropFilter: 'blur(40px) saturate(1.3)' }}>
+      <header className="sticky top-0 z-50 header-border-glow" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderBottom: '1px solid rgba(120, 100, 200, 0.08)', WebkitBackdropFilter: 'blur(40px) saturate(1.3)', backdropFilter: 'blur(40px) saturate(1.3)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div className="max-w-6xl mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button onClick={() => setActivePage('home')} className="focus:outline-none">
@@ -387,13 +387,13 @@ export default function Home() {
       </header>
 
       {/* Main content — bottom padding on mobile for bottom nav */}
-      <main className="relative pb-20 sm:pb-0">
+      <main className="relative safe-pb-nav">
         {/* Deals tab: shows loading/error/expired states */}
         {activePage === 'home' && (
           loading ? (
             <>
               {/* Category bar skeleton */}
-              <div className="sticky top-14 sm:top-16 z-40 border-b" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderColor: 'rgba(120, 100, 200, 0.06)' }}>
+              <div className="sticky z-40 border-b safe-top-sticky" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderColor: 'rgba(120, 100, 200, 0.06)' }}>
                 <div className="max-w-6xl mx-auto px-4 h-11 flex items-center gap-2">
                   {Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="h-6 rounded-full animate-pulse" style={{ width: `${40 + i * 5}px`, background: 'rgba(45,50,80,0.3)' }} />
