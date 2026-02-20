@@ -360,6 +360,30 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     return _passes_price_cap(sale_price, category, weight_value)
 
 
+def failed_by_price_cap(product: dict[str, Any]) -> bool:
+    """Return ``True`` if the product would fail hard filters *specifically*
+    due to the category price cap (not discount, not global bounds).
+
+    Used for data enrichment metrics — tells us how many products per state
+    are being rejected by NV-calibrated price caps, which signals when
+    state-specific caps are needed.
+    """
+    sale_price = product.get("sale_price") or product.get("current_price") or 0
+    category = product.get("category", "other")
+    weight_value = product.get("weight_value")
+    subtype = product.get("product_subtype")
+
+    if not sale_price or sale_price < HARD_FILTERS["min_price"]:
+        return False  # rejected by global floor, not price cap
+    if sale_price > HARD_FILTERS["max_price_absolute"]:
+        return False  # rejected by global ceiling, not price cap
+
+    if category == "preroll" and subtype == "infused_preroll":
+        return sale_price > CATEGORY_PRICE_CAPS.get("infused_preroll", 15)
+
+    return not _passes_price_cap(sale_price, category, weight_value)
+
+
 # =====================================================================
 # Quality gate — reject incomplete / garbage deals
 # =====================================================================
@@ -1255,14 +1279,18 @@ def detect_deals(
     """
     global _last_report_data
 
-    # Step 1: Hard filter
+    # Step 1: Hard filter (with price-cap rejection counting)
     qualifying: list[dict[str, Any]] = []
+    price_cap_rejects = 0
     for product in products:
         if passes_hard_filters(product):
             qualifying.append(product)
+        elif failed_by_price_cap(product):
+            price_cap_rejects += 1
 
     logger.info(
-        "Hard filter: %d/%d products passed", len(qualifying), len(products)
+        "Hard filter: %d/%d products passed (%d rejected by price cap)",
+        len(qualifying), len(products), price_cap_rejects,
     )
 
     # Step 2: Score qualifying deals
@@ -1368,6 +1396,7 @@ def detect_deals(
         "selected": len(top_deals),
         "top_deals": top_deals,
         "cut_deals": cut_deals,
+        "price_cap_rejects": price_cap_rejects,
     }
 
     return top_deals

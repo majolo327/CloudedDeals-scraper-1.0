@@ -73,4 +73,4 @@ def test_collect_upserts_to_db(make_product):
     call_args = db.table().upsert.call_args
     row = call_args[0][0]
     assert row["qualifying_deals"] == 1
-    assert call_args[1]["on_conflict"] == "run_date"
+    assert call_args[1]["on_conflict"] == "run_date,region"

@@ -32,6 +32,9 @@ def collect_daily_metrics(
     sites_failed: int = 0,
     runtime_seconds: int = 0,
     dry_run: bool = False,
+    brand_null_count: int = 0,
+    price_cap_reject_count: int = 0,
+    top_unmatched_brands: list[str] | None = None,
 ) -> dict[str, Any]:
     """Compute and upsert daily metrics from the curated deal set.
 
@@ -43,7 +46,18 @@ def collect_daily_metrics(
     brands = {d.get("brand") for d in top_deals if d.get("brand")}
     dispensaries = {d.get("dispensary_id") for d in top_deals if d.get("dispensary_id")}
 
-    metrics = {
+    # Brand detection rate: percentage of total products that got a brand match
+    brand_detected = total_products - brand_null_count
+    brand_detection_rate = round(
+        brand_detected / total_products * 100, 1
+    ) if total_products > 0 else 0
+
+    # Price cap rejection rate: percentage of total products filtered by caps
+    price_cap_reject_rate = round(
+        price_cap_reject_count / total_products * 100, 1
+    ) if total_products > 0 else 0
+
+    metrics: dict[str, Any] = {
         "run_date": date.today().isoformat(),
         "region": region,
         "total_products": total_products,
@@ -75,6 +89,13 @@ def collect_daily_metrics(
         "sites_scraped": sites_scraped,
         "sites_failed": sites_failed,
         "runtime_seconds": runtime_seconds,
+
+        # Data enrichment metrics (Phase D')
+        "brand_null_count": brand_null_count,
+        "brand_detection_rate": brand_detection_rate,
+        "price_cap_reject_count": price_cap_reject_count,
+        "price_cap_reject_rate": price_cap_reject_rate,
+        "top_unmatched_brands": (top_unmatched_brands or [])[:20],
     }
 
     if run_id and run_id != "dry-run":
@@ -82,14 +103,24 @@ def collect_daily_metrics(
 
     logger.info(
         "Daily metrics: %d deals | flower=%d vape=%d edible=%d conc=%d pre=%d | "
-        "%d brands, %d dispos | avg_score=%.1f",
+        "%d brands, %d dispos | avg_score=%.1f | brand_detect=%.1f%% | "
+        "price_cap_rejects=%d",
         metrics["qualifying_deals"],
         metrics["flower_count"], metrics["vape_count"],
         metrics["edible_count"], metrics["concentrate_count"],
         metrics["preroll_count"],
         metrics["unique_brands"], metrics["unique_dispensaries"],
         metrics["avg_deal_score"],
+        brand_detection_rate,
+        price_cap_reject_count,
     )
+
+    if brand_null_count > 0 and top_unmatched_brands:
+        logger.info(
+            "Top unmatched brands (%d products w/o brand): %s",
+            brand_null_count,
+            ", ".join(top_unmatched_brands[:10]),
+        )
 
     if dry_run:
         logger.info("[DRY RUN] Would upsert daily_metrics row for %s", metrics["run_date"])
