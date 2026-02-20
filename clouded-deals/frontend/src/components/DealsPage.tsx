@@ -10,7 +10,7 @@ import { ExpiredDealsBanner } from './ExpiredDealsBanner';
 import { FilterSheet } from './FilterSheet';
 import { StickyStatsBar } from './layout';
 import { DealCardSkeleton } from './Skeleton';
-import { getTimeUntilMidnight, formatUpdateTime } from '@/utils';
+import { getTimeUntilMidnight, formatUpdateTime, isDealsFromYesterday } from '@/utils';
 import { useDeck } from '@/hooks/useDeck';
 import { useUniversalFilters, formatDistance } from '@/hooks/useUniversalFilters';
 
@@ -138,20 +138,33 @@ export function DealsPage({
           {/* Expired deals banner */}
           {isExpired && <ExpiredDealsBanner expiredCount={deals.length} />}
 
+          {/* Overnight banner — active deals that are from yesterday */}
+          {!isExpired && deals.length > 0 && isDealsFromYesterday(deals) && (
+            <div className="flex items-center gap-2.5 rounded-xl border border-amber-500/15 bg-amber-950/20 px-4 py-3 mb-4">
+              <Clock className="w-4 h-4 text-amber-400/70 flex-shrink-0" />
+              <p className="text-xs text-slate-400">
+                These deals were last updated yesterday &mdash; today&apos;s deals typically arrive around 8–9 AM PT.
+              </p>
+            </div>
+          )}
+
           {/* Header row — clean and minimal */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-medium text-slate-300">
-                {isExpired ? "Yesterday's deals" : "Today's deals"}{deals.length > 0 ? ` (${deals.length})` : ''}
+                {isExpired || (!isExpired && deals.length > 0 && isDealsFromYesterday(deals))
+                  ? "Yesterday's deals"
+                  : "Today's deals"}{deals.length > 0 ? ` (${deals.length})` : ''}
               </h2>
               {!isExpired && deals.length > 0 && (() => {
                 const updateText = formatUpdateTime(deals);
+                const fromYesterday = isDealsFromYesterday(deals);
                 const latestMs = deals.reduce((max, d) => {
                   const t = typeof d.created_at === 'string' ? new Date(d.created_at).getTime() : d.created_at.getTime();
                   return t > max ? t : max;
                 }, 0);
                 const hoursOld = (Date.now() - latestMs) / (1000 * 60 * 60);
-                const isStale = hoursOld > 26;
+                const isStale = fromYesterday || hoursOld > 14;
                 return isStale ? (
                   <span className="flex items-center gap-1 text-[10px] text-amber-400/80">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400/60" />

@@ -86,12 +86,25 @@ export function formatUpdateTime(deals: { created_at: Date | string }[]): string
     return t > max ? t : max;
   }, 0);
   const date = new Date(latest);
+  const now = new Date();
   const hours = date.getHours();
   const minutes = date.getMinutes();
   const ampm = hours >= 12 ? 'pm' : 'am';
   const h = hours % 12 || 12;
   const m = minutes.toString().padStart(2, '0');
-  return `Updated ${h}:${m} ${ampm.toUpperCase()}`;
+  const isToday = date.toDateString() === now.toDateString();
+  return isToday
+    ? `Updated ${h}:${m} ${ampm.toUpperCase()}`
+    : `Yesterday ${h}:${m} ${ampm.toUpperCase()}`;
+}
+
+export function isDealsFromYesterday(deals: { created_at: Date | string }[]): boolean {
+  if (deals.length === 0) return false;
+  const latest = deals.reduce((max, d) => {
+    const t = typeof d.created_at === 'string' ? new Date(d.created_at).getTime() : d.created_at.getTime();
+    return t > max ? t : max;
+  }, 0);
+  return new Date(latest).toDateString() !== new Date().toDateString();
 }
 
 export function getTimeUntilMidnight(): string {
