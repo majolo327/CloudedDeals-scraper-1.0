@@ -24,7 +24,7 @@ export function StickyStatsBar({
 
   return (
     <div
-      className="sticky top-14 sm:top-16 z-40 border-b"
+      className="sticky z-40 border-b safe-top-sticky"
       style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderColor: 'rgba(120, 100, 200, 0.06)', WebkitBackdropFilter: 'blur(40px) saturate(1.3)', backdropFilter: 'blur(40px) saturate(1.3)' }}
     >
       <div className="max-w-6xl mx-auto px-4 h-11 flex items-center gap-1.5">

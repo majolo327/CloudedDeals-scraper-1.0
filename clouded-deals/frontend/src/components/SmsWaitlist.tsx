@@ -94,7 +94,7 @@ export function SmsWaitlist({ addToast }: SmsWaitlistProps) {
       {/* ---- Sticky bottom bar (above mobile nav) ---- */}
       {!showModal && (
         <div
-          className="fixed bottom-[60px] sm:bottom-0 left-0 right-0 z-40 animate-soft-reveal"
+          className="fixed left-0 right-0 z-40 animate-soft-reveal safe-bottom-cta"
           style={{ backgroundColor: 'rgba(10, 12, 28, 0.95)' }}
         >
           <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">

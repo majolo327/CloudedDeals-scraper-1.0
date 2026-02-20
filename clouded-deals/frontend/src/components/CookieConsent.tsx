@@ -23,7 +23,7 @@ export function CookieConsent() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-20 sm:bottom-4 left-4 right-4 z-[60] flex justify-center animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <div className="fixed left-4 right-4 z-[60] flex justify-center animate-in fade-in slide-in-from-bottom-4 duration-300 safe-bottom-float">
       <div
         className="max-w-lg w-full rounded-xl px-4 py-3 flex items-center gap-3 shadow-lg border border-slate-700/50"
         style={{ backgroundColor: 'rgba(15, 17, 35, 0.95)', backdropFilter: 'blur(20px)' }}
