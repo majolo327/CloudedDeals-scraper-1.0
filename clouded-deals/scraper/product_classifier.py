@@ -62,6 +62,10 @@ _VAPE_DISPOSABLE_INDICATORS = [
     re.compile(r"\ball[- ]?in[- ]?one\b", re.IGNORECASE),
     re.compile(r"\baio\b", re.IGNORECASE),
     re.compile(r"\bready[- ]?to[- ]?use\b", re.IGNORECASE),
+    # Known disposable vape product lines that lack generic vape keywords.
+    # "Matrix Ripper" / "Matrix Live Resin Ripper" are 0.85g disposables
+    # often mislabeled as Flower by dispensaries.
+    re.compile(r"\bripper\b", re.IGNORECASE),
 ]
 
 _VAPE_CARTRIDGE_INDICATORS = [
