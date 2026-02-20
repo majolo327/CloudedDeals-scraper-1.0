@@ -62,6 +62,7 @@ _VAPE_DISPOSABLE_INDICATORS = [
     re.compile(r"\ball[- ]?in[- ]?one\b", re.IGNORECASE),
     re.compile(r"\baio\b", re.IGNORECASE),
     re.compile(r"\bready[- ]?to[- ]?use\b", re.IGNORECASE),
+    re.compile(r"\bripper\b", re.IGNORECASE),
 ]
 
 _VAPE_CARTRIDGE_INDICATORS = [
