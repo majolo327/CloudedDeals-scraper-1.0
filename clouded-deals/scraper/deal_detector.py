@@ -35,13 +35,13 @@ logger = logging.getLogger("deal_detector")
 
 CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
     "flower": {
-        "3.5": 25,    # eighth — relaxed from $19
+        "3.5": 22,    # eighth — tightened from $25 ($22 is upper bound for deal-worthy eighths)
         "7": 40,      # quarter — tightened from $45
         "14": 55,     # half oz — tightened from $65 ($55 half oz is upper bound)
         "28": 100,    # full oz — relaxed from $79
     },
     "vape": 28,           # carts/pods — tightened from $35 ($24 .5g cart is already borderline)
-    "edible": 15,         # gummies/chocolates — tightened from $20 ($20 edible is a bad deal)
+    "edible": 14,         # gummies/chocolates — tightened from $15 ($15 edible is not a deal)
     "concentrate": {      # weight-based: live rosin can be pricier
         "0.5": 25,        # half gram
         "1": 45,          # gram — raised from flat $35
@@ -59,6 +59,28 @@ HARD_FILTERS = {
     "max_price_absolute": 100,    # raised from $80 for oz flower + concentrates
     "max_discount_percent": 85,   # above 85% = fake/data error
     "require_original_price": True,
+}
+
+# Vape subtype price floors — minimum believable SALE price per subtype
+# and weight tier.  Prices below these are almost certainly listing errors
+# on the dispensary menu (e.g. $10 for a 1g disposable when the real market
+# floor is $20-22).  Keyed by product_subtype → weight threshold → min price.
+#
+# Weight matching: ≤0.6g uses the "0.5" floor, >0.6g uses the "1" floor.
+# Products without a detected weight use the conservative "0.5" floor.
+VAPE_SUBTYPE_PRICE_FLOORS: dict[str, dict[str, float]] = {
+    "disposable": {
+        "0.5": 8,     # half-gram disposable min
+        "1": 17,      # full-gram disposable min (real market floor $20-22)
+    },
+    "cartridge": {
+        "0.5": 7,     # half-gram cart min
+        "1": 14,      # full-gram cart min (real market floor ~$17)
+    },
+    "pod": {
+        "0.5": 7,     # half-gram pod min
+        "1": 14,      # full-gram pod min
+    },
 }
 
 # Category-specific discount minimums — edibles and prerolls have real deals
@@ -321,6 +343,21 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     if sale_price > HARD_FILTERS["max_price_absolute"]:
         return False
 
+    # --- Vape subtype price floors (catches listing errors) ---
+    # A $10 1g disposable is almost certainly a mislisted price when the
+    # real market floor is $20-22.  Reject vapes priced below believable
+    # minimums for their subtype and weight.  Applies to ALL platforms.
+    if category == "vape" and subtype in VAPE_SUBTYPE_PRICE_FLOORS:
+        floors = VAPE_SUBTYPE_PRICE_FLOORS[subtype]
+        try:
+            wv = float(weight_value) if weight_value else 0
+        except (ValueError, TypeError):
+            wv = 0
+        # ≤0.6g → half-gram floor; >0.6g → full-gram floor
+        floor = floors.get("1", 0) if wv > 0.6 else floors.get("0.5", 0)
+        if sale_price < floor:
+            return False
+
     # ------------------------------------------------------------------
     # LOOSE QUALIFICATION — platforms without original price data
     # Jane, Carrot, and AIQ do NOT display original prices — only the
@@ -374,6 +411,19 @@ _STRAIN_ONLY_NAMES = {
 # Categories that should always have a detected weight
 _WEIGHT_REQUIRED_CATEGORIES = {"flower", "concentrate", "vape"}
 
+# Promotional / bundle text patterns — deals with these in the product
+# name are not individual products with verifiable quality.  Catches
+# items like "3 for $50 Trendi Cartridges" or "2/$40 Power Pack".
+_PROMO_TEXT_RE = re.compile(
+    r"\b\d+\s+for\s+\$\d+"           # "3 for $50"
+    r"|\b\d+\s*/\s*\$\d+"            # "2/$40"
+    r"|\bbuy\s+\d+\s+get\b"          # "buy 2 get 1"
+    r"|\bbogo\b"                      # "BOGO"
+    r"|\bmix\s*(?:and|&|n)\s*match\b" # "mix and match"
+    r"|\bbundle\b",                   # "bundle"
+    re.IGNORECASE,
+)
+
 
 def passes_quality_gate(product: dict[str, Any]) -> bool:
     """Return ``False`` if the product has garbage or incomplete data.
@@ -410,6 +460,12 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
     # Reject products where name is a repeated word (e.g. "Badder Badder")
     name_words = name.strip().lower().split()
     if len(name_words) == 2 and name_words[0] == name_words[1]:
+        return False
+
+    # Reject bundle/promo text that slipped through scraper filters —
+    # "3 for $50 Trendi Cartridges", "2/$40 Power Pack", etc.
+    # These are not individual product deals with verifiable quality.
+    if _PROMO_TEXT_RE.search(name):
         return False
 
     # Reject products with no weight in categories that need it
@@ -1254,6 +1310,20 @@ def detect_deals(
     (accessible via ``get_last_report_data()``).
     """
     global _last_report_data
+
+    # Step 0: Correct 1g flower → preroll (no 1g flower exists in retail;
+    # it's always a preroll or infused preroll that was miscategorized).
+    for product in products:
+        if (
+            product.get("category") == "flower"
+            and product.get("weight_value")
+        ):
+            try:
+                wv = float(product["weight_value"])
+            except (ValueError, TypeError):
+                wv = None
+            if wv is not None and 0.5 <= wv <= 1.5:
+                product["category"] = "preroll"
 
     # Step 1: Hard filter
     qualifying: list[dict[str, Any]] = []

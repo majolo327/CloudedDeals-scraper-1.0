@@ -258,6 +258,32 @@ _JANE_MAX_LOAD_MORE = 30
 _JANE_LOAD_MORE_SETTLE_BASE = 2.0  # Settle time after each View More click
 _JANE_VIEW_MORE_TIMEOUT_MS = 12_000  # 12 s — Jane pages render slowly
 
+# JS to dismiss ReactModal overlays (age gate) that intercept pointer events
+# on the "View More" button.  Jane sites (e.g. bloom-oh-lockbourne) sometimes
+# show an age gate ReactModal AFTER initial page load that blocks pagination.
+_JS_DISMISS_JANE_OVERLAYS = """
+() => {
+    let dismissed = 0;
+    // ReactModal overlays (e.g. "I'm over 21" age gate)
+    const portals = document.querySelectorAll('.ReactModalPortal');
+    for (const p of portals) {
+        if (p.children.length > 0) {
+            p.innerHTML = '';
+            dismissed++;
+        }
+    }
+    // Also remove any generic modal backdrops/overlays
+    const overlays = document.querySelectorAll(
+        '.ReactModal__Overlay, [class*="modal-overlay"], [class*="ModalOverlay"]'
+    );
+    for (const o of overlays) { o.remove(); dismissed++; }
+    // Re-enable scrolling
+    document.body.style.overflow = 'auto';
+    document.documentElement.style.overflow = 'auto';
+    return dismissed;
+}
+"""
+
 # JS to scroll to the bottom of the page / frame to expose the
 # "View More" button.  Uses human-like scroll patterns: variable
 # distances (200-500px), variable pauses (100-500ms), and occasional
@@ -339,13 +365,19 @@ async def handle_jane_view_more(
     clicks = 0
 
     for attempt in range(1, max_attempts + 1):
-        # Remove any re-injected age gate overlays (Thrive sites re-inject
-        # #AVtextTop / #AVbg elements that intercept pointer events on the
-        # View More button).  Same pattern as Curaleaf's _JS_DISMISS_OVERLAYS.
+        # Dismiss any age gate / ReactModal overlays that may intercept
+        # pointer events on the "View More" button (e.g. bloom-oh-lockbourne
+        # shows an "I'm over 21" ReactModal after initial page load).
         try:
-            await force_remove_age_gate(target)
+            removed = await target.evaluate(_JS_DISMISS_JANE_OVERLAYS)
+            if removed:
+                logger.info(
+                    "Jane: dismissed %d overlay(s) before View More attempt %d",
+                    removed, attempt,
+                )
+                await asyncio.sleep(0.5)
         except Exception:
-            pass  # best-effort
+            pass
 
         # Scroll to bottom to expose the View More button.  Jane sites
         # sometimes require vertical (and occasionally horizontal)
@@ -380,7 +412,17 @@ async def handle_jane_view_more(
             except Exception:
                 pass  # best-effort
 
-            await locator.click()
+            try:
+                await locator.click(timeout=10_000)
+            except Exception:
+                # Click intercepted (likely by overlay) — dismiss overlays
+                # and retry with force click as fallback.
+                try:
+                    await target.evaluate(_JS_DISMISS_JANE_OVERLAYS)
+                    await asyncio.sleep(0.3)
+                    await locator.click(force=True, timeout=5_000)
+                except Exception:
+                    continue  # move to next selector
             clicks += 1
             clicked = True
             logger.info(

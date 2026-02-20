@@ -394,6 +394,12 @@ _SALE_COPY_PATTERNS = [
     re.compile(r"^promo\b", re.IGNORECASE),
     re.compile(r"\|\s*\d+%\s*off", re.IGNORECASE),
     re.compile(r"off\s+(all|select|any)\s", re.IGNORECASE),
+    # Bundle pricing patterns — "3 for $50", "2/$40", "4 for $100"
+    # These are promotional bundles, not individual product deals.
+    re.compile(r"\b\d+\s+for\s+\$\d+", re.IGNORECASE),
+    re.compile(r"\b\d+\s*/\s*\$\d+"),                     # "2/$40"
+    # "Buy X Get Y" anywhere in name (not just start)
+    re.compile(r"\bbuy\s+\d+\s+get\b", re.IGNORECASE),
 ]
 
 
@@ -687,7 +693,7 @@ def _upsert_products(
         # Classify product for infused/pack status
         brand = p.get("brand")
         category = p.get("category")
-        classification = classify_product(name, brand, category)
+        classification = classify_product(name, brand, category, weight_value=p.get("weight_value"))
         if classification["corrected_category"]:
             category = classification["corrected_category"]
 
@@ -1284,7 +1290,7 @@ async def _scrape_site_inner(
         # "All-In-One" reclassified from concentrate → vape) are applied
         # BEFORE deal detection scoring.  Without this, the deal detector
         # uses the wrong category for price caps and scoring.
-        classification = classify_product(display_name, brand, effective_cat)
+        classification = classify_product(display_name, brand, effective_cat, weight_value=weight_value)
         if classification["corrected_category"]:
             category = classification["corrected_category"]
             effective_cat = category
@@ -1500,8 +1506,9 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
 def _already_scraped_today() -> bool:
     """Check if a completed scrape run already exists for today (UTC).
 
-    When running a specific platform group, only checks for completed
-    runs of that same group — a "stable" run doesn't block a "new" run.
+    Scoped by both *platform_group* and *region* so that a completed
+    New York run doesn't block a Nevada run (or vice-versa), and a
+    "stable" run doesn't block a "new" run.
     """
     if DRY_RUN:
         return False
@@ -1515,6 +1522,7 @@ def _already_scraped_today() -> bool:
         .select("id")
         .eq("status", "completed")
         .eq("platform_group", PLATFORM_GROUP)
+        .eq("region", REGION)
         .gte("started_at", today_start)
     )
     query = query.limit(1)

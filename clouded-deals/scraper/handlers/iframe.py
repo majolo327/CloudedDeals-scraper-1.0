@@ -102,31 +102,8 @@ async def _resolve_frame(
             if frame.url not in ("about:blank", ""):
                 break
         if frame.url in ("about:blank", ""):
-            # Force-navigate: the iframe element's src attribute is set to
-            # a real Dutchie URL but the embed's internal router never fires
-            # (age gate callback didn't trigger navigation).  Read src from
-            # the DOM and navigate the frame directly.
-            try:
-                src_attr = await locator.get_attribute("src")
-            except Exception:
-                src_attr = None
-            if src_attr and src_attr not in ("about:blank", ""):
-                logger.info(
-                    "Iframe from %r still about:blank — force-navigating to src=%s",
-                    selector, src_attr[:120],
-                )
-                try:
-                    await frame.goto(src_attr, wait_until="domcontentloaded", timeout=30_000)
-                    logger.info("Force-navigation succeeded — frame URL: %s", frame.url)
-                except PlaywrightTimeout:
-                    logger.warning("Force-navigation to %s timed out", src_attr[:120])
-                    # Frame may have partially loaded — continue anyway
-                except Exception:
-                    logger.warning("Force-navigation to %s failed", src_attr[:120], exc_info=True)
-                    return None
-            else:
-                logger.warning("Iframe from %r still about:blank and no src attr — skipping", selector)
-                return None
+            logger.warning("Iframe from %r still about:blank after 30 s — skipping", selector)
+            return None
 
     logger.info("Iframe found via %r — frame URL: %s", selector, frame.url)
 
@@ -324,6 +301,7 @@ async def find_dutchie_content(
     iframe_timeout_ms: int = 30_000,
     js_embed_timeout_sec: float = 60,
     embed_type_hint: str | None = None,
+    hint_only: bool = False,
 ) -> tuple[Page | Frame | None, EmbedType | None]:
     """Locate Dutchie menu content — iframe first, JS embed fallback.
 
@@ -331,6 +309,11 @@ async def find_dutchie_content(
     the known embed type is tried first to avoid wasting time on
     detection phases that won't match.  This saves ~45 s on JS-embed
     sites that would otherwise wait for iframe detection to time out.
+
+    When *hint_only* is ``True``, the function returns ``(None, None)``
+    immediately if the hinted embed type is not found, skipping the
+    full cascade.  Use this for dutchie.com direct URLs where iframe
+    and JS-embed detection are irrelevant and would waste ~105 s.
 
     Returns
     -------
@@ -346,6 +329,9 @@ async def find_dutchie_content(
         if await _probe_js_embed(page, timeout_sec=js_embed_timeout_sec):
             logger.info("JS embed confirmed via hint — using main page as scrape target")
             return page, "js_embed"
+        if hint_only:
+            logger.info("JS embed hint didn't match and hint_only=True — skipping cascade")
+            return None, None
         logger.info("JS embed hint didn't match — falling through to full cascade")
 
     if embed_type_hint == "direct":
@@ -353,7 +339,11 @@ async def find_dutchie_content(
         if await _probe_direct_page(page, timeout_sec=30):
             logger.info("Direct page confirmed via hint — using main page as scrape target")
             return page, "direct"
-        logger.info("Direct hint didn't match — falling through to full cascade")
+        # dutchie.com pages are React SPAs — they will never match iframe
+        # or JS embed selectors.  Bail immediately instead of burning
+        # 105+ seconds on a cascade that cannot succeed.
+        logger.warning("Direct page has no product cards — skipping iframe/JS cascade")
+        return None, None
 
     # --- Try iframe -------------------------------------------------------
     # Always try iframe in the cascade.  If a js_embed/direct hint failed
