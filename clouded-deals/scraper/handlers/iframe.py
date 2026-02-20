@@ -162,6 +162,25 @@ async def get_iframe(
                 await frame.wait_for_load_state("domcontentloaded", timeout=timeout_ms)
             except PlaywrightTimeout:
                 pass  # partial content is better than nothing
+
+            # Force-navigate if frame is stuck on about:blank (same fix
+            # as _resolve_frame — the embed's src is set but the frame
+            # never navigated).
+            if frame.url in ("about:blank", ""):
+                src_attr = await real_iframes[0].get_attribute("src") or ""
+                if src_attr and src_attr != "about:blank":
+                    logger.info(
+                        "Last-resort iframe is about:blank — force-navigating to src=%s",
+                        src_attr[:120],
+                    )
+                    try:
+                        await frame.goto(src_attr, wait_until="domcontentloaded", timeout=30_000)
+                    except PlaywrightTimeout:
+                        logger.warning("Last-resort force-navigation timed out")
+                    except Exception:
+                        logger.warning("Last-resort force-navigation failed", exc_info=True)
+                        return None
+
             logger.info(
                 "Last-resort: single iframe found — frame URL: %s", frame.url,
             )

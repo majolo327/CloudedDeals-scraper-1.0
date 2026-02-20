@@ -12,6 +12,8 @@ import random
 
 from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 
+from .age_verification import force_remove_age_gate
+
 logger = logging.getLogger(__name__)
 
 # JavaScript to dismiss overlays that block pagination clicks on Curaleaf.
