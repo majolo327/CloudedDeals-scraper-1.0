@@ -66,12 +66,13 @@ class TestPackDetection:
     def test_edible_pack_not_preroll_pack(self):
         """Gummies 10pk should NOT be classified as preroll_pack."""
         r = classify_product("Gummies 10pk", brand=None, category="edible")
-        assert r["product_subtype"] is None
+        assert r["product_subtype"] != "preroll_pack"
+        assert r["product_subtype"] == "gummy"  # now correctly identified as gummy
 
     def test_edible_keyword_in_name_suppresses_pack(self):
         """Even without edible category, edible keywords prevent pack detection."""
         r = classify_product("Chocolate 5-pack", brand=None, category=None)
-        assert r["product_subtype"] is None
+        assert r["product_subtype"] != "preroll_pack"
 
 
 class TestVapeDisposableDetection:

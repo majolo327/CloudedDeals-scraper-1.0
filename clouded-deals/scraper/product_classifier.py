@@ -1,5 +1,5 @@
 """
-Product classification: subtypes for prerolls and vapes.
+Product classification: subtypes for all cannabis product categories.
 
 Preroll subtypes:
   - infused_preroll: excluded from Top 100 but searchable
@@ -11,6 +11,13 @@ Vape subtypes (displayed on deal cards):
   - cartridge: threaded 510 cart, requires battery (0.5-1g)
   - pod: proprietary pod system (STIIIZY, PAX, Plug Play)
   - (fallback: None if subtype can't be determined)
+
+Concentrate subtypes (Phase D' enrichment):
+  - live_resin, cured_resin, budder, badder, shatter, diamonds,
+    sauce, rosin, hash_rosin, live_rosin, crumble, wax, sugar, rso, fsho
+
+Edible subtypes (Phase D' enrichment):
+  - gummy, chocolate, beverage, tincture, capsule, lozenge, baked_good, chew
 """
 
 from __future__ import annotations
@@ -121,18 +128,82 @@ _PACK_INDICATORS = [
 _PACK_BRANDS = {"dogwalkers"}
 
 
+# =====================================================================
+# Concentrate subtype detection
+# =====================================================================
+
+# Order matters — check more specific patterns first (e.g. "hash rosin"
+# before "rosin", "live resin" before generic "resin").
+_CONCENTRATE_SUBTYPE_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\bhash[- ]?rosin\b", re.IGNORECASE), "hash_rosin"),
+    (re.compile(r"\blive[- ]?rosin\b", re.IGNORECASE), "live_rosin"),
+    (re.compile(r"\brosin\b", re.IGNORECASE), "rosin"),
+    (re.compile(r"\blive[- ]?resin\b", re.IGNORECASE), "live_resin"),
+    (re.compile(r"\bcured[- ]?resin\b", re.IGNORECASE), "cured_resin"),
+    (re.compile(r"\bdiamonds?\b", re.IGNORECASE), "diamonds"),
+    (re.compile(r"\bsauce\b", re.IGNORECASE), "sauce"),
+    (re.compile(r"\bbadder\b", re.IGNORECASE), "badder"),
+    (re.compile(r"\bbudder\b", re.IGNORECASE), "budder"),
+    (re.compile(r"\bshatter\b", re.IGNORECASE), "shatter"),
+    (re.compile(r"\bcrumble\b", re.IGNORECASE), "crumble"),
+    (re.compile(r"\bwax\b", re.IGNORECASE), "wax"),
+    (re.compile(r"\bsugar\b", re.IGNORECASE), "sugar"),
+    (re.compile(r"\b(?:rso|rick\s+simpson)\b", re.IGNORECASE), "rso"),
+    (re.compile(r"\bfsho\b", re.IGNORECASE), "fsho"),
+]
+
+
+def _classify_concentrate_subtype(name_lower: str) -> str | None:
+    """Determine concentrate subtype from product name."""
+    for pattern, subtype in _CONCENTRATE_SUBTYPE_PATTERNS:
+        if pattern.search(name_lower):
+            return subtype
+    return None
+
+
+# =====================================================================
+# Edible subtype detection
+# =====================================================================
+
+_EDIBLE_SUBTYPE_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\bgumm(?:y|ies)\b", re.IGNORECASE), "gummy"),
+    (re.compile(r"\bchocolate\b", re.IGNORECASE), "chocolate"),
+    (re.compile(r"\bbeverage|drink|soda|lemonade|tea\b", re.IGNORECASE), "beverage"),
+    (re.compile(r"\btincture\b", re.IGNORECASE), "tincture"),
+    (re.compile(r"\bcapsule|softgel|tablet\b", re.IGNORECASE), "capsule"),
+    (re.compile(r"\blozenge|mint|hard\s+candy\b", re.IGNORECASE), "lozenge"),
+    (re.compile(r"\bbrownie|cookie|bar\b", re.IGNORECASE), "baked_good"),
+    (re.compile(r"\bcaramel|chew|taffy\b", re.IGNORECASE), "chew"),
+]
+
+
+def _classify_edible_subtype(name_lower: str) -> str | None:
+    """Determine edible subtype from product name."""
+    for pattern, subtype in _EDIBLE_SUBTYPE_PATTERNS:
+        if pattern.search(name_lower):
+            return subtype
+    return None
+
+
 def classify_product(
     name: str,
     brand: str | None,
     category: str | None,
     weight_value: float | str | None = None,
 ) -> dict:
-    """Classify a product for infused/pack status.
+    """Classify a product for infused/pack/subtype status.
 
     Returns:
         {
             "is_infused": bool,
-            "product_subtype": str | None,  # 'infused_preroll', 'preroll_pack', or None
+            "product_subtype": str | None,
+                # Preroll: 'infused_preroll', 'preroll_pack'
+                # Vape: 'disposable', 'cartridge', 'pod'
+                # Concentrate: 'live_resin', 'cured_resin', 'budder', 'badder',
+                #   'shatter', 'diamonds', 'sauce', 'rosin', 'hash_rosin',
+                #   'live_rosin', 'crumble', 'wax', 'sugar', 'rso', 'fsho'
+                # Edible: 'gummy', 'chocolate', 'beverage', 'tincture',
+                #   'capsule', 'lozenge', 'baked_good', 'chew'
             "corrected_category": str | None,  # only set if category should change
         }
     """
@@ -234,6 +305,14 @@ def classify_product(
         vape_sub = _classify_vape_subtype(name_lower, brand_lower)
         if vape_sub:
             subtype = vape_sub
+
+    # --- Concentrate subtype detection ---
+    if cat == "concentrate" and subtype is None:
+        subtype = _classify_concentrate_subtype(name_lower)
+
+    # --- Edible subtype detection ---
+    if cat == "edible" and subtype is None:
+        subtype = _classify_edible_subtype(name_lower)
 
     # --- Safety net: disposable vape indicators override wrong category ---
     # Products with "all in one", "AIO", "disposable", "ready to use" in the

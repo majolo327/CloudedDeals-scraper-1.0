@@ -1052,6 +1052,8 @@ async def _scrape_site_inner(
     # Parse all raw products using CloudedLogic (single source of truth)
     logic = CloudedLogic()
     parsed: list[dict[str, Any]] = []
+    brand_null_count = 0
+    unmatched_brand_names: list[str] = []
 
     for rp in raw_products:
         # Ensure source_platform is always set (Jane scraper sets it;
@@ -1086,6 +1088,16 @@ async def _scrape_site_inner(
             brand = logic.detect_brand(raw_name)
         if not brand:
             brand = logic.detect_brand(clean_text)
+
+        # Track unmatched brands for data enrichment metrics
+        if not brand:
+            brand_null_count += 1
+            # Capture the raw name for frequency analysis — the first
+            # word(s) before a dash/pipe are often the brand name that
+            # our brand DB is missing.
+            candidate = re.split(r'\s*[-|–—]\s*', raw_name, maxsplit=1)[0].strip()
+            if candidate and len(candidate) > 2:
+                unmatched_brand_names.append(candidate)
 
         # Category: detect from clean text (no offer keyword pollution)
         category = logic.detect_category(clean_text)
@@ -1338,12 +1350,21 @@ async def _scrape_site_inner(
     logger.info(
         "[%s] %d products, %d deals", slug, len(parsed), deal_count
     )
+    # Compute top unmatched brand candidates by frequency
+    unmatched_freq: dict[str, int] = {}
+    for name in unmatched_brand_names:
+        key = name[:50]  # cap length
+        unmatched_freq[key] = unmatched_freq.get(key, 0) + 1
+    top_unmatched = sorted(unmatched_freq.keys(), key=lambda k: unmatched_freq[k], reverse=True)[:10]
+
     return {
         "slug": slug,
         "products": len(parsed),
         "deals": deal_count,
         "error": None,
         "_report_data": report_data,
+        "_brand_null_count": brand_null_count,
+        "_top_unmatched_brands": top_unmatched,
     }
 
 
@@ -1614,6 +1635,9 @@ async def run(slug_filter: str | None = None) -> None:
     sites_failed: list[dict[str, str]] = []
     total_products = 0
     total_deals = 0
+    total_brand_null = 0
+    total_price_cap_rejects = 0
+    all_unmatched_brands: list[str] = []
     all_top_deals: list[dict[str, Any]] = []
     all_cut_deals: list[dict[str, Any]] = []
     site_reports: list[dict[str, Any]] = []
@@ -1730,6 +1754,9 @@ async def run(slug_filter: str | None = None) -> None:
                 total_deals += result.get("deals", 0)
                 all_top_deals.extend(rd.get("top_deals", []))
                 all_cut_deals.extend(rd.get("cut_deals", []))
+                total_brand_null += result.get("_brand_null_count", 0)
+                all_unmatched_brands.extend(result.get("_top_unmatched_brands", []))
+                total_price_cap_rejects += rd.get("price_cap_rejects", 0)
             site_reports.append({
                 "slug": slug,
                 "name": disp["name"],
@@ -1834,6 +1861,16 @@ async def run(slug_filter: str | None = None) -> None:
                 logger.info("    - %s: %s", f["slug"], f["error"])
         logger.info("=" * 60)
 
+        # ─── Aggregate unmatched brand candidates across all sites ────
+        _unmatched_freq: dict[str, int] = {}
+        for name in all_unmatched_brands:
+            _unmatched_freq[name] = _unmatched_freq.get(name, 0) + 1
+        top_unmatched = sorted(
+            _unmatched_freq.keys(),
+            key=lambda k: _unmatched_freq[k],
+            reverse=True,
+        )[:20]
+
         # ─── Daily Metrics (pipeline quality tracking) ───────────────
         try:
             collect_daily_metrics(
@@ -1846,6 +1883,9 @@ async def run(slug_filter: str | None = None) -> None:
                 sites_failed=len(sites_failed),
                 runtime_seconds=int(elapsed),
                 dry_run=DRY_RUN,
+                brand_null_count=total_brand_null,
+                price_cap_reject_count=total_price_cap_rejects,
+                top_unmatched_brands=top_unmatched,
             )
         except Exception as exc:
             logger.warning("Failed to collect daily metrics: %s", exc)

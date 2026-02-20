@@ -1,16 +1,202 @@
 # Cross-Market Synthesis: ML/LLM Data Preparation
 
-*Compiled: Feb 2026 | CloudedDeals Multi-State Expansion — Phase 7*
+*Compiled: Feb 2026 | Updated: Feb 17, 2026 | CloudedDeals Multi-State Expansion — Phase 7*
 
 ---
 
 ## Executive Summary
 
-This document synthesizes findings from all 5 expansion markets (Michigan, Illinois, Arizona, Missouri, New Jersey) into actionable data architecture requirements for ML/LLM training pipelines. Key deliverables: master brand database expansion plan, platform coverage matrix, data normalization challenges, and recommended schema changes.
+This document synthesizes findings from all expansion markets into actionable data architecture requirements for ML/LLM training pipelines. Key deliverables: master brand database expansion plan, platform coverage matrix, data normalization challenges, and recommended schema changes.
 
-**Scale context:**
-- Current: 63 dispensaries, 1 state (NV), 200+ brands, 6 platforms
-- After expansion: ~1,200+ dispensaries, 6 states, 400+ brands, 8+ platforms
+**Scale context (updated Feb 17, 2026):**
+- ~~Current: 63 dispensaries, 1 state (NV), 200+ brands, 6 platforms~~
+- ~~After expansion: ~1,200+ dispensaries, 6 states, 400+ brands, 8+ platforms~~
+- **Actual current state: 1,143 active dispensaries, 11 states, 200+ brands, 5 active platforms (Rise disabled), 24 daily cron jobs**
+- **Consumer-facing product: Southern NV only (63 dispensaries)**
+- **Backend data collection: 10 additional states running daily scrapes silently**
+
+---
+
+## 0. Phase Re-Assessment: Backend Already Scaled
+
+*Added Feb 17, 2026 — Review of original Phase D/E plan against actual infrastructure*
+
+The original phased plan (Phases D-E, months 4-12) was written assuming backend
+multi-state scraping was future work that would gate ML/LLM and B2B efforts.
+That assumption is now outdated. Here is what has actually shipped vs. what the
+plan expected.
+
+### 0.1 What's Already Built (Ahead of Schedule)
+
+| Original Plan Item | Status | Evidence |
+|---|---|---|
+| Multi-state scraper infrastructure | **DONE** | 11 states, not the planned 6 |
+| ~1,200 dispensary configs | **DONE** | 1,143 active / 1,192 total in `config/dispensaries.py` |
+| Platform coverage (Dutchie, Jane, Curaleaf, Carrot, AIQ) | **DONE** | 5 platforms active, Rise disabled (Cloudflare) |
+| Staggered cron scheduling by timezone | **DONE** | 24 cron jobs in `scrape.yml`, EST→PST stagger |
+| State-partitioned dispensary config | **DONE** | `get_dispensaries_by_region()` with 11 region values |
+| Region column + CHECK constraint on dispensaries | **DONE** | Migrations 013 + 035 |
+| Multi-region daily_metrics | **DONE** | Migration 035, keyed on `(run_date, region)` |
+| Top-deals view across all states | **DONE** | `top_100_curated` view rebuilt without NV hardcode |
+| Brand DB with 200+ brands + aliases + state variations | **DONE** | `clouded_logic.py` lines 101-344 |
+| Deal scoring pipeline (0-100, Top 200 selection) | **DONE** | `deal_detector.py`, 1,382 lines |
+| Product parser with weight/price/brand extraction | **DONE** | `parser.py`, 749 lines |
+| Price history tracking | **DONE** | Migration 025 |
+| Deal observation history | **DONE** | Migration 026-027 |
+
+### 0.2 What's Still Missing (From the Original Plan)
+
+| Original Plan Item | Status | Notes |
+|---|---|---|
+| `state` column on `products` table | **NOT DONE** | Products inherit state from dispensary join, no direct column |
+| `state_scoring_config` table | **NOT DONE** | Scoring uses same NV-calibrated params for all states |
+| `state_price_caps` table | **NOT DONE** | Price caps in `clouded_logic.py` are NV-calibrated, not state-aware |
+| `brand_state_presence` table | **NOT DONE** | Brand tiers are flat, not state-differentiated |
+| `thc_min` / `thc_max` fields | **NOT DONE** | Single THC value only |
+| `subcategory` field on products | **NOT DONE** | Subcategory detection exists in code, not persisted |
+| `tax_inclusive` flag | **NOT DONE** | No state tax normalization |
+| Sunnyside scraper | **NOT DONE** | Would cover ~15 IL Cresco locations |
+| Weedmaps embed scraper | **NOT DONE** | Would add ~165 dispensaries across MI/AZ/MO/NJ |
+| LLM product normalization pipeline | **NOT DONE** | All classification is rule-based regex |
+| State-aware deal scoring model | **NOT DONE** | Same thresholds applied everywhere |
+| Consumer-facing multi-state product | **NOT DONE** | Only Vegas is live to users |
+
+### 0.3 What This Means for the Phase Plan
+
+The original Phase D (B2B Foundation, months 4-8) and Phase E (ML/LLM Layer,
+months 6-12) were sequenced after infrastructure buildout. Since infrastructure
+is done, the gating question changes:
+
+**Old gate:** "Do we have enough data?" — Yes. 1,143 menus, 11 states,
+50K+ products/day flowing into the DB.
+
+**New gate:** "Do we have enough *users* to prove the data has value?" — Not yet.
+The consumer product is live in Vegas only, and the KPI is 20 daily-active
+deal-checkers, not 50K scraped products.
+
+### 0.4 Revised Phase Sequencing
+
+**Phase C' (Weeks 1-6, NOW): Prove Vegas Retention**
+
+This remains the top priority. No amount of backend scale matters without user
+retention. The 50K+ daily products are an asset only if users engage with the
+200 curated deals surfaced from them.
+
+Concrete targets:
+- 20 daily-active users checking deals before their dispensary run
+- Measurable save/share actions on surfaced deals
+- Signal on which categories/brands/price points drive engagement
+
+**Phase D' (Concurrent with C', lightweight): Passive Data Enrichment**
+
+Because the scraping pipeline is already running at scale, certain data
+enrichment work can happen in the background without distracting from
+consumer product focus:
+
+1. **Start logging unmatched brands per state** — The scraper already runs;
+   add counters for products where brand detection returns `null`. This
+   tells you exactly which net-new brands from Section 1.2 are most
+   urgent to add. Zero user-facing impact, pure data quality.
+
+2. **State-relative price distribution snapshots** — Once a week, dump
+   `(state, category, weight, percentile_25, median, percentile_75)` from
+   the existing products table. This builds the `PRICE_DISTRIBUTIONS`
+   lookup the state-aware scoring model needs (Section 3.1) without
+   writing any new scraper code.
+
+3. **Subcategory tagging dry run** — The `product_classifier.py` already
+   detects infused prerolls, pod vs cart, etc. Start writing the
+   subcategory to a new column or log file. Validates the classifier
+   against 11-state data before it matters for the consumer product.
+
+4. **Cross-state brand pricing snapshots** — Track how the same brand
+   (STIIIZY, Cookies, Cresco) prices identically across states.
+   This becomes the first B2B insight ("STIIIZY pods cost $25 in MI vs
+   $55 in NJ") and validates whether the data is clean enough for brand
+   dashboards.
+
+**Phase E' (After Retention Proven, ~Month 3+): State-Aware Scoring**
+
+Only after Vegas retention is validated should engineering effort shift to:
+
+1. **State-specific price caps** — The NV-calibrated caps ($25 flower eighth,
+   $28 vape cart) are wrong for IL ($45-65 flower eighths) and MI ($15-30).
+   When you're ready to surface deals in a second city, this is the first
+   blocker.
+
+2. **`state_scoring_config` table** — Different min discount thresholds per
+   state (IL/NJ at 10% vs NV/MI at 15%) directly affect deal quality.
+
+3. **Multi-state consumer rollout** — Pick the second city based on
+   data quality metrics: brand detection rate >80%, deal qualification rate
+   5-15%, platform success rate >90%. Michigan (196 dispensaries, Dutchie-
+   dominant, price-competitive market) is the likely candidate.
+
+**Phase F' (After Multi-State Consumer Launch): ML/LLM + B2B**
+
+The original plan correctly identified that ML and B2B are amplified by user
+retention. With the backend already scaled, the revised triggers are:
+
+- **ML trigger:** Multi-state consumer product live in 2+ markets with
+  measurable engagement. The 50K+ daily product texts become LLM training
+  data when you have user engagement signals (saves, clicks, shares) to
+  label "good deal" vs "noise."
+
+- **B2B trigger:** 1,000+ weekly active users across 2+ states. At that
+  point "STIIIZY carts at 30% off get 4x the save rate" is a real insight
+  backed by real user behavior, not just scrape data.
+
+### 0.5 Revised Implementation Priority Roadmap
+
+| Priority | Task | Original Phase | Revised Phase | Gated By |
+|---|---|---|---|---|
+| **P0** | Vegas user retention (20 DAU) | C | C' (NOW) | Nothing — do this first |
+| **P1** | Log unmatched brands per state per run | D | D' (concurrent) | Nothing — add counters |
+| **P1** | Weekly price distribution snapshots | E | D' (concurrent) | Nothing — SQL query |
+| **P1** | Subcategory dry-run logging | E | D' (concurrent) | Nothing — classifier exists |
+| **P1** | Cross-state brand price comparison data | D | D' (concurrent) | Nothing — data exists |
+| **P2** | State-specific price caps for IL/MI | E | E' (month 3+) | Vegas retention proven |
+| **P2** | `state_scoring_config` table + migration | E | E' (month 3+) | Vegas retention proven |
+| **P2** | Second city consumer launch (likely MI) | D | E' (month 3+) | State-aware scoring |
+| **P2** | 130+ net-new brands bulk add | D | E' (month 3+) | Second city selection |
+| **P3** | Sunnyside scraper (IL Cresco) | D | E' (month 3+) | IL consumer launch decision |
+| **P3** | Weedmaps scraper (+165 dispensaries) | D | F' (month 6+) | Multi-state live |
+| **P3** | LLM product normalization pipeline | E | F' (month 6+) | Engagement-labeled training data |
+| **P3** | Brand analytics dashboard (internal) | D | F' (month 6+) | Cross-state + engagement data |
+| **P4** | Dispensary performance reporting | D | F' (month 6+) | 1K+ WAU across 2+ states |
+| **P4** | Personalized deal scoring (per-user) | E | F' (month 6+) | Enough save/click history |
+| **P4** | Brand visibility / sponsored placement | D | F' (month 8+) | Proven audience |
+
+### 0.6 The Data Advantage You Already Have
+
+The fact that 11 states are silently collecting data creates a compounding
+advantage that most competitors don't have, even if no user ever sees it today:
+
+1. **Price history depth** — By the time you launch in Michigan, you'll have
+   months of daily price data for 196 dispensaries. Day-one deal scoring in MI
+   will be calibrated against real historical distributions, not guesses.
+
+2. **Brand detection tuning** — Every day the scraper runs, you can measure
+   how many products get `brand = null` per state. When you're ready to add
+   the 130+ net-new brands, you'll know exactly which ones matter most
+   (highest null-match volume).
+
+3. **Platform reliability baselines** — Months of scrape_runs data per
+   platform per state tells you which platform+state combos are flaky before
+   you ever surface those deals to users.
+
+4. **Seasonal patterns** — Cannabis pricing has clear seasonal cycles (4/20,
+   holidays, harvest gluts). Collecting through multiple cycles before
+   launching ML means your models won't be fooled by one-time events.
+
+5. **Schema migration safety** — When you need `state_scoring_config` or
+   `subcategory` columns, you'll have months of backfill data to validate
+   migrations against rather than deploying blind.
+
+**Bottom line:** The backend is not idle infrastructure — it's a moat-building
+data flywheel. Every day it runs is another day of training data, price history,
+and platform reliability signal that competitors would need months to replicate.
+The only thing that unlocks its value is user retention in Vegas.
 
 ---
 
@@ -403,7 +589,7 @@ PLATFORM_GROUPS = {
 Multi-state scraping creates a natural training corpus for product normalization:
 - **Input:** Raw menu text ("STIIIZY - Blue Dream - Live Resin Pod - 1g - $45 $32")
 - **Output:** Structured JSON `{brand: "STIIIZY", strain: "Blue Dream", category: "vape", subcategory: "pod", weight: "1g", original_price: 45, sale_price: 32}`
-- **Scale:** ~50,000+ product texts per day across 6 states
+- **Scale:** ~50,000+ product texts per day across ~~6~~ 11 states (already flowing as of Feb 2026)
 
 ### 5.2 Brand Detection Training
 - Cross-state brand name variations create robust training data for fuzzy matching
@@ -424,40 +610,62 @@ Multi-state scraping creates a natural training corpus for product normalization
 
 ## 6. Implementation Priority Roadmap
 
-| Priority | Task | Dependencies | Est. Effort |
+*Updated Feb 17, 2026 with current status annotations*
+
+| Priority | Task | Dependencies | Status |
 |---|---|---|---|
-| **P0** | State field on dispensaries table + migration | None | Small |
-| **P0** | State-specific price caps in clouded_logic.py | None | Small |
-| **P0** | Region field expansion (metro areas) | State field | Small |
-| **P1** | MI dispensary configs (Wave 1: Dutchie — Lume, Skymint, JARS, Cloud) | P0 schema | Medium |
-| **P1** | IL dispensary configs (Wave 1: Rise — 12 locations) | P0 schema | Medium |
-| **P1** | Brand DB expansion (~130 new brands + aliases) | None | Medium |
-| **P1** | State-aware deal scoring | P0 price caps | Medium |
-| **P2** | MI Wave 2-4 (Herbana, Joyology, Jane independents) | P1 Wave 1 stable | Medium |
-| **P2** | IL Wave 2-5 (Zen Leaf, Ascend, Beyond/Hello, Dutchie independents) | P1 Wave 1 stable | Medium |
-| **P2** | Sunnyside scraper (IL Cresco) | P0 schema | Large |
-| **P2** | AZ dispensary configs (Wave 1: Harvest/Trulieve, Sol Flower, Curaleaf) | P0 schema | Medium |
-| **P3** | MO dispensary configs | P0 schema | Medium |
-| **P3** | NJ dispensary configs | P0 schema | Medium |
-| **P3** | Weedmaps embed scraper | Platform research | Large |
-| **P3** | THC range parsing + thc_min/thc_max fields | Schema migration | Small |
-| **P4** | Subcategory detection (live_resin, gummy, pod, etc.) | Category classifier update | Medium |
-| **P4** | Tax-inclusive price normalization | State tax rate config | Medium |
-| **P4** | LLM product normalization pipeline | Training data from scrapes | Large |
+| **P0** | State field on dispensaries table + migration | None | **DONE** (migration 013 + 035) |
+| **P0** | ~~State-specific price caps in clouded_logic.py~~ | None | **NOT DONE** — deferred to Phase E' |
+| **P0** | Region field expansion (metro areas) | State field | **DONE** (11 regions in CHECK constraint) |
+| **P1** | MI dispensary configs (196 dispensaries) | P0 schema | **DONE** (all waves shipped) |
+| **P1** | IL dispensary configs (165 dispensaries) | P0 schema | **DONE** (all waves shipped) |
+| **P1** | ~~Brand DB expansion (~130 new brands + aliases)~~ | None | **PARTIAL** — state-specific lists in doc, not all integrated into clouded_logic.py |
+| **P1** | ~~State-aware deal scoring~~ | P0 price caps | **NOT DONE** — deferred to Phase E' |
+| **P2** | MI all waves (196 total dispensaries) | P1 Wave 1 stable | **DONE** |
+| **P2** | IL all waves (165 total dispensaries) | P1 Wave 1 stable | **DONE** |
+| **P2** | ~~Sunnyside scraper (IL Cresco)~~ | P0 schema | **NOT DONE** — deferred to Phase E' |
+| **P2** | AZ dispensary configs (99 dispensaries) | P0 schema | **DONE** |
+| **P2** | OH dispensary configs (78 dispensaries) | P0 schema | **DONE** (unplanned — added) |
+| **P2** | CO dispensary configs (133 dispensaries) | P0 schema | **DONE** (unplanned — added) |
+| **P2** | NY dispensary configs (74 dispensaries) | P0 schema | **DONE** (unplanned — added) |
+| **P2** | MA dispensary configs (111 dispensaries) | P0 schema | **DONE** (unplanned — added) |
+| **P3** | MO dispensary configs (89 dispensaries) | P0 schema | **DONE** |
+| **P3** | NJ dispensary configs (102 dispensaries) | P0 schema | **DONE** |
+| **P3** | PA dispensary configs (43 dispensaries) | P0 schema | **DONE** (unplanned — added) |
+| **P3** | ~~Weedmaps embed scraper~~ | Platform research | **NOT DONE** — deferred to Phase F' |
+| **P3** | ~~THC range parsing + thc_min/thc_max fields~~ | Schema migration | **NOT DONE** |
+| **P4** | ~~Subcategory detection persistence~~ | Category classifier update | **NOT DONE** — classifier exists, no DB persistence |
+| **P4** | ~~Tax-inclusive price normalization~~ | State tax rate config | **NOT DONE** |
+| **P4** | ~~LLM product normalization pipeline~~ | Training data from scrapes | **NOT DONE** — deferred to Phase F' |
+
+**Summary:** 13 of 18 original tasks are DONE. 5 additional states (OH, CO, NY, MA, PA) were added beyond the original 6-state plan. The remaining work is scoring calibration and ML — both gated by consumer retention, not infrastructure.
 
 ---
 
 ## 7. Key Metrics to Track During Expansion
 
+*Updated Feb 17, 2026 — split into "track now" vs "track later"*
+
+### 7.1 Track Now (Data Collection Phase — No User-Facing Changes Required)
+
+| Metric | Target | How to Measure | Why |
+|---|---|---|---|
+| **Platform success rate per state** | >90% per scrape run | `scrape_runs` table: success_count / total_count per region | Identifies flaky platform+state combos before consumer launch |
+| **Brand detection rate per state** | >80% of products have brand assigned | Count `brand IS NULL` / total per region | Tells you which states need brand DB additions first |
+| **Deal qualification rate per state** | 5-15% of products qualify as deals | Count deals / total products per region | <5% means price caps are too tight for that state; >15% means too loose |
+| **Price cap hit rate per state** | <5% of products filtered by caps | Log cap-rejection reasons in deal_detector | NV caps applied to IL will reject everything — this proves it |
+| **New brand discovery rate** | Decreasing over time per state | Track unknown brand names per run | Plateau = brand DB is sufficiently complete for that state |
+| **Dispensary coverage per state** | >60% of licensed dispensaries | Active dispensaries / known licensed count | Already exceeded in AZ (87%), MO (84%); gap in MI (~55%) |
+
+### 7.2 Track After Consumer Launch in State (Requires User Engagement Data)
+
 | Metric | Target | Why |
 |---|---|---|
-| **Dispensary coverage per state** | >60% of licensed dispensaries | Market representativeness |
-| **Platform success rate per state** | >90% per scrape run | Scraper reliability |
-| **Brand detection rate per state** | >80% of products have brand assigned | Data quality for ML |
-| **Deal qualification rate per state** | 5-15% of products qualify | Scoring calibration |
-| **Price cap hit rate per state** | <5% of products filtered by caps | Cap calibration |
-| **New brand discovery rate** | Track unmatched brands per run | Brand DB completeness |
-| **Cross-state brand coverage** | >90% of national brands detected | Brand model quality |
+| **Daily active users per state** | 20+ per launched market | Core retention signal |
+| **Deal save rate by brand/category** | Identify top-performing combos | Feeds personalized scoring model |
+| **Cross-state brand price spread** | Track by brand+category+weight | B2B insight for brand dashboards |
+| **Deal engagement velocity** | Time from deal posted to first save | Measures deal quality and user urgency |
+| **Category preference distribution** | Per-state breakdown | Informs state-specific deal curation |
 
 ---
 
