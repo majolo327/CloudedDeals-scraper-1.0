@@ -1,6 +1,6 @@
 # CloudedDeals SEO Engineering Plan
 
-> **Last Updated:** 2026-02-19
+> **Last Updated:** 2026-02-20
 > **Domain:** cloudeddeals.com (live on Netlify)
 > **Stack:** Next.js 14 / Tailwind / Supabase / Netlify
 > **Target:** Tourists + Locals searching for Las Vegas cannabis deals
@@ -53,6 +53,15 @@
 | `llms.txt` created — plain-text site summary for AI models (llmstxt.org standard) | Phase 8 | Feb 19 |
 | `llms-full.txt` created — comprehensive reference with all dispensaries, categories, FAQs, page structure | Phase 8 | Feb 19 |
 
+### DONE (Feb 20 — Bing + IndexNow)
+| Item | Phase | Date |
+|------|-------|------|
+| BingSiteAuth.xml deployed for Bing Webmaster Tools verification | Phase 8 | Feb 19 |
+| Bing Webmaster Tools — sitemap submitted (`sitemap.xml`) | Phase 8 | Feb 20 |
+| IndexNow integration — key file deployed (`e6a1c4ba...txt`) | Phase 8 | Feb 20 |
+| IndexNow submission script (`submit_indexnow.py`) — auto-notifies Bing, Yandex, Naver after each NV scrape | Phase 8 | Feb 20 |
+| GitHub Actions — IndexNow step added to daily scraper workflow (southern-nv only) | Phase 8 | Feb 20 |
+
 ### IN PROGRESS / NEXT UP
 | Item | Phase | Priority | Owner |
 |------|-------|----------|-------|
@@ -69,7 +78,6 @@
 ### NOT STARTED
 | Item | Phase | Priority | Notes |
 |------|-------|----------|-------|
-| Submit sitemap to Bing Webmaster Tools | Phase 8 | P0 | ChatGPT uses Bing for web browsing — critical for AI visibility |
 | Submit to Perplexity's index | Phase 8 | P1 | Check if Perplexity has a webmaster submission process |
 | Cannabis directory submissions (Weedmaps, Leafly, etc.) | Phase 4 | P1 | Backlinks + AI source citation |
 | Blog setup (`/blog`) | Phase 5 | P2 | Long-tail keyword capture |
@@ -256,11 +264,7 @@ AI search is a growing traffic source. The goal is to get CloudedDeals cited whe
 - [x] llms-full.txt — comprehensive reference with all pages, dispensaries, FAQs
 
 ### Your Manual Steps (P0)
-1. **Submit to Bing Webmaster Tools** (https://www.bing.com/webmasters)
-   - Sign in with Microsoft account
-   - Add https://cloudeddeals.com
-   - Submit sitemap: https://cloudeddeals.com/sitemap.xml
-   - This is the single most important step for ChatGPT visibility
+1. ~~**Submit to Bing Webmaster Tools**~~ — DONE (Feb 20). Sitemap submitted, IndexNow auto-pings after each scrape.
 2. **Continue GSC indexing requests** — Google AI Overviews pulls from Google's index
 
 ### Your Manual Steps (P1)
