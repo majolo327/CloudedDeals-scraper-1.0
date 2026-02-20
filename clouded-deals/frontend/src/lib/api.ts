@@ -306,14 +306,19 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
       : [];
 
     // Chain-level cap: multi-location chains (Rise=7, Thrive=5, etc.)
-    // can flood the feed. Cap at 15 per chain while guaranteeing at least
-    // 1 deal per individual dispensary. Backend already caps per-store at 10.
-    const chainCapped = applyChainDiversityCap(allDeals, 15);
+    // can flood the feed. Cap at 25 per chain while guaranteeing at least
+    // 1 deal per individual dispensary. Backend already caps per-store at 12.
+    const chainCapped = applyChainDiversityCap(allDeals, 25);
 
     // Two-tier brand cap: (1) max 4 per brand per category so one brand
     // can't crowd out an entire category, (2) max 12 per brand total so
     // a brand with deals across every category can't flood the deck.
     const deals = applyGlobalBrandCap(chainCapped, 4, 12);
+
+    // --- Filter impact log (visible in browser DevTools → Console) ---
+    console.log(
+      `[CloudedDeals] Filter impact: ${allDeals.length} from DB → ${chainCapped.length} after chain cap (−${allDeals.length - chainCapped.length}) → ${deals.length} after brand cap (−${chainCapped.length - deals.length})`
+    );
 
     // Cache for offline use + as expired fallback for next morning
     setCachedDeals(deals);
@@ -393,8 +398,12 @@ export async function fetchExpiredDeals(region?: string): Promise<FetchDealsResu
           .map(normalizeDeal)
       : [];
 
-    const chainCapped = applyChainDiversityCap(allDeals, 15);
+    const chainCapped = applyChainDiversityCap(allDeals, 25);
     const deals = applyGlobalBrandCap(chainCapped, 4, 12);
+
+    console.log(
+      `[CloudedDeals] Expired filter impact: ${allDeals.length} from DB → ${chainCapped.length} after chain cap (−${allDeals.length - chainCapped.length}) → ${deals.length} after brand cap (−${chainCapped.length - deals.length})`
+    );
 
     setCachedExpiredDeals(deals);
     return { deals, error: null };
