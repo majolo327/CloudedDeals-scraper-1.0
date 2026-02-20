@@ -61,6 +61,28 @@ HARD_FILTERS = {
     "require_original_price": True,
 }
 
+# Vape subtype price floors — minimum believable SALE price per subtype
+# and weight tier.  Prices below these are almost certainly listing errors
+# on the dispensary menu (e.g. $10 for a 1g disposable when the real market
+# floor is $20-22).  Keyed by product_subtype → weight threshold → min price.
+#
+# Weight matching: ≤0.6g uses the "0.5" floor, >0.6g uses the "1" floor.
+# Products without a detected weight use the conservative "0.5" floor.
+VAPE_SUBTYPE_PRICE_FLOORS: dict[str, dict[str, float]] = {
+    "disposable": {
+        "0.5": 8,     # half-gram disposable min
+        "1": 17,      # full-gram disposable min (real market floor $20-22)
+    },
+    "cartridge": {
+        "0.5": 7,     # half-gram cart min
+        "1": 14,      # full-gram cart min (real market floor ~$17)
+    },
+    "pod": {
+        "0.5": 7,     # half-gram pod min
+        "1": 14,      # full-gram pod min
+    },
+}
+
 # Category-specific discount minimums — edibles and prerolls have real deals
 # at lower discount percentages (e.g. $8 edible marked down from $10 = 20%,
 # but a $9 edible from $10 = 10%).  These budget items are genuine deals
@@ -320,6 +342,21 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
         return False
     if sale_price > HARD_FILTERS["max_price_absolute"]:
         return False
+
+    # --- Vape subtype price floors (catches listing errors) ---
+    # A $10 1g disposable is almost certainly a mislisted price when the
+    # real market floor is $20-22.  Reject vapes priced below believable
+    # minimums for their subtype and weight.  Applies to ALL platforms.
+    if category == "vape" and subtype in VAPE_SUBTYPE_PRICE_FLOORS:
+        floors = VAPE_SUBTYPE_PRICE_FLOORS[subtype]
+        try:
+            wv = float(weight_value) if weight_value else 0
+        except (ValueError, TypeError):
+            wv = 0
+        # ≤0.6g → half-gram floor; >0.6g → full-gram floor
+        floor = floors.get("1", 0) if wv > 0.6 else floors.get("0.5", 0)
+        if sale_price < floor:
+            return False
 
     # ------------------------------------------------------------------
     # LOOSE QUALIFICATION — platforms without original price data
