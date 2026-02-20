@@ -28,7 +28,7 @@ import { FTUEFlow, isFTUECompleted } from '@/components/ftue';
 import type { UserCoords } from '@/components/ftue';
 import { CookieConsent } from '@/components/CookieConsent';
 import { createShareLink } from '@/lib/share';
-import { formatUpdateTime } from '@/utils';
+import { formatUpdateTime, isDealsFromYesterday } from '@/utils';
 
 type AppPage = 'home' | 'search' | 'browse' | 'saved' | 'about' | 'terms' | 'privacy';
 
@@ -378,9 +378,9 @@ export default function Home() {
 
           {/* Mobile: deal count + last update time */}
           <div className="sm:hidden flex items-center gap-2 text-xs text-slate-500">
-            <span>{todaysDeals.length} {isShowingExpired ? "yesterday's" : ''} deals</span>
-            {!isShowingExpired && todaysDeals.length > 0 && (
-              <span className="text-slate-600">{formatUpdateTime(todaysDeals)}</span>
+            <span>{todaysDeals.length} {isShowingExpired || isDealsFromYesterday(todaysDeals) ? "yesterday's" : ''} deals</span>
+            {todaysDeals.length > 0 && (
+              <span className={isDealsFromYesterday(todaysDeals) ? 'text-amber-400/60' : 'text-slate-600'}>{formatUpdateTime(todaysDeals)}</span>
             )}
           </div>
         </div>
