@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 // All regions including NV production
@@ -73,6 +73,23 @@ const REGION_COLORS: Record<string, string> = {
   all: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
 };
 
+type PerfSortKey = "region" | "activeSites" | "totalRuns" | "avgDeals" | "avgProducts" | "successRate" | "totalFailures" | "avgRuntime";
+
+interface RegionPerf {
+  region: string;
+  label: string;
+  emoji: string;
+  activeSites: number;
+  totalRuns: number;
+  avgDeals: number;
+  avgProducts: number;
+  successRate: number;
+  totalFailures: number;
+  avgRuntime: number;
+}
+
+const HIST_PAGE_SIZES = [25, 50, 100] as const;
+
 export default function ScraperPage() {
   const [currentRun, setCurrentRun] = useState<ScrapeRun | null>(null);
   const [runs, setRuns] = useState<ScrapeRun[]>([]);
@@ -82,6 +99,18 @@ export default function ScraperPage() {
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [totalActiveSites, setTotalActiveSites] = useState(0);
   const [loadingRegions, setLoadingRegions] = useState(true);
+
+  // ── State Performance sort ──
+  const [perfSort, setPerfSort] = useState<{ key: PerfSortKey; desc: boolean }>({ key: "avgDeals", desc: true });
+
+  // ── Paginated historical runs ──
+  const [histRuns, setHistRuns] = useState<ScrapeRun[]>([]);
+  const [histTotal, setHistTotal] = useState(0);
+  const [histPage, setHistPage] = useState(0);
+  const [histPageSize, setHistPageSize] = useState<number>(25);
+  const [histRegion, setHistRegion] = useState<string>("all");
+  const [histLoading, setHistLoading] = useState(true);
+  const [regionSiteCounts, setRegionSiteCounts] = useState<Record<string, number>>({});
 
   // ----- Fetch runs + region data -----
   useEffect(() => {
@@ -119,6 +148,8 @@ export default function ScraperPage() {
         setTotalActiveSites(dispensaryResult.data?.length ?? 0);
 
         // Build region summaries
+        setRegionSiteCounts(regionCounts);
+
         const regionSummaries = ALL_REGIONS.map((r) => {
           const regionRuns = allRuns.filter((run) => run.region === r.id);
           const last7 = regionRuns.slice(0, 7);
@@ -198,6 +229,86 @@ export default function ScraperPage() {
       supabase.removeChannel(channel);
     };
   }, [currentRun]);
+
+  // ----- Paginated historical runs -----
+  const fetchHistoricalPage = useCallback(async (page: number, pageSize: number, region: string) => {
+    if (!isSupabaseConfigured) return;
+    setHistLoading(true);
+    try {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+      let query = supabase
+        .from("scrape_runs")
+        .select("*", { count: "exact" })
+        .order("started_at", { ascending: false })
+        .range(from, to);
+      if (region !== "all") {
+        query = query.eq("region", region);
+      }
+      const { data, count } = await query;
+      setHistRuns((data ?? []) as ScrapeRun[]);
+      setHistTotal(count ?? 0);
+    } catch (err) {
+      console.error("Failed to load historical runs:", err);
+    }
+    setHistLoading(false);
+  }, []);
+
+  // Fetch historical page on mount and when pagination changes
+  useEffect(() => {
+    fetchHistoricalPage(histPage, histPageSize, histRegion);
+  }, [histPage, histPageSize, histRegion, fetchHistoricalPage]);
+
+  // ----- State Performance leaderboard -----
+  const statePerformance = useMemo((): RegionPerf[] => {
+    return ALL_REGIONS.map((r) => {
+      const regionRuns = runs.filter((run) => run.region === r.id);
+      const completed = regionRuns.filter(
+        (run) => run.status === "completed" || run.status === "completed_with_errors"
+      );
+      const failed = regionRuns.filter((run) => run.status === "failed");
+
+      const avgDeals = completed.length > 0
+        ? Math.round(completed.reduce((s, run) => s + (run.qualifying_deals ?? 0), 0) / completed.length)
+        : 0;
+      const avgProducts = completed.length > 0
+        ? Math.round(completed.reduce((s, run) => s + (run.total_products ?? 0), 0) / completed.length)
+        : 0;
+      const successRate = regionRuns.length > 0
+        ? Math.round((completed.length / regionRuns.length) * 100)
+        : 0;
+      const avgRuntime = completed.length > 0
+        ? Math.round(completed.reduce((s, run) => s + (run.runtime_seconds || 0), 0) / completed.length)
+        : 0;
+
+      return {
+        region: r.id,
+        label: r.label,
+        emoji: r.emoji,
+        activeSites: regionSiteCounts[r.id] ?? 0,
+        totalRuns: regionRuns.length,
+        avgDeals,
+        avgProducts,
+        successRate,
+        totalFailures: failed.length,
+        avgRuntime,
+      };
+    });
+  }, [runs, regionSiteCounts]);
+
+  const sortedPerformance = useMemo(() => {
+    const sorted = [...statePerformance].sort((a, b) => {
+      const av = a[perfSort.key];
+      const bv = b[perfSort.key];
+      if (typeof av === "string" && typeof bv === "string") {
+        return perfSort.desc ? bv.localeCompare(av) : av.localeCompare(bv);
+      }
+      return perfSort.desc ? (bv as number) - (av as number) : (av as number) - (bv as number);
+    });
+    return sorted;
+  }, [statePerformance, perfSort]);
+
+  const histTotalPages = Math.max(1, Math.ceil(histTotal / histPageSize));
 
   // ----- Trigger scrape -----
   async function triggerScrape() {
@@ -342,13 +453,56 @@ export default function ScraperPage() {
         />
       )}
 
-      {/* ── Historical Runs ─────────────────────────────────────── */}
+      {/* ── State Performance Leaderboard ─────────────────────── */}
+      {!loadingRegions && (
+        <StatePerformanceTable
+          data={sortedPerformance}
+          sortKey={perfSort.key}
+          sortDesc={perfSort.desc}
+          onSort={(key) =>
+            setPerfSort((prev) =>
+              prev.key === key ? { key, desc: !prev.desc } : { key, desc: true }
+            )
+          }
+        />
+      )}
+
+      {/* ── Historical Runs (paginated) ────────────────────────── */}
       <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
             All Historical Runs
+            {histTotal > 0 && (
+              <span className="ml-2 text-xs font-normal text-zinc-400">
+                ({histTotal.toLocaleString()} total)
+              </span>
+            )}
           </h3>
+          <div className="flex items-center gap-3">
+            {/* Region filter */}
+            <select
+              value={histRegion}
+              onChange={(e) => { setHistRegion(e.target.value); setHistPage(0); }}
+              className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200"
+            >
+              <option value="all">All Regions</option>
+              {ALL_REGIONS.map((r) => (
+                <option key={r.id} value={r.id}>{r.emoji} {r.label}</option>
+              ))}
+            </select>
+            {/* Page size */}
+            <select
+              value={histPageSize}
+              onChange={(e) => { setHistPageSize(Number(e.target.value)); setHistPage(0); }}
+              className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200"
+            >
+              {HIST_PAGE_SIZES.map((s) => (
+                <option key={s} value={s}>{s} / page</option>
+              ))}
+            </select>
+          </div>
         </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-zinc-100 text-xs text-zinc-500 dark:border-zinc-800">
@@ -363,54 +517,105 @@ export default function ScraperPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {runs.slice(0, 30).map((run) => {
-                const scraped = Array.isArray(run.sites_scraped) ? run.sites_scraped.length : 0;
-                const failed = Array.isArray(run.sites_failed) ? run.sites_failed.length : 0;
-                return (
-                  <tr key={run.id} className="text-zinc-700 dark:text-zinc-300">
-                    <td className="whitespace-nowrap px-4 py-2 text-xs">
-                      {new Date(run.started_at).toLocaleString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                    </td>
-                    <td className="px-4 py-2">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${REGION_COLORS[run.region] ?? "bg-zinc-100 text-zinc-600"}`}
-                      >
-                        {REGION_LABELS[run.region] ?? run.region}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2">
-                      <StatusBadge status={run.status} />
-                    </td>
-                    <td className="px-4 py-2">{run.total_products?.toLocaleString() ?? "0"}</td>
-                    <td className="px-4 py-2">{run.qualifying_deals ?? "—"}</td>
-                    <td className="px-4 py-2">
-                      <span className="text-green-600">{scraped}</span>
-                      {" / "}
-                      <span className="text-red-500">{failed}</span>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-2 text-xs">
-                      {run.completed_at
-                        ? formatDuration(run.started_at, run.completed_at)
-                        : "—"}
+              {histLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td colSpan={7} className="px-4 py-3">
+                      <div className="h-4 animate-pulse rounded bg-zinc-100 dark:bg-zinc-800" />
                     </td>
                   </tr>
-                );
-              })}
-              {runs.length === 0 && (
+                ))
+              ) : histRuns.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-zinc-400">
-                    No runs recorded yet.
+                    No runs recorded{histRegion !== "all" ? ` for ${REGION_LABELS[histRegion] ?? histRegion}` : ""}.
                   </td>
                 </tr>
+              ) : (
+                histRuns.map((run) => {
+                  const scraped = Array.isArray(run.sites_scraped) ? run.sites_scraped.length : 0;
+                  const failed = Array.isArray(run.sites_failed) ? run.sites_failed.length : 0;
+                  return (
+                    <tr key={run.id} className="text-zinc-700 dark:text-zinc-300">
+                      <td className="whitespace-nowrap px-4 py-2 text-xs">
+                        {new Date(run.started_at).toLocaleString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </td>
+                      <td className="px-4 py-2">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${REGION_COLORS[run.region] ?? "bg-zinc-100 text-zinc-600"}`}
+                        >
+                          {REGION_LABELS[run.region] ?? run.region}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2">
+                        <StatusBadge status={run.status} />
+                      </td>
+                      <td className="px-4 py-2">{run.total_products?.toLocaleString() ?? "0"}</td>
+                      <td className="px-4 py-2">{run.qualifying_deals ?? "—"}</td>
+                      <td className="px-4 py-2">
+                        <span className="text-green-600">{scraped}</span>
+                        {" / "}
+                        <span className="text-red-500">{failed}</span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2 text-xs">
+                        {run.completed_at
+                          ? formatDuration(run.started_at, run.completed_at)
+                          : "—"}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination controls */}
+        {histTotal > histPageSize && (
+          <div className="flex items-center justify-between border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Showing {histPage * histPageSize + 1}–{Math.min((histPage + 1) * histPageSize, histTotal)} of {histTotal.toLocaleString()}
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setHistPage(0)}
+                disabled={histPage === 0}
+                className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                First
+              </button>
+              <button
+                onClick={() => setHistPage((p) => Math.max(0, p - 1))}
+                disabled={histPage === 0}
+                className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                Prev
+              </button>
+              <span className="px-3 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                {histPage + 1} / {histTotalPages}
+              </span>
+              <button
+                onClick={() => setHistPage((p) => Math.min(histTotalPages - 1, p + 1))}
+                disabled={histPage >= histTotalPages - 1}
+                className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                Next
+              </button>
+              <button
+                onClick={() => setHistPage(histTotalPages - 1)}
+                disabled={histPage >= histTotalPages - 1}
+                className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                Last
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -419,6 +624,127 @@ export default function ScraperPage() {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+function StatePerformanceTable({
+  data,
+  sortKey,
+  sortDesc,
+  onSort,
+}: {
+  data: RegionPerf[];
+  sortKey: PerfSortKey;
+  sortDesc: boolean;
+  onSort: (key: PerfSortKey) => void;
+}) {
+  const SortHeader = ({ label, field }: { label: string; field: PerfSortKey }) => {
+    const active = sortKey === field;
+    return (
+      <th
+        onClick={() => onSort(field)}
+        className="px-3 py-2 font-semibold cursor-pointer select-none hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors whitespace-nowrap"
+      >
+        <span className="inline-flex items-center gap-1">
+          {label}
+          {active && (
+            <svg className={`h-3 w-3 transition-transform ${sortDesc ? "" : "rotate-180"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          )}
+        </span>
+      </th>
+    );
+  };
+
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+          State Performance
+          <span className="ml-2 text-xs font-normal text-zinc-400">
+            (last ~300 runs, click columns to sort)
+          </span>
+        </h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs">
+          <thead className="border-b border-zinc-200 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+            <tr>
+              <SortHeader label="State" field="region" />
+              <SortHeader label="Sites" field="activeSites" />
+              <SortHeader label="Runs" field="totalRuns" />
+              <SortHeader label="Avg Deals" field="avgDeals" />
+              <SortHeader label="Avg Products" field="avgProducts" />
+              <SortHeader label="Success %" field="successRate" />
+              <SortHeader label="Failures" field="totalFailures" />
+              <SortHeader label="Avg Runtime" field="avgRuntime" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {data.map((row) => {
+              const hasRuns = row.totalRuns > 0;
+              return (
+                <tr key={row.region} className="text-zinc-700 dark:text-zinc-300">
+                  <td className="px-3 py-2.5">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${REGION_COLORS[row.region] ?? "bg-zinc-100 text-zinc-600"}`}
+                    >
+                      {row.emoji}
+                    </span>
+                    <span className="ml-2 text-sm font-medium">{row.label}</span>
+                  </td>
+                  <td className="px-3 py-2.5 text-sm">{row.activeSites}</td>
+                  <td className="px-3 py-2.5 text-sm">
+                    {hasRuns ? row.totalRuns : (
+                      <span className="text-zinc-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className={`text-sm font-semibold ${
+                      !hasRuns ? "text-zinc-400"
+                        : row.avgDeals >= 100 ? "text-green-600 dark:text-green-400"
+                        : row.avgDeals >= 30 ? "text-zinc-800 dark:text-zinc-200"
+                        : "text-red-500 dark:text-red-400"
+                    }`}>
+                      {hasRuns ? row.avgDeals.toLocaleString() : "—"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-sm">
+                    {hasRuns ? row.avgProducts.toLocaleString() : "—"}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className={`text-sm font-semibold ${
+                      !hasRuns ? "text-zinc-400"
+                        : row.successRate >= 90 ? "text-green-600 dark:text-green-400"
+                        : row.successRate >= 70 ? "text-yellow-600 dark:text-yellow-400"
+                        : "text-red-500 dark:text-red-400"
+                    }`}>
+                      {hasRuns ? `${row.successRate}%` : "—"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className={`text-sm ${
+                      !hasRuns ? "text-zinc-400"
+                        : row.totalFailures === 0 ? "text-green-600 dark:text-green-400"
+                        : row.totalFailures <= 2 ? "text-yellow-600 dark:text-yellow-400"
+                        : "font-semibold text-red-500 dark:text-red-400"
+                    }`}>
+                      {hasRuns ? row.totalFailures : "—"}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-sm">
+                    {hasRuns && row.avgRuntime > 0
+                      ? `${Math.floor(row.avgRuntime / 60)}m ${row.avgRuntime % 60}s`
+                      : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 function RegionCard({
   summary,
