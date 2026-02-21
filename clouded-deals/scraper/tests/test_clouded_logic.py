@@ -401,9 +401,10 @@ class TestDetectBrand:
         """'Haze' at the start of text IS the Haze brand."""
         assert logic.detect_brand("Haze Premium Flower 3.5g") == "Haze"
 
-    def test_cake_brand_at_start_is_brand(self, logic):
-        """'Cake' at the start of text IS the Cake brand."""
-        assert logic.detect_brand("Cake She Hits Different 1g") == "Cake"
+    def test_cake_not_a_brand(self, logic):
+        """'Cake' removed from brands — too many strain false positives
+        (Wedding Cake, Ice Cream Cake, Orange Kush Cake, etc.)."""
+        assert logic.detect_brand("Cake She Hits Different 1g") is None
 
     def test_cookies_at_start_is_brand(self, logic):
         """'Cookies' at the start IS the Cookies brand."""

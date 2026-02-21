@@ -42,6 +42,14 @@ _RE_DISCOUNT_LABEL = re.compile(
     re.IGNORECASE,
 )
 
+# "from $X" / "starting at $X" — lowest-weight starting prices, not the actual sale price.
+# Curaleaf cards show "from $20.00" alongside the real prices ($24.00 / $40.00);
+# without filtering, Strategy 5 picks min($20, $24, $40) = $20 → wrong sale price.
+_RE_FROM_PRICE = re.compile(
+    r"(?:from|starting\s+at)\s+\$\s*[\d]+(?:\.[\d]{1,2})?",
+    re.IGNORECASE,
+)
+
 # Bundle deal with inline tier price: "2/$55 $35" (qty/bundle_total tier_price)
 _RE_BUNDLE_TIER = re.compile(
     r"(?P<qty>[2-9])\s*/\s*\$\s*(?P<total>[\d]+(?:\.[\d]{1,2})?)"
@@ -151,10 +159,15 @@ def extract_prices(text: str) -> dict[str, Any]:
 
     # Strategy 5 — multiple dollar amounts (first = original, last = sale).
     # CRITICAL: Filter out dollar amounts that are part of discount labels
-    # like "$8.00 off" — these are NOT prices.
+    # like "$8.00 off" or "from $X" starting-price indicators — these are NOT
+    # actual sale/original prices.
     discount_label_spans = [
         (m.start(), m.end()) for m in _RE_DISCOUNT_LABEL.finditer(text)
     ]
+    from_price_spans = [
+        (m.start(), m.end()) for m in _RE_FROM_PRICE.finditer(text)
+    ]
+    excluded_spans = discount_label_spans + from_price_spans
     # Capture discount amounts from labels (e.g. "$7 off" → 7.0)
     discount_label_amounts = [
         float(dm.group("amt"))
@@ -163,11 +176,11 @@ def extract_prices(text: str) -> dict[str, Any]:
     ]
     amounts = []
     for m in _RE_DOLLAR.finditer(text):
-        # Skip this dollar amount if it falls inside a discount label
-        in_discount = any(
-            start <= m.start() < end for start, end in discount_label_spans
+        # Skip this dollar amount if it falls inside a discount label or "from $X"
+        in_excluded = any(
+            start <= m.start() < end for start, end in excluded_spans
         )
-        if not in_discount:
+        if not in_excluded:
             amounts.append(float(m.group("amt")))
 
     if len(amounts) >= 2:
