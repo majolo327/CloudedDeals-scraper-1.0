@@ -7,6 +7,7 @@ import { DealCard } from './cards';
 import { SwipeOverlay } from './SwipeOverlay';
 import { InlineFeedbackPrompt } from './FeedbackWidget';
 import { ExpiredDealsBanner } from './ExpiredDealsBanner';
+import { SaveTipBanner, isSaveTipSeen } from './SaveTipBanner';
 import { FilterSheet } from './FilterSheet';
 import { StickyStatsBar } from './layout';
 import { DealCardSkeleton } from './Skeleton';
@@ -46,6 +47,7 @@ export function DealsPage({
   onSwipeOpenChange,
 }: DealsPageProps) {
   const [activeCategory, setActiveCategory] = useState<DealCategory>('all');
+  const [showSaveTip] = useState(() => typeof window !== 'undefined' && !isSaveTipSeen());
   const [isLoading, setIsLoading] = useState(true);
   const [countdown, setCountdown] = useState(() => getTimeUntilMidnight());
   const [swipeOpenLocal, setSwipeOpenLocal] = useState(false);
@@ -147,6 +149,9 @@ export function DealsPage({
               </p>
             </div>
           )}
+
+          {/* One-time save tip for new users */}
+          {showSaveTip && !isExpired && <SaveTipBanner />}
 
           {/* Header row — clean and minimal */}
           <div className="flex items-center justify-between mb-3">
@@ -290,6 +295,7 @@ export function DealsPage({
                       onDismiss={() => { deck.dismissDeal(deal.id); onDismissDeal?.(); }}
                       onClick={() => setSelectedDeal(deal)}
                       distanceLabel={distance !== null ? formatDistance(distance) : undefined}
+                      showHeartHint={showSaveTip && index === 0}
                     />
                   </div>
                 );

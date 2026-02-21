@@ -15,9 +15,9 @@ export function Footer({ onNavigateToForBusiness, onNavigate, onNavigateToAbout,
   const [tourReset, setTourReset] = useState(false);
 
   const handleReplayTour = useCallback(() => {
-    // Clear FTUE and coach marks flags so the tour replays
+    // Clear FTUE and save tip flags so the tour replays
     localStorage.removeItem('clouded_ftue_completed');
-    localStorage.removeItem('clouded_coach_marks_seen');
+    localStorage.removeItem('clouded_save_tip_seen');
     setTourReset(true);
     if (onReplayTour) {
       onReplayTour();

@@ -7,8 +7,7 @@ export const STORAGE = {
   // Onboarding
   AGE_VERIFIED: 'clouded_age_verified',
   FTUE_COMPLETED: 'clouded_ftue_completed',
-  COACH_MARKS_SEEN: 'clouded_coach_marks_seen',
-  CATEGORY_PREFS: 'clouded_category_prefs',
+  SAVE_TIP_SEEN: 'clouded_save_tip_seen',
 
   // Location
   LOCATION_PERMISSION: 'clouded_location_permission',

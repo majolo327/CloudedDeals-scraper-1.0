@@ -17,6 +17,8 @@ interface DealCardProps {
   distanceLabel?: string;
   /** Shown as a subtle personalization signal, e.g. "For You" or "Your brand" */
   recommendationLabel?: string;
+  /** Show a pulsing glow on the heart button to teach the save action */
+  showHeartHint?: boolean;
 }
 
 const categoryLabels: Record<string, string> = {
@@ -27,7 +29,7 @@ const categoryLabels: Record<string, string> = {
   preroll: 'Pre-Roll',
 };
 
-export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onSave, onDismiss, onClick, distanceLabel, recommendationLabel }: DealCardProps) {
+export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onSave, onDismiss, onClick, distanceLabel, recommendationLabel, showHeartHint = false }: DealCardProps) {
   const distance = useMemo(() => {
     const userCoords = getUserCoords();
     if (!userCoords) return null;
@@ -88,7 +90,7 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
             isSaved
               ? 'bg-purple-500/10 text-purple-400'
               : 'text-slate-500 hover:text-purple-400 hover:bg-purple-500/10'
-          }`}
+          } ${showHeartHint && !isSaved ? 'animate-heart-hint' : ''}`}
           aria-label={isSaved ? 'Remove from saved' : 'Save deal'}
         >
           <Heart className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
