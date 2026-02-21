@@ -457,7 +457,7 @@ class DutchieScraper(BaseScraper):
         # When we know the embed type (e.g. TD = js_embed), skip the
         # iframe detection phase entirely — saves ~45 s per site.
         logger.info("[%s] Detecting content (embed_hint=%s)", self.slug, embed_hint)
-        target, embed_type = await find_dutchie_content(
+        target, embed_type, about_blank_srcs = await find_dutchie_content(
             self.page,
             iframe_timeout_ms=45_000,
             js_embed_timeout_sec=60,
@@ -466,6 +466,20 @@ class DutchieScraper(BaseScraper):
         )
 
         if target is None:
+            # --- Dynamic fallback from about:blank iframe src URLs --------
+            # When iframes were found with Dutchie src but stuck at
+            # about:blank, use their src as a fallback URL (navigate to
+            # it directly in "direct" mode).  This is more reliable than
+            # the configured fallback_url because it uses the exact URL
+            # the site's embed script was trying to load.
+            if about_blank_srcs and not fallback_url:
+                dynamic_fb = about_blank_srcs[0]
+                logger.info(
+                    "[%s] Using about:blank iframe src as dynamic fallback: %s",
+                    self.slug, dynamic_fb,
+                )
+                return await self._scrape_with_fallback(dynamic_fb, "direct")
+
             # --- Fast-path: skip reload+retry when fallback URL exists ----
             # The reload+retry cycle costs ~300s (navigation + smart-wait +
             # full detection cascade).  When a fallback_url is configured,
@@ -523,7 +537,7 @@ class DutchieScraper(BaseScraper):
             # On retry, keep the hint for direct sites (iframe/js_embed are
             # irrelevant) but drop it for other types to try the full cascade.
             retry_hint = embed_hint if embed_hint == "direct" else None
-            target, embed_type = await find_dutchie_content(
+            target, embed_type, _ = await find_dutchie_content(
                 self.page,
                 iframe_timeout_ms=45_000,
                 js_embed_timeout_sec=60,
@@ -638,7 +652,7 @@ class DutchieScraper(BaseScraper):
                 except PlaywrightTimeout:
                     logger.warning("[%s] Smart-wait: no content on base menu after %ds", self.slug, _SMART_WAIT_RETRY_MS // 1000)
 
-                target, embed_type = await find_dutchie_content(
+                target, embed_type, _ = await find_dutchie_content(
                     self.page,
                     iframe_timeout_ms=45_000,
                     js_embed_timeout_sec=60,
@@ -703,7 +717,7 @@ class DutchieScraper(BaseScraper):
                     inline_hint = "direct"
                     logger.info("[%s] Auto-detected embed_type='direct' for inline fallback %s", self.slug, fb_host)
 
-                fb_target, fb_embed = await find_dutchie_content(
+                fb_target, fb_embed, _ = await find_dutchie_content(
                     self.page,
                     iframe_timeout_ms=45_000,
                     js_embed_timeout_sec=60,
@@ -777,7 +791,7 @@ class DutchieScraper(BaseScraper):
             fb_hint = "direct"
             logger.info("[%s] Auto-detected embed_type='direct' for fallback %s", self.slug, fb_host)
 
-        fb_target, fb_embed = await find_dutchie_content(
+        fb_target, fb_embed, _ = await find_dutchie_content(
             self.page,
             iframe_timeout_ms=45_000,
             js_embed_timeout_sec=60,

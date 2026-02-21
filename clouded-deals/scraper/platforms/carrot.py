@@ -65,10 +65,24 @@ _PRODUCT_SELECTORS = [
     'article',
 ]
 
-# Updated Carrot detection — checks for both standalone SPA and WordPress embed
-# signatures, plus product links as the strongest signal.
+# Shadow-DOM-aware Carrot detection — Stencil.js (used by Carrot) may render
+# components with Shadow DOM.  document.querySelectorAll cannot pierce shadow
+# boundaries, so we recursively walk shadow roots.
 _WAIT_FOR_CARROT_JS = """
 () => {
+    // Shadow-DOM-piercing querySelectorAll
+    function deepQSA(root, selector) {
+        const results = [...root.querySelectorAll(selector)];
+        const walk = (node) => {
+            if (node.shadowRoot) {
+                results.push(...node.shadowRoot.querySelectorAll(selector));
+                node.shadowRoot.querySelectorAll('*').forEach(walk);
+            }
+        };
+        root.querySelectorAll('*').forEach(walk);
+        return results;
+    }
+
     // Standalone Carrot SPA: #carrot-store-root with content
     const storeRoot = document.querySelector('#carrot-store-root');
     if (storeRoot && storeRoot.children.length > 0) {
@@ -76,18 +90,18 @@ _WAIT_FOR_CARROT_JS = """
         if (inner.length > 500) return true;
     }
 
+    // Product links via deep query (pierces Shadow DOM)
+    const links = deepQSA(document, 'a[href*="/product/"]');
+
     // WordPress+Carrot: data-carrot-route attribute on <html>
     const html = document.documentElement;
     if (html.hasAttribute('data-carrot-route') || html.hasAttribute('data-carrot-route-root')) {
-        // Check for product links (the definitive signal)
-        const links = document.querySelectorAll('a[href*="/product/"]');
-        if (links.length >= 3) return true;
+        if (links.length >= 1) return true;
     }
 
     // SiteGen Carrot: look for hydrated class + product links
     if (html.classList.contains('hydrated')) {
-        const links = document.querySelectorAll('a[href*="/product/"]');
-        if (links.length >= 3) return true;
+        if (links.length >= 1) return true;
     }
 
     // Legacy containers
@@ -96,15 +110,14 @@ _WAIT_FOR_CARROT_JS = """
     const carrotClass = document.querySelector('[class*="carrot"]');
     const container = carrotMenu || dataCarrot || carrotClass;
     if (container) {
-        const products = container.querySelectorAll(
+        const products = deepQSA(container,
             '[class*="product"], [class*="card"], [class*="item"], article'
         );
         if (products.length >= 1) return true;
     }
 
-    // Broadest fallback: enough product links on any page
-    const allLinks = document.querySelectorAll('a[href*="/product/"]');
-    return allLinks.length >= 5;
+    // Broadest fallback: enough product links anywhere (including shadow DOM)
+    return links.length >= 3;
 }
 """
 
@@ -112,15 +125,42 @@ _WAIT_FOR_CARROT_JS = """
 # This is the primary extraction method — more robust than CSS selector
 # matching because it finds the nearest ancestor containing both name
 # and price regardless of class names.
+#
+# Uses a Shadow-DOM-piercing querySelectorAll (deepQSA) because Carrot
+# sites built with Stencil.js may render products inside shadow roots.
+# The parent-walk also crosses shadow boundaries via getRootNode().host.
 _JS_EXTRACT_PRODUCTS = """
 () => {
+    // Shadow-DOM-piercing querySelectorAll
+    function deepQSA(root, selector) {
+        const results = [...root.querySelectorAll(selector)];
+        const walk = (node) => {
+            if (node.shadowRoot) {
+                results.push(...node.shadowRoot.querySelectorAll(selector));
+                node.shadowRoot.querySelectorAll('*').forEach(walk);
+            }
+        };
+        root.querySelectorAll('*').forEach(walk);
+        return results;
+    }
+
+    // Walk up the DOM tree, crossing shadow boundaries if needed.
+    function getParent(node) {
+        if (node.parentElement) return node.parentElement;
+        // Cross shadow boundary: shadowRoot → host element
+        const root = node.getRootNode();
+        if (root && root.host) return root.host;
+        return null;
+    }
+
     const products = [];
     const seen = new Set();
 
     // Strategy 1: Find all product links and walk up to the price container.
     // Carrot renders product links as <a href="/product/..."> with the name
     // inside, and prices in a sibling or nearby ancestor element.
-    const links = document.querySelectorAll('a[href*="/product/"]');
+    // Uses deepQSA to pierce Shadow DOM boundaries.
+    const links = deepQSA(document, 'a[href*="/product/"]');
 
     for (const link of links) {
         const href = link.href;
@@ -145,13 +185,12 @@ _JS_EXTRACT_PRODUCTS = """
         if (!name) name = 'Unknown';
 
         // Walk up from the link to find the nearest ancestor with a price.
-        // Also check siblings at each level (Carrot often puts price in a
-        // sibling div, not inside the link's ancestor chain).
+        // Uses getParent() to cross shadow DOM boundaries.
         let container = link;
         let priceText = '';
         let rawText = '';
-        for (let i = 0; i < 8; i++) {
-            const parent = container.parentElement;
+        for (let i = 0; i < 10; i++) {
+            const parent = getParent(container);
             if (!parent) break;
             container = parent;
             const cText = container.innerText || '';
@@ -183,17 +222,20 @@ _JS_EXTRACT_PRODUCTS = """
         }
 
         // Fallback: check siblings of the link for price info
-        if (!priceText && link.parentElement) {
-            const siblings = link.parentElement.children;
-            for (const sib of siblings) {
-                if (sib === link) continue;
-                const sibText = sib.innerText || '';
-                if (sibText.includes('$') && sibText.length < 500) {
-                    const pm = sibText.match(/\\$[\\d]+\\.?\\d{0,2}/);
-                    if (pm) {
-                        priceText = pm[0];
-                        rawText = name + '\\n' + sibText;
-                        break;
+        if (!priceText) {
+            const parent = getParent(link);
+            if (parent) {
+                const siblings = parent.children;
+                for (const sib of siblings) {
+                    if (sib === link) continue;
+                    const sibText = sib.innerText || '';
+                    if (sibText.includes('$') && sibText.length < 500) {
+                        const pm = sibText.match(/\\$[\\d]+\\.?\\d{0,2}/);
+                        if (pm) {
+                            priceText = pm[0];
+                            rawText = name + '\\n' + sibText;
+                            break;
+                        }
                     }
                 }
             }
@@ -213,13 +255,13 @@ _JS_EXTRACT_PRODUCTS = """
     // Strategy 2: If no product links found, try standalone SPA cards
     if (products.length === 0) {
         const root = document.querySelector('#carrot-store-root') || document.body;
-        const cards = root.querySelectorAll(
+        const cards = deepQSA(root,
             '[class*="product-card"], [class*="ProductCard"], '
             + '[data-testid*="product"], div[class*="product"]'
         );
         for (const card of cards) {
             const text = card.innerText || '';
-            if (!text.includes('$') || text.length < 10) continue;
+            if (text.length < 10) continue;
             // Skip grid containers that are too large (contain many products)
             if (text.length > 3000) continue;
 
@@ -238,9 +280,9 @@ _JS_EXTRACT_PRODUCTS = """
                 }
             }
 
-            const clink = card.querySelector('a');
+            const clink = card.querySelector('a') || (card.shadowRoot && card.shadowRoot.querySelector('a'));
             const chref = clink ? clink.href : window.location.href;
-            const key = cname + '|' + price;
+            const key = cname + '|' + (price || chref);
             if (seen.has(key)) continue;
             seen.add(key);
 
@@ -333,22 +375,49 @@ class CarrotScraper(BaseScraper):
 
         # Wait for prices to appear — Carrot sometimes renders links before
         # prices are loaded (separate API call / lazy hydration).
+        # Uses shadow-DOM-piercing deepQSA so we find links inside shadow roots.
         try:
             await self.page.wait_for_function(
                 """() => {
-                    const els = document.querySelectorAll('a[href*="/product/"]');
-                    if (els.length === 0) return true;  // no products, don't wait
+                    function deepQSA(root, selector) {
+                        const results = [...root.querySelectorAll(selector)];
+                        const walk = (node) => {
+                            if (node.shadowRoot) {
+                                results.push(...node.shadowRoot.querySelectorAll(selector));
+                                node.shadowRoot.querySelectorAll('*').forEach(walk);
+                            }
+                        };
+                        root.querySelectorAll('*').forEach(walk);
+                        return results;
+                    }
+                    function getParent(node) {
+                        if (node.parentElement) return node.parentElement;
+                        const root = node.getRootNode();
+                        if (root && root.host) return root.host;
+                        return null;
+                    }
+                    const els = deepQSA(document, 'a[href*="/product/"]');
+                    if (els.length === 0) return false;  // no products yet — keep waiting
                     // Check if at least some elements near product links contain '$'
                     let withPrice = 0;
                     for (const el of els) {
-                        const parent = el.parentElement;
-                        if (!parent) continue;
-                        const grandparent = parent.parentElement;
-                        const text = (grandparent || parent).innerText || '';
-                        if (text.includes('$')) withPrice++;
+                        // Walk up (crossing shadow boundaries) to find price
+                        let node = el;
+                        for (let i = 0; i < 5; i++) {
+                            node = getParent(node);
+                            if (!node) break;
+                            const text = node.innerText || '';
+                            if (text.includes('$') && text.length < 3000) {
+                                withPrice++;
+                                break;
+                            }
+                        }
                         if (withPrice >= 3) return true;
                     }
-                    return false;
+                    // If we found product links but no prices after checking all,
+                    // return true anyway — prices may not be in the DOM at all
+                    // (some Carrot configs don't show prices on the grid).
+                    return els.length >= 3;
                 }""",
                 timeout=15_000,
             )
@@ -422,12 +491,16 @@ class CarrotScraper(BaseScraper):
         """Extract product data from the Carrot-rendered page.
 
         Primary method: JS evaluation that walks from product links
-        (``a[href*="/product/"]``) up to price containers.  This works
-        for both standalone Carrot SPAs and WordPress+Carrot embeds.
+        (``a[href*="/product/"]``) up to price containers — includes
+        shadow DOM traversal for Stencil.js sites.
 
-        Fallback: traditional CSS selector cascade for non-standard layouts.
+        Fallback 1: Playwright locator-based extraction that natively
+        pierces Shadow DOM (handles cases where JS eval can't reach
+        shadow roots).
+
+        Fallback 2: Traditional CSS selector cascade for non-standard layouts.
         """
-        # --- Primary: JS-based extraction ---
+        # --- Primary: JS-based extraction (with shadow DOM walker) ---
         products = await self._extract_via_js()
 
         if products:
@@ -436,8 +509,18 @@ class CarrotScraper(BaseScraper):
             )
             return products
 
-        # --- Fallback: CSS selector cascade ---
-        logger.info("[%s] JS extraction found 0 — trying selector cascade", self.slug)
+        # --- Fallback 1: Playwright locator extraction (pierces Shadow DOM) ---
+        logger.info("[%s] JS extraction found 0 — trying Playwright locator extraction", self.slug)
+        products = await self._extract_via_locators()
+
+        if products:
+            logger.info(
+                "[%s] Locator extraction found %d products", self.slug, len(products),
+            )
+            return products
+
+        # --- Fallback 2: CSS selector cascade ---
+        logger.info("[%s] Locator extraction found 0 — trying selector cascade", self.slug)
         products = await self._extract_via_selectors()
 
         return products
@@ -484,6 +567,164 @@ class CarrotScraper(BaseScraper):
 
         return products
 
+    async def _extract_via_locators(self) -> list[dict[str, Any]]:
+        """Extract using Playwright locators that natively pierce Shadow DOM.
+
+        Playwright's ``page.locator()`` API automatically traverses shadow
+        roots, so this works even when ``document.querySelectorAll`` fails
+        on Stencil.js / Web Component sites.  For each product link, we use
+        ``el.evaluate()`` to walk up the DOM tree (crossing shadow boundaries
+        via ``getRootNode().host``) to find the price container.
+        """
+        products: list[dict[str, Any]] = []
+        seen: set[str] = set()
+
+        links = await self.page.locator('a[href*="/product/"]').all()
+        if not links:
+            return []
+
+        logger.info("[%s] Playwright locator found %d product links", self.slug, len(links))
+
+        for link in links:
+            try:
+                href = await link.get_attribute("href") or ""
+                # Normalize href for dedup
+                if href in seen:
+                    continue
+                seen.add(href)
+
+                # Resolve full URL
+                full_url = href
+                if href and not href.startswith("http"):
+                    try:
+                        full_url = await link.evaluate("el => el.href")
+                    except Exception:
+                        full_url = self.url + href
+
+                # Extract name from heading inside the link
+                name = ""
+                for heading_sel in ("h1", "h2", "h3", "h4", "h5", "h6", "strong", "b"):
+                    heading = link.locator(heading_sel).first
+                    if await heading.count() > 0:
+                        name = (await heading.inner_text()).strip()
+                        if name:
+                            break
+
+                if not name:
+                    link_text = await link.inner_text()
+                    for line in link_text.split("\n"):
+                        line = line.strip()
+                        if len(line) >= 3 and "$" not in line and line.lower() not in _STRAIN_ONLY:
+                            name = line
+                            break
+
+                if not name:
+                    name = "Unknown"
+
+                # Walk up from the link element to find price container,
+                # crossing shadow boundaries via getRootNode().host.
+                price_data = await link.evaluate("""
+                    (el) => {
+                        function getParent(node) {
+                            if (node.parentElement) return node.parentElement;
+                            const root = node.getRootNode();
+                            if (root && root.host) return root.host;
+                            return null;
+                        }
+
+                        let container = el;
+                        let priceText = '';
+                        let rawText = '';
+
+                        for (let i = 0; i < 10; i++) {
+                            const parent = getParent(container);
+                            if (!parent) break;
+                            container = parent;
+                            const cText = container.innerText || '';
+
+                            if (cText.includes('$')) {
+                                if (cText.length < 2000) {
+                                    rawText = cText;
+                                    const pm = cText.match(/\\$[\\d]+\\.?\\d{0,2}/);
+                                    if (pm) priceText = pm[0];
+                                    break;
+                                }
+                                const children = container.children;
+                                for (const child of children) {
+                                    const childText = child.innerText || '';
+                                    if (childText.includes('$') && childText.length < 500 && childText.length > 3) {
+                                        const pm = childText.match(/\\$[\\d]+\\.?\\d{0,2}/);
+                                        if (pm) {
+                                            priceText = pm[0];
+                                            rawText = childText;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (priceText) break;
+                            }
+                        }
+
+                        // Check siblings
+                        const linkParent = getParent(el);
+                        if (!priceText && linkParent) {
+                            const siblings = linkParent.children;
+                            for (const sib of siblings) {
+                                if (sib === el) continue;
+                                const sibText = sib.innerText || '';
+                                if (sibText.includes('$') && sibText.length < 500) {
+                                    const pm = sibText.match(/\\$[\\d]+\\.?\\d{0,2}/);
+                                    if (pm) {
+                                        priceText = pm[0];
+                                        rawText = sibText;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!rawText) rawText = (container.innerText || '').substring(0, 1000);
+
+                        return {
+                            rawText: rawText.substring(0, 1000),
+                            price: priceText || null
+                        };
+                    }
+                """)
+
+                raw_text = price_data.get("rawText", "")
+                clean_text = _JUNK_PATTERNS.sub("", raw_text).strip()
+
+                product: dict[str, Any] = {
+                    "name": name,
+                    "raw_text": clean_text,
+                    "product_url": full_url,
+                }
+                if price_data.get("price"):
+                    product["price"] = price_data["price"]
+
+                products.append(product)
+            except Exception:
+                logger.debug("Failed to extract Carrot product via locator", exc_info=True)
+
+        # Dedup
+        if products:
+            seen_keys: set[str] = set()
+            unique: list[dict[str, Any]] = []
+            for p in products:
+                key = f"{p.get('name', '')}|{p.get('price', '')}"
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    unique.append(p)
+            if len(unique) < len(products):
+                logger.info(
+                    "[%s] Deduped %d → %d products (locator)",
+                    self.slug, len(products), len(unique),
+                )
+            products = unique
+
+        return products
+
     async def _extract_via_selectors(self) -> list[dict[str, Any]]:
         """Fallback: extract via CSS selector cascade (traditional method)."""
         products: list[dict[str, Any]] = []
@@ -509,10 +750,6 @@ class CarrotScraper(BaseScraper):
                 try:
                     text_block = await el.inner_text()
 
-                    # Skip elements without a price
-                    if "$" not in text_block:
-                        continue
-
                     # Skip tiny fragments
                     if len(text_block.strip()) < 10:
                         continue
@@ -522,6 +759,55 @@ class CarrotScraper(BaseScraper):
                     # typically has <500 chars of text.
                     if len(text_block.strip()) > 2000:
                         continue
+
+                    # If no price in the element itself, walk up to find it
+                    # (Shadow DOM / Stencil.js sites put prices in siblings)
+                    price_text = ""
+                    if "$" not in text_block:
+                        try:
+                            parent_data = await el.evaluate("""
+                                (el) => {
+                                    function getParent(node) {
+                                        if (node.parentElement) return node.parentElement;
+                                        const root = node.getRootNode();
+                                        if (root && root.host) return root.host;
+                                        return null;
+                                    }
+                                    let node = el;
+                                    for (let i = 0; i < 5; i++) {
+                                        node = getParent(node);
+                                        if (!node) break;
+                                        const t = node.innerText || '';
+                                        if (t.includes('$') && t.length < 2000) {
+                                            const pm = t.match(/\\$[\\d]+\\.?\\d{0,2}/);
+                                            return { text: t.substring(0, 1000), price: pm ? pm[0] : null };
+                                        }
+                                    }
+                                    // Check siblings of the element
+                                    const parent = getParent(el);
+                                    if (parent) {
+                                        for (const sib of parent.children) {
+                                            if (sib === el) continue;
+                                            const st = sib.innerText || '';
+                                            if (st.includes('$') && st.length < 500) {
+                                                const pm = st.match(/\\$[\\d]+\\.?\\d{0,2}/);
+                                                if (pm) return { text: st, price: pm[0] };
+                                            }
+                                        }
+                                    }
+                                    return null;
+                                }
+                            """)
+                            if parent_data:
+                                price_text = parent_data.get("price", "")
+                                # Merge parent text for raw_text
+                                text_block = text_block + "\n" + parent_data.get("text", "")
+                        except Exception:
+                            pass
+
+                        # If still no price anywhere, skip this element
+                        if not price_text and "$" not in text_block:
+                            continue
 
                     lines = [ln.strip() for ln in text_block.split("\n") if ln.strip()]
 
@@ -552,10 +838,13 @@ class CarrotScraper(BaseScraper):
                     except Exception:
                         pass
 
-                    for line in lines:
-                        if "$" in line:
-                            product["price"] = line
-                            break
+                    if price_text:
+                        product["price"] = price_text
+                    else:
+                        for line in lines:
+                            if "$" in line:
+                                product["price"] = line
+                                break
 
                     products.append(product)
                 except Exception:
