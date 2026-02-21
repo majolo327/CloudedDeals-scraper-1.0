@@ -108,7 +108,7 @@ BRANDS = sorted(set([
     'Blazer', 'Blazy Susan', 'Blink', 'BLUEBIRDS', 'BLVD', 'Bohemian Brothers',
     'Bonanza Cannabis', 'Boom Town', 'Bounti', 'Brass Knuckles', 'Bud Bandz',
     # C
-    'Cake', 'Cali Traditional', 'Camino', 'Camo', 'CAMP', 'CANN', 'Cannafornia',
+    'Cali Traditional', 'Camino', 'Camo', 'CAMP', 'CANN', 'Cannafornia',
     'Cannabiotix', 'Cannabreezy', 'Cannalean', 'Cannavative', 'Cannavore',
     'Cannavore Confections', 'Caviar Gold', 'Cheeba Chews', 'Church',
     'Circle S Farms', 'City Trees', 'Claybourne Co.', 'CLEAR Brands', 'Clout King',
@@ -407,6 +407,8 @@ _BRAND_VARIATION_MAP: dict[str, str] = {
     'effin\'': 'Effin',
     '& shine': '&Shine',
     'and shine': '&Shine',
+    # "The Lab" brand — dispensaries sometimes list as just "Lab"
+    'lab': 'The Lab',
 }
 
 def _variation_pattern(var: str) -> re.Pattern:
@@ -440,9 +442,6 @@ _STRAIN_BRAND_BLOCKERS = [
     (re.compile(r'\b(?:ghost\s*train|super\s*(?:lemon|silver)|purple|amnesia|neville|blue|catpiss|dungeon|hawaiian|original|golden|x|double|single|citrus|lemon|lime|mango|strawberry|peach|tropical)\s+haze\b', re.IGNORECASE), 'Haze'),
     # Also block if "haze" follows known connectors in compound strain names
     (re.compile(r'\bhaze\s+(?:og|kush|berry|dawg|diesel|cake|cookies|dream|punch|wreck|star|pie|queen|king|widow|mac|zkittlez)\b', re.IGNORECASE), 'Haze'),
-
-    # "Cake" is a brand, but these are strains:
-    (re.compile(r'\b(?:wedding|ice\s*cream|birthday|pound|lava|jungle|layer|cheese|short|space|pancake|fruit|cup|marble|pineapple\s*upside\s*down|rain)\s*cake\b', re.IGNORECASE), 'Cake'),
 
     # "Cookies" is a brand — but only block if the word isn't at the start
     # (e.g., "Girl Scout Cookies" strain, but "Cookies Gary Payton" IS the brand)
@@ -517,6 +516,9 @@ _STRAIN_BRAND_BLOCKERS = [
 
     # "Terra" is a brand, but block in common compound terms
     (re.compile(r'\bterra\s+(?:cotta|firma)\b', re.IGNORECASE), 'Terra'),
+
+    # "The Lab" is a brand, but "lab tested" / "lab results" are product attributes
+    (re.compile(r'\blab\s+(?:tested|results?|reports?|analysis|verified)\b', re.IGNORECASE), 'The Lab'),
 ]
 
 # ============================================================================
