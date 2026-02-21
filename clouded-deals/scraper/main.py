@@ -458,28 +458,61 @@ def _strip_offer_text(raw_text: str) -> str:
 # Product URLs often contain the brand slug (e.g. "/brands/rove/...",
 # "/rove-featured-farms-1g", "brand=rove").  This is a high-confidence
 # signal that avoids false positives from product name parsing.
+#
+# IMPORTANT: Only search in product-identifying URL segments to avoid
+# matching dispensary names in the store path.  For example, Curaleaf URLs
+# always contain "/curaleaf-las-vegas-western/" — without this guard,
+# every product at every Curaleaf location would be tagged as brand
+# "Curaleaf" regardless of the actual brand (AMA, Matrix, etc.).
 
 def _extract_brand_from_url(url: str) -> str | None:
-    """Return canonical brand name if found in the product URL."""
+    """Return canonical brand name if found in the product URL.
+
+    Only searches product-identifying URL segments:
+      - After /product/ or /products/ (the product slug)
+      - After /brands/ (brand directory pages)
+      - Query parameters (brand=rove)
+    """
     if not url:
         return None
-    # Normalize: lowercase, replace hyphens/underscores with spaces for matching
     url_lower = url.lower()
-    url_normalized = url_lower.replace("-", " ").replace("_", " ")
 
-    # Check each known brand against the URL (longest brands first to avoid
-    # partial matches — e.g. "raw garden" before "raw")
+    # Build the search text from product-identifying segments only.
+    # This prevents matching dispensary names in the store path
+    # (e.g. "/curaleaf-las-vegas-western/" → NOT brand "Curaleaf").
+    search_parts: list[str] = []
+
+    for marker in ("/product/", "/products/"):
+        idx = url_lower.find(marker)
+        if idx >= 0:
+            search_parts.append(url_lower[idx:])
+
+    brands_idx = url_lower.find("/brands/")
+    if brands_idx >= 0:
+        search_parts.append(url_lower[brands_idx:])
+
+    query_idx = url_lower.find("?")
+    if query_idx >= 0:
+        search_parts.append(url_lower[query_idx:])
+
+    if not search_parts:
+        return None
+
+    search_text = " ".join(search_parts)
+
+    # Check each known brand against the search text (longest brands first
+    # to avoid partial matches — e.g. "raw garden" before "raw")
     for brand_lower, canonical in sorted(
         BRANDS_LOWER.items(), key=lambda x: len(x[0]), reverse=True
     ):
         # Match brand as a path segment or query param value
         if (
-            f"/{brand_lower}/" in url_lower
-            or f"/{brand_lower}?" in url_lower
-            or f"brand={brand_lower}" in url_lower
-            or f"/{brand_lower.replace(' ', '-')}/" in url_lower
-            or f"/{brand_lower.replace(' ', '-')}-" in url_lower
-            or f"-{brand_lower.replace(' ', '-')}-" in url_lower
+            f"/{brand_lower}/" in search_text
+            or f"/{brand_lower}?" in search_text
+            or f"brand={brand_lower}" in search_text
+            or f"/{brand_lower.replace(' ', '-')}/" in search_text
+            or f"/{brand_lower.replace(' ', '-')}-" in search_text
+            or f"-{brand_lower.replace(' ', '-')}-" in search_text
         ):
             return canonical
     return None
