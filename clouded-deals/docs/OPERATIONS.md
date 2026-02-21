@@ -3,7 +3,7 @@
 ## Current State (Feb 2026)
 
 - **11 states** active: NV, MI, IL, AZ, MO, NJ, OH, CO, NY, MA, PA
-- **~1,200 dispensary sites** configured and scraping daily via GitHub Actions cron
+- **~1,493 dispensary sites** configured and scraping daily via GitHub Actions cron
 - **~33,000+ unique products** in database with deal scoring pipeline
 - **Admin dashboard** consolidated to 4 tabs: Dashboard, Scraper, Analytics, Settings
 - **Flagged products** workflow: users flag misinfo from frontend, admin reviews/edits/hides from dashboard
@@ -80,3 +80,13 @@ The admin Scraper page has a "Run Now" button that currently isn't wired up. To 
 - [ ] Spot-check 5-10 random deals weekly for accuracy
 - [ ] Monitor GitHub Actions for failed workflow runs
 - [ ] Check Netlify deploy logs after pushes
+
+---
+
+## Locked Beta (Feb 22 – Mar 21, 2026)
+
+**System is LOCKED.** No new features, no refactors, no expansion. Surgical fixes only.
+
+152 commits shipped Feb 13–21. Category coverage gap fixed (Dutchie specials-only sites now scrape full menu). Scraper regression resolved (iframe cascade, Shadow DOM, about:blank). 3,101 lines of frontend bloat cut. Security hardened. 24 cron jobs running daily across 11 states.
+
+See root `OPERATIONS.md` addendum for full changelog and locked beta plan.
