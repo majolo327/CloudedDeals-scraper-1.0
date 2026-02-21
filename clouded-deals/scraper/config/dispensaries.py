@@ -195,7 +195,7 @@ DISPENSARIES = [
         "slug": "td-gibson",
         "platform": "dutchie",
         "url": "https://thedispensarynv.com/shop-gibson/?dtche%5Bpath%5D=specials",
-        "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-henderson/specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-henderson",
         "is_active": True,
         "region": "southern-nv",
         "embed_type": "iframe",  # confirmed via debug logs — dtche param injects a Dutchie iframe
@@ -205,7 +205,7 @@ DISPENSARIES = [
         "slug": "td-eastern",
         "platform": "dutchie",
         "url": "https://thedispensarynv.com/shop-eastern/?dtche%5Bpath%5D=specials",
-        "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-eastern-express/specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-eastern-express",
         "is_active": True,
         "region": "southern-nv",
         "embed_type": "iframe",  # confirmed via debug logs — dtche param injects a Dutchie iframe
@@ -215,7 +215,7 @@ DISPENSARIES = [
         "slug": "td-decatur",
         "platform": "dutchie",
         "url": "https://thedispensarynv.com/shop-decatur/?dtche%5Bpath%5D=specials",
-        "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-las-vegas/specials",
+        "fallback_url": "https://dutchie.com/embedded-menu/the-dispensary-las-vegas",
         "is_active": True,
         "region": "southern-nv",
         "embed_type": "iframe",  # confirmed via debug logs — dtche param injects a Dutchie iframe

@@ -71,9 +71,28 @@ or discount data).  Same hard-filter rejection issue as Carrot.
 - Added product card population wait after content detection — ensures
   massive pages have cards rendered before extraction begins.
 
+**Additional fixes applied (2026-02-18 – 2026-02-21):**
+- Age gate now always clicked before JS overlay removal (fixed 17/18 failures).
+- Shadow DOM extraction added for embeds behind shadow roots.
+- `about:blank` iframe fallback for sites that load empty iframes first.
+- Fast-bail for `dutchie.com` pages when SPA fails to render.
+- Retry-on-zero: if primary URL returns 0 products, tries fallback URL.
+- **Category coverage fix (Feb 21):** Sites using `?dtche[path]=specials`
+  now always scrape the base menu too. Previously, if specials returned
+  even 1 product, the full catalog was skipped. Affects TD (3), Greenlight (2),
+  The Grove (2), Mint (2), Jade (2), Vegas Treehouse (1).
+- 30 PA/NY Dutchie sites switched to store-hosted URLs to bypass Cloudflare.
+
 **Sites to watch:**
-- `td-gibson` — massive specials page, JS embed mode.
-- `planet-13` — direct Dutchie content on page, very large menu.
-- `td-decatur` — intermittent Cloudflare blocks.
+- `td-gibson` — massive specials page, JS embed mode. Now scrapes base menu too.
+- `planet-13` — direct Dutchie content on page, very large menu. Store selector added.
+- `td-decatur` — intermittent Cloudflare blocks. Fallback URL fixed (no longer points to /specials).
 - `the-grove` — occasionally fails on iframe detection.
 - `nuwu` — intermittent timeout failures.
+
+---
+
+## Locked Beta Status (Feb 22, 2026)
+
+**All platforms are now in locked beta.** No new sites, no new scrapers.
+Surgical fixes only — see root `OPERATIONS.md` for criteria.

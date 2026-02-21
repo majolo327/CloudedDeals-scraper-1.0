@@ -1002,3 +1002,240 @@ When multiple brands tie at the lowest price, show all of them so users see thei
 - `priceComparison.ts` utility: classify products into buckets by category + weight range, find min price per dispensary per bucket, collect all brands tied at the min
 - `PriceComparisonPage.tsx` component: responsive table (desktop) / card grid (mobile), sortable by any column, expandable brand lists for ties
 - Column headers show the overall best price across all dispensaries
+
+---
+
+## Addendum: Feb 13–21, 2026 — Sprint to Locked Beta
+
+*152 commits in 8 days. CTO summary below. System is now in LOCKED BETA mode.*
+
+---
+
+### Current State (Feb 21, 2026)
+
+| Metric | Before (Feb 13) | After (Feb 21) |
+|--------|-----------------|-----------------|
+| **Active dispensaries** | 63 (NV only) | **~1,493 across 11 states** |
+| **States** | 1 (NV production) | **11** (NV, MI, IL, AZ, MO, NJ, OH, CO, NY, MA, PA) |
+| **Platforms** | 6 (Rise disabled) | 6 (Rise still disabled — Cloudflare) |
+| **Daily cron jobs** | 1 | **24 region-sharded jobs** |
+| **Jane sites** | 19 (NV only) | **~531** |
+| **Dutchie sites** | 18 (NV only) | **~846** |
+| **Curaleaf sites** | 4 (NV only) | **~109** |
+| **Frontend bloat** | ~3,100 lines gamification | **Cut to zero** |
+| **Admin dashboard** | 7 tabs | **4 tabs** (Dashboard, Scraper, Analytics, Settings) |
+| **Security** | No rate limiting | **Full rate limiting, RLS caps, hardened health endpoint** |
+
+---
+
+### What Was Fixed — Scraper (Last 8 Days)
+
+#### Category Coverage Gap (Feb 21) — THE BIG ONE
+- **Problem:** All Dutchie sites using `?dtche[path]=specials` URLs (TD stores, Greenlight, The Grove, Mint, Jade, Vegas Treehouse — 12+ sites) only scraped specials. If specials returned even 1 product, the base menu was never scraped. Most categories (Flower, Vape, Edibles, Concentrates, Pre-Rolls) were empty.
+- **Fix:** `dutchie.py` now always scrapes the base menu after specials. In-memory dedup prevents duplicates. TD fallback URLs changed from `/specials` to full menu.
+- **Files:** `platforms/dutchie.py`, `config/dispensaries.py`
+
+#### Scraper Regression Fix (Feb 21)
+- Iframe cascade timeout was burning 105s on sites without iframes
+- Shadow DOM extraction added for Dutchie embeds behind shadow roots
+- `about:blank` iframe fallback for sites that load empty iframes before injecting content
+- **Files:** `platforms/dutchie.py`, `handlers/iframe.py`
+
+#### Age Gate Before JS Removal (Feb 18)
+- **Problem:** 17 of 18 Dutchie sites failing because overlay-removal JS ran before the age gate was clicked, destroying the gate button
+- **Fix:** Always click age gate first, then run JS overlay removal
+- **Files:** `handlers/age_verification.py`, `platforms/dutchie.py`
+
+#### Dutchie Timeout Overhaul (Feb 17)
+- Site timeout reduced 600s → 300s (faster failure recovery)
+- Retry timeout reduced 300s → 180s
+- Smart-wait increased 60s → 90s (content-based polling, returns instantly when content appears)
+- Product card population wait added — ensures massive pages render before extraction
+- Fast-bail for dutchie.com pages when SPA fails to render
+- Retry-on-zero fallback: if primary URL returns 0 products, tries fallback URL automatically
+
+#### Curaleaf Fixes (Feb 19)
+- Curaleaf NY 100% failure rate fixed (0/6 → 6/6)
+- Pagination timeout resolved
+- Age gate state mapping for all 11 states
+- `&Shine` brand recognition added
+
+#### Jane Fixes (Feb 17–19)
+- Force-navigate `about:blank` iframes before extraction
+- Remove overlays before "View More" pagination click
+- 189 new Jane dispensaries added across CO, MI, MA, MO, OH, AZ
+- Loose qualification extended (same as Carrot/AIQ — flat 15-point baseline)
+
+#### Cloudflare Bypass (Feb 19)
+- 10 PA Dutchie sites switched to store-hosted URLs
+- 20 NY Dutchie sites switched to store-hosted URLs
+- Auto-detecting `dutchie.com` fallback URLs for sites blocked on their own domain
+
+#### Deal Quality (Feb 16–20)
+- Bundle/promo deals rejected (was contaminating category detection)
+- Vape-as-flower misclassification corrected
+- Cookies brand-as-strain false positive fixed
+- Preroll-as-flower reclassification (1g products)
+- Chain diversity cap raised 15 → 25
+- Vape subtype price floors added
+- Matrix Ripper vape classification fixed
+- Product name pollution stripped (THC %, promo text, strain codes)
+- Dynamic diversity caps: relax when total supply < target × 0.85
+
+#### Multi-State Expansion (Feb 15–16)
+- Wave 1: MI + IL + AZ data collection (317 sites)
+- Wave 2: +85 net new (861 sites)
+- Wave 3: NJ +11, MA +46 (918 sites)
+- Wave 4: OH + CO + NY +225 (1,143 sites)
+- Jane Sprint: +386 Jane sites across all states
+- Michigan sharded into 4 parallel cron jobs
+- 24 cron jobs spread across full day by local timezone (6 AM–6 PM EST)
+- Region-aware idempotency check (was cross-blocking UTC neighbors)
+
+#### Infrastructure (Feb 14–17)
+- `asyncio.wait_for()` hard timeout on all scraper tasks
+- Per-platform concurrency limits (Dutchie 3, Jane 4, Curaleaf 4)
+- Stealth mode propagated to all scrapers
+- Crash-proof summary report
+- Site Diagnostics workflow added
+
+---
+
+### What Was Fixed — Frontend (Last 8 Days)
+
+#### Bloat Cut (Feb 14) — 3,101 lines removed
+- Deleted: Challenge system, Streak system, Brand Affinity, Smart Tips, Coach Marks (6-step), PreferenceSelector (dead — selections did nothing), Daily Complete Modal, Nine Clear Modal, Coming Soon Modal, Heat Indicator, Personalization lib
+- Deleted dead code: AuthPrompt, CompactDealCard, lib/auth.ts, lib/badges.ts
+- Replaced "feed gets smarter" with "hand-curated"
+
+#### Admin Dashboard (Feb 17)
+- Consolidated 7 tabs → 4 (Dashboard, Scraper, Analytics, Settings)
+- Flagged products section with editor (product_subtype dropdown, collapsible flag history)
+- Deal Pipeline Health card
+- Growth-stage + B2B-ready metrics
+- Per-region scrape summaries
+- Stickiness formula fixed, skeleton grid added
+
+#### UX Polish (Feb 14–20)
+- 3-column desktop grid
+- iOS notch + home indicator safe areas
+- Stale/yesterday deals visible between midnight and morning
+- Skip zip screen when geolocation granted during FTUE
+- FTUE copy overhaul (conversion-focused)
+- Dispensary diversity in first 12 cards
+- Multi-select weight filter
+- Dispensary name cleanup
+- Saved tab icon: bookmark → heart
+- Accordion expand on dispensary search cards
+- Browse tabs swapped (Dispensaries first)
+- Cookie consent banner
+- Branded CD monogram favicon
+- Desktop glassmorphism Chrome/Safari parity
+
+#### Security (Feb 16)
+- Per-IP rate limiting on all API routes (sliding window)
+- Health endpoint hardened — business metrics moved behind PIN gate
+- Search routed through API (was querying Supabase from browser)
+- Anonymous insert caps (500/day events, 100/day saves, 20/day reports)
+- Security headers: X-Content-Type-Options, X-Frame-Options, Referrer-Policy
+- Bearer token auth on deal posting endpoints
+
+#### SEO & Discoverability (Feb 13–19)
+- Google Search Console verification
+- Bing Webmaster Tools verification
+- AI visibility: llms.txt, AI crawler rules
+- Internal linking across SEO pages
+- SEO body copy on category and dispensary pages
+- Lighthouse / Core Web Vitals optimizations
+
+#### Legal (Feb 17)
+- Incorporation state corrected to Delaware in ToS
+- Old domains stripped from Privacy Policy and Terms
+- Contact email standardized
+
+---
+
+### Locked Beta Plan — Next 4 Weeks (Feb 22 – Mar 21, 2026)
+
+**The system is now LOCKED. No new features. No refactors. No expansion. Only surgical fixes that protect deal accuracy and uptime for beta testers.**
+
+#### What "Locked" Means
+
+1. **NO new dispensaries.** 1,493 is enough. Stabilize what we have.
+2. **NO new scrapers or platforms.** Dutchie/Jane/Curaleaf/Carrot/AIQ only.
+3. **NO frontend features.** The UI ships as-is.
+4. **NO gamification, ML, personalization, or social proof.** All deferred to post-beta.
+5. **NO database schema changes** unless something is actively broken.
+6. **YES** to: bug fixes that affect deal accuracy, scraper reliability patches, security patches, copy/legal fixes.
+
+#### Founder's 4-Week Hustle Outreach Plan — What Engineering Supports
+
+| Week | Founder Focus | Engineering Support |
+|------|--------------|-------------------|
+| **Week 1** (Feb 22–28) | Recruit 15–25 inner circle testers (budtenders, r/vegastrees, cannabis Twitter) | Monitor scraper health daily. Fix any site that returns 0 products. Respond to flagged deals same-day. |
+| **Week 2** (Mar 1–7) | Collect first feedback. Watch retention numbers. | Surgical fixes based on tester reports only. No proactive changes. |
+| **Week 3** (Mar 8–14) | Double down on what's working. Cut what's not. DST transition (Mar 8 — verify cron times). | DST cron audit. Fix any reported deal accuracy issues. |
+| **Week 4** (Mar 15–21) | Assess: do we have 30%+ D7 retention? If yes, widen beta. If no, diagnose why. | Prepare data for founder's retention analysis. Fix blockers only. |
+
+#### Daily Operations Checklist (During Beta)
+
+- [ ] Check GitHub Actions for green checks across all 24 cron jobs
+- [ ] Check admin Dashboard pipeline status banner
+- [ ] Review flagged products (if count > 0, fix same day)
+- [ ] Spot-check 5 random NV deals against live dispensary sites
+- [ ] Check Supabase for anomalies (0-product dispensaries, deal_score spikes)
+
+#### Known Risks Accepted for Beta
+
+| Risk | Impact | Mitigation | Status |
+|------|--------|------------|--------|
+| Rise (37 sites) blocked by Cloudflare | 0% Rise coverage | Accepted. Revisit post-PMF. | Won't fix |
+| Carrot/AIQ single-price limitation | Flat 15-pt baseline, no discount depth | Loose qualification + dispensary floor | Mitigated |
+| Jane no original prices | Can't verify true discount % | Loose qualification, brand-required gate | Mitigated |
+| SLV double age gate (Treez) | May break if Treez changes | Monitor. Low priority. | Accepted |
+| DST shift Mar 8 | NV cron moves from 8 AM to 9 AM local | Audit and adjust cron UTC times before Mar 8 | TODO |
+| Stale data if GHA outage | Testers see yesterday's deals | Manual workflow_dispatch as backup | Documented |
+
+#### Surgical Fix Criteria (What Qualifies)
+
+A change is allowed during locked beta ONLY if it meets ALL of these:
+
+1. A real beta tester reported the problem, OR it's a scraper returning 0 products
+2. The fix is < 50 lines of code
+3. The fix does not change scoring logic, category detection order, or price caps
+4. The fix does not add new dependencies
+5. The fix has a clear rollback (revert 1 commit)
+
+Anything else goes on the post-beta backlog.
+
+#### Post-Beta Backlog (Do NOT Touch Until After Mar 21)
+
+- [ ] Run migration `029_deal_reports.sql` on production Supabase
+- [ ] Run migration `035_anonymous_insert_rate_limits.sql` on production Supabase
+- [ ] Add Sentry error monitoring (frontend + scraper)
+- [ ] Add UptimeRobot on `/api/health`
+- [ ] CSRF protection on admin endpoints
+- [ ] CSP header via middleware
+- [ ] Persistent rate limiting (Upstash Redis — replaces in-memory Map)
+- [ ] SEO pages: `/dispensary/[slug]`, `/brand/[slug]`, `/deals/[category]`
+- [ ] SMS daily deal digest (Twilio)
+- [ ] PWA manifest + service worker
+- [ ] Supabase Auth (magic link) for cross-device saves
+- [ ] Price history frontend (badges, charts, trend arrows)
+- [ ] Social proof frontend (save counts, trending indicators)
+- [ ] Full-text search index (trigram) — needed before 1,000+ DAU
+- [ ] Data retention policy for analytics/events tables
+- [ ] Sunnyside scraper (Cresco's IL locations)
+- [ ] Weedmaps embed scraper (biggest platform gap nationally)
+
+#### The Only 3 Numbers That Matter
+
+1. **D1 → D7 retention**: Do testers come back? Target: 30%+
+2. **Save rate**: Do testers save deals? Target: 20%+ save at least 1/session
+3. **Session frequency**: Are deal hunters checking daily?
+
+If these numbers are bad after 4 weeks, the product has a problem — not the engineering. Fix the product, not the infrastructure.
+
+---
+
+*Locked beta entered Feb 22, 2026. Next operations update: Mar 22, 2026 (post-beta retrospective).*
