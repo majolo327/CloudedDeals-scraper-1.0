@@ -626,68 +626,89 @@ class DutchieScraper(BaseScraper):
                 )
                 break
 
-        # --- Fallback: if specials returned 0 products, try base menu ------
-        if not all_products:
-            base_url = _strip_specials_from_url(self.url)
-            if base_url and base_url != self.url:
+        # --- Category coverage: scrape base menu for specials-only URLs ------
+        # When the primary URL is a specials page, ALWAYS also scrape the
+        # base menu.  Specials may only cover 1-2 categories; the base menu
+        # provides full catalog coverage (Flower, Vape, Edibles, Concentrates,
+        # Pre-Rolls).  Products from specials take priority (already in
+        # all_products); base menu fills category gaps.
+        base_url = _strip_specials_from_url(self.url)
+        if base_url and base_url != self.url:
+            specials_count = len(all_products)
+            if not specials_count:
                 logger.warning(
                     "[%s] Specials page returned 0 products — retrying base menu: %s",
                     self.slug, base_url,
                 )
                 await self.save_debug_info("zero_products_specials", target)
-
-                await self.goto(base_url)
-                await asyncio.sleep(3)
-                await self.page.evaluate(_AGE_GATE_COOKIE_JS)
-                clicked = await self.handle_age_gate(post_wait_sec=3)
-                if clicked:
-                    logger.info("[%s] Age gate clicked on base menu", self.slug)
-                await force_remove_age_gate(self.page)
-
-                try:
-                    await self.page.wait_for_function(
-                        _WAIT_FOR_DUTCHIE_JS, timeout=_SMART_WAIT_RETRY_MS,
-                    )
-                    logger.info("[%s] Smart-wait: Dutchie content detected on base menu", self.slug)
-                except PlaywrightTimeout:
-                    logger.warning("[%s] Smart-wait: no content on base menu after %ds", self.slug, _SMART_WAIT_RETRY_MS // 1000)
-
-                target, embed_type, _ = await find_dutchie_content(
-                    self.page,
-                    iframe_timeout_ms=45_000,
-                    js_embed_timeout_sec=60,
-                    embed_type_hint=embed_hint,
+            else:
+                logger.info(
+                    "[%s] Specials yielded %d products — also scraping base menu for category coverage: %s",
+                    self.slug, specials_count, base_url,
                 )
 
-                if target is not None:
-                    logger.info("[%s] Base menu content found via %s", self.slug, embed_type)
-                    if embed_type == "iframe":
-                        await dismiss_age_gate(target)
+            # Build dedup set from specials products to avoid duplicates
+            _seen = {p["name"].lower().strip() for p in all_products}
 
-                    await _scroll_to_load_content(target, self.slug)
-                    await _wait_for_product_cards(target, self.slug)
+            await self.goto(base_url)
+            await asyncio.sleep(3)
+            await self.page.evaluate(_AGE_GATE_COOKIE_JS)
+            clicked = await self.handle_age_gate(post_wait_sec=3)
+            if clicked:
+                logger.info("[%s] Age gate clicked on base menu", self.slug)
+            await force_remove_age_gate(self.page)
 
-                    page_num = 1
-                    while True:
-                        products = await self._extract_products(target)
-                        all_products.extend(products)
-                        logger.info(
-                            "[%s] Base menu page %d → %d products (total %d)",
-                            self.slug, page_num, len(products), len(all_products),
-                        )
-                        page_num += 1
-                        await force_remove_age_gate(self.page)
-                        try:
-                            if not await navigate_dutchie_page(target, page_num):
-                                break
-                        except Exception as exc:
-                            logger.warning(
-                                "[%s] Base menu pagination to page %d failed (%s) — keeping %d products",
-                                self.slug, page_num, exc, len(all_products),
-                            )
+            try:
+                await self.page.wait_for_function(
+                    _WAIT_FOR_DUTCHIE_JS, timeout=_SMART_WAIT_RETRY_MS,
+                )
+                logger.info("[%s] Smart-wait: Dutchie content detected on base menu", self.slug)
+            except PlaywrightTimeout:
+                logger.warning("[%s] Smart-wait: no content on base menu after %ds", self.slug, _SMART_WAIT_RETRY_MS // 1000)
+
+            target, embed_type, _ = await find_dutchie_content(
+                self.page,
+                iframe_timeout_ms=45_000,
+                js_embed_timeout_sec=60,
+                embed_type_hint=embed_hint,
+            )
+
+            if target is not None:
+                logger.info("[%s] Base menu content found via %s", self.slug, embed_type)
+                if embed_type == "iframe":
+                    await dismiss_age_gate(target)
+
+                await _scroll_to_load_content(target, self.slug)
+                await _wait_for_product_cards(target, self.slug)
+
+                page_num = 1
+                while True:
+                    products = await self._extract_products(target)
+                    # Dedup: skip products already found in specials
+                    new_products = [
+                        p for p in products
+                        if p["name"].lower().strip() not in _seen
+                    ]
+                    for p in new_products:
+                        _seen.add(p["name"].lower().strip())
+                    all_products.extend(new_products)
+                    logger.info(
+                        "[%s] Base menu page %d → %d products (%d new, total %d)",
+                        self.slug, page_num, len(products), len(new_products), len(all_products),
+                    )
+                    page_num += 1
+                    await force_remove_age_gate(self.page)
+                    try:
+                        if not await navigate_dutchie_page(target, page_num):
                             break
-                else:
-                    logger.warning("[%s] No Dutchie content on base menu either", self.slug)
+                    except Exception as exc:
+                        logger.warning(
+                            "[%s] Base menu pagination to page %d failed (%s) — keeping %d products",
+                            self.slug, page_num, exc, len(all_products),
+                        )
+                        break
+            else:
+                logger.warning("[%s] No Dutchie content on base menu either", self.slug)
 
         # --- Fallback URL from config (e.g. Jardin switched from AIQ to Dutchie) ---
         if not all_products:
