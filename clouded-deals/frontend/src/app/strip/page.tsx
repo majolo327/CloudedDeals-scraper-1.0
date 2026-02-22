@@ -232,13 +232,13 @@ export default async function StripPage() {
           <SeoDealsTable deals={stripDeals} showDispensary />
         </section>
 
-        {/* CTA to main app */}
+        {/* CTA to main app — deep-link with dispensary filter pre-set */}
         <section className="mb-10 p-6 rounded-xl bg-purple-500/5 border border-purple-500/10 text-center">
           <p className="text-sm text-slate-300 mb-3">
-            Want filters, saved deals, and real-time price comparisons?
+            Want to save deals, compare prices, and share your favorites?
           </p>
           <Link
-            href="/"
+            href={`/?dispensaries=${Array.from(STRIP_PAGE_DISPENSARY_IDS).join(',')}`}
             className="inline-block px-5 py-2.5 rounded-lg bg-purple-500/20 text-purple-400 text-sm font-medium hover:bg-purple-500/30 transition-colors"
           >
             Open CloudedDeals App

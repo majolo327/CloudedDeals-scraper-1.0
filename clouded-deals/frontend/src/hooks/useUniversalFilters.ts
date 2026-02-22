@@ -64,6 +64,22 @@ export function formatDistance(miles: number | null): string {
 export function useUniversalFilters() {
   const [filters, setFiltersRaw] = useState<UniversalFilterState>(() => {
     if (typeof window === 'undefined') return DEFAULT_UNIVERSAL_FILTERS;
+
+    // URL query param override: ?dispensaries=planet13,curaleaf-strip,...
+    // Used by /strip deep-link to pre-filter for tourists.
+    const params = new URLSearchParams(window.location.search);
+    const dispParam = params.get('dispensaries');
+    if (dispParam) {
+      const ids = dispParam.split(',').map(s => s.trim()).filter(Boolean);
+      if (ids.length > 0) {
+        // Clean the URL so the param doesn't stick on refresh
+        params.delete('dispensaries');
+        const clean = params.toString();
+        window.history.replaceState({}, '', window.location.pathname + (clean ? `?${clean}` : ''));
+        return { ...DEFAULT_UNIVERSAL_FILTERS, dispensaryIds: ids };
+      }
+    }
+
     try {
       const stored = localStorage.getItem(FILTERS_STORAGE_KEY);
       if (stored) {
