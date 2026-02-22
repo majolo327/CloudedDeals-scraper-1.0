@@ -42,18 +42,16 @@ _BETWEEN_PAGES_SEC = _DUTCHIE_CFG["between_pages_sec"]          # 5 s
 _TD_SLUGS = {"td-gibson", "td-eastern", "td-decatur"}
 
 # Smart-wait timeouts: content-based polling returns instantly when content
-# appears, so the longer cap only matters if the page is slow to inject.
-# Heavy pages (td-gibson, planet13) with many deal cards can take 2+ minutes
-# for the Dutchie embed to fully inject, especially on retry attempts.
-_SMART_WAIT_MS = 120_000         # 120 s — gives heavy pages enough time
-_SMART_WAIT_RETRY_MS = 90_000    # 90 s on retry attempts (up from 60 s)
+# appears, so the cap only matters if the page is slow to inject.
+# Proven pattern uses a fixed 5s sleep — 30s is generous but prevents the
+# 120s waits that were consuming most of the timeout budget.
+_SMART_WAIT_MS = 30_000          # 30 s — if embed hasn't injected by now, it won't
+_SMART_WAIT_RETRY_MS = 20_000    # 20 s on retry attempts
 
 # Shorter timeouts for dutchie.com direct URLs (React SPAs) — these either
-# render product cards within ~30 s or not at all.  The full 120 s smart-wait
-# plus 105 s iframe+js_embed cascade was burning ~490 s total (exceeding the
-# 480 s site timeout) on pages that simply weren't loading.
-_SMART_WAIT_DIRECT_MS = 45_000       # 45 s first attempt
-_SMART_WAIT_DIRECT_RETRY_MS = 30_000  # 30 s retry
+# render product cards within ~15 s or not at all.
+_SMART_WAIT_DIRECT_MS = 15_000       # 15 s first attempt
+_SMART_WAIT_DIRECT_RETRY_MS = 10_000  # 10 s retry
 
 # Planet 13 / Medizin share planet13.com — a store selector in the header
 # must be confirmed so the Dutchie embed loads the correct dispensary menu.
@@ -626,96 +624,18 @@ class DutchieScraper(BaseScraper):
                 )
                 break
 
-        # --- Category coverage: scrape base menu for specials-only URLs ------
-        # When the primary URL is a specials page, ALWAYS also scrape the
-        # base menu.  Specials may only cover 1-2 categories; the base menu
-        # provides full catalog coverage (Flower, Vape, Edibles, Concentrates,
-        # Pre-Rolls).  Products from specials take priority (already in
-        # all_products); base menu fills category gaps.
-        base_url = _strip_specials_from_url(self.url)
-        if base_url and base_url != self.url:
-            specials_count = len(all_products)
-            if not specials_count:
-                logger.warning(
-                    "[%s] Specials page returned 0 products — retrying base menu: %s",
-                    self.slug, base_url,
-                )
-                await self.save_debug_info("zero_products_specials", target)
-            else:
-                logger.info(
-                    "[%s] Specials yielded %d products — also scraping base menu for category coverage: %s",
-                    self.slug, specials_count, base_url,
-                )
-
-            # Build dedup set from specials products to avoid duplicates
-            _seen = {p["name"].lower().strip() for p in all_products}
-
-            await self.goto(base_url)
-            await asyncio.sleep(3)
-            await self.page.evaluate(_AGE_GATE_COOKIE_JS)
-            clicked = await self.handle_age_gate(post_wait_sec=3)
-            if clicked:
-                logger.info("[%s] Age gate clicked on base menu", self.slug)
-            await force_remove_age_gate(self.page)
-
-            try:
-                await self.page.wait_for_function(
-                    _WAIT_FOR_DUTCHIE_JS, timeout=_SMART_WAIT_RETRY_MS,
-                )
-                logger.info("[%s] Smart-wait: Dutchie content detected on base menu", self.slug)
-            except PlaywrightTimeout:
-                logger.warning("[%s] Smart-wait: no content on base menu after %ds", self.slug, _SMART_WAIT_RETRY_MS // 1000)
-
-            target, embed_type, _ = await find_dutchie_content(
-                self.page,
-                iframe_timeout_ms=45_000,
-                js_embed_timeout_sec=60,
-                embed_type_hint=embed_hint,
-            )
-
-            if target is not None:
-                logger.info("[%s] Base menu content found via %s", self.slug, embed_type)
-                if embed_type == "iframe":
-                    await dismiss_age_gate(target)
-
-                await _scroll_to_load_content(target, self.slug)
-                await _wait_for_product_cards(target, self.slug)
-
-                page_num = 1
-                while True:
-                    products = await self._extract_products(target)
-                    # Dedup: skip products already found in specials
-                    new_products = [
-                        p for p in products
-                        if p["name"].lower().strip() not in _seen
-                    ]
-                    for p in new_products:
-                        _seen.add(p["name"].lower().strip())
-                    all_products.extend(new_products)
-                    logger.info(
-                        "[%s] Base menu page %d → %d products (%d new, total %d)",
-                        self.slug, page_num, len(products), len(new_products), len(all_products),
-                    )
-                    page_num += 1
-                    await force_remove_age_gate(self.page)
-                    try:
-                        if not await navigate_dutchie_page(target, page_num):
-                            break
-                    except Exception as exc:
-                        logger.warning(
-                            "[%s] Base menu pagination to page %d failed (%s) — keeping %d products",
-                            self.slug, page_num, exc, len(all_products),
-                        )
-                        break
-            else:
-                logger.warning("[%s] No Dutchie content on base menu either", self.slug)
+        # --- Base menu scrape removed -------------------------------------------
+        # Previously scraped the base menu URL for "category coverage" after
+        # specials.  This doubled the work per site and pushed large catalogs
+        # (Planet13, Nevada Made, TD sites) past the timeout budget.  Specials
+        # scrape alone provides sufficient product data for deal detection.
 
         # --- Fallback URL from config (e.g. Jardin switched from AIQ to Dutchie) ---
         if not all_products:
             fallback_url = self.dispensary.get("fallback_url")
             if fallback_url and fallback_url != self.url:
                 logger.warning(
-                    "[%s] Primary + base menu both empty — trying fallback_url: %s",
+                    "[%s] Primary scrape empty — trying fallback_url: %s",
                     self.slug, fallback_url,
                 )
                 await self.goto(fallback_url)

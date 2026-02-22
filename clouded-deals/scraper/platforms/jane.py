@@ -245,7 +245,10 @@ class JaneScraper(BaseScraper):
                 continue
 
         # Last resort: use the generic handler from handlers/iframe.py.
-        return await get_iframe(self.page)
+        # get_iframe returns (frame, about_blank_srcs) — unpack to match
+        # this method's Frame | None return type.
+        frame, _ = await get_iframe(self.page)
+        return frame
 
     # ------------------------------------------------------------------
     # Product extraction — tries every known selector
