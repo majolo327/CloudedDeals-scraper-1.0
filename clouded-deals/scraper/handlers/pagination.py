@@ -106,62 +106,75 @@ async def navigate_dutchie_page(
 ) -> bool:
     """Navigate to a specific page on a Dutchie-powered menu.
 
-    Tries multiple selector strategies with multi-click fallback
-    (normal → force → JS click) and up to 2 retries per page:
-      1. ``button[aria-label="go to page N"]`` (standard Dutchie iframe)
-      2. ``a[aria-label="go to page N"]`` (some sites use links)
-      3. Case-insensitive ``Go to page N`` variants
-      4. Generic ``[aria-label]`` catch-all
+    Uses the proven pattern: instant ``query_selector`` checks (no 5s
+    timeouts per selector), ``is_visible()`` + ``is_enabled()`` gates,
+    simple click with brief settle.  Falls back to "Next" button.
 
-    Parameters
-    ----------
-    target:
-        The ``Page`` or ``Frame`` containing the Dutchie menu.
-    page_number:
-        1-indexed page number to navigate to.
-
-    Returns
-    -------
-    bool
-        ``True`` if navigation succeeded, ``False`` if the target page
-        does not exist or the button is disabled (end of results).
+    Returns ``True`` if navigation succeeded, ``False`` if the target
+    page does not exist or the button is disabled (end of results).
     """
-    selectors = [
+    # Page-number selectors (instant query_selector — no timeout wait)
+    page_selectors = [
         f'button[aria-label="go to page {page_number}"]',
-        f'a[aria-label="go to page {page_number}"]',
         f'button[aria-label="Go to page {page_number}"]',
+        f'a[aria-label="go to page {page_number}"]',
         f'a[aria-label="Go to page {page_number}"]',
-        f'[aria-label="go to page {page_number}"]',
-        f'[aria-label="Go to page {page_number}"]',
-        # Fallback: "Next" / arrow buttons (some Dutchie embeds use these)
-        'button[aria-label="Next"]',
-        'button[aria-label="next"]',
+        f'button:has-text("{page_number}")',
+        f'[data-page="{page_number}"]',
+    ]
+
+    # "Next" fallback selectors
+    next_selectors = [
+        'button[aria-label="Go to next page"]',
+        'button[aria-label="go to next page"]',
         'button[aria-label="Next page"]',
-        'a[aria-label="Next"]',
+        'button[aria-label="Next"]',
         'button:has-text("Next")',
-        '[aria-label="next page"]',
+        'a[aria-label="Next"]',
+        'a:has-text("Next")',
     ]
 
     for attempt in range(1, _DUTCHIE_NAV_MAX_RETRIES + 1):
-        for selector in selectors:
+        # --- Try page-number buttons first (instant checks) ---------------
+        for selector in page_selectors:
             try:
-                locator = target.locator(selector).first
-                await locator.wait_for(state="attached", timeout=5_000)
-            except PlaywrightTimeout:
+                btn = await target.query_selector(selector)
+                if btn and await btn.is_visible():
+                    # CRITICAL: disabled button = pagination complete
+                    if not await btn.is_enabled():
+                        logger.info(
+                            "Dutchie page %d button is disabled — pagination complete",
+                            page_number,
+                        )
+                        return False
+                    await btn.click()
+                    logger.info("Navigated to Dutchie page %d via %s", page_number, selector)
+                    await asyncio.sleep(_settle_delay(5))
+                    return True
+            except Exception as exc:
+                if 'element is not enabled' in str(exc).lower():
+                    return False
                 continue
 
-            # CRITICAL: a disabled button means pagination is COMPLETE.
-            if not await locator.is_enabled():
-                logger.info(
-                    "Dutchie page %d button is disabled — pagination complete",
-                    page_number,
-                )
-                return False
-
-            label = f"Navigated to Dutchie page {page_number}"
-            if await _click_with_fallback(target, locator, selector, label):
-                await asyncio.sleep(_settle_delay(5))
-                return True
+        # --- Try "Next" button fallback -----------------------------------
+        for selector in next_selectors:
+            try:
+                btn = await target.query_selector(selector)
+                if btn and await btn.is_visible():
+                    if not await btn.is_enabled():
+                        logger.info(
+                            "Dutchie page %d 'Next' button is disabled — pagination complete",
+                            page_number,
+                        )
+                        return False
+                    await btn.click()
+                    logger.info("Navigated to Dutchie page %d via %s", page_number, selector)
+                    await asyncio.sleep(_settle_delay(5))
+                    return True
+            except Exception as exc:
+                if 'element is not enabled' in str(exc).lower():
+                    return False
+                continue
 
         if attempt < _DUTCHIE_NAV_MAX_RETRIES:
             logger.info(
@@ -254,7 +267,7 @@ async def navigate_curaleaf_page(
 # Jane sites
 # ------------------------------------------------------------------
 
-_JANE_MAX_LOAD_MORE = 30
+_JANE_MAX_LOAD_MORE = 10  # Proven pattern: 10 clicks is sufficient; 30 caused Thrive timeouts
 _JANE_LOAD_MORE_SETTLE_BASE = 2.0  # Settle time after each View More click
 _JANE_VIEW_MORE_TIMEOUT_MS = 12_000  # 12 s — Jane pages render slowly
 

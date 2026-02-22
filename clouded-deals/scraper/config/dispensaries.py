@@ -147,7 +147,7 @@ PLATFORM_DEFAULTS = {
         "pagination": "aria-label",       # paginate via aria-label buttons
         "between_pages_sec": 5,
         "embed_type": "iframe",
-        "wait_until": "load",             # scripts must fully execute to create iframe
+        "wait_until": "domcontentloaded",  # proven pattern: domcontentloaded is faster; 'load' waits for analytics/trackers
     },
     "curaleaf": {
         "wait_after_age_gate_sec": 30,
@@ -228,7 +228,7 @@ DISPENSARIES = [
         "fallback_url": "https://dutchie.com/embedded-menu/planet-13-dispensary/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "iframe",   # P13 uses Dutchie iframe — hint avoids 60s js_embed detection
+        "embed_type": "direct",   # P13 renders Dutchie cards directly on page — no iframe
     },
     {
         "name": "Medizin",
@@ -238,7 +238,7 @@ DISPENSARIES = [
         "fallback_url": "https://dutchie.com/embedded-menu/medizin-dispensary/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "iframe",   # same as Planet 13
+        "embed_type": "direct",   # same as Planet 13 — direct page rendering
     },
     {
         "name": "Greenlight Downtown",
@@ -248,7 +248,7 @@ DISPENSARIES = [
         "fallback_url": "https://dutchie.com/embedded-menu/greenlight-las-vegas/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "js_embed",  # dtche param confirms JS embed
+        "embed_type": "iframe",  # logs confirm iframe, not js_embed
     },
     {
         "name": "Greenlight Paradise",
@@ -258,7 +258,7 @@ DISPENSARIES = [
         "fallback_url": "https://dutchie.com/embedded-menu/greenlight-paradise/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "js_embed",  # dtche param confirms JS embed
+        "embed_type": "iframe",  # logs confirm iframe, not js_embed
     },
     {
         "name": "The Grove",
@@ -278,7 +278,7 @@ DISPENSARIES = [
         "fallback_url": "https://dutchie.com/embedded-menu/the-mint-paradise/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "js_embed",  # dtche param confirms JS embed
+        "embed_type": "iframe",  # logs confirm iframe (about:blank initially, loads after age gate)
     },
     {
         "name": "Mint Rainbow",
@@ -288,7 +288,7 @@ DISPENSARIES = [
         "fallback_url": "https://dutchie.com/embedded-menu/the-mint-spring-valley/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "js_embed",  # dtche param confirms JS embed
+        "embed_type": "iframe",  # logs confirm iframe, not js_embed
     },
     # --- Phase 1 additions (recon-confirmed Dutchie JS embeds) ---
     {
@@ -299,7 +299,7 @@ DISPENSARIES = [
         "fallback_url": "https://dutchie.com/embedded-menu/blum-desert-inn/specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "js_embed",  # dtche param confirms JS embed
+        "embed_type": "iframe",  # logs confirm iframe (found via dutchie.com selector)
     },
     {
         "name": "Jade Cannabis Sky Pointe",
@@ -308,7 +308,7 @@ DISPENSARIES = [
         "url": "https://skypointe.jadecannabisco.com/?dtche%5Bpath%5D=specials",
         "is_active": True,
         "region": "southern-nv",
-        "embed_type": "js_embed",  # dtche param confirms JS embed
+        "embed_type": "iframe",  # logs confirm iframe (found via dutchie.com selector)
     },
     {
         "name": "The Grove Pahrump",

@@ -64,194 +64,85 @@ _TRACKING_DOMAINS = [
 ]
 
 
-async def _resolve_frame(
-    page: Page,
-    selector: str,
-    timeout_ms: int,
-    post_wait_sec: float,
-    *,
-    checked_srcs: set[str] | None = None,
-) -> tuple[Frame | None, str | None]:
-    """Try to find an iframe via *selector*, wait for it, and return
-    its content frame.  Returns ``(None, None)`` on any failure.
-
-    When the iframe is found but stuck at about:blank, returns
-    ``(None, src_url)`` so the caller can use the src as a fallback.
-    """
-    try:
-        locator = page.locator(selector).first
-        await locator.wait_for(state="attached", timeout=timeout_ms)
-    except PlaywrightTimeout:
-        logger.debug("Iframe selector %r not found, trying next", selector)
-        return None, None
-
-    element = await locator.element_handle()
-    if element is None:
-        logger.debug("Iframe selector %r matched but element_handle is None", selector)
-        return None, None
-
-    # Check if we've already tried this iframe (by src attribute)
-    src_attr = await element.get_attribute("src") or ""
-    if checked_srcs is not None and src_attr in checked_srcs:
-        logger.debug("Already checked iframe src=%s — skipping selector %r", src_attr[:80], selector)
-        return None, None
-    if checked_srcs is not None and src_attr:
-        checked_srcs.add(src_attr)
-
-    frame = await element.content_frame()
-    if frame is None:
-        logger.debug("Iframe selector %r has no content frame yet", selector)
-        return None, None
-
-    try:
-        await frame.wait_for_load_state("domcontentloaded", timeout=timeout_ms)
-    except PlaywrightTimeout:
-        logger.warning(
-            "Iframe frame from %r did not reach domcontentloaded in %d ms",
-            selector,
-            timeout_ms,
-        )
-        # Return the frame anyway — partial content is better than nothing.
-
-    # Guard: if the iframe is still about:blank, the embed hasn't actually
-    # loaded — the age gate callback may not have fired.  Wait up to 10 s
-    # for the frame to navigate to its real URL before giving up.
-    # (Reduced from 30 s — if it hasn't loaded in 10 s, it won't.)
-    if frame.url in ("about:blank", ""):
-        logger.info("Iframe from %r is about:blank — waiting for real URL (up to 10 s)", selector)
-        for _ in range(10):
-            await asyncio.sleep(1)
-            if frame.url not in ("about:blank", ""):
-                break
-        if frame.url in ("about:blank", ""):
-            logger.warning("Iframe from %r still about:blank after 10 s — skipping", selector)
-            # Return the src URL so the caller can use it as a fallback
-            if src_attr and src_attr != "about:blank":
-                return None, src_attr
-            return None, None
-
-    logger.info("Iframe found via %r — frame URL: %s", selector, frame.url)
-
-    if post_wait_sec > 0:
-        await asyncio.sleep(post_wait_sec)
-
-    return frame, None
-
-
 async def get_iframe(
     page: Page,
     *,
     timeout_ms: int = _IFRAME_READY_TIMEOUT_MS,
-    post_wait_sec: float = 5,
+    post_wait_sec: float = 3,
 ) -> tuple[Frame | None, list[str]]:
     """Locate and return the dispensary menu iframe on *page*.
 
+    Uses the proven simple pattern: ``query_selector_all('iframe')``,
+    check ``src`` for Dutchie keywords, grab ``content_frame()``, brief
+    sleep, proceed.  No about:blank rejection — the product extraction
+    layer handles empty frames gracefully via the normal retry logic.
+
     Returns ``(frame, about_blank_srcs)`` where *frame* is the content
     frame if successfully resolved, or ``None``.  *about_blank_srcs* is
-    a list of iframe src URLs that were found but stuck at about:blank,
-    which the caller can use as fallback URLs for direct navigation.
-
-    Optimizations over the original implementation:
-    - Quick-checks for zero iframes before iterating selectors.
-    - Tracks already-checked iframe src attributes to prevent re-checking
-      the same about:blank iframe across multiple selectors (was burning
-      30 s × 5 selectors = 150 s on the same iframe).
-    - Reduced about:blank poll from 30 s to 10 s.
+    a list of iframe src URLs found but not yet loaded (usable as
+    fallback URLs for direct navigation).
     """
     about_blank_srcs: list[str] = []
-    checked_srcs: set[str] = set()
 
     # --- Quick check: any iframes on the page at all? --------------------
-    # If zero iframes exist, skip the entire selector cascade (saves up
-    # to 270 s = 6 selectors × 45 s timeout each).
     all_iframes = await page.query_selector_all("iframe")
     if not all_iframes:
-        logger.info("No iframes on page — skipping iframe selector cascade")
+        logger.info("No iframes on page — skipping iframe detection")
         return None, []
 
-    # Pre-scan: collect all iframe src attributes for dedup and logging
-    iframe_srcs: list[str] = []
+    # --- Proven pattern: scan all iframes for Dutchie src ----------------
+    # Matches the simple loop from the production scraper that worked for
+    # months: iterate iframes, check src for 'dutchie', grab content_frame.
+    dutchie_keywords = ("dutchie", "embedded-menu", "goshango")
+
     for el in all_iframes:
         src = await el.get_attribute("src") or ""
-        iframe_srcs.append(src)
+        if not src:
+            continue
+        # Skip known tracking / analytics iframes
+        if any(domain in src for domain in _TRACKING_DOMAINS):
+            continue
+        # Check if this iframe has a Dutchie-related src
+        if not any(kw in src.lower() for kw in dutchie_keywords):
+            continue
 
-    has_dutchie_src = any(
-        "dutchie" in s or "embedded-menu" in s or "goshango" in s
-        for s in iframe_srcs if s
-    )
+        frame = await el.content_frame()
+        if frame is None:
+            continue
 
-    # If no iframes have Dutchie-related src, reduce per-selector timeout
-    # dramatically (5 s instead of 45 s) — the selectors won't match.
-    effective_timeout = timeout_ms if has_dutchie_src else 5_000
-
-    # --- Strategy 1: explicit selectors ----------------------------------
-    for selector in IFRAME_SELECTORS:
-        frame, blank_src = await _resolve_frame(
-            page, selector, effective_timeout, post_wait_sec,
-            checked_srcs=checked_srcs,
-        )
-        if frame is not None:
-            return frame, about_blank_srcs
-        if blank_src and blank_src not in about_blank_srcs:
-            about_blank_srcs.append(blank_src)
-
-    # --- Strategy 2: last-resort single-iframe fallback ------------------
-    logger.info("No iframe matched explicit selectors — trying last-resort single-iframe fallback")
-
-    # Log every iframe we see for debugging
-    for i, src in enumerate(iframe_srcs):
-        logger.info("  iframe[%d] src=%s", i, src or "(no src)")
-
-    # Filter to iframes with a real src, excluding known tracking/analytics
-    real_iframes = []
-    for i, el in enumerate(all_iframes):
-        src = iframe_srcs[i]
-        if src and src != "about:blank" and src != "javascript:false":
-            if any(domain in src for domain in _TRACKING_DOMAINS):
-                logger.debug("  Skipping tracking iframe: %s", src[:100])
-                continue
-            # Skip iframes we already checked via selector cascade
-            if src in checked_srcs:
-                logger.debug("  Skipping already-checked iframe: %s", src[:100])
-                continue
-            real_iframes.append(el)
-
-    if len(real_iframes) == 1:
-        frame = await real_iframes[0].content_frame()
-        if frame is not None:
-            try:
-                await frame.wait_for_load_state("domcontentloaded", timeout=effective_timeout)
-            except PlaywrightTimeout:
-                pass  # partial content is better than nothing
-
-            # Force-navigate if frame is stuck on about:blank (same fix
-            # as _resolve_frame — the embed's src is set but the frame
-            # never navigated).
-            if frame.url in ("about:blank", ""):
-                src_attr = await real_iframes[0].get_attribute("src") or ""
-                if src_attr and src_attr != "about:blank":
-                    logger.info(
-                        "Last-resort iframe is about:blank — force-navigating to src=%s",
-                        src_attr[:120],
-                    )
-                    try:
-                        await frame.goto(src_attr, wait_until="domcontentloaded", timeout=30_000)
-                    except PlaywrightTimeout:
-                        logger.warning("Last-resort force-navigation timed out")
-                    except Exception:
-                        logger.warning("Last-resort force-navigation failed", exc_info=True)
-                        if src_attr not in about_blank_srcs:
-                            about_blank_srcs.append(src_attr)
-                        return None, about_blank_srcs
-
+        # If frame is still about:blank, record the src as a potential
+        # fallback URL but keep trying other iframes first.
+        if frame.url in ("about:blank", ""):
             logger.info(
-                "Last-resort: single iframe found — frame URL: %s", frame.url,
+                "Iframe with src=%s is about:blank — recording as fallback",
+                src[:120],
             )
-            if post_wait_sec > 0:
-                await asyncio.sleep(post_wait_sec)
-            return frame, about_blank_srcs
+            if src and src != "about:blank" and src not in about_blank_srcs:
+                about_blank_srcs.append(src)
+            continue
 
-    logger.warning("No menu iframe found on page %s (%d iframes seen)", page.url, len(all_iframes))
+        # Found a loaded Dutchie iframe — brief settle and return
+        logger.info("Iframe found via src match — frame URL: %s", frame.url)
+        if post_wait_sec > 0:
+            await asyncio.sleep(post_wait_sec)
+        return frame, about_blank_srcs
+
+    # --- No loaded Dutchie iframe found — log what we saw ----------------
+    if about_blank_srcs:
+        logger.info(
+            "Dutchie iframe(s) found but still about:blank — %d fallback URL(s) recorded",
+            len(about_blank_srcs),
+        )
+    else:
+        # Log all iframes for debugging
+        for i, el in enumerate(all_iframes):
+            src = await el.get_attribute("src") or "(no src)"
+            logger.info("  iframe[%d] src=%s", i, src)
+        logger.warning(
+            "No Dutchie iframe found on page %s (%d iframes seen)",
+            page.url, len(all_iframes),
+        )
+
     return None, about_blank_srcs
 
 
