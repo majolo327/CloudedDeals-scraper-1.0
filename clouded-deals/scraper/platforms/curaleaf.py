@@ -25,7 +25,7 @@ from urllib.parse import urlparse
 from playwright.async_api import TimeoutError as PlaywrightTimeout
 
 from clouded_logic import CONSECUTIVE_EMPTY_MAX
-from config.dispensaries import PLATFORM_DEFAULTS
+from config.dispensaries import PLATFORM_DEFAULTS, is_expansion_region
 from handlers import dismiss_age_gate, navigate_curaleaf_page
 from handlers.pagination import _JS_DISMISS_OVERLAYS
 from .base import BaseScraper
@@ -74,18 +74,16 @@ _BY_BRAND = re.compile(
     re.IGNORECASE,
 )
 
-# Cap pagination at 25 pages.  Curaleaf sites have 500–700+ products across
-# 12-14 pages typically, but some stores are expanding.  25 pages × 51
-# products ≈ 1275, giving headroom for growth while staying within timeout.
+# Cap pagination at 25 pages for production NV.
+# Expansion states get 50 pages to capture full catalogs.
 _MAX_PAGES = 25
+_MAX_PAGES_EXPANSION = 50
 
 # Safety cap: stop pagination once we've collected this many products.
-# Large Curaleaf sites (NY) can have 800-1100+ products across 18+ pages.
-# With concurrent browser sharing, each page takes ~25s, so paginating
-# through all pages exceeds the per-site timeout (480s).  500 products
-# is sufficient for deal detection — the dedup step typically reduces
-# this to 100-200 unique products.
+# Production NV: 500 products is sufficient for deal detection.
+# Expansion states: 1500 products to capture full catalogs.
 _MAX_PRODUCTS = 500
+_MAX_PRODUCTS_EXPANSION = 1500
 
 # Curaleaf product card selectors (tried in order).
 _PRODUCT_SELECTORS = [
@@ -246,11 +244,17 @@ class CuraleafScraper(BaseScraper):
             logger.warning("[%s] Smart-wait: no product content after 30s — trying extraction anyway", self.slug)
 
         # --- Paginate and collect products ------------------------------
+        # Expansion states get higher limits to capture full catalogs.
+        region = self.dispensary.get("region", "southern-nv")
+        is_expansion = is_expansion_region(region)
+        max_pages = _MAX_PAGES_EXPANSION if is_expansion else _MAX_PAGES
+        max_products = _MAX_PRODUCTS_EXPANSION if is_expansion else _MAX_PRODUCTS
+
         all_products: list[dict[str, Any]] = []
         page_num = 1
         consecutive_empty = 0
 
-        while page_num <= _MAX_PAGES:
+        while page_num <= max_pages:
             products = await self._extract_products()
             all_products.extend(products)
             logger.info(
@@ -260,7 +264,7 @@ class CuraleafScraper(BaseScraper):
 
             # Stop early if we've collected enough products.  Large sites
             # (800-1100+ products) cause timeouts when paginating to the end.
-            if len(all_products) >= _MAX_PRODUCTS:
+            if len(all_products) >= max_products:
                 logger.info(
                     "[%s] Collected %d products (cap=%d) — stopping pagination early",
                     self.slug, len(all_products), _MAX_PRODUCTS,
@@ -304,8 +308,8 @@ class CuraleafScraper(BaseScraper):
             if not _nav_ok:
                 break
 
-        if page_num > _MAX_PAGES:
-            logger.info("[%s] Reached max pages (%d) — stopping pagination", self.slug, _MAX_PAGES)
+        if page_num > max_pages:
+            logger.info("[%s] Reached max pages (%d) — stopping pagination", self.slug, max_pages)
 
         # --- Fallback: if /specials returned 0 products, try the base menu ---
         if not all_products and "/specials" in self.url:
@@ -320,14 +324,14 @@ class CuraleafScraper(BaseScraper):
             logger.info("[%s] Waiting %ds for product cards on base menu…", self.slug, _POST_AGE_GATE_WAIT)
             await asyncio.sleep(_POST_AGE_GATE_WAIT)
             page_num = 1
-            while page_num <= _MAX_PAGES:
+            while page_num <= max_pages:
                 products = await self._extract_products()
                 all_products.extend(products)
                 logger.info(
                     "[%s] Base menu page %d → %d products (total %d)",
                     self.slug, page_num, len(products), len(all_products),
                 )
-                if len(all_products) >= _MAX_PRODUCTS:
+                if len(all_products) >= max_products:
                     logger.info(
                         "[%s] Reached product cap (%d) on base menu — stopping",
                         self.slug, len(all_products),

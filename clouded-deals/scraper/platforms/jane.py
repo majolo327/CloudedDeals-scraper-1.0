@@ -23,8 +23,9 @@ from typing import Any
 
 from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 
-from config.dispensaries import PLATFORM_DEFAULTS
+from config.dispensaries import PLATFORM_DEFAULTS, is_expansion_region
 from handlers import dismiss_age_gate, get_iframe, handle_jane_view_more
+from handlers.pagination import _JANE_MAX_LOAD_MORE_EXPANSION
 from .base import BaseScraper
 
 logger = logging.getLogger(__name__)
@@ -169,11 +170,18 @@ class JaneScraper(BaseScraper):
                 return []
 
         # --- Progressive loading via "View More" -----------------------
+        # Expansion states get more View More clicks (30 vs 10) to capture
+        # full product catalogs.  Production NV uses the proven 10-click limit.
+        region = self.dispensary.get("region", "southern-nv")
+        max_view_more = _JANE_MAX_LOAD_MORE_EXPANSION if is_expansion_region(region) else None
         # Retry up to 2 times with exponential backoff if View More fails
         _view_more_attempts = 0
         while _view_more_attempts < 3:
             try:
-                view_more_clicks = await handle_jane_view_more(target)
+                kwargs = {}
+                if max_view_more is not None:
+                    kwargs["max_attempts"] = max_view_more
+                view_more_clicks = await handle_jane_view_more(target, **kwargs)
                 break  # success
             except Exception as exc:
                 _view_more_attempts += 1
@@ -190,6 +198,13 @@ class JaneScraper(BaseScraper):
                         self.slug, exc, len(products),
                     )
                     view_more_clicks = 0
+
+        # --- Infinite scroll for expansion states -------------------------
+        # Some Jane sites use infinite scroll instead of (or in addition to)
+        # View More buttons.  Scroll to bottom repeatedly to trigger loading.
+        # Only for expansion states to avoid changing production NV behavior.
+        if is_expansion_region(region):
+            await self._infinite_scroll(target)
 
         try:
             if view_more_clicks > 0:
@@ -219,6 +234,97 @@ class JaneScraper(BaseScraper):
             )
 
         return products
+
+    # ------------------------------------------------------------------
+    # Infinite scroll (expansion states only)
+    # ------------------------------------------------------------------
+
+    async def _infinite_scroll(
+        self,
+        target: Page | Frame,
+        *,
+        max_scrolls: int = 25,
+        no_change_limit: int = 3,
+    ) -> int:
+        """Scroll to bottom repeatedly to trigger infinite-scroll loading.
+
+        Returns the number of new product elements detected after scrolling.
+        Stops when no new products load after *no_change_limit* consecutive
+        scrolls, or *max_scrolls* is reached.
+        """
+        js_count_products = """
+        () => {
+            const selectors = [
+                '[data-testid="product-card"]',
+                '[data-testid*="product"]',
+                '[class*="ProductCard"]',
+                '[class*="product-card"]',
+                'div[class*="product"]',
+                '._flex_80y9c_1',
+            ];
+            let max = 0;
+            for (const sel of selectors) {
+                const count = document.querySelectorAll(sel).length;
+                if (count > max) max = count;
+            }
+            return max;
+        }
+        """
+
+        try:
+            initial_count = await target.evaluate(js_count_products)
+        except Exception:
+            return 0
+
+        no_change_streak = 0
+        last_count = initial_count
+
+        for scroll_num in range(max_scrolls):
+            # Scroll to bottom
+            try:
+                await target.evaluate(
+                    "() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })"
+                )
+            except Exception:
+                break
+
+            # Wait for new content
+            await asyncio.sleep(1.5 + (0.5 * (scroll_num // 5)))
+
+            try:
+                current_count = await target.evaluate(js_count_products)
+            except Exception:
+                break
+
+            if current_count > last_count:
+                no_change_streak = 0
+                logger.info(
+                    "[%s] Infinite scroll %d: %d → %d products",
+                    self.slug, scroll_num + 1, last_count, current_count,
+                )
+                last_count = current_count
+            else:
+                no_change_streak += 1
+                if no_change_streak >= no_change_limit:
+                    break
+
+        new_products = last_count - initial_count
+        if new_products > 0:
+            logger.info(
+                "[%s] Infinite scroll loaded %d additional products",
+                self.slug, new_products,
+            )
+
+        # Scroll back to top
+        try:
+            await target.evaluate(
+                "() => window.scrollTo({ top: 0, behavior: 'smooth' })"
+            )
+            await asyncio.sleep(0.5)
+        except Exception:
+            pass
+
+        return new_products
 
     # ------------------------------------------------------------------
     # Iframe detection

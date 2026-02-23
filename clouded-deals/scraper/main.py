@@ -45,7 +45,7 @@ from playwright.async_api import async_playwright
 from config.dispensaries import (
     BROWSER_ARGS, DISPENSARIES, SITE_TIMEOUT_SEC,
     get_platforms_for_group, get_dispensaries_by_group,
-    get_dispensaries_by_region,
+    get_dispensaries_by_region, is_expansion_region,
 )
 from clouded_logic import CloudedLogic, BRANDS_LOWER
 from deal_detector import detect_deals, get_last_report_data
@@ -1035,6 +1035,7 @@ def _expire_stale_deal_history(group_slugs: list[str] | None = None) -> None:
 
 
 _SITE_TIMEOUT_SEC = 480  # 8 min — Dutchie cascade (90s smart-wait + 105s detection + 30s card-wait + extraction) needs room.
+_SITE_TIMEOUT_SEC_EXPANSION = 600  # 10 min for expansion states — category tab iteration + deeper pagination needs more time.
 _RETRY_TIMEOUT_SEC = 300  # 5 min for retries — enough for a full detection pass on slow sites.
 _MAX_RETRIES = 2  # 2 attempts total — saves ~5 min per broken site vs 3
 _RETRY_DELAYS = [5, 15]  # Backoff between retries
@@ -1431,8 +1432,15 @@ async def scrape_site(
                 )
                 return {"slug": slug, "error": "Skipped — job deadline reached"}
 
-        # First attempt gets full timeout; retries get reduced timeout
-        timeout = _SITE_TIMEOUT_SEC if attempt == 1 else _RETRY_TIMEOUT_SEC
+        # First attempt gets full timeout; retries get reduced timeout.
+        # Expansion states get a longer timeout for category tab iteration.
+        region = dispensary.get("region", "southern-nv")
+        base_timeout = (
+            _SITE_TIMEOUT_SEC_EXPANSION
+            if is_expansion_region(region)
+            else _SITE_TIMEOUT_SEC
+        )
+        timeout = base_timeout if attempt == 1 else _RETRY_TIMEOUT_SEC
 
         # Cap timeout to remaining job budget (leave 15s for cleanup)
         if deadline:
@@ -1870,6 +1878,48 @@ async def run(slug_filter: str | None = None) -> None:
             icon = "✓" if pct == 100 else ("!" if pct > 0 else "✗")
             logger.info("  │  %-14s  %3d / %-3d      %s %-5s      │", plat, ok, tot, icon, bar)
         logger.info("  └─────────────────────────────────────────────┘")
+
+        # Per-region product breakdown (expansion state tracking)
+        region_products: Counter[str] = Counter()
+        region_sites: Counter[str] = Counter()
+        for sr in site_reports:
+            disp_region = "unknown"
+            for d in dispensaries:
+                if d["slug"] == sr["slug"]:
+                    disp_region = d.get("region", "unknown")
+                    break
+            region_products[disp_region] += sr.get("products", 0)
+            region_sites[disp_region] += 1
+
+        if len(region_products) > 1:
+            logger.info("")
+            logger.info("  Products per region:")
+            for reg in sorted(region_products.keys()):
+                avg = (
+                    round(region_products[reg] / region_sites[reg])
+                    if region_sites[reg] > 0 else 0
+                )
+                expansion_tag = " [EXPANSION]" if is_expansion_region(reg) else ""
+                logger.info(
+                    "    %-20s %4d products / %3d sites (avg %d)%s",
+                    reg, region_products[reg], region_sites[reg], avg,
+                    expansion_tag,
+                )
+
+        # Top 10 sites by product count (helps identify high-yield dispensaries)
+        sorted_sites = sorted(
+            [sr for sr in site_reports if sr.get("products", 0) > 0],
+            key=lambda x: x.get("products", 0),
+            reverse=True,
+        )[:10]
+        if sorted_sites:
+            logger.info("")
+            logger.info("  Top 10 sites by product count:")
+            for sr in sorted_sites:
+                logger.info(
+                    "    %-30s %4d products  (%s)",
+                    sr["slug"][:30], sr.get("products", 0), sr["platform"],
+                )
 
         if sites_failed:
             logger.info("")
