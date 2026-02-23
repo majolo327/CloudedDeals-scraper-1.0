@@ -179,6 +179,39 @@ PLATFORM_DEFAULTS = {
 }
 
 # ---------------------------------------------------------------------------
+# Expansion state regions — these get aggressive pagination and higher limits.
+# Production NV sites (southern-nv) use the proven stable configuration.
+# ---------------------------------------------------------------------------
+
+PRODUCTION_REGIONS = {"southern-nv"}
+
+EXPANSION_REGIONS = {
+    "michigan", "illinois", "arizona", "colorado", "massachusetts",
+    "missouri", "new-jersey", "ohio", "new-york", "pennsylvania",
+    "northern-nv",
+}
+
+
+def is_expansion_region(region: str) -> bool:
+    """Return True if *region* is an expansion state (not production NV).
+
+    Expansion regions get aggressive pagination enhancements:
+    - Category tab iteration
+    - Higher page limits
+    - More Load More / View More clicks
+    - Increased product caps
+
+    Production regions (southern-nv) use the existing proven patterns
+    unchanged.
+    """
+    if not region:
+        return False
+    # Handle sharded regions like "michigan-2" → "michigan"
+    base = region.rsplit("-", 1)[0] if region[-1:].isdigit() else region
+    return base in EXPANSION_REGIONS
+
+
+# ---------------------------------------------------------------------------
 # Dispensary definitions
 #
 # Core MVP sites (is_active=True) are the ones the PRD has validated.

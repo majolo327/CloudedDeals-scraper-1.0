@@ -97,7 +97,7 @@ async def _click_with_fallback(
     return False
 
 
-_DUTCHIE_NAV_MAX_RETRIES = 2
+_DUTCHIE_NAV_MAX_RETRIES = 3  # Increased from 2 for expansion state reliability
 
 
 async def navigate_dutchie_page(
@@ -267,7 +267,10 @@ async def navigate_curaleaf_page(
 # Jane sites
 # ------------------------------------------------------------------
 
-_JANE_MAX_LOAD_MORE = 10  # Proven pattern: 10 clicks is sufficient; 30 caused Thrive timeouts
+# Production NV default: 10 clicks (proven pattern; 30 caused Thrive timeouts).
+# Expansion states get higher limits via the max_attempts parameter.
+_JANE_MAX_LOAD_MORE = 10
+_JANE_MAX_LOAD_MORE_EXPANSION = 30  # Expansion states: up to 30 clicks
 _JANE_LOAD_MORE_SETTLE_BASE = 2.0  # Settle time after each View More click
 _JANE_VIEW_MORE_TIMEOUT_MS = 12_000  # 12 s — Jane pages render slowly
 

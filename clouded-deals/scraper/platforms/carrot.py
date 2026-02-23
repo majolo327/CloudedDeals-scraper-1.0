@@ -34,7 +34,7 @@ from typing import Any
 
 from playwright.async_api import TimeoutError as PlaywrightTimeout
 
-from config.dispensaries import PLATFORM_DEFAULTS
+from config.dispensaries import PLATFORM_DEFAULTS, is_expansion_region
 from .base import BaseScraper
 
 logger = logging.getLogger(__name__)
@@ -444,6 +444,9 @@ class CarrotScraper(BaseScraper):
 
     async def _expand_all_products(self) -> None:
         """Scroll the page and click Load More buttons to reveal all products."""
+        region = self.dispensary.get("region", "southern-nv")
+        is_expansion = is_expansion_region(region)
+
         # Scroll to trigger lazy loading
         try:
             await self.page.evaluate(_JS_SCROLL_TO_BOTTOM)
@@ -453,7 +456,8 @@ class CarrotScraper(BaseScraper):
 
         # Click "Load More" / "View More" buttons until none remain
         # Each click gets up to 2 retries with backoff before giving up.
-        max_clicks = 20
+        # Expansion states: 40 clicks.  Production NV: 20 clicks.
+        max_clicks = 40 if is_expansion else 20
         for click_num in range(max_clicks):
             clicked = False
             for selector in _LOAD_MORE_SELECTORS:

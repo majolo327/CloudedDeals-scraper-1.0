@@ -38,7 +38,7 @@ from typing import Any, Union
 
 from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 
-from config.dispensaries import PLATFORM_DEFAULTS
+from config.dispensaries import PLATFORM_DEFAULTS, is_expansion_region
 from handlers import dismiss_age_gate
 from .base import BaseScraper
 
@@ -481,6 +481,8 @@ class AIQScraper(BaseScraper):
         We try all three approaches.
         """
         page = target if isinstance(target, Page) else self.page
+        region = self.dispensary.get("region", "southern-nv")
+        is_expansion = is_expansion_region(region)
 
         # Scroll the window (triggers infinite scroll on page-level listeners)
         try:
@@ -507,7 +509,9 @@ class AIQScraper(BaseScraper):
 
         # Click "Load More" / "View More" buttons until none remain
         # Each click gets up to 2 retries with backoff before giving up.
-        max_clicks = 30  # Green NV has 628 products — may need many clicks
+        # Expansion states: 50 clicks to capture larger catalogs.
+        # Production NV: 30 clicks (Green NV has 628 products).
+        max_clicks = 50 if is_expansion else 30
         total_clicked = 0
         for click_num in range(max_clicks):
             clicked = False

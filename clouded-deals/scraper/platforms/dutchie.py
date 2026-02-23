@@ -15,7 +15,9 @@ Flow:
      JS embed probing (60 s) for sites that inject into the page DOM.
   6. Extract products from whichever target was found.
   7. Paginate via ``aria-label="go to page N"`` buttons.
-  8. If specials returned 0 products, fall back to the base menu URL.
+  8. Click through category tabs (Flower, Edibles, Concentrates, etc.)
+     and paginate each to capture the FULL product catalog.
+  9. If specials returned 0 products, fall back to the base menu URL.
 """
 
 from __future__ import annotations
@@ -30,7 +32,7 @@ from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 
 from clouded_logic import CONSECUTIVE_EMPTY_MAX
-from config.dispensaries import PLATFORM_DEFAULTS
+from config.dispensaries import PLATFORM_DEFAULTS, is_expansion_region
 from handlers import dismiss_age_gate, force_remove_age_gate, find_dutchie_content, navigate_dutchie_page
 from .base import BaseScraper
 
@@ -352,6 +354,90 @@ async def _wait_for_product_cards(
         return False
 
 
+# Dutchie category tab selectors — used to click through each menu category
+# and paginate independently.  Dutchie menus show category filters as tabs
+# or buttons (e.g. "Flower", "Edibles", "Concentrates", "Vapes", "Pre-Rolls").
+# Clicking each tab resets pagination and shows that category's products.
+_CATEGORY_TAB_SELECTORS = [
+    # Dutchie tab/filter button patterns
+    'button[data-testid*="category"]',
+    'button[class*="category"]',
+    'button[class*="Category"]',
+    'a[class*="category"]',
+    'a[class*="Category"]',
+    '[data-testid*="filter"]',
+    '[role="tab"]',
+    # Nav link patterns for category filters
+    'nav button',
+    'nav a',
+    '[class*="filter"] button',
+    '[class*="Filter"] button',
+    '[class*="menu-type"] button',
+    '[class*="MenuType"] button',
+]
+
+# Known Dutchie category labels to click through
+_DUTCHIE_CATEGORIES = [
+    "Flower", "Edibles", "Concentrates", "Vapes", "Pre-Rolls",
+    "Topicals", "Tinctures", "Accessories", "Beverages",
+    "Cartridges", "Pre-Roll", "Preroll", "Edible", "Vape",
+]
+
+# JS to find and return all clickable category filter buttons/tabs.
+# Returns a list of {text, index} objects for each unique category button found.
+_JS_FIND_CATEGORY_TABS = """
+() => {
+    const tabs = [];
+    const seen = new Set();
+
+    // Strategy 1: data-testid category buttons
+    const testIdBtns = document.querySelectorAll(
+        'button[data-testid*="category"], button[data-testid*="filter"], ' +
+        '[data-testid*="category-tab"], [data-testid*="menu-type"]'
+    );
+    for (const btn of testIdBtns) {
+        const text = (btn.textContent || '').trim();
+        if (text && text.length >= 3 && text.length <= 30 && !seen.has(text.toLowerCase())) {
+            seen.add(text.toLowerCase());
+            tabs.push({text: text, index: tabs.length});
+        }
+    }
+    if (tabs.length >= 3) return tabs;
+
+    // Strategy 2: role="tab" elements (Dutchie's tab-based category nav)
+    const roleTabs = document.querySelectorAll('[role="tab"], [role="tablist"] button, [role="tablist"] a');
+    for (const tab of roleTabs) {
+        const text = (tab.textContent || '').trim();
+        if (text && text.length >= 3 && text.length <= 30 && !seen.has(text.toLowerCase())) {
+            seen.add(text.toLowerCase());
+            tabs.push({text: text, index: tabs.length});
+        }
+    }
+    if (tabs.length >= 3) return tabs;
+
+    // Strategy 3: nav buttons/links with category-like labels
+    const categoryNames = new Set([
+        'flower', 'edibles', 'edible', 'concentrates', 'concentrate',
+        'vapes', 'vape', 'pre-rolls', 'pre-roll', 'preroll', 'prerolls',
+        'topicals', 'topical', 'tinctures', 'tincture', 'accessories',
+        'beverages', 'beverage', 'cartridges', 'cartridge', 'specials',
+        'all', 'all products', 'shop all'
+    ]);
+    const allBtns = document.querySelectorAll('button, a, [role="button"]');
+    for (const btn of allBtns) {
+        const text = (btn.textContent || '').trim();
+        const lower = text.toLowerCase();
+        if (categoryNames.has(lower) && !seen.has(lower)) {
+            seen.add(lower);
+            tabs.push({text: text, index: tabs.length});
+        }
+    }
+
+    return tabs;
+}
+"""
+
+
 class DutchieScraper(BaseScraper):
     """Scraper for sites powered by the Dutchie embedded iframe menu."""
 
@@ -624,11 +710,22 @@ class DutchieScraper(BaseScraper):
                 )
                 break
 
-        # --- Base menu scrape removed -------------------------------------------
-        # Previously scraped the base menu URL for "category coverage" after
-        # specials.  This doubled the work per site and pushed large catalogs
-        # (Planet13, Nevada Made, TD sites) past the timeout budget.  Specials
-        # scrape alone provides sufficient product data for deal detection.
+        # --- Category tab iteration for expanded coverage ----------------------
+        # EXPANSION STATES ONLY — production NV sites use proven stable patterns.
+        # After paginating the initial view (usually "Specials" or "All"),
+        # click through each category tab (Flower, Edibles, Concentrates,
+        # etc.) and paginate each one independently.  This captures products
+        # that are only shown when a specific category filter is active.
+        # Dedup prevents double-counting products seen in the "All" view.
+        region = self.dispensary.get("region", "southern-nv")
+        if is_expansion_region(region) and len(all_products) > 0:
+            category_products = await self._scrape_category_tabs(target, all_products)
+            if category_products:
+                all_products.extend(category_products)
+                logger.info(
+                    "[%s] Category tab scraping added %d new products (total %d)",
+                    self.slug, len(category_products), len(all_products),
+                )
 
         # --- Fallback URL from config (e.g. Jardin switched from AIQ to Dutchie) ---
         if not all_products:
@@ -784,6 +881,138 @@ class DutchieScraper(BaseScraper):
             self.slug, len(all_products), fb_embed,
         )
         return all_products
+
+    # ------------------------------------------------------------------
+    # Category tab iteration (expansion states only)
+    # ------------------------------------------------------------------
+
+    async def _scrape_category_tabs(
+        self,
+        target: Page | Frame,
+        existing_products: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Click through category tabs and paginate each to find new products.
+
+        Only called for expansion state dispensaries.  Builds a dedup set
+        from *existing_products* so only genuinely new products are returned.
+
+        Returns a list of new products not already in *existing_products*.
+        """
+        # Build dedup set from existing products
+        seen_names: set[str] = set()
+        for p in existing_products:
+            key = (p.get("name", "").lower().strip())
+            if key:
+                seen_names.add(key)
+
+        # Find category tabs in the DOM
+        try:
+            tabs = await target.evaluate(_JS_FIND_CATEGORY_TABS)
+        except Exception:
+            logger.debug("[%s] Category tab detection JS failed", self.slug)
+            return []
+
+        if not tabs or len(tabs) < 2:
+            logger.info("[%s] No category tabs found — skipping category iteration", self.slug)
+            return []
+
+        logger.info(
+            "[%s] Found %d category tabs: %s",
+            self.slug, len(tabs),
+            ", ".join(t.get("text", "?") for t in tabs[:10]),
+        )
+
+        new_products: list[dict[str, Any]] = []
+        max_categories = 8  # Safety cap to prevent infinite loops
+
+        for i, tab_info in enumerate(tabs[:max_categories]):
+            tab_text = tab_info.get("text", "")
+            if not tab_text:
+                continue
+
+            # Skip "All" / "Shop All" / "Specials" — already scraped
+            lower = tab_text.lower().strip()
+            if lower in ("all", "all products", "shop all", "specials", "deals"):
+                continue
+
+            logger.info("[%s] Clicking category tab: %s", self.slug, tab_text)
+
+            # Try to click the tab
+            clicked = False
+            for selector in _CATEGORY_TAB_SELECTORS:
+                try:
+                    locator = target.locator(f'{selector}:has-text("{tab_text}")').first
+                    if await locator.count() > 0 and await locator.is_visible():
+                        await locator.click(timeout=5_000)
+                        clicked = True
+                        break
+                except Exception:
+                    continue
+
+            if not clicked:
+                # Fallback: try exact text match
+                try:
+                    btn = target.locator(f'text="{tab_text}"').first
+                    if await btn.count() > 0:
+                        await btn.click(timeout=5_000)
+                        clicked = True
+                except Exception:
+                    pass
+
+            if not clicked:
+                logger.debug("[%s] Could not click category tab: %s", self.slug, tab_text)
+                continue
+
+            # Wait for content to reload after tab click
+            await asyncio.sleep(3 + random.uniform(0, 2))
+
+            # Wait for product cards to appear
+            await _wait_for_product_cards(target, self.slug, timeout_ms=15_000)
+
+            # Paginate within this category
+            page_num = 1
+            consecutive_empty = 0
+            while True:
+                products = await self._extract_products(target)
+
+                # Filter to only new products
+                cat_new = []
+                for p in products:
+                    pkey = p.get("name", "").lower().strip()
+                    if pkey and pkey not in seen_names:
+                        seen_names.add(pkey)
+                        cat_new.append(p)
+
+                new_products.extend(cat_new)
+
+                logger.info(
+                    "[%s] Category '%s' page %d → %d products (%d new, %d total new)",
+                    self.slug, tab_text, page_num, len(products),
+                    len(cat_new), len(new_products),
+                )
+
+                if len(products) == 0:
+                    consecutive_empty += 1
+                    if consecutive_empty >= 2:
+                        break
+                else:
+                    consecutive_empty = 0
+
+                page_num += 1
+                if page_num > 20:  # Safety cap per category
+                    break
+
+                try:
+                    if not await navigate_dutchie_page(target, page_num):
+                        break
+                except Exception:
+                    break
+
+        logger.info(
+            "[%s] Category tab iteration complete — %d new products across %d categories",
+            self.slug, len(new_products), min(len(tabs), max_categories),
+        )
+        return new_products
 
     # ------------------------------------------------------------------
     # Product extraction
