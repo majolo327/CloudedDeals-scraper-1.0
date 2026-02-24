@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAnalytics, exportEventsCSV } from '@/hooks/useAnalytics';
 import { supabase } from '@/lib/supabase';
 import { applyChainDiversityCap, applyGlobalBrandCap } from '@/utils/dealFilters';
-import type { FunnelStep, DeviceBreakdown, ReferrerSource, DailyVisitors, RetentionCohort, ViralMetrics, GrowthMetrics, DispensaryMetric, AcquisitionChannel } from '@/hooks/useAnalytics';
+import type { FunnelStep, DeviceBreakdown, ReferrerSource, DailyVisitors, RetentionCohort, ViralMetrics, GrowthMetrics, DispensaryMetric, AcquisitionChannel, CampaignSegment } from '@/hooks/useAnalytics';
 
 interface ContactRow {
   id: string;
@@ -217,6 +217,7 @@ export default function AnalyticsPage() {
     scoreboard, funnel, eventBreakdown, topDeals, hourlyActivity, recentEvents,
     dailyVisitors, devices, referrers, allTimeUniqueVisitors, retentionCohorts,
     totalEventsInRange, viral, growth, dispensaryMetrics, acquisitionChannels,
+    campaignSegments,
   } = data;
 
   const progressPct = Math.min((allTimeUniqueVisitors / VISITOR_GOAL) * 100, 100);
@@ -317,8 +318,18 @@ export default function AnalyticsPage() {
       </section>
 
       {/* ================================================================ */}
-      {/* SECTION: ACQUISITION CHANNELS (QR/Flyer/Campaign tracking)       */}
+      {/* SECTION: CAMPAIGN PERFORMANCE (segmented deep-dive)              */}
       {/* ================================================================ */}
+      {campaignSegments && campaignSegments.length > 0 && (
+        <section className="space-y-6">
+          <SectionHeading>Campaign Performance</SectionHeading>
+          {campaignSegments.map((seg) => (
+            <CampaignDashboard key={seg.source} segment={seg} range={range} />
+          ))}
+        </section>
+      )}
+
+      {/* Acquisition channels summary (all sources at a glance) */}
       {acquisitionChannels && acquisitionChannels.length > 0 && (
         <section className="space-y-6">
           <SectionHeading>Acquisition Channels</SectionHeading>
@@ -1389,6 +1400,334 @@ function ContactStatCard({ label, value }: { label: string; value: number }) {
       <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">
         {value.toLocaleString()}
       </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Campaign Deep-Dive Dashboard
+// ---------------------------------------------------------------------------
+
+function CampaignDashboard({ segment: s, range }: { segment: CampaignSegment; range: string }) {
+  const flyerBudget = 100; // $100 budget from campaign spec
+  const costPerScan = s.uniqueVisitors > 0
+    ? (flyerBudget / s.uniqueVisitors).toFixed(2) : '—';
+  const costPerActivation = s.funnel[2]?.count > 0
+    ? (flyerBudget / s.funnel[2].count).toFixed(2) : '—';
+
+  const maxFunnel = Math.max(...s.funnel.map(f => f.count), 1);
+  const funnelColors = ['bg-orange-500/50', 'bg-amber-500/50', 'bg-green-500/50', 'bg-emerald-500/50'];
+  const funnelSubs = ['scanned QR', 'viewed a deal', 'saved or clicked', '3+ days'];
+
+  const maxHourly = Math.max(...s.hourlyActivity.map(h => h.count), 1);
+  const maxDaily = Math.max(...s.dailyVisitors.map(d => d.visitors), 1);
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const comparisonRows = [
+    { label: 'Unique Visitors', campaign: s.uniqueVisitors, organic: s.organicVisitors },
+    { label: 'Saves', campaign: s.saves, organic: s.organicSaves },
+    { label: 'Deal Clicks', campaign: s.dealClicks, organic: s.organicClicks },
+    { label: 'Activation Rate', campaign: `${s.activationRate}%`, organic: `${s.organicActivationRate}%` },
+    { label: 'Events / User', campaign: s.eventsPerUser, organic: s.organicEventsPerUser },
+    { label: 'Bounce Rate', campaign: `${s.bounceRate}%`, organic: '—' },
+  ];
+
+  return (
+    <div className="rounded-2xl border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-amber-50 dark:border-orange-700 dark:from-orange-950/30 dark:to-amber-950/30 overflow-hidden">
+      {/* Campaign header */}
+      <div className="px-5 py-4 border-b border-orange-200 dark:border-orange-800 flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center rounded-full bg-orange-500 px-2.5 py-0.5 text-xs font-bold text-white uppercase tracking-wide">
+              {s.source}
+            </span>
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+              {s.campaignName.replace(/_/g, ' ')}
+            </h3>
+          </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+            Isolated metrics for utm_source={s.source} | {range} window
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">{s.uniqueVisitors}</p>
+          <p className="text-[10px] font-medium text-zinc-500 uppercase">scans</p>
+        </div>
+      </div>
+
+      <div className="p-5 space-y-6">
+        {/* KPI row */}
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+          <CampaignKPI label="Scans" value={s.uniqueVisitors} sub="unique users" />
+          <CampaignKPI label="Saves" value={s.saves} sub={`${s.activationRate}% activation`} />
+          <CampaignKPI label="Deal Clicks" value={s.dealClicks} sub="outbound" />
+          <CampaignKPI label="Bounce Rate" value={`${s.bounceRate}%`}
+            sub="1-event sessions"
+            indicator={s.bounceRate <= 50 ? 'green' : s.bounceRate <= 70 ? 'yellow' : 'red'} />
+          <CampaignKPI label="Cost / Scan" value={`$${costPerScan}`}
+            sub="of $100 budget"
+            indicator={Number(costPerScan) <= 0.2 ? 'green' : Number(costPerScan) <= 0.5 ? 'yellow' : 'red'} />
+          <CampaignKPI label="Cost / Activation" value={`$${costPerActivation}`}
+            sub="save or click"
+            indicator={Number(costPerActivation) <= 1 ? 'green' : Number(costPerActivation) <= 3 ? 'yellow' : 'red'} />
+        </div>
+
+        {/* Events per user + engagement */}
+        <div className="grid gap-3 grid-cols-3">
+          <div className="rounded-lg bg-white/70 dark:bg-zinc-800/70 px-4 py-3 text-center">
+            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Events / User</p>
+            <p className="text-2xl font-bold text-zinc-900 dark:text-white">{s.eventsPerUser}</p>
+            <p className="text-[10px] text-zinc-400">avg actions per visitor</p>
+          </div>
+          <div className="rounded-lg bg-white/70 dark:bg-zinc-800/70 px-4 py-3 text-center">
+            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Total Events</p>
+            <p className="text-2xl font-bold text-zinc-900 dark:text-white">{s.totalEvents}</p>
+            <p className="text-[10px] text-zinc-400">from {s.uniqueVisitors} users</p>
+          </div>
+          <div className="rounded-lg bg-white/70 dark:bg-zinc-800/70 px-4 py-3 text-center">
+            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Shares</p>
+            <p className="text-2xl font-bold text-zinc-900 dark:text-white">{s.shares}</p>
+            <p className="text-[10px] text-zinc-400">shared by campaign users</p>
+          </div>
+        </div>
+
+        {/* 2-col: Funnel + Campaign vs Organic */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Campaign Funnel */}
+          <div className="rounded-xl border border-orange-200 bg-white dark:border-orange-800 dark:bg-zinc-900">
+            <div className="border-b border-orange-100 px-4 py-3 dark:border-orange-900">
+              <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Campaign Funnel</h4>
+            </div>
+            <div className="p-4 space-y-1">
+              {s.funnel.map((step, i) => {
+                const widthPct = maxFunnel > 0 ? (step.count / maxFunnel) * 100 : 0;
+                const convRate = i > 0 && s.funnel[i - 1].count > 0
+                  ? Math.round((step.count / s.funnel[i - 1].count) * 100) : null;
+                return (
+                  <div key={step.label}>
+                    {convRate !== null && (
+                      <div className="flex justify-center py-0.5">
+                        <span className={`text-[10px] font-bold ${
+                          convRate >= 30 ? 'text-green-600 dark:text-green-400' : 'text-zinc-400'
+                        }`}>&#x2193; {convRate}%</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{step.label}</span>
+                        <span className="text-[9px] text-zinc-400">({funnelSubs[i]})</span>
+                      </div>
+                      <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{step.count}</span>
+                    </div>
+                    <div className="h-6 rounded bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                      <div className={`h-full rounded transition-all duration-500 ${funnelColors[i]}`}
+                        style={{ width: `${Math.max(widthPct, 2)}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Campaign vs Organic comparison */}
+          <div className="rounded-xl border border-orange-200 bg-white dark:border-orange-800 dark:bg-zinc-900">
+            <div className="border-b border-orange-100 px-4 py-3 dark:border-orange-900">
+              <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Campaign vs Organic</h4>
+            </div>
+            <div className="p-4">
+              <table className="w-full text-sm">
+                <thead className="border-b border-zinc-200 dark:border-zinc-700">
+                  <tr>
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-zinc-500">Metric</th>
+                    <th className="px-2 py-2 text-right text-xs font-semibold text-orange-600 dark:text-orange-400">
+                      {s.source}
+                    </th>
+                    <th className="px-2 py-2 text-right text-xs font-semibold text-zinc-500">Organic</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                  {comparisonRows.map((row) => (
+                    <tr key={row.label}>
+                      <td className="px-2 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400">{row.label}</td>
+                      <td className="px-2 py-2 text-right text-xs font-bold text-orange-700 dark:text-orange-300">
+                        {typeof row.campaign === 'number' ? row.campaign.toLocaleString() : row.campaign}
+                      </td>
+                      <td className="px-2 py-2 text-right text-xs font-mono text-zinc-500">
+                        {typeof row.organic === 'number' ? row.organic.toLocaleString() : row.organic}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Campaign Daily Visitors */}
+        {s.dailyVisitors.length > 0 && (
+          <div className="rounded-xl border border-orange-200 bg-white dark:border-orange-800 dark:bg-zinc-900">
+            <div className="border-b border-orange-100 px-4 py-3 dark:border-orange-900">
+              <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                Campaign Daily Scans ({s.dailyVisitors.length} days)
+              </h4>
+            </div>
+            <div className="p-4">
+              <div className="flex items-end gap-1 h-32">
+                {s.dailyVisitors.map((d) => {
+                  const heightPct = maxDaily > 0 ? (d.visitors / maxDaily) * 100 : 0;
+                  const isToday = d.date === todayStr;
+                  return (
+                    <div key={d.date} className="flex-1 flex flex-col items-center gap-1 min-w-0"
+                      title={`${d.date}: ${d.visitors} scans`}>
+                      <span className="text-[8px] font-mono text-zinc-400">{d.visitors}</span>
+                      <div className="w-full flex-1 flex items-end">
+                        <div className={`w-full rounded-t min-h-[2px] ${
+                          isToday ? 'bg-orange-500/70 hover:bg-orange-500/90' : 'bg-orange-400/50 hover:bg-orange-400/70'
+                        }`} style={{ height: `${Math.max(heightPct, 2)}%` }} />
+                      </div>
+                      <span className={`text-[7px] truncate w-full text-center ${
+                        isToday ? 'text-orange-600 font-bold' : 'text-zinc-400'
+                      }`}>{d.date.slice(5)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 2-col: Hourly Activity + Device Split */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* When are they scanning? */}
+          <div className="rounded-xl border border-orange-200 bg-white dark:border-orange-800 dark:bg-zinc-900">
+            <div className="border-b border-orange-100 px-4 py-3 dark:border-orange-900">
+              <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                Scan Times (hourly)
+              </h4>
+              <p className="text-[10px] text-zinc-400 mt-0.5">Best hours for flyer distribution</p>
+            </div>
+            <div className="p-4">
+              <div className="flex items-end gap-0.5 h-28">
+                {s.hourlyActivity.map((h) => {
+                  const heightPct = maxHourly > 0 ? (h.count / maxHourly) * 100 : 0;
+                  const isPeak = h.count === maxHourly && h.count > 0;
+                  return (
+                    <div key={h.hour} className="flex-1 flex flex-col items-center gap-0.5"
+                      title={`${h.hour}:00 - ${h.count} events`}>
+                      {isPeak && <span className="text-[7px] font-bold text-orange-600">peak</span>}
+                      <div className="w-full flex-1 flex items-end">
+                        <div className={`w-full rounded-t min-h-[1px] transition-colors ${
+                          isPeak ? 'bg-orange-500' : 'bg-orange-400/40 hover:bg-orange-400/60'
+                        }`} style={{ height: `${Math.max(heightPct, 1)}%` }} />
+                      </div>
+                      <span className="text-[7px] text-zinc-400">{h.hour}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Devices */}
+          <div className="rounded-xl border border-orange-200 bg-white dark:border-orange-800 dark:bg-zinc-900">
+            <div className="border-b border-orange-100 px-4 py-3 dark:border-orange-900">
+              <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Campaign Devices</h4>
+            </div>
+            <div className="p-4">
+              {s.devices.length === 0 ? (
+                <p className="text-sm text-zinc-400">No device data</p>
+              ) : (
+                <div className="space-y-3">
+                  {s.devices.map((d) => {
+                    const total = s.devices.reduce((sum, x) => sum + x.count, 0);
+                    const pct = total > 0 ? Math.round((d.count / total) * 100) : 0;
+                    return (
+                      <div key={d.device_type} className="flex items-center gap-3">
+                        <span className="w-16 text-xs font-medium text-zinc-600 dark:text-zinc-400 capitalize">{d.device_type}</span>
+                        <div className="flex-1 h-5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                          <div className="h-full rounded-full bg-orange-400/50" style={{ width: `${Math.max(pct, 2)}%` }} />
+                        </div>
+                        <span className="text-xs font-mono text-zinc-500">{pct}%</span>
+                        <span className="w-8 text-right text-xs font-mono font-bold text-zinc-600 dark:text-zinc-300">{d.count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 2-col: Top Deals + Top Dispensaries */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* What flyer users are saving */}
+          {s.topDeals.length > 0 && (
+            <div className="rounded-xl border border-orange-200 bg-white dark:border-orange-800 dark:bg-zinc-900">
+              <div className="border-b border-orange-100 px-4 py-3 dark:border-orange-900">
+                <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">What Campaign Users Save</h4>
+              </div>
+              <div className="p-4 space-y-2">
+                {s.topDeals.map((deal, i) => (
+                  <div key={deal.dealId} className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                    <span className="w-5 text-center text-xs font-bold text-zinc-400">{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 truncate">
+                        {deal.dealName || `Deal ${deal.dealId.slice(0, 8)}`}
+                      </p>
+                      {deal.brand && <p className="text-xs text-zinc-400 truncate">{deal.brand}</p>}
+                    </div>
+                    <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-bold text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">
+                      {deal.saves} saves
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Which dispensaries get traffic */}
+          {s.topDispensaries.length > 0 && (
+            <div className="rounded-xl border border-orange-200 bg-white dark:border-orange-800 dark:bg-zinc-900">
+              <div className="border-b border-orange-100 px-4 py-3 dark:border-orange-900">
+                <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Dispensaries Getting Clicks</h4>
+                <p className="text-[10px] text-zinc-400 mt-0.5">B2B signal: campaign users driving traffic to these dispensaries</p>
+              </div>
+              <div className="p-4 space-y-2">
+                {s.topDispensaries.map((d, i) => (
+                  <div key={d.name} className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                    <span className="w-5 text-center text-xs font-bold text-zinc-400">{i + 1}</span>
+                    <span className="flex-1 text-sm font-medium text-zinc-700 dark:text-zinc-300 truncate">{d.name}</span>
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                      {d.clicks} clicks
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CampaignKPI({ label, value, sub, indicator }: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  indicator?: 'green' | 'yellow' | 'red';
+}) {
+  const indicatorColors = { green: 'bg-green-500', yellow: 'bg-amber-400', red: 'bg-red-500' };
+  return (
+    <div className="rounded-lg bg-white/70 dark:bg-zinc-800/70 px-3 py-3">
+      <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">{label}</p>
+      <div className="flex items-center gap-1.5 mt-1">
+        <p className="text-2xl font-bold text-zinc-900 dark:text-white">
+          {typeof value === 'number' ? value.toLocaleString() : value}
+        </p>
+        {indicator && <span className={`inline-block h-2.5 w-2.5 rounded-full ${indicatorColors[indicator]}`} />}
+      </div>
+      {sub && <p className="text-[10px] text-zinc-400 mt-0.5">{sub}</p>}
     </div>
   );
 }
