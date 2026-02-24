@@ -118,6 +118,48 @@ export interface AcquisitionChannel {
   clicks: number;
 }
 
+export interface CampaignSegment {
+  /** Campaign identifier (e.g., "vegas_strip_beta") */
+  campaignName: string;
+  /** UTM source (e.g., "flyer") */
+  source: string;
+
+  // ---- Headline KPIs ----
+  uniqueVisitors: number;
+  totalEvents: number;
+  saves: number;
+  dealClicks: number;
+  shares: number;
+
+  // ---- Engagement ----
+  eventsPerUser: number;
+  /** % of campaign visitors who saved or clicked */
+  activationRate: number;
+  /** % of visitors with only 1 event (single pageload, no engagement) */
+  bounceRate: number;
+
+  // ---- Funnel (campaign users only) ----
+  funnel: FunnelStep[];
+
+  // ---- Time-based ----
+  dailyVisitors: DailyVisitors[];
+  hourlyActivity: HourlyActivity[];
+
+  // ---- What they engaged with ----
+  topDeals: { dealId: string; dealName?: string; brand?: string; saves: number }[];
+  topDispensaries: { name: string; clicks: number }[];
+
+  // ---- Device split ----
+  devices: DeviceBreakdown[];
+
+  // ---- Organic comparison (everyone NOT in this campaign) ----
+  organicVisitors: number;
+  organicSaves: number;
+  organicClicks: number;
+  organicActivationRate: number;
+  organicEventsPerUser: number;
+}
+
 export interface AnalyticsData {
   scoreboard: ScoreboardData;
   funnel: FunnelStep[];
@@ -135,6 +177,8 @@ export interface AnalyticsData {
   growth: GrowthMetrics;
   dispensaryMetrics: DispensaryMetric[];
   acquisitionChannels: AcquisitionChannel[];
+  /** Per-campaign deep-dive segments (e.g., flyer campaign isolated from organic) */
+  campaignSegments: CampaignSegment[];
 }
 
 export interface EventRow {
@@ -192,6 +236,7 @@ export function useAnalytics(range: DateRange = '7d') {
           wau: 0, mau: 0, stickiness: 0, activationRate: 0, eventsPerUser: 0,
         },
         dispensaryMetrics: [],
+        campaignSegments: [],
       });
       setLoading(false);
       return;
@@ -675,6 +720,177 @@ export function useAnalytics(range: DateRange = '7d') {
         }))
         .sort((a, b) => b.visitors - a.visitors);
 
+      // ----- Campaign Segments (deep-dive per UTM campaign) -----
+      // Group users by campaign (only users with a known acquisition source)
+      const campaignUsers: Record<string, Set<string>> = {}; // campaign → anon_ids
+      const userCampaign: Record<string, string> = {}; // anon_id → campaign key
+      for (const [uid, source] of Object.entries(userAcqSource)) {
+        if (source && source !== 'organic' && source !== 'direct') {
+          const key = source; // e.g. "flyer"
+          if (!campaignUsers[key]) campaignUsers[key] = new Set();
+          campaignUsers[key].add(uid);
+          userCampaign[uid] = key;
+        }
+      }
+
+      const campaignSegments: CampaignSegment[] = Object.entries(campaignUsers)
+        .filter(([, users]) => users.size > 0)
+        .map(([source, userSet]) => {
+          // Filter events to only this campaign's users
+          const cEvents = events.filter(e => userSet.has(e.anon_id));
+
+          // Headline KPIs
+          let cSaves = 0, cClicks = 0, cShares = 0;
+          const cFunnelVisitors = new Set<string>();
+          const cFunnelEngaged = new Set<string>();
+          const cFunnelActivated = new Set<string>();
+          const cUserDays: Record<string, Set<string>> = {};
+          const cHourlyCounts: Record<number, number> = {};
+          const cDailyMap: Record<string, Set<string>> = {};
+          const cDeviceSeen = new Set<string>();
+          const cDeviceCounts: Record<string, number> = {};
+          const cDealSaves: Record<string, number> = {};
+          const cDispClicks: Record<string, number> = {};
+          const cUserEventCounts: Record<string, number> = {}; // for bounce rate
+
+          for (const e of cEvents) {
+            const dateKey = e.created_at.slice(0, 10);
+            const hour = new Date(e.created_at).getHours();
+
+            cFunnelVisitors.add(e.anon_id);
+            cUserEventCounts[e.anon_id] = (cUserEventCounts[e.anon_id] || 0) + 1;
+
+            // Per-user days
+            if (!cUserDays[e.anon_id]) cUserDays[e.anon_id] = new Set();
+            cUserDays[e.anon_id].add(dateKey);
+
+            // Hourly
+            cHourlyCounts[hour] = (cHourlyCounts[hour] || 0) + 1;
+
+            // Daily
+            if (!cDailyMap[dateKey]) cDailyMap[dateKey] = new Set();
+            cDailyMap[dateKey].add(e.anon_id);
+
+            // Funnel
+            if (['deal_view', 'deal_viewed', 'deal_modal_open', 'deal_click'].includes(e.event_name)) {
+              cFunnelEngaged.add(e.anon_id);
+            }
+            if (['deal_saved', 'deal_save'].includes(e.event_name)) {
+              cSaves++;
+              cFunnelActivated.add(e.anon_id);
+              const props = e.properties as Record<string, unknown> | null;
+              const did = (props?.deal_id as string) || '';
+              if (did) cDealSaves[did] = (cDealSaves[did] || 0) + 1;
+            }
+            if (e.event_name === 'get_deal_click') {
+              cClicks++;
+              cFunnelActivated.add(e.anon_id);
+              const props = e.properties as Record<string, unknown> | null;
+              const disp = (props?.dispensary as string) || '';
+              if (disp) cDispClicks[disp] = (cDispClicks[disp] || 0) + 1;
+            }
+            if (['deal_shared', 'share_saves'].includes(e.event_name)) {
+              cShares++;
+            }
+
+            // Device
+            const props = e.properties;
+            if (props && typeof props === 'object') {
+              const dt = (props as Record<string, unknown>).device_type;
+              if (dt && typeof dt === 'string') {
+                const dk = `${e.anon_id}:${dt}`;
+                if (!cDeviceSeen.has(dk)) {
+                  cDeviceSeen.add(dk);
+                  cDeviceCounts[dt] = (cDeviceCounts[dt] || 0) + 1;
+                }
+              }
+            }
+          }
+
+          const cVisitors = cFunnelVisitors.size;
+          const cPowerUsers = Object.values(cUserDays).filter(d => d.size >= 3).length;
+
+          // Bounce rate: users with only 1 event total (just a page load, didn't engage)
+          const bouncedUsers = Object.values(cUserEventCounts).filter(c => c <= 1).length;
+          const bounceRate = cVisitors > 0 ? Math.round((bouncedUsers / cVisitors) * 100) : 0;
+
+          // Organic comparison (all users NOT in any campaign)
+          const organicEvents = events.filter(e => !userCampaign[e.anon_id]);
+          const orgVisitors = new Set<string>();
+          const orgActivated = new Set<string>();
+          let orgSaves = 0, orgClicks = 0;
+          for (const e of organicEvents) {
+            orgVisitors.add(e.anon_id);
+            if (['deal_saved', 'deal_save'].includes(e.event_name)) { orgSaves++; orgActivated.add(e.anon_id); }
+            if (e.event_name === 'get_deal_click') { orgClicks++; orgActivated.add(e.anon_id); }
+          }
+
+          // Determine campaign name from UTM campaign param
+          let campaignName = 'unknown';
+          for (const e of cEvents) {
+            if (e.event_name === 'app_loaded' && e.properties) {
+              const c = (e.properties as Record<string, unknown>).utm_campaign;
+              if (typeof c === 'string' && c) { campaignName = c; break; }
+            }
+          }
+
+          // Top deals from campaign (enrich later in UI if needed)
+          const cTopDeals = Object.entries(cDealSaves)
+            .map(([dealId, saves]) => ({ dealId, saves }))
+            .sort((a, b) => b.saves - a.saves)
+            .slice(0, 10)
+            .map(d => ({ dealId: d.dealId, saves: d.saves }));
+
+          // Enrich with product names from the already-fetched topDeals
+          const enrichedTopDeals = cTopDeals.map(d => {
+            const match = topDeals.find(td => td.deal_id === d.dealId);
+            return {
+              dealId: d.dealId,
+              dealName: match?.product_name,
+              brand: match?.brand_name,
+              saves: d.saves,
+            };
+          });
+
+          return {
+            campaignName,
+            source,
+            uniqueVisitors: cVisitors,
+            totalEvents: cEvents.length,
+            saves: cSaves,
+            dealClicks: cClicks,
+            shares: cShares,
+            eventsPerUser: cVisitors > 0 ? parseFloat((cEvents.length / cVisitors).toFixed(1)) : 0,
+            activationRate: cVisitors > 0 ? Math.round((cFunnelActivated.size / cVisitors) * 100) : 0,
+            bounceRate,
+            funnel: [
+              { label: 'Landed', count: cVisitors },
+              { label: 'Engaged', count: cFunnelEngaged.size },
+              { label: 'Activated', count: cFunnelActivated.size },
+              { label: 'Power User', count: cPowerUsers },
+            ],
+            dailyVisitors: Object.entries(cDailyMap)
+              .map(([date, s]) => ({ date, visitors: s.size, events: 0 }))
+              .sort((a, b) => a.date.localeCompare(b.date)),
+            hourlyActivity: Array.from({ length: 24 }, (_, hour) => ({
+              hour, count: cHourlyCounts[hour] || 0,
+            })),
+            topDeals: enrichedTopDeals,
+            topDispensaries: Object.entries(cDispClicks)
+              .map(([name, clicks]) => ({ name, clicks }))
+              .sort((a, b) => b.clicks - a.clicks)
+              .slice(0, 10),
+            devices: Object.entries(cDeviceCounts)
+              .map(([device_type, count]) => ({ device_type, count }))
+              .sort((a, b) => b.count - a.count),
+            organicVisitors: orgVisitors.size,
+            organicSaves: orgSaves,
+            organicClicks: orgClicks,
+            organicActivationRate: orgVisitors.size > 0 ? Math.round((orgActivated.size / orgVisitors.size) * 100) : 0,
+            organicEventsPerUser: orgVisitors.size > 0 ? parseFloat((organicEvents.length / orgVisitors.size).toFixed(1)) : 0,
+          } satisfies CampaignSegment;
+        });
+
       setData({
         scoreboard,
         funnel,
@@ -692,6 +908,7 @@ export function useAnalytics(range: DateRange = '7d') {
         growth,
         dispensaryMetrics,
         acquisitionChannels,
+        campaignSegments,
       });
     } catch (err) {
       setError(String(err));
