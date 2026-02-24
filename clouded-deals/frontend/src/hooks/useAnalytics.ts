@@ -111,6 +111,13 @@ export interface DispensaryMetric {
   saves: number;
 }
 
+export interface AcquisitionChannel {
+  source: string;
+  visitors: number;
+  saves: number;
+  clicks: number;
+}
+
 export interface AnalyticsData {
   scoreboard: ScoreboardData;
   funnel: FunnelStep[];
@@ -127,6 +134,7 @@ export interface AnalyticsData {
   viral: ViralMetrics;
   growth: GrowthMetrics;
   dispensaryMetrics: DispensaryMetric[];
+  acquisitionChannels: AcquisitionChannel[];
 }
 
 export interface EventRow {
@@ -178,11 +186,13 @@ export function useAnalytics(range: DateRange = '7d') {
           referralClicks: 0, referralConversions: 0, viralCoefficient: 0,
           shareViewRate: 0, clickToConversionRate: 0, topReferrers: [],
         },
+        acquisitionChannels: [],
         growth: {
           visitorsWoW: 0, savesWoW: 0, clicksWoW: 0, sharesWoW: 0,
           wau: 0, mau: 0, stickiness: 0, activationRate: 0, eventsPerUser: 0,
         },
         dispensaryMetrics: [],
+        acquisitionChannels: [],
       });
       setLoading(false);
       return;
@@ -282,6 +292,10 @@ export function useAnalytics(range: DateRange = '7d') {
       let thisWeekSaves = 0, lastWeekSaves = 0;
       let thisWeekClicks = 0, lastWeekClicks = 0;
       let thisWeekShares = 0, lastWeekShares = 0;
+
+      // Acquisition channel tracking (from UTM params on app_loaded events)
+      const userAcqSource: Record<string, string> = {}; // anon_id → source (first seen)
+      const acqChannelData: Record<string, { visitors: Set<string>; saves: number; clicks: number }> = {};
 
       for (const event of events) {
         const dateKey = event.created_at.slice(0, 10);
@@ -392,6 +406,28 @@ export function useAnalytics(range: DateRange = '7d') {
               referrerCounts['direct'] = (referrerCounts['direct'] || 0) + 1;
             }
           }
+
+          // Acquisition source from UTM params (first-touch per user)
+          if (event.event_name === 'app_loaded') {
+            const utmSource = (props as Record<string, unknown>).utm_source ??
+                              (props as Record<string, unknown>).acquisition_source;
+            if (typeof utmSource === 'string' && utmSource && !userAcqSource[event.anon_id]) {
+              userAcqSource[event.anon_id] = utmSource;
+            }
+          }
+        }
+
+        // Accumulate per-channel metrics using first-touch source
+        const source = userAcqSource[event.anon_id] || 'organic';
+        if (!acqChannelData[source]) {
+          acqChannelData[source] = { visitors: new Set(), saves: 0, clicks: 0 };
+        }
+        acqChannelData[source].visitors.add(event.anon_id);
+        if (['deal_saved', 'deal_save'].includes(event.event_name)) {
+          acqChannelData[source].saves++;
+        }
+        if (event.event_name === 'get_deal_click') {
+          acqChannelData[source].clicks++;
         }
       }
 
@@ -630,6 +666,16 @@ export function useAnalytics(range: DateRange = '7d') {
         .sort((a, b) => b.clicks - a.clicks)
         .slice(0, 15);
 
+      // ----- Acquisition channel breakdown -----
+      const acquisitionChannels: AcquisitionChannel[] = Object.entries(acqChannelData)
+        .map(([source, data]) => ({
+          source,
+          visitors: data.visitors.size,
+          saves: data.saves,
+          clicks: data.clicks,
+        }))
+        .sort((a, b) => b.visitors - a.visitors);
+
       setData({
         scoreboard,
         funnel,
@@ -646,6 +692,7 @@ export function useAnalytics(range: DateRange = '7d') {
         viral,
         growth,
         dispensaryMetrics,
+        acquisitionChannels,
       });
     } catch (err) {
       setError(String(err));

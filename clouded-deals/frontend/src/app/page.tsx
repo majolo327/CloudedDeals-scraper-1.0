@@ -23,7 +23,7 @@ import { ToastContainer } from '@/components/Toast';
 import type { ToastData } from '@/components/Toast';
 import { useSavedDeals } from '@/hooks/useSavedDeals';
 import { useDealHistory } from '@/hooks/useDealHistory';
-import { initializeAnonUser, trackEvent, trackPageView, trackDealModalOpen } from '@/lib/analytics';
+import { initializeAnonUser, trackEvent, trackPageView, trackDealModalOpen, getAcquisitionSource } from '@/lib/analytics';
 import { FTUEFlow, isFTUECompleted } from '@/components/ftue';
 import type { UserCoords } from '@/components/ftue';
 import { CookieConsent } from '@/components/CookieConsent';
@@ -59,8 +59,29 @@ export default function Home() {
     const verified = localStorage.getItem('clouded_age_verified');
     if (verified === 'true') {
       setIsAgeVerified(true);
-      initializeAnonUser();
-      trackEvent('app_loaded', undefined, { referrer: document.referrer });
+      initializeAnonUser(); // captures UTM params before anything else
+
+      // Include UTM params and acquisition source in app_loaded event
+      const params = new URLSearchParams(window.location.search);
+      const utm: Record<string, string> = {};
+      for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']) {
+        const val = params.get(key);
+        if (val) utm[key] = val;
+      }
+      const acq = getAcquisitionSource();
+
+      trackEvent('app_loaded', undefined, {
+        referrer: document.referrer,
+        url: window.location.href,
+        ...utm,
+        ...(acq ? { acquisition_source: acq.source, acquisition_campaign: acq.campaign } : {}),
+      });
+
+      // Fire a distinct campaign_landing event when UTM params are present
+      // This gives you an explicit count of QR scans / campaign arrivals
+      if (Object.keys(utm).length > 0) {
+        trackEvent('campaign_landing', undefined, { ...utm });
+      }
     }
   }, []);
 
