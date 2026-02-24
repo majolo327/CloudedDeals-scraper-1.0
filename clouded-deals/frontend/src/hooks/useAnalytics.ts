@@ -192,7 +192,6 @@ export function useAnalytics(range: DateRange = '7d') {
           wau: 0, mau: 0, stickiness: 0, activationRate: 0, eventsPerUser: 0,
         },
         dispensaryMetrics: [],
-        acquisitionChannels: [],
       });
       setLoading(false);
       return;
