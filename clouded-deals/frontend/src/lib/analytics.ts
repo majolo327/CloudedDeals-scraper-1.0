@@ -77,7 +77,8 @@ export type EventType =
   | 'shared_get_deal_click'
   | 'shared_page_cta'
   | 'user_feedback'
-  | 'dispensary_deals_expanded';
+  | 'dispensary_deals_expanded'
+  | 'campaign_landing';
 
 /**
  * Collect device and context metadata (non-PII) for analytics enrichment.
@@ -97,6 +98,53 @@ let _sessionStartTime = 0;
 let _heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
 /**
+ * Parse UTM parameters from the current URL.
+ * Returns null if no UTM params are present.
+ */
+function parseUtmParams(): Record<string, string> | null {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const utm: Record<string, string> = {};
+  const keys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+  for (const key of keys) {
+    const val = params.get(key);
+    if (val) utm[key] = val;
+  }
+  return Object.keys(utm).length > 0 ? utm : null;
+}
+
+/**
+ * Persist acquisition source to localStorage on first visit.
+ * Only the FIRST non-empty source wins (first-touch attribution).
+ */
+function persistAcquisitionSource(utm: Record<string, string>): void {
+  if (typeof window === 'undefined') return;
+  const existing = localStorage.getItem('clouded_acquisition_source');
+  if (existing) return; // first-touch: never overwrite
+
+  const source = utm.utm_source || 'direct';
+  const medium = utm.utm_medium || '';
+  const campaign = utm.utm_campaign || '';
+
+  const acq = JSON.stringify({ source, medium, campaign, ts: new Date().toISOString() });
+  localStorage.setItem('clouded_acquisition_source', acq);
+}
+
+/**
+ * Get the stored acquisition source (for attaching to session upserts).
+ */
+export function getAcquisitionSource(): { source: string; medium: string; campaign: string } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('clouded_acquisition_source');
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Initialize anonymous user on app load. Sets up the anon_id,
  * registers/updates the session, and starts heartbeat tracking.
  */
@@ -104,6 +152,13 @@ export function initializeAnonUser(): void {
   const anonId = getOrCreateAnonId();
   if (!anonId) return;
   _sessionStartTime = Date.now();
+
+  // Capture UTM params before anything else
+  const utm = parseUtmParams();
+  if (utm) {
+    persistAcquisitionSource(utm);
+  }
+
   touchSession();
   startHeartbeat();
 }
@@ -219,13 +274,14 @@ export function trackDismissedDeal(dealId: string): void {
 
 /**
  * Register or update the user session (first_seen / last_seen).
- * Called once on page load.
+ * Called once on page load. Includes acquisition source for campaign tracking.
  */
 export function touchSession(): void {
   const anonId = getOrCreateAnonId();
   if (!anonId) return;
 
   const zip = localStorage.getItem('clouded_zip') ?? null;
+  const acq = getAcquisitionSource();
 
   fireAndForget(() =>
     supabase?.from('user_sessions')?.upsert(
@@ -233,6 +289,11 @@ export function touchSession(): void {
         user_id: anonId,
         zip_code: zip,
         last_seen: new Date().toISOString(),
+        ...(acq ? {
+          acquisition_source: acq.source,
+          acquisition_medium: acq.medium,
+          acquisition_campaign: acq.campaign,
+        } : {}),
       },
       { onConflict: 'user_id' }
     )
