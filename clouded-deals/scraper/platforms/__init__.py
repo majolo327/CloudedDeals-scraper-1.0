@@ -1,5 +1,5 @@
 from .aiq import AIQScraper
-from .base import BaseScraper
+from .base import BaseScraper, apply_stealth_context, launch_stealth_browser
 from .carrot import CarrotScraper
 from .curaleaf import CuraleafScraper
 from .dutchie import DutchieScraper
@@ -14,4 +14,6 @@ __all__ = [
     "DutchieScraper",
     "JaneScraper",
     "RiseScraper",
+    "apply_stealth_context",
+    "launch_stealth_browser",
 ]
