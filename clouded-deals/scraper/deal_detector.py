@@ -41,7 +41,7 @@ CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
         "28": 100,    # full oz — relaxed from $79
     },
     "vape": 28,           # carts/pods — tightened from $35 ($24 .5g cart is already borderline)
-    "edible": 14,         # gummies/chocolates — tightened from $15 ($15 edible is not a deal)
+    "edible": 18,         # gummies/chocolates — raised from $14 for multi-dose edibles ($20 retail is common)
     "concentrate": {      # weight-based: live rosin can be pricier
         "0.5": 25,        # half gram
         "1": 45,          # gram — raised from flat $35
@@ -898,13 +898,17 @@ def _score_brand(brand: str) -> int:
     for tier_data in BRAND_TIERS.values():
         if brand_lower in tier_data["brands"]:
             return tier_data["points"]
-        # Word-boundary match for compound names (e.g. "Alien Labs Cannabis")
-        if any(
-            re.search(r"\b" + re.escape(b) + r"\b", brand_lower)
-            for b in tier_data["brands"]
-            if len(b) > 3
-        ):
-            return tier_data["points"]
+        # Prefix match for compound brand names (e.g. "Alien Labs Cannabis Co"
+        # matching "alien labs").  The tier brand must appear at the START of the
+        # detected brand — this prevents strain names from matching tier brands
+        # that appear later in the string (e.g. "Wedding Cake" matching "cake",
+        # "Purple Haze" matching "haze").
+        for b in tier_data["brands"]:
+            if len(b) > 3 and brand_lower.startswith(b):
+                # Ensure the match ends at a word boundary — "campaign" must NOT
+                # match tier brand "camp".
+                if len(brand_lower) == len(b) or not brand_lower[len(b)].isalnum():
+                    return tier_data["points"]
 
     return 5  # any brand > no brand
 
@@ -1429,8 +1433,24 @@ def select_top_deals(
                     break
 
     # ------------------------------------------------------------------
-    # Step 2a: Round 1 — tight diversity caps
+    # Step 2a: Round 1 — diversity caps (dynamic based on supply)
     # ------------------------------------------------------------------
+    # When supply is thin (< 1.5x target), relax brand caps so the feed
+    # can fill without starving thin categories (edibles, concentrates).
+    # When supply is abundant, use tight caps for maximum variety.
+    supply_ratio = total_available / target if target > 0 else 1.0
+    if supply_ratio < 1.5:
+        effective_brand_cap = min(10, MAX_SAME_BRAND_TOTAL + 3)
+        effective_brand_cat_cap = min(5, MAX_SAME_BRAND_PER_CATEGORY + 1)
+        logger.info(
+            "Low supply (%.1fx target): relaxed brand caps %d→%d, cat caps %d→%d",
+            supply_ratio, MAX_SAME_BRAND_TOTAL, effective_brand_cap,
+            MAX_SAME_BRAND_PER_CATEGORY, effective_brand_cat_cap,
+        )
+    else:
+        effective_brand_cap = MAX_SAME_BRAND_TOTAL
+        effective_brand_cat_cap = MAX_SAME_BRAND_PER_CATEGORY
+
     brand_counts: dict[str, int] = defaultdict(int)
     brand_cat_counts: dict[str, int] = defaultdict(int)
     dispensary_counts: dict[str, int] = defaultdict(int)
@@ -1438,8 +1458,8 @@ def select_top_deals(
 
     category_picks = _pick_from_pools(
         buckets, category_slots,
-        brand_cap=MAX_SAME_BRAND_TOTAL,
-        brand_cat_cap=MAX_SAME_BRAND_PER_CATEGORY,
+        brand_cap=effective_brand_cap,
+        brand_cat_cap=effective_brand_cat_cap,
         dispensary_cap=MAX_SAME_DISPENSARY_TOTAL,
         unknown_cap=MAX_UNKNOWN_BRAND_TOTAL,
         already_picked=already_picked,
