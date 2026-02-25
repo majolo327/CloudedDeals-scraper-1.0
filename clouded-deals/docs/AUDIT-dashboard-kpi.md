@@ -1,6 +1,6 @@
 # Dashboard KPI Audit & Enhancement Plan
 
-**Date:** 2026-02-20
+**Date:** 2026-02-20 (reviewed 2026-02-25)
 **Status:** Proposed — awaiting approval before implementation
 
 ---
@@ -42,7 +42,7 @@ const regionRuns = allRuns.filter((run) => run.region === r.id);
 to match shards:
 ```js
 const regionRuns = allRuns.filter(
-  (run) => run.region === r.id || run.region.startsWith(r.id + "-")
+  (run) => run.region === r.id || run.region?.startsWith(r.id + "-")
 );
 ```
 Then aggregate Products/Deals/Sites across same-day shards for the region card display.
