@@ -4,7 +4,7 @@
   ignore = "exit 1"
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "22"
 
 # Next.js requires the Netlify Next.js runtime plugin.
 # Install @netlify/plugin-nextjs as a dev dependency or add it here.

@@ -76,7 +76,7 @@ BEGIN
 END $$;
 
 -- Index for efficient all-time unique user count
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_analytics_anon_notnull
+CREATE INDEX IF NOT EXISTS idx_analytics_anon_notnull
   ON analytics_events(anon_id)
   WHERE anon_id IS NOT NULL;
 
