@@ -128,6 +128,24 @@ export interface AttributionBreakdown {
   clicks: number;
 }
 
+/**
+ * Core KPI metrics — single source of truth for the hero dashboard.
+ * Industry-standard definitions:
+ *   DAU = unique users with any event today (calendar day UTC)
+ *   WAU = unique users with any event in last 7 days
+ *   MAU = unique users with any event in last 30 days
+ *   Total = cumulative unique users since launch (all time)
+ */
+export interface CoreKPIs {
+  dau: number;
+  dauChange: number;          // % vs yesterday
+  wau: number;
+  wauChange: number;          // % vs previous 7-day window
+  mau: number;
+  mauChange: number | null;   // % vs previous 30-day window (null if unavailable)
+  totalUniqueUsers: number;   // all-time cumulative (PMF goal denominator)
+}
+
 export interface CampaignSegment {
   /** Campaign identifier (e.g., "vegas_strip_beta") */
   campaignName: string;
@@ -192,6 +210,8 @@ export interface AnalyticsData {
   acquisitionChannels: AcquisitionChannel[];
   /** Per-campaign deep-dive segments (e.g., flyer campaign isolated from organic) */
   campaignSegments: CampaignSegment[];
+  /** Core KPIs — the hero numbers at the top of the dashboard */
+  kpis: CoreKPIs;
 }
 
 export interface EventRow {
@@ -250,6 +270,7 @@ export function useAnalytics(range: DateRange = '7d') {
         },
         dispensaryMetrics: [],
         campaignSegments: [],
+        kpis: { dau: 0, dauChange: 0, wau: 0, wauChange: 0, mau: 0, mauChange: null, totalUniqueUsers: 0 },
       });
       setLoading(false);
       return;
@@ -268,12 +289,29 @@ export function useAnalytics(range: DateRange = '7d') {
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
       // Fetch all data in parallel
+      // Try server-side KPIs via RPC (graceful null if migration 038 not yet applied)
+      type RpcKpis = {
+        dau: number; dau_yesterday: number;
+        wau: number; wau_prev: number;
+        mau: number; mau_prev: number;
+        total_unique_users: number;
+        today_saves: number; today_clicks: number;
+      };
+      const rpcPromise: Promise<RpcKpis | null> = Promise.resolve().then(async () => {
+        try {
+          const { data, error } = await supabase.rpc('get_kpi_summary');
+          if (error || !data) return null;
+          return data as RpcKpis;
+        } catch { return null; }
+      });
+
       const [
         eventsRes,
         recentEventsRes,
         topDealsRes,
         allTimeSessionsRes,
         mauEventsRes,
+        rpcKpis,
       ] = await Promise.all([
         // All events in selected range
         supabase
@@ -293,7 +331,7 @@ export function useAnalytics(range: DateRange = '7d') {
           .select('deal_id, save_count')
           .order('save_count', { ascending: false })
           .limit(10),
-        // All-time unique visitors
+        // All-time unique visitors (from user_sessions)
         supabase
           .from('user_sessions')
           .select('user_id', { count: 'exact', head: true }),
@@ -303,6 +341,8 @@ export function useAnalytics(range: DateRange = '7d') {
           .select('anon_id, event_name, created_at')
           .gte('created_at', mauStart)
           .order('created_at', { ascending: true }),
+        // Server-side KPIs (fires in parallel, returns null if unavailable)
+        rpcPromise,
       ]);
 
       type EventRecord = { anon_id: string; event_name: string; properties: Record<string, unknown> | null; created_at: string };
@@ -958,6 +998,44 @@ export function useAnalytics(range: DateRange = '7d') {
         });
       }
 
+      // ----- Core KPIs (single source of truth for hero metrics) -----
+      // Priority: server-side RPC (most accurate) → client-side fallback
+      const pctChange = (curr: number, prev: number) =>
+        prev > 0 ? Math.round(((curr - prev) / prev) * 100) : (curr > 0 ? 100 : 0);
+
+      let kpis: CoreKPIs;
+      if (rpcKpis) {
+        // Server-side KPIs available (migration 038 applied) — most reliable
+        kpis = {
+          dau: rpcKpis.dau,
+          dauChange: pctChange(rpcKpis.dau, rpcKpis.dau_yesterday),
+          wau: rpcKpis.wau,
+          wauChange: pctChange(rpcKpis.wau, rpcKpis.wau_prev),
+          mau: rpcKpis.mau,
+          mauChange: pctChange(rpcKpis.mau, rpcKpis.mau_prev),
+          totalUniqueUsers: rpcKpis.total_unique_users,
+        };
+      } else {
+        // Client-side fallback: compute from already-fetched events
+        const yesterdayDate = new Date(now.getTime() - 86400000).toISOString().slice(0, 10);
+        const dauYesterday = dailyMap[yesterdayDate]?.visitors.size ?? 0;
+
+        // Total unique users: prefer user_sessions count, then count from events
+        const sessionsCount = allTimeSessionsRes.count ?? 0;
+        const eventsUniqueCount = Object.keys(userDays).length;
+        const totalUnique = Math.max(sessionsCount, eventsUniqueCount, mauUsers.size);
+
+        kpis = {
+          dau: todayVisitors.size,
+          dauChange: pctChange(todayVisitors.size, dauYesterday),
+          wau: wauUsers.size,
+          wauChange: pctChange(thisWeekVisitors.size, lastWeekVisitors.size),
+          mau: mauUsers.size,
+          mauChange: null,  // Need 60-day data for accurate comparison
+          totalUniqueUsers: totalUnique,
+        };
+      }
+
       setData({
         scoreboard,
         funnel,
@@ -968,7 +1046,7 @@ export function useAnalytics(range: DateRange = '7d') {
         dailyVisitors,
         devices,
         referrers,
-        allTimeUniqueVisitors: allTimeSessionsRes.count ?? 0,
+        allTimeUniqueVisitors: kpis.totalUniqueUsers,
         retentionCohorts,
         totalEventsInRange: events.length,
         viral,
@@ -976,6 +1054,7 @@ export function useAnalytics(range: DateRange = '7d') {
         dispensaryMetrics,
         acquisitionChannels,
         campaignSegments,
+        kpis,
       });
     } catch (err) {
       setError(String(err));
