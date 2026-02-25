@@ -118,6 +118,16 @@ export interface AcquisitionChannel {
   clicks: number;
 }
 
+export interface AttributionBreakdown {
+  /** Channel label (e.g., "QR Scan", "Direct Type-in", "Twitter/X") */
+  label: string;
+  /** Acquisition source key */
+  source: string;
+  visitors: number;
+  saves: number;
+  clicks: number;
+}
+
 export interface CampaignSegment {
   /** Campaign identifier (e.g., "vegas_strip_beta") */
   campaignName: string;
@@ -151,6 +161,9 @@ export interface CampaignSegment {
 
   // ---- Device split ----
   devices: DeviceBreakdown[];
+
+  // ---- Attribution breakdown (how did users find us?) ----
+  attribution: AttributionBreakdown[];
 
   // ---- Organic comparison (everyone NOT in this campaign) ----
   organicVisitors: number;
@@ -720,176 +733,230 @@ export function useAnalytics(range: DateRange = '7d') {
         }))
         .sort((a, b) => b.visitors - a.visitors);
 
-      // ----- Campaign Segments (deep-dive per UTM campaign) -----
-      // Group users by campaign (only users with a known acquisition source)
-      const campaignUsers: Record<string, Set<string>> = {}; // campaign → anon_ids
-      const userCampaign: Record<string, string> = {}; // anon_id → campaign key
-      for (const [uid, source] of Object.entries(userAcqSource)) {
-        if (source && source !== 'organic' && source !== 'direct') {
-          const key = source; // e.g. "flyer"
-          if (!campaignUsers[key]) campaignUsers[key] = new Set();
-          campaignUsers[key].add(uid);
-          userCampaign[uid] = key;
+      // ----- Campaign Segments (deep-dive with full attribution) -----
+      // Build a single campaign segment that includes ALL non-stale users,
+      // with an attribution breakdown showing how each user found us.
+      //
+      // Attribution labels for the UI:
+      const SOURCE_LABELS: Record<string, string> = {
+        flyer: 'QR Scan (flyer)',
+        direct: 'Direct Type-in',
+        twitter: 'Twitter / X',
+        google: 'Google Search',
+        facebook: 'Facebook / Meta',
+        reddit: 'Reddit',
+        share: 'Share Link',
+        organic: 'Organic (unknown)',
+      };
+
+      // Identify "pre-campaign" users: anyone active BEFORE the flyer campaign started.
+      // These are your stale test users (you, wife, devices, Twitter clicks from before).
+      // We detect this by finding the earliest flyer scan date.
+      let campaignStartDate = todayStr; // default to today
+      for (const e of events) {
+        if (e.event_name === 'app_loaded' && e.properties) {
+          const p = e.properties as Record<string, unknown>;
+          if (p.utm_source === 'flyer' || p.acquisition_source === 'flyer') {
+            const d = e.created_at.slice(0, 10);
+            if (d < campaignStartDate) campaignStartDate = d;
+          }
         }
       }
 
-      const campaignSegments: CampaignSegment[] = Object.entries(campaignUsers)
-        .filter(([, users]) => users.size > 0)
-        .map(([source, userSet]) => {
-          // Filter events to only this campaign's users
-          const cEvents = events.filter(e => userSet.has(e.anon_id));
+      // Split users: "new" (first seen on or after campaign start) vs "pre-existing"
+      const newUserIds = new Set<string>();
+      const preExistingIds = new Set<string>();
+      for (const [uid, days] of Object.entries(userDays)) {
+        const firstDay = Array.from(days).sort()[0];
+        if (firstDay >= campaignStartDate) {
+          newUserIds.add(uid);
+        } else {
+          preExistingIds.add(uid);
+        }
+      }
 
-          // Headline KPIs
-          let cSaves = 0, cClicks = 0, cShares = 0;
-          const cFunnelVisitors = new Set<string>();
-          const cFunnelEngaged = new Set<string>();
-          const cFunnelActivated = new Set<string>();
-          const cUserDays: Record<string, Set<string>> = {};
-          const cHourlyCounts: Record<number, number> = {};
-          const cDailyMap: Record<string, Set<string>> = {};
-          const cDeviceSeen = new Set<string>();
-          const cDeviceCounts: Record<string, number> = {};
-          const cDealSaves: Record<string, number> = {};
-          const cDispClicks: Record<string, number> = {};
-          const cUserEventCounts: Record<string, number> = {}; // for bounce rate
+      // Build attribution per-source for ALL users (including pre-existing for comparison)
+      const attrData: Record<string, { visitors: Set<string>; saves: number; clicks: number }> = {};
+      for (const e of events) {
+        const src = userAcqSource[e.anon_id] || 'organic';
+        if (!attrData[src]) attrData[src] = { visitors: new Set(), saves: 0, clicks: 0 };
+        attrData[src].visitors.add(e.anon_id);
+        if (['deal_saved', 'deal_save'].includes(e.event_name)) attrData[src].saves++;
+        if (e.event_name === 'get_deal_click') attrData[src].clicks++;
+      }
 
-          for (const e of cEvents) {
-            const dateKey = e.created_at.slice(0, 10);
-            const hour = new Date(e.created_at).getHours();
+      const attribution: AttributionBreakdown[] = Object.entries(attrData)
+        .map(([src, d]) => ({
+          label: SOURCE_LABELS[src] || src,
+          source: src,
+          visitors: d.visitors.size,
+          saves: d.saves,
+          clicks: d.clicks,
+        }))
+        .sort((a, b) => b.visitors - a.visitors);
 
-            cFunnelVisitors.add(e.anon_id);
-            cUserEventCounts[e.anon_id] = (cUserEventCounts[e.anon_id] || 0) + 1;
+      // Now build the campaign segment using ONLY new users (post-campaign-start)
+      const campaignAllUsers = newUserIds;
+      const campaignSegments: CampaignSegment[] = [];
 
-            // Per-user days
-            if (!cUserDays[e.anon_id]) cUserDays[e.anon_id] = new Set();
-            cUserDays[e.anon_id].add(dateKey);
+      if (campaignAllUsers.size > 0) {
+        const cEvents = events.filter(e => campaignAllUsers.has(e.anon_id));
 
-            // Hourly
-            cHourlyCounts[hour] = (cHourlyCounts[hour] || 0) + 1;
+        let cSaves = 0, cClicks = 0, cShares = 0;
+        const cFunnelVisitors = new Set<string>();
+        const cFunnelEngaged = new Set<string>();
+        const cFunnelActivated = new Set<string>();
+        const cUserDays: Record<string, Set<string>> = {};
+        const cHourlyCounts: Record<number, number> = {};
+        const cDailyMap: Record<string, Set<string>> = {};
+        const cDeviceSeen = new Set<string>();
+        const cDeviceCounts: Record<string, number> = {};
+        const cDealSaves: Record<string, number> = {};
+        const cDispClicks: Record<string, number> = {};
+        const cUserEventCounts: Record<string, number> = {};
 
-            // Daily
-            if (!cDailyMap[dateKey]) cDailyMap[dateKey] = new Set();
-            cDailyMap[dateKey].add(e.anon_id);
+        for (const e of cEvents) {
+          const dateKey = e.created_at.slice(0, 10);
+          const hour = new Date(e.created_at).getHours();
 
-            // Funnel
-            if (['deal_view', 'deal_viewed', 'deal_modal_open', 'deal_click'].includes(e.event_name)) {
-              cFunnelEngaged.add(e.anon_id);
-            }
-            if (['deal_saved', 'deal_save'].includes(e.event_name)) {
-              cSaves++;
-              cFunnelActivated.add(e.anon_id);
-              const props = e.properties as Record<string, unknown> | null;
-              const did = (props?.deal_id as string) || '';
-              if (did) cDealSaves[did] = (cDealSaves[did] || 0) + 1;
-            }
-            if (e.event_name === 'get_deal_click') {
-              cClicks++;
-              cFunnelActivated.add(e.anon_id);
-              const props = e.properties as Record<string, unknown> | null;
-              const disp = (props?.dispensary as string) || '';
-              if (disp) cDispClicks[disp] = (cDispClicks[disp] || 0) + 1;
-            }
-            if (['deal_shared', 'share_saves'].includes(e.event_name)) {
-              cShares++;
-            }
+          cFunnelVisitors.add(e.anon_id);
+          cUserEventCounts[e.anon_id] = (cUserEventCounts[e.anon_id] || 0) + 1;
 
-            // Device
-            const props = e.properties;
-            if (props && typeof props === 'object') {
-              const dt = (props as Record<string, unknown>).device_type;
-              if (dt && typeof dt === 'string') {
-                const dk = `${e.anon_id}:${dt}`;
-                if (!cDeviceSeen.has(dk)) {
-                  cDeviceSeen.add(dk);
-                  cDeviceCounts[dt] = (cDeviceCounts[dt] || 0) + 1;
-                }
+          if (!cUserDays[e.anon_id]) cUserDays[e.anon_id] = new Set();
+          cUserDays[e.anon_id].add(dateKey);
+
+          cHourlyCounts[hour] = (cHourlyCounts[hour] || 0) + 1;
+
+          if (!cDailyMap[dateKey]) cDailyMap[dateKey] = new Set();
+          cDailyMap[dateKey].add(e.anon_id);
+
+          if (['deal_view', 'deal_viewed', 'deal_modal_open', 'deal_click'].includes(e.event_name)) {
+            cFunnelEngaged.add(e.anon_id);
+          }
+          if (['deal_saved', 'deal_save'].includes(e.event_name)) {
+            cSaves++;
+            cFunnelActivated.add(e.anon_id);
+            const p = e.properties as Record<string, unknown> | null;
+            const did = (p?.deal_id as string) || '';
+            if (did) cDealSaves[did] = (cDealSaves[did] || 0) + 1;
+          }
+          if (e.event_name === 'get_deal_click') {
+            cClicks++;
+            cFunnelActivated.add(e.anon_id);
+            const p = e.properties as Record<string, unknown> | null;
+            const disp = (p?.dispensary as string) || '';
+            if (disp) cDispClicks[disp] = (cDispClicks[disp] || 0) + 1;
+          }
+          if (['deal_shared', 'share_saves'].includes(e.event_name)) {
+            cShares++;
+          }
+
+          const props = e.properties;
+          if (props && typeof props === 'object') {
+            const dt = (props as Record<string, unknown>).device_type;
+            if (dt && typeof dt === 'string') {
+              const dk = `${e.anon_id}:${dt}`;
+              if (!cDeviceSeen.has(dk)) {
+                cDeviceSeen.add(dk);
+                cDeviceCounts[dt] = (cDeviceCounts[dt] || 0) + 1;
               }
             }
           }
+        }
 
-          const cVisitors = cFunnelVisitors.size;
-          const cPowerUsers = Object.values(cUserDays).filter(d => d.size >= 3).length;
+        const cVisitors = cFunnelVisitors.size;
+        const cPowerUsers = Object.values(cUserDays).filter(d => d.size >= 3).length;
+        const bouncedUsers = Object.values(cUserEventCounts).filter(c => c <= 1).length;
+        const bounceRate = cVisitors > 0 ? Math.round((bouncedUsers / cVisitors) * 100) : 0;
 
-          // Bounce rate: users with only 1 event total (just a page load, didn't engage)
-          const bouncedUsers = Object.values(cUserEventCounts).filter(c => c <= 1).length;
-          const bounceRate = cVisitors > 0 ? Math.round((bouncedUsers / cVisitors) * 100) : 0;
+        // Pre-existing/organic comparison
+        const orgEvents = events.filter(e => preExistingIds.has(e.anon_id));
+        const orgVisitors = new Set<string>();
+        const orgActivated = new Set<string>();
+        let orgSaves = 0, orgClicks = 0;
+        for (const e of orgEvents) {
+          orgVisitors.add(e.anon_id);
+          if (['deal_saved', 'deal_save'].includes(e.event_name)) { orgSaves++; orgActivated.add(e.anon_id); }
+          if (e.event_name === 'get_deal_click') { orgClicks++; orgActivated.add(e.anon_id); }
+        }
 
-          // Organic comparison (all users NOT in any campaign)
-          const organicEvents = events.filter(e => !userCampaign[e.anon_id]);
-          const orgVisitors = new Set<string>();
-          const orgActivated = new Set<string>();
-          let orgSaves = 0, orgClicks = 0;
-          for (const e of organicEvents) {
-            orgVisitors.add(e.anon_id);
-            if (['deal_saved', 'deal_save'].includes(e.event_name)) { orgSaves++; orgActivated.add(e.anon_id); }
-            if (e.event_name === 'get_deal_click') { orgClicks++; orgActivated.add(e.anon_id); }
+        // Determine campaign name
+        let campaignName = 'vegas_strip_beta';
+        for (const e of cEvents) {
+          if (e.event_name === 'app_loaded' && e.properties) {
+            const c = (e.properties as Record<string, unknown>).utm_campaign ??
+                      (e.properties as Record<string, unknown>).acquisition_campaign;
+            if (typeof c === 'string' && c) { campaignName = c; break; }
           }
+        }
 
-          // Determine campaign name from UTM campaign param
-          let campaignName = 'unknown';
-          for (const e of cEvents) {
-            if (e.event_name === 'app_loaded' && e.properties) {
-              const c = (e.properties as Record<string, unknown>).utm_campaign;
-              if (typeof c === 'string' && c) { campaignName = c; break; }
-            }
-          }
+        // Enrich top deals
+        const cTopDeals = Object.entries(cDealSaves)
+          .map(([dealId, saves]) => ({ dealId, saves }))
+          .sort((a, b) => b.saves - a.saves)
+          .slice(0, 10);
 
-          // Top deals from campaign (enrich later in UI if needed)
-          const cTopDeals = Object.entries(cDealSaves)
-            .map(([dealId, saves]) => ({ dealId, saves }))
-            .sort((a, b) => b.saves - a.saves)
-            .slice(0, 10)
-            .map(d => ({ dealId: d.dealId, saves: d.saves }));
-
-          // Enrich with product names from the already-fetched topDeals
-          const enrichedTopDeals = cTopDeals.map(d => {
-            const match = topDeals.find(td => td.deal_id === d.dealId);
-            return {
-              dealId: d.dealId,
-              dealName: match?.product_name,
-              brand: match?.brand_name,
-              saves: d.saves,
-            };
-          });
-
+        const enrichedTopDeals = cTopDeals.map(d => {
+          const match = topDeals.find(td => td.deal_id === d.dealId);
           return {
-            campaignName,
-            source,
-            uniqueVisitors: cVisitors,
-            totalEvents: cEvents.length,
-            saves: cSaves,
-            dealClicks: cClicks,
-            shares: cShares,
-            eventsPerUser: cVisitors > 0 ? parseFloat((cEvents.length / cVisitors).toFixed(1)) : 0,
-            activationRate: cVisitors > 0 ? Math.round((cFunnelActivated.size / cVisitors) * 100) : 0,
-            bounceRate,
-            funnel: [
-              { label: 'Landed', count: cVisitors },
-              { label: 'Engaged', count: cFunnelEngaged.size },
-              { label: 'Activated', count: cFunnelActivated.size },
-              { label: 'Power User', count: cPowerUsers },
-            ],
-            dailyVisitors: Object.entries(cDailyMap)
-              .map(([date, s]) => ({ date, visitors: s.size, events: 0 }))
-              .sort((a, b) => a.date.localeCompare(b.date)),
-            hourlyActivity: Array.from({ length: 24 }, (_, hour) => ({
-              hour, count: cHourlyCounts[hour] || 0,
-            })),
-            topDeals: enrichedTopDeals,
-            topDispensaries: Object.entries(cDispClicks)
-              .map(([name, clicks]) => ({ name, clicks }))
-              .sort((a, b) => b.clicks - a.clicks)
-              .slice(0, 10),
-            devices: Object.entries(cDeviceCounts)
-              .map(([device_type, count]) => ({ device_type, count }))
-              .sort((a, b) => b.count - a.count),
-            organicVisitors: orgVisitors.size,
-            organicSaves: orgSaves,
-            organicClicks: orgClicks,
-            organicActivationRate: orgVisitors.size > 0 ? Math.round((orgActivated.size / orgVisitors.size) * 100) : 0,
-            organicEventsPerUser: orgVisitors.size > 0 ? parseFloat((organicEvents.length / orgVisitors.size).toFixed(1)) : 0,
-          } satisfies CampaignSegment;
+            dealId: d.dealId,
+            dealName: match?.product_name,
+            brand: match?.brand_name,
+            saves: d.saves,
+          };
         });
+
+        // Attribution filtered to new users only
+        const newUserAttribution: AttributionBreakdown[] = attribution.map(a => {
+          const newInChannel = Array.from(attrData[a.source]?.visitors ?? []).filter(uid => newUserIds.has(uid));
+          const newEvents = cEvents.filter(e => newInChannel.includes(e.anon_id));
+          let s = 0, c = 0;
+          for (const e of newEvents) {
+            if (['deal_saved', 'deal_save'].includes(e.event_name)) s++;
+            if (e.event_name === 'get_deal_click') c++;
+          }
+          return { ...a, visitors: newInChannel.length, saves: s, clicks: c };
+        }).filter(a => a.visitors > 0);
+
+        campaignSegments.push({
+          campaignName,
+          source: 'all_new',
+          uniqueVisitors: cVisitors,
+          totalEvents: cEvents.length,
+          saves: cSaves,
+          dealClicks: cClicks,
+          shares: cShares,
+          eventsPerUser: cVisitors > 0 ? parseFloat((cEvents.length / cVisitors).toFixed(1)) : 0,
+          activationRate: cVisitors > 0 ? Math.round((cFunnelActivated.size / cVisitors) * 100) : 0,
+          bounceRate,
+          funnel: [
+            { label: 'Landed', count: cVisitors },
+            { label: 'Engaged', count: cFunnelEngaged.size },
+            { label: 'Activated', count: cFunnelActivated.size },
+            { label: 'Power User', count: cPowerUsers },
+          ],
+          dailyVisitors: Object.entries(cDailyMap)
+            .map(([date, s]) => ({ date, visitors: s.size, events: 0 }))
+            .sort((a, b) => a.date.localeCompare(b.date)),
+          hourlyActivity: Array.from({ length: 24 }, (_, hour) => ({
+            hour, count: cHourlyCounts[hour] || 0,
+          })),
+          topDeals: enrichedTopDeals,
+          topDispensaries: Object.entries(cDispClicks)
+            .map(([name, clicks]) => ({ name, clicks }))
+            .sort((a, b) => b.clicks - a.clicks)
+            .slice(0, 10),
+          devices: Object.entries(cDeviceCounts)
+            .map(([device_type, count]) => ({ device_type, count }))
+            .sort((a, b) => b.count - a.count),
+          attribution: newUserAttribution,
+          organicVisitors: orgVisitors.size,
+          organicSaves: orgSaves,
+          organicClicks: orgClicks,
+          organicActivationRate: orgVisitors.size > 0 ? Math.round((orgActivated.size / orgVisitors.size) * 100) : 0,
+          organicEventsPerUser: orgVisitors.size > 0 ? parseFloat((orgEvents.length / orgVisitors.size).toFixed(1)) : 0,
+        });
+      }
 
       setData({
         scoreboard,

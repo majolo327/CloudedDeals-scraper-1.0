@@ -114,8 +114,47 @@ function parseUtmParams(): Record<string, string> | null {
 }
 
 /**
+ * Detect acquisition source from document.referrer when no UTM params are present.
+ * Maps known referrer domains to human-readable channel names.
+ */
+function detectReferrerSource(): Record<string, string> | null {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return null;
+  const ref = document.referrer;
+  if (!ref) return null; // Direct visit — no referrer
+
+  try {
+    const hostname = new URL(ref).hostname.toLowerCase();
+
+    // Twitter / X
+    if (hostname === 't.co' || hostname === 'x.com' || hostname.endsWith('.x.com') ||
+        hostname === 'twitter.com' || hostname.endsWith('.twitter.com')) {
+      return { utm_source: 'twitter', utm_medium: 'social', utm_campaign: 'x_profile' };
+    }
+    // Facebook / Instagram / Meta
+    if (hostname === 'l.facebook.com' || hostname === 'lm.facebook.com' ||
+        hostname.endsWith('facebook.com') || hostname.endsWith('fb.com') ||
+        hostname.endsWith('instagram.com')) {
+      return { utm_source: 'facebook', utm_medium: 'social', utm_campaign: 'meta' };
+    }
+    // Google (organic search)
+    if (hostname.endsWith('google.com') || hostname.endsWith('google.co')) {
+      return { utm_source: 'google', utm_medium: 'organic', utm_campaign: 'search' };
+    }
+    // Reddit
+    if (hostname.endsWith('reddit.com') || hostname === 'old.reddit.com') {
+      return { utm_source: 'reddit', utm_medium: 'social', utm_campaign: 'reddit' };
+    }
+    // Known referrer but not a major platform — track the domain
+    return { utm_source: hostname, utm_medium: 'referral', utm_campaign: 'referral' };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Persist acquisition source to localStorage on first visit.
  * Only the FIRST non-empty source wins (first-touch attribution).
+ * Priority: UTM params > referrer detection > "direct"
  */
 function persistAcquisitionSource(utm: Record<string, string>): void {
   if (typeof window === 'undefined') return;
@@ -153,10 +192,18 @@ export function initializeAnonUser(): void {
   if (!anonId) return;
   _sessionStartTime = Date.now();
 
-  // Capture UTM params before anything else
+  // Capture acquisition source: UTM params > referrer detection > "direct"
   const utm = parseUtmParams();
   if (utm) {
     persistAcquisitionSource(utm);
+  } else {
+    const referrerSource = detectReferrerSource();
+    if (referrerSource) {
+      persistAcquisitionSource(referrerSource);
+    } else {
+      // Direct visit (typed URL, bookmark, no referrer)
+      persistAcquisitionSource({ utm_source: 'direct', utm_medium: 'none', utm_campaign: '' });
+    }
   }
 
   touchSession();
