@@ -801,12 +801,26 @@ class DutchieScraper(BaseScraper):
         """
         logger.info("[%s] Trying fallback URL: %s", self.slug, fallback_url)
         await self.goto(fallback_url)
-        await asyncio.sleep(3)
+        await asyncio.sleep(3 + random.uniform(0, 2))
 
-        # Cloudflare on fallback = give up
+        # Cloudflare on fallback — retry with backoff before giving up.
+        # Cloudflare challenges are sometimes intermittent; a fresh page
+        # load after a brief pause can succeed where the first attempt fails.
         if await self.detect_cloudflare_challenge():
-            logger.error("[%s] Cloudflare blocked on fallback URL too — aborting", self.slug)
-            return []
+            for attempt, delay in enumerate([8, 15], start=1):
+                logger.info(
+                    "[%s] Cloudflare on fallback — retry %d after %ds",
+                    self.slug, attempt, delay,
+                )
+                await asyncio.sleep(delay)
+                await self.page.reload(wait_until="load", timeout=60_000)
+                await asyncio.sleep(2 + random.uniform(0, 3))
+                if not await self.detect_cloudflare_challenge():
+                    logger.info("[%s] Cloudflare cleared on fallback retry %d", self.slug, attempt)
+                    break
+            else:
+                logger.error("[%s] Cloudflare blocked on fallback URL after retries — aborting", self.slug)
+                return []
 
         await self.page.evaluate(_AGE_GATE_COOKIE_JS)
         await self.handle_age_gate(post_wait_sec=3)
