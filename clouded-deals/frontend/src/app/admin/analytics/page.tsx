@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAnalytics, exportEventsCSV } from '@/hooks/useAnalytics';
 import { supabase } from '@/lib/supabase';
 import { applyChainDiversityCap, applyGlobalBrandCap } from '@/utils/dealFilters';
-import type { FunnelStep, DeviceBreakdown, ReferrerSource, DailyVisitors, RetentionCohort, ViralMetrics, GrowthMetrics, DispensaryMetric, AcquisitionChannel, CampaignSegment } from '@/hooks/useAnalytics';
+import type { FunnelStep, DeviceBreakdown, ReferrerSource, DailyVisitors, RetentionCohort, ViralMetrics, GrowthMetrics, DispensaryMetric, CampaignSegment } from '@/hooks/useAnalytics';
 
 interface ContactRow {
   id: string;
@@ -216,7 +216,7 @@ export default function AnalyticsPage() {
   const {
     scoreboard, funnel, eventBreakdown, topDeals, hourlyActivity, recentEvents,
     dailyVisitors, devices, referrers, allTimeUniqueVisitors, retentionCohorts,
-    totalEventsInRange, viral, growth, dispensaryMetrics, acquisitionChannels,
+    totalEventsInRange, viral, growth, dispensaryMetrics,
     campaignSegments,
   } = data;
 
@@ -1755,82 +1755,6 @@ function CampaignKPI({ label, value, sub, indicator }: {
       </div>
       {sub && <p className="text-[10px] text-zinc-400 mt-0.5">{sub}</p>}
     </div>
-  );
-}
-
-function AcquisitionCard({ channels }: { channels: AcquisitionChannel[] }) {
-  const maxVisitors = Math.max(...channels.map(c => c.visitors), 1);
-
-  const sourceColors: Record<string, string> = {
-    flyer: 'bg-orange-500/60',
-    qr: 'bg-orange-500/60',
-    twitter: 'bg-sky-500/60',
-    instagram: 'bg-pink-500/60',
-    google: 'bg-blue-500/60',
-    referral: 'bg-emerald-500/60',
-    organic: 'bg-zinc-400/40',
-  };
-
-  const totalVisitors = channels.reduce((s, c) => s + c.visitors, 0);
-  const totalSaves = channels.reduce((s, c) => s + c.saves, 0);
-  const totalClicks = channels.reduce((s, c) => s + c.clicks, 0);
-
-  return (
-    <Card title="Acquisition Channels (UTM Source Tracking)">
-      {/* Summary row */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
-        <div className="rounded-lg bg-zinc-100 dark:bg-zinc-800 px-3 py-2.5 text-center">
-          <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Tracked Visitors</p>
-          <p className="text-xl font-bold text-zinc-900 dark:text-white">{totalVisitors}</p>
-        </div>
-        <div className="rounded-lg bg-zinc-100 dark:bg-zinc-800 px-3 py-2.5 text-center">
-          <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Saves</p>
-          <p className="text-xl font-bold text-green-600 dark:text-green-400">{totalSaves}</p>
-        </div>
-        <div className="rounded-lg bg-zinc-100 dark:bg-zinc-800 px-3 py-2.5 text-center">
-          <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Clicks</p>
-          <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{totalClicks}</p>
-        </div>
-      </div>
-
-      {/* Per-channel breakdown */}
-      <div className="space-y-2">
-        {channels.map((ch) => {
-          const pct = maxVisitors > 0 ? (ch.visitors / maxVisitors) * 100 : 0;
-          const barColor = sourceColors[ch.source.toLowerCase()] || 'bg-purple-500/50';
-          const convRate = ch.visitors > 0 ? Math.round((ch.saves / ch.visitors) * 100) : 0;
-          return (
-            <div key={ch.source}>
-              <div className="flex items-center gap-3">
-                <span className="w-20 truncate text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                  {ch.source}
-                </span>
-                <div className="flex-1 h-5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${barColor}`}
-                    style={{ width: `${Math.max(pct, 2)}%` }}
-                  />
-                </div>
-                <span className="w-12 text-right text-xs font-mono font-bold text-zinc-600 dark:text-zinc-300">
-                  {ch.visitors}
-                </span>
-                <span className="w-16 text-right text-[10px] font-medium text-green-600 dark:text-green-400">
-                  {ch.saves} saves
-                </span>
-                <span className="w-12 text-right text-[10px] font-medium text-zinc-400">
-                  {convRate}% cvr
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <p className="text-[10px] text-zinc-400 mt-4">
-        Source is determined by utm_source on first visit (first-touch attribution).
-        QR flyer scans appear as &quot;flyer&quot;. Users without UTM params show as &quot;organic&quot;.
-      </p>
-    </Card>
   );
 }
 
