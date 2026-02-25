@@ -15,7 +15,7 @@ An audit of the admin dashboard KPIs reveals **one critical data bug**, **multip
 
 ### Root Cause
 
-Sharded cron jobs store region names as `"michigan-1"`, `"michigan-2"`, etc. in `scrape_runs.region` (`main.py:149`), but the Scraper page filters with exact match `run.region === r.id` where `r.id = "michigan"` (`scraper/page.tsx:123`).
+Sharded cron jobs store region names as `"michigan-1"`, `"michigan-2"`, etc. in `scrape_runs.region` (`main.py:149`), but the Scraper page filters with exact match `run.region === r.id` where `r.id = "michigan"` (`scraper/page.tsx:123`). The same bug exists in the expanded region detail view (`scraper/page.tsx:338`).
 
 ### Impact
 
@@ -69,7 +69,7 @@ This is `COUNT(*)` on the **entire products table** — every row ever created, 
 - Daily scrape touches ~78K+ raw products across all regions
 - Dedup constraint collapses same-price products into one row (upsert)
 - Price changes create new rows → table grows over time
-- `033_data_retention_policy.sql` cleans `scrape_runs`, `user_events`, `analytics_events`, but **NOT products**
+- `033_data_retention_policy.sql` cleans `scrape_runs`, `user_events`, `analytics_events`, `shared_saves`, but **NOT products**
 - So 64K is the total accumulated unique (dispensary, name, weight, price) tuples ever seen
 
 ### What Stakeholders Expect
@@ -113,7 +113,7 @@ Products ≠ Deals. The card doesn't show deals at all.
 
 #### 1. Fix sharded region aggregation
 **File:** `frontend/src/app/admin/scraper/page.tsx`
-- Match sharded runs via startsWith
+- Match sharded runs via startsWith (line 123 + line 338)
 - Aggregate across same-day shards for region card stats
 - Show combined Sites OK / Products / Deals
 
