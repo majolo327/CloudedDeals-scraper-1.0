@@ -22,6 +22,7 @@ interface ContactStats {
   emails: number;
   bySavedDeals: number;
   byOutOfMarket: number;
+  byEarlyBird: number;
   contacts: ContactRow[];
 }
 
@@ -50,6 +51,7 @@ export default function ContactsPage() {
         emails: contacts.filter(c => c.email).length,
         bySavedDeals: contacts.filter(c => c.source === 'saved_deals_banner').length,
         byOutOfMarket: contacts.filter(c => c.source === 'out_of_market').length,
+        byEarlyBird: contacts.filter(c => c.source === 'early_bird_banner').length,
         contacts,
       });
       setLoading(false);
@@ -180,6 +182,7 @@ export default function ContactsPage() {
           <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">By Source</h3>
         </div>
         <div className="p-4 space-y-3">
+          <SourceBar label="Early Bird Banner" count={stats.byEarlyBird} total={stats.total} />
           <SourceBar label="Saved Deals Banner" count={stats.bySavedDeals} total={stats.total} />
           <SourceBar label="Out of Market" count={stats.byOutOfMarket} total={stats.total} />
         </div>
@@ -213,9 +216,11 @@ export default function ContactsPage() {
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                       c.source === 'saved_deals_banner'
                         ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400'
+                        : c.source === 'early_bird_banner'
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'
                         : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
                     }`}>
-                      {c.source === 'saved_deals_banner' ? 'Saved Deals' : c.source === 'out_of_market' ? 'Out of Market' : c.source}
+                      {c.source === 'saved_deals_banner' ? 'Saved Deals' : c.source === 'out_of_market' ? 'Out of Market' : c.source === 'early_bird_banner' ? 'Early Bird' : c.source}
                     </span>
                   </td>
                   <td className="px-4 py-2 text-xs text-zinc-400">{c.saved_deals_count ?? '-'}</td>
