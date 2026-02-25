@@ -156,12 +156,12 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is False
 
     def test_edible_at_cap(self, make_product):
-        p = make_product(category="edible", sale_price=14.0, original_price=30.0,
-                         discount_percent=53)
+        p = make_product(category="edible", sale_price=18.0, original_price=36.0,
+                         discount_percent=50)
         assert passes_hard_filters(p) is True
 
     def test_edible_over_cap(self, make_product):
-        p = make_product(category="edible", sale_price=15.0, original_price=30.0,
+        p = make_product(category="edible", sale_price=19.0, original_price=38.0,
                          discount_percent=50)
         assert passes_hard_filters(p) is False
 
@@ -356,9 +356,29 @@ class TestBrandScoring:
     def test_no_brand(self):
         assert _score_brand("") == 0
 
-    def test_substring_match(self):
-        """Compound brand names like 'Alien Labs Cannabis' should match."""
+    def test_compound_brand_prefix_match(self):
+        """Compound brand names like 'Alien Labs Cannabis' should match via prefix."""
         assert _score_brand("Alien Labs Cannabis") == 20
+        assert _score_brand("Alien Labs Cannabis Co") == 20
+        assert _score_brand("Cookies SF") == 20
+        assert _score_brand("Raw Garden Live") == 20
+
+    def test_strain_name_no_false_positive(self):
+        """Strain names containing tier brands should NOT match the tier.
+
+        'Wedding Cake' should not match 'cake' (popular tier).
+        'Purple Haze' should not match 'haze' (popular tier).
+        These are strains, not brands — the tier brand appears at the END,
+        not the START, of the detected brand string.
+        """
+        # These should get 5 pts (any brand > no brand), NOT tier points
+        assert _score_brand("Wedding Cake") == 5
+        assert _score_brand("Purple Haze") == 5
+        assert _score_brand("Blue Cookies") == 5
+
+    def test_word_boundary_respected(self):
+        """Prefix match must end at a word boundary — 'campaign' != 'camp'."""
+        assert _score_brand("campaign") == 5  # not 12 for "camp"
 
 
 # =====================================================================
