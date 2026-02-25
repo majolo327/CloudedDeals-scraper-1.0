@@ -47,7 +47,7 @@ from supabase import create_client, Client
 from playwright.async_api import async_playwright
 
 from config.dispensaries import (
-    BROWSER_ARGS, DISPENSARIES, SITE_TIMEOUT_SEC,
+    DISPENSARIES, SITE_TIMEOUT_SEC,
     get_platforms_for_group, get_dispensaries_by_group,
     get_dispensaries_by_region, is_expansion_region,
 )
@@ -55,7 +55,10 @@ from clouded_logic import CloudedLogic, BRANDS_LOWER
 from deal_detector import detect_deals, get_last_report_data
 from metrics_collector import collect_daily_metrics
 from product_classifier import classify_product
-from platforms import AIQScraper, CarrotScraper, CuraleafScraper, DutchieScraper, JaneScraper, RiseScraper
+from platforms import (
+    AIQScraper, CarrotScraper, CuraleafScraper, DutchieScraper,
+    JaneScraper, RiseScraper, launch_stealth_browser,
+)
 
 # Concurrency limit for parallel scraping.
 # SCRAPE_CONCURRENCY controls total browser contexts at once (default 6).
@@ -1692,9 +1695,9 @@ async def run(slug_filter: str | None = None) -> None:
     try:
         # Launch ONE shared browser for all concurrent scrapers
         pw = await async_playwright().start()
-        browser = await pw.chromium.launch(
-            headless=True,
-            args=BROWSER_ARGS + [
+        browser = await launch_stealth_browser(
+            pw,
+            extra_args=[
                 "--disable-gpu",
                 "--disable-extensions",
                 "--disable-background-timer-throttling",

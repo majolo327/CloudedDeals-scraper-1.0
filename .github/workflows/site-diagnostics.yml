@@ -58,7 +58,7 @@ jobs:
           pip install -r requirements.txt
           pip install "pytest>=8.0" "pytest-asyncio>=0.23" "pytest-timeout>=2.2"
           playwright install-deps
-          playwright install chromium
+          playwright install chrome chromium
 
       - name: Create output directory
         working-directory: clouded-deals/scraper
