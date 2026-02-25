@@ -64,7 +64,6 @@ export default function AnalyticsPage() {
   const { data, loading, error, refresh } = useAnalytics(range);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
-  const [showOps, setShowOps] = useState(false);
   const [showContacts, setShowContacts] = useState(false);
   const [contacts, setContacts] = useState<ContactRow[]>([]);
   const [contactsLoaded, setContactsLoaded] = useState(false);
@@ -215,12 +214,12 @@ export default function AnalyticsPage() {
 
   const {
     scoreboard, funnel, eventBreakdown, topDeals, hourlyActivity, recentEvents,
-    dailyVisitors, devices, referrers, allTimeUniqueVisitors, retentionCohorts,
+    dailyVisitors, devices, referrers, retentionCohorts,
     totalEventsInRange, viral, growth, dispensaryMetrics,
-    campaignSegments,
+    campaignSegments, kpis,
   } = data;
 
-  const progressPct = Math.min((allTimeUniqueVisitors / VISITOR_GOAL) * 100, 100);
+  const progressPct = Math.min((kpis.totalUniqueUsers / VISITOR_GOAL) * 100, 100);
 
   return (
     <div className="space-y-8">
@@ -275,15 +274,59 @@ export default function AnalyticsPage() {
       </div>
 
       {/* ================================================================ */}
-      {/* SECTION 1: THE SCOREBOARD                                        */}
+      {/* SECTION 1: CORE METRICS — The numbers that matter                */}
+      {/* DAU / WAU / MAU / Total Unique Users                             */}
       {/* ================================================================ */}
       <section>
-        <SectionHeading>Morning Scoreboard</SectionHeading>
+        <SectionHeading>Core Metrics</SectionHeading>
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <CoreMetricCard
+            label="DAU"
+            sublabel="Daily Active Users"
+            value={kpis.dau}
+            change={kpis.dauChange}
+            changeLabel="vs yesterday"
+          />
+          <CoreMetricCard
+            label="WAU"
+            sublabel="Weekly Active Users"
+            value={kpis.wau}
+            change={kpis.wauChange}
+            changeLabel="vs prev week"
+          />
+          <CoreMetricCard
+            label="MAU"
+            sublabel="Monthly Active Users"
+            value={kpis.mau}
+            change={kpis.mauChange}
+            changeLabel="vs prev 30d"
+          />
+          <CoreMetricCard
+            label="Total Users"
+            sublabel="All Time (PMF Goal)"
+            value={kpis.totalUniqueUsers}
+            target={VISITOR_GOAL}
+          />
+        </div>
+      </section>
+
+      {/* ================================================================ */}
+      {/* SECTION 2: PMF PROGRESS — Progress to 1,000 unique users         */}
+      {/* ================================================================ */}
+      <section>
+        <ProgressCard current={kpis.totalUniqueUsers} goal={VISITOR_GOAL} pct={progressPct} />
+      </section>
+
+      {/* ================================================================ */}
+      {/* SECTION 3: TODAY'S ACTIVITY                                       */}
+      {/* ================================================================ */}
+      <section>
+        <SectionHeading>Today&apos;s Activity</SectionHeading>
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-          <ScoreboardCard label="Visitors Today" value={scoreboard.visitorsToday} />
-          <ScoreboardCard label="Saves Today" value={scoreboard.savesToday} />
-          <ScoreboardCard label="Deal Clicks Today" value={scoreboard.dealClicksToday} />
-          <ScoreboardCard label="Shares Today" value={viral.sharesToday} />
+          <ScoreboardCard label="Visitors" value={scoreboard.visitorsToday} sub="unique today" />
+          <ScoreboardCard label="Saves" value={scoreboard.savesToday} />
+          <ScoreboardCard label="Deal Clicks" value={scoreboard.dealClicksToday} />
+          <ScoreboardCard label="Shares" value={viral.sharesToday} />
           <ScoreboardCard
             label="Return Rate"
             value={`${scoreboard.returnRate}%`}
@@ -300,58 +343,41 @@ export default function AnalyticsPage() {
       </section>
 
       {/* ================================================================ */}
-      {/* SECTION 2: CAMPAIGN PERFORMANCE (the main event)                 */}
-      {/* Shows new users segmented from pre-existing test traffic         */}
-      {/* ================================================================ */}
-      {campaignSegments && campaignSegments.length > 0 && (
-        <section className="space-y-6">
-          <SectionHeading>Campaign Performance — New Users Only</SectionHeading>
-          {campaignSegments.map((seg) => (
-            <CampaignDashboard key={seg.source} segment={seg} range={range} />
-          ))}
-        </section>
-      )}
-
-      {/* ================================================================ */}
-      {/* SECTION 3: GROWTH & ENGAGEMENT (all users combined)              */}
+      {/* SECTION 4: GROWTH TRENDS                                         */}
       {/* ================================================================ */}
       <section className="space-y-6">
-        <SectionHeading>Growth &amp; Engagement (All Users)</SectionHeading>
+        <SectionHeading>Growth Trends</SectionHeading>
+        <DailyVisitorsChart data={dailyVisitors} />
         <GrowthCard growth={growth} />
       </section>
 
       {/* ================================================================ */}
-      {/* SECTION: DEAL PIPELINE HEALTH                                    */}
+      {/* SECTION 5: CAMPAIGN PERFORMANCE (collapsible, open by default)   */}
       {/* ================================================================ */}
-      {pipeline && (
-        <section>
-          <SectionHeading>Deal Pipeline</SectionHeading>
-          <PipelineCard pipeline={pipeline} />
-        </section>
+      {campaignSegments && campaignSegments.length > 0 && (
+        <CollapsibleSection title="Campaign Performance" badge="LIVE" defaultOpen>
+          <div className="space-y-6">
+            {campaignSegments.map((seg) => (
+              <CampaignDashboard key={seg.source} segment={seg} range={range} />
+            ))}
+          </div>
+        </CollapsibleSection>
       )}
 
       {/* ================================================================ */}
-      {/* SECTION 3: THE PMF STORY                                         */}
+      {/* SECTION 6: CONVERSION FUNNEL & TOP ACTIONS (collapsible)         */}
       {/* ================================================================ */}
-      <section className="space-y-6">
-        <SectionHeading>The PMF Story</SectionHeading>
-
-        {/* Progress to 1,000 */}
-        <ProgressCard current={allTimeUniqueVisitors} goal={VISITOR_GOAL} pct={progressPct} />
-
-        {/* Funnel + Top Actions side by side */}
+      <CollapsibleSection title="Conversion Funnel & Top Actions">
         <div className="grid gap-6 lg:grid-cols-2">
           <FunnelCard funnel={funnel} />
           <TopActionsCard events={eventBreakdown} />
         </div>
+      </CollapsibleSection>
 
-        {/* Daily Unique Visitors */}
-        <DailyVisitorsChart data={dailyVisitors} />
-
-        {/* Retention Cohorts */}
-        <RetentionCohortsCard cohorts={retentionCohorts} />
-
-        {/* Top Deals + Device/Traffic */}
+      {/* ================================================================ */}
+      {/* SECTION 7: TOP DEALS, DEVICES & TRAFFIC (collapsible)            */}
+      {/* ================================================================ */}
+      <CollapsibleSection title="Top Deals & Traffic Sources">
         <div className="grid gap-6 lg:grid-cols-2">
           <Card title="Top Saved Deals">
             {topDeals.length === 0 ? (
@@ -385,120 +411,117 @@ export default function AnalyticsPage() {
             <ReferrerCard referrers={referrers} />
           </div>
         </div>
-      </section>
+      </CollapsibleSection>
 
       {/* ================================================================ */}
-      {/* SECTION 4: VIRAL & SHARING                                       */}
+      {/* SECTION 8: DEAL PIPELINE (collapsible)                           */}
       {/* ================================================================ */}
-      <section className="space-y-6">
-        <SectionHeading>Viral &amp; Sharing</SectionHeading>
-        <ViralCard viral={viral} range={range} />
-      </section>
+      {pipeline && (
+        <CollapsibleSection title="Deal Pipeline Health">
+          <PipelineCard pipeline={pipeline} />
+        </CollapsibleSection>
+      )}
 
       {/* ================================================================ */}
-      {/* SECTION 5: B2B READINESS                                         */}
+      {/* SECTION 9: B2B READINESS (collapsible)                           */}
       {/* ================================================================ */}
-      <section className="space-y-6">
-        <SectionHeading>B2B Readiness</SectionHeading>
+      <CollapsibleSection title="B2B Readiness">
         <DispensaryCard dispensaries={dispensaryMetrics} range={range} />
-      </section>
+      </CollapsibleSection>
 
       {/* ================================================================ */}
-      {/* SECTION 6: OPERATIONAL (collapsible)                             */}
+      {/* SECTION 10: VIRAL & SHARING (collapsible)                        */}
       {/* ================================================================ */}
-      <section>
-        <button
-          onClick={() => setShowOps(!showOps)}
-          className="w-full flex items-center justify-between rounded-xl border border-zinc-300 bg-white px-5 py-3 dark:border-zinc-700 dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
-        >
-          <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-            Operational
-          </span>
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            {showOps ? '\u25B2' : '\u25BC'}
-          </span>
-        </button>
+      <CollapsibleSection title="Viral & Sharing">
+        <ViralCard viral={viral} range={range} />
+      </CollapsibleSection>
 
-        {showOps && (
-          <div className="mt-4 space-y-6">
-            {/* Hourly Activity */}
-            <Card title="Hourly Activity">
-              <HourlyChart hours={hourlyActivity} />
-            </Card>
+      {/* ================================================================ */}
+      {/* SECTION 11: RETENTION COHORTS (collapsible)                      */}
+      {/* ================================================================ */}
+      <CollapsibleSection title="Retention Cohorts">
+        <RetentionCohortsCard cohorts={retentionCohorts} />
+      </CollapsibleSection>
 
-            {/* All Events Breakdown */}
-            <Card title={`All Events (${totalEventsInRange.toLocaleString()} total in ${range})`}>
-              {eventBreakdown.length === 0 ? (
-                <p className="text-sm text-zinc-400">No events recorded</p>
-              ) : (
-                <div className="space-y-2">
-                  {eventBreakdown.map((e) => {
-                    const pct = totalEventsInRange > 0 ? (e.count / totalEventsInRange) * 100 : 0;
-                    return (
-                      <div key={e.event_name} className="flex items-center gap-3">
-                        <span className="w-40 truncate text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                          {EVENT_LABELS[e.event_name] || e.event_name}
-                        </span>
-                        <div className="flex-1 h-5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-green-500/60"
-                            style={{ width: `${Math.max(pct, 1)}%` }}
-                          />
-                        </div>
-                        <span className="w-12 text-right text-xs font-mono text-zinc-500">{e.count}</span>
+      {/* ================================================================ */}
+      {/* SECTION 12: OPERATIONAL (collapsible)                            */}
+      {/* ================================================================ */}
+      <CollapsibleSection title={`Operational (${totalEventsInRange.toLocaleString()} events)`}>
+        <div className="space-y-6">
+          <Card title="Hourly Activity">
+            <HourlyChart hours={hourlyActivity} />
+          </Card>
+
+          <Card title={`All Events (${totalEventsInRange.toLocaleString()} total in ${range})`}>
+            {eventBreakdown.length === 0 ? (
+              <p className="text-sm text-zinc-400">No events recorded</p>
+            ) : (
+              <div className="space-y-2">
+                {eventBreakdown.map((e) => {
+                  const pct = totalEventsInRange > 0 ? (e.count / totalEventsInRange) * 100 : 0;
+                  return (
+                    <div key={e.event_name} className="flex items-center gap-3">
+                      <span className="w-40 truncate text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                        {EVENT_LABELS[e.event_name] || e.event_name}
+                      </span>
+                      <div className="flex-1 h-5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-green-500/60"
+                          style={{ width: `${Math.max(pct, 1)}%` }}
+                        />
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </Card>
-
-            {/* Live Event Stream */}
-            <Card title="Live Event Stream">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="border-b border-zinc-200 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
-                    <tr>
-                      <th className="px-4 py-2 font-semibold">Time</th>
-                      <th className="px-4 py-2 font-semibold">Event</th>
-                      <th className="px-4 py-2 font-semibold">User</th>
-                      <th className="px-4 py-2 font-semibold">Properties</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                    {recentEvents.slice(0, 50).map((event) => (
-                      <tr key={event.id} className="text-zinc-800 dark:text-zinc-200">
-                        <td className="whitespace-nowrap px-4 py-2 text-xs">
-                          {formatTimeAgo(event.created_at)}
-                        </td>
-                        <td className="px-4 py-2">
-                          <EventBadge name={event.event_name} />
-                        </td>
-                        <td className="px-4 py-2 font-mono text-xs text-zinc-500 dark:text-zinc-400">
-                          {event.anon_id.slice(0, 8)}
-                        </td>
-                        <td className="px-4 py-2 text-xs text-zinc-500 dark:text-zinc-400 max-w-xs truncate">
-                          {event.properties ? JSON.stringify(event.properties) : '-'}
-                        </td>
-                      </tr>
-                    ))}
-                    {recentEvents.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="px-4 py-8 text-center text-zinc-400">
-                          No events recorded yet.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                      <span className="w-12 text-right text-xs font-mono text-zinc-500">{e.count}</span>
+                    </div>
+                  );
+                })}
               </div>
-            </Card>
-          </div>
-        )}
-      </section>
+            )}
+          </Card>
+
+          <Card title="Live Event Stream">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-zinc-200 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
+                  <tr>
+                    <th className="px-4 py-2 font-semibold">Time</th>
+                    <th className="px-4 py-2 font-semibold">Event</th>
+                    <th className="px-4 py-2 font-semibold">User</th>
+                    <th className="px-4 py-2 font-semibold">Properties</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                  {recentEvents.slice(0, 50).map((event) => (
+                    <tr key={event.id} className="text-zinc-800 dark:text-zinc-200">
+                      <td className="whitespace-nowrap px-4 py-2 text-xs">
+                        {formatTimeAgo(event.created_at)}
+                      </td>
+                      <td className="px-4 py-2">
+                        <EventBadge name={event.event_name} />
+                      </td>
+                      <td className="px-4 py-2 font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                        {event.anon_id.slice(0, 8)}
+                      </td>
+                      <td className="px-4 py-2 text-xs text-zinc-500 dark:text-zinc-400 max-w-xs truncate">
+                        {event.properties ? JSON.stringify(event.properties) : '-'}
+                      </td>
+                    </tr>
+                  ))}
+                  {recentEvents.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-zinc-400">
+                        No events recorded yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      </CollapsibleSection>
 
       {/* ================================================================ */}
-      {/* SECTION 5: CONTACTS & WAITLIST (collapsible)                    */}
+      {/* SECTION 13: CONTACTS & WAITLIST (collapsible)                    */}
       {/* ================================================================ */}
       <section>
         <button
@@ -526,7 +549,6 @@ export default function AnalyticsPage() {
               <div className="h-32 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
             ) : (
               <>
-                {/* Stats row */}
                 <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                   <ContactStatCard label="Total Contacts" value={contacts.length} />
                   <ContactStatCard label="Phone Numbers" value={contacts.filter(c => c.phone).length} />
@@ -534,7 +556,6 @@ export default function AnalyticsPage() {
                   <ContactStatCard label="From Saved Deals" value={contacts.filter(c => c.source === 'saved_deals_banner').length} />
                 </div>
 
-                {/* Table */}
                 <Card title={`Recent Contacts (${contacts.length})`}>
                   <div className="flex justify-end mb-3">
                     <button
@@ -716,6 +737,99 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
     <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-3">
       {children}
     </h2>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Core Metric Card — big hero KPI display for DAU/WAU/MAU/Total
+// ---------------------------------------------------------------------------
+
+function CoreMetricCard({
+  label, sublabel, value, change, changeLabel, target,
+}: {
+  label: string;
+  sublabel: string;
+  value: number;
+  change?: number | null;
+  changeLabel?: string;
+  target?: number;
+}) {
+  const changeColor = change !== null && change !== undefined
+    ? change > 0 ? 'text-green-600 dark:text-green-400'
+      : change < 0 ? 'text-red-500 dark:text-red-400'
+        : 'text-zinc-400'
+    : '';
+  const changeArrow = change !== null && change !== undefined
+    ? change > 0 ? '\u2191' : change < 0 ? '\u2193' : '\u2192'
+    : '';
+
+  return (
+    <div className="rounded-xl border-2 border-zinc-200 bg-white px-5 py-5 dark:border-zinc-700 dark:bg-zinc-900">
+      <p className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">{label}</p>
+      <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">{sublabel}</p>
+      <div className="flex items-baseline gap-3 mt-2">
+        <p className="text-4xl font-bold text-zinc-900 dark:text-white">{value.toLocaleString()}</p>
+        {target && (
+          <span className="text-sm text-zinc-400">/ {target.toLocaleString()}</span>
+        )}
+      </div>
+      {change !== null && change !== undefined && (
+        <p className={`text-sm font-semibold mt-1.5 ${changeColor}`}>
+          {changeArrow} {change > 0 ? '+' : ''}{change}%
+          {changeLabel && <span className="text-[10px] text-zinc-400 font-normal ml-1.5">{changeLabel}</span>}
+        </p>
+      )}
+      {target && (
+        <div className="mt-3">
+          <div className="h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-700"
+              style={{ width: `${Math.min((value / target) * 100, 100)}%` }}
+            />
+          </div>
+          <p className="text-[10px] text-zinc-400 mt-1">{((value / target) * 100).toFixed(1)}% of goal</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Collapsible Section — reusable wrapper for expand/collapse sections
+// ---------------------------------------------------------------------------
+
+function CollapsibleSection({
+  title, children, defaultOpen = false, badge,
+}: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  badge?: string;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <section>
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between rounded-xl border border-zinc-300 bg-white px-5 py-3 dark:border-zinc-700 dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+            {title}
+          </span>
+          {badge && (
+            <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700 dark:bg-orange-900/40 dark:text-orange-400 uppercase tracking-wide">
+              {badge}
+            </span>
+          )}
+        </div>
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+          {open ? '\u25B2' : '\u25BC'}
+        </span>
+      </button>
+      {open && <div className="mt-4">{children}</div>}
+    </section>
   );
 }
 
