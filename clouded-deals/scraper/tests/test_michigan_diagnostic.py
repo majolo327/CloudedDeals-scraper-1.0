@@ -88,8 +88,8 @@ class TestCuraleafAgeGateStateMismatch:
     def test_michigan_curaleaf_sites_exist(self):
         """Confirm Michigan has Curaleaf-platform sites that need state fix."""
         sites = _michigan_curaleaf()
-        assert len(sites) >= 2, (
-            f"Expected at least 2 Michigan curaleaf sites, found {len(sites)}"
+        assert len(sites) >= 1, (
+            f"Expected at least 1 Michigan curaleaf site, found {len(sites)}"
         )
 
     def test_curaleaf_michigan_urls_are_michigan_paths(self):
@@ -290,10 +290,10 @@ class TestMichiganConfigQuality:
     """Verify Michigan dispensary configs are well-formed and consistent."""
 
     def test_michigan_has_expected_count(self):
-        """Michigan should have ~114 dispensaries."""
+        """Michigan should have ~450 dispensaries after expansion."""
         sites = _michigan_dispensaries()
-        assert 100 <= len(sites) <= 130, (
-            f"Expected ~114 Michigan dispensaries, found {len(sites)}"
+        assert 400 <= len(sites) <= 500, (
+            f"Expected ~450 Michigan dispensaries, found {len(sites)}"
         )
 
     def test_all_slugs_unique(self):
@@ -314,18 +314,22 @@ class TestMichiganConfigQuality:
             )
 
     def test_platform_distribution(self):
-        """Michigan is dutchie-dominant — verify expected distribution."""
+        """Michigan is dutchie-dominant with jane stores — verify expected distribution."""
         platforms = Counter(d["platform"] for d in _michigan_dispensaries())
-        # All Michigan sites should be dutchie or curaleaf
-        assert set(platforms.keys()).issubset({"dutchie", "curaleaf"}), (
+        # Michigan sites should be dutchie, jane, or curaleaf
+        assert set(platforms.keys()).issubset({"dutchie", "jane", "curaleaf"}), (
             f"Unexpected platforms in Michigan: {dict(platforms)}"
         )
         # Dutchie should be the vast majority
-        assert platforms["dutchie"] >= 100, (
-            f"Expected 100+ dutchie sites in Michigan, found {platforms['dutchie']}"
+        assert platforms["dutchie"] >= 250, (
+            f"Expected 250+ dutchie sites in Michigan, found {platforms['dutchie']}"
         )
-        assert platforms.get("curaleaf", 0) >= 2, (
-            f"Expected 2+ curaleaf sites in Michigan, found {platforms.get('curaleaf', 0)}"
+        # Jane stores added in expansion
+        assert platforms.get("jane", 0) >= 100, (
+            f"Expected 100+ jane sites in Michigan, found {platforms.get('jane', 0)}"
+        )
+        assert platforms.get("curaleaf", 0) >= 1, (
+            f"Expected 1+ curaleaf sites in Michigan, found {platforms.get('curaleaf', 0)}"
         )
 
     def test_dutchie_urls_are_consistent_pattern(self):

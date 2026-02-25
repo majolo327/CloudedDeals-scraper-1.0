@@ -114,13 +114,13 @@ class TestPassesHardFilters:
     # ── Flower weight-based caps (relaxed) ───────────────────────────
 
     def test_flower_35g_at_cap(self, make_product):
-        p = make_product(category="flower", sale_price=25.0, original_price=50.0,
-                         discount_percent=50, weight_value=3.5)
+        p = make_product(category="flower", sale_price=22.0, original_price=50.0,
+                         discount_percent=56, weight_value=3.5)
         assert passes_hard_filters(p) is True
 
     def test_flower_35g_over_cap(self, make_product):
-        p = make_product(category="flower", sale_price=26.0, original_price=50.0,
-                         discount_percent=48, weight_value=3.5)
+        p = make_product(category="flower", sale_price=23.0, original_price=50.0,
+                         discount_percent=54, weight_value=3.5)
         assert passes_hard_filters(p) is False
 
     def test_flower_7g_at_cap(self, make_product):
@@ -139,9 +139,9 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is True
 
     def test_flower_no_weight_uses_35g_default(self, make_product):
-        p = make_product(category="flower", sale_price=26.0, original_price=50.0,
-                         discount_percent=48, weight_value=None)
-        assert passes_hard_filters(p) is False  # > $25 default cap
+        p = make_product(category="flower", sale_price=23.0, original_price=50.0,
+                         discount_percent=54, weight_value=None)
+        assert passes_hard_filters(p) is False  # > $22 default cap (3.5g)
 
     # ── Flat-cap categories (relaxed) ────────────────────────────────
 
@@ -156,12 +156,12 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is False
 
     def test_edible_at_cap(self, make_product):
-        p = make_product(category="edible", sale_price=15.0, original_price=30.0,
-                         discount_percent=50)
+        p = make_product(category="edible", sale_price=14.0, original_price=30.0,
+                         discount_percent=53)
         assert passes_hard_filters(p) is True
 
     def test_edible_over_cap(self, make_product):
-        p = make_product(category="edible", sale_price=16.0, original_price=32.0,
+        p = make_product(category="edible", sale_price=15.0, original_price=30.0,
                          discount_percent=50)
         assert passes_hard_filters(p) is False
 
@@ -262,6 +262,74 @@ class TestPassesHardFilters:
         p["current_price"] = 5.0
         p.pop("sale_price")
         assert passes_hard_filters(p) is True
+
+
+# =====================================================================
+# State-specific price caps
+# =====================================================================
+
+
+class TestStatePriceCaps:
+    """State-specific price cap overrides — different markets have different
+    price points, so NV-calibrated caps don't work everywhere."""
+
+    def test_michigan_flower_eighth_lower_cap(self, make_product):
+        """Michigan $10 eighths are normal, not deals.  MI cap is $15."""
+        p = make_product(category="flower", sale_price=16.0, original_price=30.0,
+                         discount_percent=47, weight_value=3.5, region="michigan")
+        assert passes_hard_filters(p) is False  # > $15 MI cap
+
+    def test_michigan_flower_eighth_at_cap(self, make_product):
+        p = make_product(category="flower", sale_price=15.0, original_price=30.0,
+                         discount_percent=50, weight_value=3.5, region="michigan")
+        assert passes_hard_filters(p) is True  # at $15 MI cap
+
+    def test_nj_flower_eighth_higher_cap(self, make_product):
+        """NJ has expensive market — $28 eighth on sale is a real deal."""
+        p = make_product(category="flower", sale_price=35.0, original_price=55.0,
+                         discount_percent=36, weight_value=3.5, region="new-jersey")
+        assert passes_hard_filters(p) is True  # at $35 NJ cap
+
+    def test_nj_flower_eighth_over_cap(self, make_product):
+        p = make_product(category="flower", sale_price=36.0, original_price=55.0,
+                         discount_percent=35, weight_value=3.5, region="new-jersey")
+        assert passes_hard_filters(p) is False  # > $35 NJ cap
+
+    def test_sharded_region_normalized(self, make_product):
+        """Sharded regions like 'michigan-2' should use MI overrides."""
+        p = make_product(category="flower", sale_price=16.0, original_price=30.0,
+                         discount_percent=47, weight_value=3.5, region="michigan-2")
+        assert passes_hard_filters(p) is False  # > $15 MI cap
+
+    def test_nv_uses_base_caps(self, make_product):
+        """Southern NV should use the base NV-calibrated caps."""
+        p = make_product(category="flower", sale_price=22.0, original_price=50.0,
+                         discount_percent=56, weight_value=3.5, region="southern-nv")
+        assert passes_hard_filters(p) is True  # at $22 NV cap
+
+    def test_no_region_uses_base_caps(self, make_product):
+        """Products without region should use base caps."""
+        p = make_product(category="flower", sale_price=22.0, original_price=50.0,
+                         discount_percent=56, weight_value=3.5)
+        assert passes_hard_filters(p) is True  # at $22 base cap
+
+    def test_michigan_jane_loose_qual_uses_mi_caps(self, make_product):
+        """Michigan Jane sites should use MI price caps for loose qualification."""
+        p = make_product(category="flower", sale_price=16.0, weight_value=3.5,
+                         source_platform="jane", region="michigan")
+        assert passes_hard_filters(p) is False  # > $15 MI cap for Jane loose qual
+
+    def test_ohio_vape_higher_cap(self, make_product):
+        """OH vape cap ($35) is higher than NV ($28)."""
+        p = make_product(category="vape", sale_price=35.0, original_price=60.0,
+                         discount_percent=42, region="ohio")
+        assert passes_hard_filters(p) is True  # at $35 OH cap
+
+    def test_missouri_concentrate_cap(self, make_product):
+        """MO concentrate 1g cap ($48)."""
+        p = make_product(category="concentrate", sale_price=48.0, original_price=80.0,
+                         discount_percent=40, weight_value=1.0, region="missouri")
+        assert passes_hard_filters(p) is True  # at $48 MO cap
 
 
 # =====================================================================

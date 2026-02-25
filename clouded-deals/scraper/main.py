@@ -17,9 +17,13 @@ Environment variables (for CI):
     PLATFORM_GROUP=new        # scrape only new platforms (rise/carrot/aiq)
     PLATFORM_GROUP=all        # scrape everything (default)
     REGION=southern-nv        # scrape only one region/state
+    REGION=northern-nv        # scrape only Northern Nevada (Reno/Sparks/Carson City)
     REGION=michigan           # scrape only Michigan dispensaries
     REGION=illinois           # scrape only Illinois dispensaries
     REGION=arizona            # scrape only Arizona dispensaries
+    REGION=missouri           # scrape only Missouri dispensaries
+    REGION=new-jersey         # scrape only New Jersey dispensaries
+    REGION=ohio               # scrape only Ohio dispensaries
     REGION=all                # scrape all regions (default)
 """
 
@@ -105,15 +109,16 @@ REGION = os.getenv("REGION", "all").lower()
 # Regions that are split across multiple cron jobs via round-robin sharding.
 # Key = base region name, value = total number of shards.
 REGION_SHARDS: dict[str, int] = {
-    "michigan": 4,
+    "michigan": 6,          # expanded from 4 → 6 (300 → ~450 dispensaries)
     "illinois": 3,
     "colorado": 3,
     "massachusetts": 2,
-    "new-jersey": 2,
+    "new-jersey": 3,        # expanded from 2 → 3 (~106 → ~185 dispensaries)
     "arizona": 2,
-    "missouri": 2,
-    "ohio": 2,
+    "missouri": 3,          # expanded from 2 → 3 (~121 → ~200 dispensaries)
+    "ohio": 3,              # expanded from 2 → 3 (~133 → ~220 dispensaries)
     "new-york": 2,
+    "northern-nv": 1,       # new region (~40 dispensaries — no sharding needed)
 }
 
 if not SUPABASE_URL or not SUPABASE_KEY:
