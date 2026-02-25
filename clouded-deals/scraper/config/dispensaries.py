@@ -99,6 +99,63 @@ def get_viewport() -> dict[str, int]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Region-aware timezone / locale mapping
+# ---------------------------------------------------------------------------
+# Each scraper context gets a timezone that matches the dispensary's region
+# so the JS Date output, Intl API, and timezone headers look realistic for
+# the geographic area being scraped.
+
+_REGION_TIMEZONES: dict[str, list[str]] = {
+    "southern-nv":    ["America/Los_Angeles"],
+    "northern-nv":    ["America/Los_Angeles"],
+    "arizona":        ["America/Phoenix"],
+    "colorado":       ["America/Denver"],
+    "missouri":       ["America/Chicago"],
+    "illinois":       ["America/Chicago"],
+    "michigan":       ["America/Detroit", "America/New_York"],
+    "ohio":           ["America/New_York"],
+    "pennsylvania":   ["America/New_York"],
+    "new-jersey":     ["America/New_York"],
+    "new-york":       ["America/New_York"],
+    "massachusetts":  ["America/New_York"],
+}
+
+# Locale pool — all US English variants; rotated per context so
+# Accept-Language headers aren't identical across concurrent sessions.
+_LOCALE_POOL = ["en-US", "en-US", "en-US,en", "en"]
+
+_FALLBACK_TIMEZONE = "America/New_York"
+
+
+def get_timezone(region: str | None = None) -> str:
+    """Return a timezone appropriate for *region*, or a random US one."""
+    if region and region in _REGION_TIMEZONES:
+        return _random.choice(_REGION_TIMEZONES[region])
+    # Unknown region — pick from all unique timezones
+    all_tz = list({tz for pool in _REGION_TIMEZONES.values() for tz in pool})
+    return _random.choice(all_tz) if all_tz else _FALLBACK_TIMEZONE
+
+
+def get_locale() -> str:
+    """Return a randomly selected US-English locale string."""
+    return _random.choice(_LOCALE_POOL)
+
+
+def get_context_fingerprint(region: str | None = None) -> dict:
+    """Return a full fingerprint dict for a new browser context.
+
+    Bundles viewport, user_agent, locale, and timezone into one call
+    so each concurrent scraper session gets a unique combination.
+    """
+    return {
+        "viewport": get_viewport(),
+        "user_agent": get_user_agent(),
+        "locale": get_locale(),
+        "timezone_id": get_timezone(region),
+    }
+
+
 # JavaScript injected into every browser context on creation to mask
 # Playwright/Chromium automation signals.  Industry-standard technique
 # used by all major scraping frameworks.

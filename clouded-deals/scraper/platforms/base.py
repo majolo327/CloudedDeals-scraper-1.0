@@ -26,7 +26,7 @@ from playwright.async_api import (
 from config.dispensaries import (
     BROWSER_ARGS, BROWSER_CHANNEL, GOTO_TIMEOUT_MS, PLATFORM_DEFAULTS,
     STEALTH_INIT_SCRIPT, USER_AGENT, VIEWPORT, WAIT_UNTIL,
-    get_user_agent, get_viewport,
+    get_context_fingerprint, get_user_agent, get_viewport,
 )
 from handlers import dismiss_age_gate
 
@@ -189,11 +189,17 @@ class BaseScraper(abc.ABC):
             # Standalone mode: launch our own browser via stealth helper
             self._pw = await async_playwright().start()
             self._browser = await launch_stealth_browser(self._pw)
+
+        # Build a unique fingerprint for this context — viewport, UA, locale,
+        # and timezone are all randomised per-session.  The timezone matches
+        # the dispensary's region so JS Date / Intl output looks realistic.
+        region = self.dispensary.get("region")
+        fp = get_context_fingerprint(region)
         self._context = await self._browser.new_context(
-            viewport=get_viewport(),
-            user_agent=get_user_agent(),
-            locale="en-US",
-            timezone_id="America/New_York",
+            viewport=fp["viewport"],
+            user_agent=fp["user_agent"],
+            locale=fp["locale"],
+            timezone_id=fp["timezone_id"],
         )
         # Apply stealth patches (playwright-stealth if available, else JS shim)
         await apply_stealth_context(self._context)
@@ -210,7 +216,12 @@ class BaseScraper(abc.ABC):
         # to inject the Dutchie embed script.  Blocking GTM = no menu iframe.
         # Individual scrapers (e.g. Rise) can opt in if needed.
 
-        logger.info("[%s] Browser ready (shared=%s, stealth=on)", self.slug, bool(self._shared_browser))
+        logger.info(
+            "[%s] Browser ready (shared=%s, tz=%s, locale=%s, viewport=%sx%s)",
+            self.slug, bool(self._shared_browser),
+            fp["timezone_id"], fp["locale"],
+            fp["viewport"]["width"], fp["viewport"]["height"],
+        )
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
