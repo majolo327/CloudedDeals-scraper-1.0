@@ -853,8 +853,8 @@ class TestRiseDispensaryConfig:
     def test_rise_count(self):
         from config.dispensaries import DISPENSARIES
         rise = [d for d in DISPENSARIES if d["slug"].startswith("rise-")]
-        # 7 NV + 10 IL + 8 NJ + 18 OH + 6 PA + 5 NY + 3 MA = 57 Rise locations
-        assert len(rise) == 57
+        # 7 NV + 10 IL + 10 NJ + 18 OH + 6 PA + 5 NY + 3 MA = 59 Rise locations
+        assert len(rise) == 59
 
     @pytest.mark.parametrize("slug", [
         "rise-tropicana", "rise-rainbow",
