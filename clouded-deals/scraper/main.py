@@ -113,10 +113,10 @@ REGION_SHARDS: dict[str, int] = {
     "illinois": 3,
     "colorado": 3,
     "massachusetts": 2,
-    "new-jersey": 3,        # expanded from 2 → 3 (~106 → ~185 dispensaries)
+    "new-jersey": 4,        # expanded from 2 → 4 (~106 → ~232 dispensaries)
     "arizona": 2,
-    "missouri": 3,          # expanded from 2 → 3 (~121 → ~200 dispensaries)
-    "ohio": 3,              # expanded from 2 → 3 (~133 → ~220 dispensaries)
+    "missouri": 4,          # expanded from 2 → 4 (~121 → ~261 dispensaries)
+    "ohio": 4,              # expanded from 2 → 4 (~133 → ~248 dispensaries)
     "new-york": 2,
     "northern-nv": 1,       # new region (~40 dispensaries — no sharding needed)
 }

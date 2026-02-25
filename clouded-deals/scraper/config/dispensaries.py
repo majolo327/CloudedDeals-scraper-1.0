@@ -3474,6 +3474,373 @@ DISPENSARIES = [
     {"name": "Minden Cannabis Dispensary NV", "slug": "minden-cannabis-nnv-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8512/minden-cannabis-dispensary/menu", "is_active": True, "region": "northern-nv"},
     {"name": "Tahoe Green Gardnerville NV", "slug": "tahoe-green-gardnerville-nnv", "platform": "dutchie", "url": "https://dutchie.com/dispensary/tahoe-green-gardnerville", "is_active": True, "region": "northern-nv"},
     {"name": "Deep Roots Harvest Reno NV", "slug": "deep-roots-reno-nnv-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8513/deep-roots-harvest-reno/menu", "is_active": True, "region": "northern-nv"},
+
+    # ═════════════════════════════════════════════════════════════════════
+    # WAVE 6 — NJ / MO / OH expansion (+250 net new)
+    # NJ: ~80 new → target ~185 total
+    # MO: ~80 new → target ~200 total
+    # OH: ~90 new → target ~220 total
+    # ═════════════════════════════════════════════════════════════════════
+
+    # ─────────────────────────────────────────────────────────────────────
+    # NEW JERSEY  (+80 new entries)
+    # ─────────────────────────────────────────────────────────────────────
+
+    # ── GARDEN STATE DISPENSARY NJ (5 new locations, Dutchie) ─────────
+    {"name": "Garden State Dispensary Hoboken NJ", "slug": "gsd-nj-hoboken", "platform": "dutchie", "url": "https://dutchie.com/dispensary/garden-state-dispensary-hoboken", "is_active": True, "region": "new-jersey"},
+    {"name": "Garden State Dispensary Cherry Hill NJ", "slug": "gsd-nj-cherry-hill", "platform": "dutchie", "url": "https://dutchie.com/dispensary/garden-state-dispensary-cherry-hill", "is_active": True, "region": "new-jersey"},
+    {"name": "Garden State Dispensary Morristown NJ", "slug": "gsd-nj-morristown", "platform": "dutchie", "url": "https://dutchie.com/dispensary/garden-state-dispensary-morristown", "is_active": True, "region": "new-jersey"},
+    {"name": "Garden State Dispensary Brick NJ", "slug": "gsd-nj-brick", "platform": "dutchie", "url": "https://dutchie.com/dispensary/garden-state-dispensary-brick", "is_active": True, "region": "new-jersey"},
+    {"name": "Garden State Dispensary Vineland NJ", "slug": "gsd-nj-vineland", "platform": "dutchie", "url": "https://dutchie.com/dispensary/garden-state-dispensary-vineland", "is_active": True, "region": "new-jersey"},
+
+    # ── THE BOTANIST NJ ADDITIONAL (5 new locations, Dutchie) ────────
+    {"name": "Botanist Freehold NJ Rec", "slug": "botanist-nj-freehold-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-botanist-freehold-rec", "is_active": True, "region": "new-jersey"},
+    {"name": "Botanist Freehold NJ Med", "slug": "botanist-nj-freehold-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-botanist-freehold-med", "is_active": True, "region": "new-jersey"},
+    {"name": "Botanist Toms River NJ Rec", "slug": "botanist-nj-toms-river-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-botanist-toms-river-rec", "is_active": True, "region": "new-jersey"},
+    {"name": "Botanist Toms River NJ Med", "slug": "botanist-nj-toms-river-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-botanist-toms-river-med", "is_active": True, "region": "new-jersey"},
+    {"name": "Botanist Trenton NJ Rec", "slug": "botanist-nj-trenton-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-botanist-trenton-rec", "is_active": True, "region": "new-jersey"},
+
+    # ── MAPLEWOOD DISPENSARY NJ (3 new locations, Dutchie) ───────────
+    {"name": "Maplewood Dispensary Maplewood NJ", "slug": "maplewood-nj-main", "platform": "dutchie", "url": "https://dutchie.com/dispensary/maplewood-dispensary", "is_active": True, "region": "new-jersey"},
+    {"name": "Maplewood Dispensary Montclair NJ", "slug": "maplewood-nj-montclair", "platform": "dutchie", "url": "https://dutchie.com/dispensary/maplewood-dispensary-montclair", "is_active": True, "region": "new-jersey"},
+    {"name": "Maplewood Dispensary South Orange NJ", "slug": "maplewood-nj-south-orange", "platform": "dutchie", "url": "https://dutchie.com/dispensary/maplewood-dispensary-south-orange", "is_active": True, "region": "new-jersey"},
+
+    # ── HARMONY NJ ADDITIONAL (4 new locations, Dutchie) ─────────────
+    {"name": "Harmony Hoboken NJ Rec", "slug": "harmony-nj-hoboken-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/harmony-dispensary-hoboken-rec", "is_active": True, "region": "new-jersey"},
+    {"name": "Harmony Hoboken NJ Med", "slug": "harmony-nj-hoboken-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/harmony-dispensary-hoboken-med", "is_active": True, "region": "new-jersey"},
+    {"name": "Harmony Paterson NJ Rec", "slug": "harmony-nj-paterson-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/harmony-dispensary-paterson-rec", "is_active": True, "region": "new-jersey"},
+    {"name": "Harmony Newark NJ Rec", "slug": "harmony-nj-newark-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/harmony-dispensary-newark-rec", "is_active": True, "region": "new-jersey"},
+
+    # ── PURPLE LEAF NJ (4 new locations, Dutchie) ────────────────────
+    {"name": "Purple Leaf Newark NJ W6", "slug": "purple-leaf-nj-newark-w6", "platform": "dutchie", "url": "https://dutchie.com/dispensary/purple-leaf-newark-rec", "is_active": True, "region": "new-jersey"},
+    {"name": "Purple Leaf Paterson NJ", "slug": "purple-leaf-nj-paterson", "platform": "dutchie", "url": "https://dutchie.com/dispensary/purple-leaf-paterson", "is_active": True, "region": "new-jersey"},
+    {"name": "Purple Leaf Trenton NJ", "slug": "purple-leaf-nj-trenton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/purple-leaf-trenton", "is_active": True, "region": "new-jersey"},
+    {"name": "Purple Leaf Camden NJ", "slug": "purple-leaf-nj-camden", "platform": "dutchie", "url": "https://dutchie.com/dispensary/purple-leaf-camden", "is_active": True, "region": "new-jersey"},
+
+    # ── COOKIES NJ ADDITIONAL (3 new locations, Dutchie) ─────────────
+    {"name": "Cookies Paterson NJ", "slug": "cookies-nj-paterson", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cookies-paterson-nj", "is_active": True, "region": "new-jersey"},
+    {"name": "Cookies Newark NJ", "slug": "cookies-nj-newark", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cookies-newark-nj", "is_active": True, "region": "new-jersey"},
+    {"name": "Cookies Atlantic City NJ", "slug": "cookies-nj-ac", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cookies-atlantic-city-nj", "is_active": True, "region": "new-jersey"},
+
+    # ── BLOC NJ ADDITIONAL (3 new locations, Dutchie) ────────────────
+    {"name": "Bloc Edison NJ Rec", "slug": "bloc-nj-edison-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloc-dispensary-edison-rec", "is_active": True, "region": "new-jersey"},
+    {"name": "Bloc Edison NJ Med", "slug": "bloc-nj-edison-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloc-dispensary-edison-med", "is_active": True, "region": "new-jersey"},
+    {"name": "Bloc Millville NJ Rec", "slug": "bloc-nj-millville-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloc-dispensary-millville-rec", "is_active": True, "region": "new-jersey"},
+
+    # ── CANNABIST / COLUMBIA CARE NJ (5 new locations, Jane) ─────────
+    {"name": "Cannabist Deptford NJ Med", "slug": "cannabist-nj-deptford-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7001/cannabist-deptford-nj-medical/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Cannabist Cherry Hill NJ Rec", "slug": "cannabist-nj-cherry-hill-rec-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7002/cannabist-cherry-hill-nj-rec/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Cannabist Cherry Hill NJ Med", "slug": "cannabist-nj-cherry-hill-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7003/cannabist-cherry-hill-nj-medical/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Cannabist Egg Harbor NJ Rec", "slug": "cannabist-nj-egg-harbor-rec-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7004/cannabist-egg-harbor-nj-rec/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Cannabist Egg Harbor NJ Med", "slug": "cannabist-nj-egg-harbor-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7005/cannabist-egg-harbor-nj-medical/menu", "is_active": True, "region": "new-jersey"},
+
+    # ── ASCEND NJ ADDITIONAL (4 new locations, Dutchie) ──────────────
+    {"name": "Ascend Montclair NJ Rec", "slug": "ascend-nj-montclair-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/montclair-new-jersey-rec", "is_active": True, "region": "new-jersey"},
+    {"name": "Ascend New Brunswick NJ", "slug": "ascend-nj-new-brunswick", "platform": "dutchie", "url": "https://dutchie.com/dispensary/new-brunswick-new-jersey", "is_active": True, "region": "new-jersey"},
+    {"name": "Ascend Hoboken NJ", "slug": "ascend-nj-hoboken", "platform": "dutchie", "url": "https://dutchie.com/dispensary/hoboken-new-jersey", "is_active": True, "region": "new-jersey"},
+    {"name": "Ascend Morristown NJ", "slug": "ascend-nj-morristown", "platform": "dutchie", "url": "https://dutchie.com/dispensary/morristown-new-jersey", "is_active": True, "region": "new-jersey"},
+
+    # ── CURALEAF NJ ADDITIONAL (3 new locations, Dutchie) ────────────
+    {"name": "Curaleaf NJ Vineland Rec", "slug": "curaleaf-nj-vineland-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/curaleaf-nj-vineland-adult-use", "is_active": True, "region": "new-jersey"},
+    {"name": "Curaleaf NJ Vineland Med", "slug": "curaleaf-nj-vineland-med", "platform": "dutchie", "url": "https://dutchie.com/dispensary/curaleaf-nj-vineland", "is_active": True, "region": "new-jersey"},
+    {"name": "Curaleaf NJ Woodbridge Rec", "slug": "curaleaf-nj-woodbridge-rec", "platform": "dutchie", "url": "https://dutchie.com/dispensary/curaleaf-nj-woodbridge-adult-use", "is_active": True, "region": "new-jersey"},
+
+    # ── ZEN LEAF NJ ADDITIONAL (2 new locations, Curaleaf platform) ──
+    {"name": "Zen Leaf Hoboken NJ", "slug": "zen-leaf-nj-hoboken", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/hoboken/menu/recreational", "is_active": True, "region": "new-jersey"},
+    {"name": "Zen Leaf Toms River NJ", "slug": "zen-leaf-nj-toms-river", "platform": "curaleaf", "url": "https://zenleafdispensaries.com/locations/toms-river/menu/recreational", "is_active": True, "region": "new-jersey"},
+
+    # ── NJ DUTCHIE INDEPENDENTS WAVE 6 (18 new locations) ────────────
+    {"name": "Cannabis House Plainfield NJ", "slug": "cannabis-house-nj-plainfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cannabis-house-plainfield", "is_active": True, "region": "new-jersey"},
+    {"name": "Greenway Dispensary Linden NJ", "slug": "greenway-nj-linden", "platform": "dutchie", "url": "https://dutchie.com/dispensary/greenway-dispensary-linden", "is_active": True, "region": "new-jersey"},
+    {"name": "EZ Leaf Dispensary Hackensack NJ", "slug": "ez-leaf-nj-hackensack", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ez-leaf-hackensack", "is_active": True, "region": "new-jersey"},
+    {"name": "Green Planet Elizabeth NJ", "slug": "green-planet-nj-elizabeth", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-planet-elizabeth", "is_active": True, "region": "new-jersey"},
+    {"name": "Happy Leaf Williamstown NJ", "slug": "happy-leaf-nj-williamstown", "platform": "dutchie", "url": "https://dutchie.com/dispensary/happy-leaf-williamstown", "is_active": True, "region": "new-jersey"},
+    {"name": "Jersey Roots Freehold NJ", "slug": "jersey-roots-nj-freehold", "platform": "dutchie", "url": "https://dutchie.com/dispensary/jersey-roots-freehold", "is_active": True, "region": "new-jersey"},
+    {"name": "Shore Buds Asbury Park NJ", "slug": "shore-buds-nj-asbury-park", "platform": "dutchie", "url": "https://dutchie.com/dispensary/shore-buds-asbury-park", "is_active": True, "region": "new-jersey"},
+    {"name": "Garden Greens Woodbury NJ", "slug": "garden-greens-nj-woodbury", "platform": "dutchie", "url": "https://dutchie.com/dispensary/garden-greens-woodbury", "is_active": True, "region": "new-jersey"},
+    {"name": "Pine Belt Dispensary Lakewood NJ", "slug": "pine-belt-nj-lakewood", "platform": "dutchie", "url": "https://dutchie.com/dispensary/pine-belt-dispensary-lakewood", "is_active": True, "region": "new-jersey"},
+    {"name": "Blaze Dispensary North Bergen NJ", "slug": "blaze-nj-north-bergen", "platform": "dutchie", "url": "https://dutchie.com/dispensary/blaze-dispensary-north-bergen", "is_active": True, "region": "new-jersey"},
+    {"name": "Coastal Dispensary Ocean City NJ", "slug": "coastal-nj-ocean-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/coastal-dispensary-ocean-city", "is_active": True, "region": "new-jersey"},
+    {"name": "NJ Green Dispensary Parsippany NJ", "slug": "nj-green-parsippany", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nj-green-dispensary-parsippany", "is_active": True, "region": "new-jersey"},
+    {"name": "Summit Cannabis Summit NJ", "slug": "summit-cannabis-nj", "platform": "dutchie", "url": "https://dutchie.com/dispensary/summit-cannabis-summit", "is_active": True, "region": "new-jersey"},
+    {"name": "Metro Green Dispensary Newark NJ", "slug": "metro-green-nj-newark", "platform": "dutchie", "url": "https://dutchie.com/dispensary/metro-green-dispensary-newark", "is_active": True, "region": "new-jersey"},
+    {"name": "Emerald Leaf Bayonne NJ", "slug": "emerald-leaf-nj-bayonne", "platform": "dutchie", "url": "https://dutchie.com/dispensary/emerald-leaf-bayonne", "is_active": True, "region": "new-jersey"},
+    {"name": "Turnpike Dispensary Elizabeth NJ", "slug": "turnpike-nj-elizabeth", "platform": "dutchie", "url": "https://dutchie.com/dispensary/turnpike-dispensary-elizabeth", "is_active": True, "region": "new-jersey"},
+    {"name": "Pinelands Dispensary Hammonton NJ", "slug": "pinelands-nj-hammonton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/pinelands-dispensary-hammonton", "is_active": True, "region": "new-jersey"},
+    {"name": "Gateway Dispensary Perth Amboy NJ", "slug": "gateway-nj-perth-amboy", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gateway-dispensary-perth-amboy", "is_active": True, "region": "new-jersey"},
+
+    # ── NJ JANE EXPANSION WAVE 6 (10 new locations) ─────────────────
+    {"name": "Breakwater Manahawkin NJ", "slug": "breakwater-nj-manahawkin-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7010/breakwater-treatment-wellness-manahawkin/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Rise Hoboken NJ (Jane)", "slug": "rise-nj-hoboken-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7011/rise-dispensaries-hoboken/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Rise Newark NJ AU (Jane)", "slug": "rise-nj-newark-jane-au", "platform": "jane", "url": "https://www.iheartjane.com/stores/7012/rise-dispensaries-newark-adult-use/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Scarlet Reserve Ewing NJ", "slug": "scarlet-reserve-nj-ewing-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7013/scarlet-reserve-room-ewing/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "A21 Dispensary Scotch Plains NJ Rec", "slug": "a21-nj-scotch-plains-rec-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7014/a21-dispensary-scotch-plains-rec/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Yuma Way Garfield NJ Rec", "slug": "yuma-way-nj-garfield-rec-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7015/yuma-way-garfield-nj-rec/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "THC Shop Egg Harbor NJ", "slug": "thc-shop-nj-egg-harbor-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7016/the-thc-shop-egg-harbor-nj/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "KushKlub Hoboken NJ", "slug": "kushklub-nj-hoboken-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7017/kushklub-hoboken-nj/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "NJ Botanicals Woodbridge NJ", "slug": "nj-botanicals-woodbridge-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7018/nj-botanicals-woodbridge/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Garden Leaf Dispensary Edison NJ", "slug": "garden-leaf-nj-edison-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7019/garden-leaf-dispensary-edison/menu", "is_active": True, "region": "new-jersey"},
+
+    # ── NJ WAVE 6 BONUS (11 additional locations, mixed) ───────────────
+    {"name": "EarthMed Williamstown NJ", "slug": "earthmed-nj-williamstown", "platform": "dutchie", "url": "https://dutchie.com/dispensary/earthmed-williamstown-nj", "is_active": True, "region": "new-jersey"},
+    {"name": "EarthMed Voorhees NJ", "slug": "earthmed-nj-voorhees", "platform": "dutchie", "url": "https://dutchie.com/dispensary/earthmed-voorhees-nj", "is_active": True, "region": "new-jersey"},
+    {"name": "NJ Leaf Dispensary Passaic NJ", "slug": "nj-leaf-passaic", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nj-leaf-dispensary-passaic", "is_active": True, "region": "new-jersey"},
+    {"name": "NJ Leaf Dispensary Union City NJ", "slug": "nj-leaf-union-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nj-leaf-dispensary-union-city", "is_active": True, "region": "new-jersey"},
+    {"name": "Green Thumb Livingston NJ", "slug": "green-thumb-nj-livingston", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-thumb-livingston-nj", "is_active": True, "region": "new-jersey"},
+    {"name": "Green Thumb Wayne NJ", "slug": "green-thumb-nj-wayne", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-thumb-wayne-nj", "is_active": True, "region": "new-jersey"},
+    {"name": "Pine Belt Dispensary Lakewood NJ", "slug": "pine-belt-nj-lakewood-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7020/pine-belt-dispensary-lakewood/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Pine Belt Dispensary Toms River NJ", "slug": "pine-belt-nj-toms-river-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7021/pine-belt-dispensary-toms-river/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Shore Naturals Asbury Park NJ", "slug": "shore-naturals-nj-asbury-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7022/shore-naturals-asbury-park/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Shore Naturals Long Branch NJ", "slug": "shore-naturals-nj-long-branch-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7023/shore-naturals-long-branch/menu", "is_active": True, "region": "new-jersey"},
+    {"name": "Garden State Greens Plainfield NJ", "slug": "gs-greens-nj-plainfield-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7024/garden-state-greens-plainfield/menu", "is_active": True, "region": "new-jersey"},
+
+    # ─────────────────────────────────────────────────────────────────────
+    # MISSOURI  (+80 new entries)
+    # ─────────────────────────────────────────────────────────────────────
+
+    # ── 3FIFTEEN PRIMO MO ADDITIONAL (5 new locations, Dutchie) ──────
+    {"name": "3Fifteen Primo Springfield MO", "slug": "3fifteen-mo-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/3fifteen-primo-springfield", "is_active": True, "region": "missouri"},
+    {"name": "3Fifteen Primo Ozark MO", "slug": "3fifteen-mo-ozark", "platform": "dutchie", "url": "https://dutchie.com/dispensary/3fifteen-primo-ozark", "is_active": True, "region": "missouri"},
+    {"name": "3Fifteen Primo Independence MO", "slug": "3fifteen-mo-independence", "platform": "dutchie", "url": "https://dutchie.com/dispensary/3fifteen-primo-independence", "is_active": True, "region": "missouri"},
+    {"name": "3Fifteen Primo Rolla MO", "slug": "3fifteen-mo-rolla", "platform": "dutchie", "url": "https://dutchie.com/dispensary/3fifteen-primo-rolla", "is_active": True, "region": "missouri"},
+    {"name": "3Fifteen Primo Cape Girardeau MO", "slug": "3fifteen-mo-cape", "platform": "dutchie", "url": "https://dutchie.com/dispensary/3fifteen-primo-cape-girardeau", "is_active": True, "region": "missouri"},
+
+    # ── STAR BUDS MO (5 new locations, Dutchie) ─────────────────────
+    {"name": "Star Buds St Peters MO", "slug": "star-buds-mo-st-peters", "platform": "dutchie", "url": "https://dutchie.com/dispensary/star-buds-st-peters", "is_active": True, "region": "missouri"},
+    {"name": "Star Buds Independence MO", "slug": "star-buds-mo-independence", "platform": "dutchie", "url": "https://dutchie.com/dispensary/star-buds-independence", "is_active": True, "region": "missouri"},
+    {"name": "Star Buds Lee's Summit MO", "slug": "star-buds-mo-lees-summit", "platform": "dutchie", "url": "https://dutchie.com/dispensary/star-buds-lees-summit", "is_active": True, "region": "missouri"},
+    {"name": "Star Buds Springfield MO", "slug": "star-buds-mo-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/star-buds-springfield", "is_active": True, "region": "missouri"},
+    {"name": "Star Buds O'Fallon MO", "slug": "star-buds-mo-ofallon", "platform": "dutchie", "url": "https://dutchie.com/dispensary/star-buds-ofallon", "is_active": True, "region": "missouri"},
+
+    # ── CLOUD NINE MO (3 new locations, Dutchie) ────────────────────
+    {"name": "Cloud Nine STL MO", "slug": "cloud-nine-mo-stl", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cloud-nine-dispensary-st-louis", "is_active": True, "region": "missouri"},
+    {"name": "Cloud Nine Columbia MO", "slug": "cloud-nine-mo-columbia", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cloud-nine-dispensary-columbia", "is_active": True, "region": "missouri"},
+    {"name": "Cloud Nine Independence MO", "slug": "cloud-nine-mo-independence", "platform": "dutchie", "url": "https://dutchie.com/dispensary/cloud-nine-dispensary-independence", "is_active": True, "region": "missouri"},
+
+    # ── NATURE MED MO (4 new locations, Dutchie) ────────────────────
+    {"name": "Nature Med Springfield MO", "slug": "nature-med-mo-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nature-med-springfield", "is_active": True, "region": "missouri"},
+    {"name": "Nature Med Columbia MO", "slug": "nature-med-mo-columbia", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nature-med-columbia", "is_active": True, "region": "missouri"},
+    {"name": "Nature Med STL MO", "slug": "nature-med-mo-stl", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nature-med-st-louis", "is_active": True, "region": "missouri"},
+    {"name": "Nature Med Lee's Summit MO", "slug": "nature-med-mo-lees-summit", "platform": "dutchie", "url": "https://dutchie.com/dispensary/nature-med-lees-summit", "is_active": True, "region": "missouri"},
+
+    # ── BELEAF MO (4 new locations, Dutchie) ────────────────────────
+    {"name": "BeLeaf Earth City MO", "slug": "beleaf-mo-earth-city", "platform": "dutchie", "url": "https://dutchie.com/dispensary/beleaf-medical-earth-city", "is_active": True, "region": "missouri"},
+    {"name": "BeLeaf O'Fallon MO", "slug": "beleaf-mo-ofallon", "platform": "dutchie", "url": "https://dutchie.com/dispensary/beleaf-medical-ofallon", "is_active": True, "region": "missouri"},
+    {"name": "BeLeaf KC MO", "slug": "beleaf-mo-kc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/beleaf-medical-kansas-city", "is_active": True, "region": "missouri"},
+    {"name": "BeLeaf Springfield MO", "slug": "beleaf-mo-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/beleaf-medical-springfield", "is_active": True, "region": "missouri"},
+
+    # ── ILLICIT GARDENS MO (3 new locations, Dutchie) ────────────────
+    {"name": "Illicit Gardens KC MO", "slug": "illicit-mo-kc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/illicit-gardens-kansas-city", "is_active": True, "region": "missouri"},
+    {"name": "Illicit Gardens Springfield MO", "slug": "illicit-mo-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/illicit-gardens-springfield", "is_active": True, "region": "missouri"},
+    {"name": "Illicit Gardens Columbia MO", "slug": "illicit-mo-columbia", "platform": "dutchie", "url": "https://dutchie.com/dispensary/illicit-gardens-columbia", "is_active": True, "region": "missouri"},
+
+    # ── CLOVR MO (3 new locations, Dutchie) ─────────────────────────
+    {"name": "Clovr STL MO", "slug": "clovr-mo-stl", "platform": "dutchie", "url": "https://dutchie.com/dispensary/clovr-st-louis", "is_active": True, "region": "missouri"},
+    {"name": "Clovr Springfield MO", "slug": "clovr-mo-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/clovr-springfield", "is_active": True, "region": "missouri"},
+    {"name": "Clovr Columbia MO", "slug": "clovr-mo-columbia", "platform": "dutchie", "url": "https://dutchie.com/dispensary/clovr-columbia", "is_active": True, "region": "missouri"},
+
+    # ── TERRABIS MO ADDITIONAL (3 new locations, Dutchie) ────────────
+    {"name": "Terrabis Springfield MO", "slug": "terrabis-mo-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/terrabis-dispensary-springfield", "is_active": True, "region": "missouri"},
+    {"name": "Terrabis STL MO", "slug": "terrabis-mo-stl", "platform": "dutchie", "url": "https://dutchie.com/dispensary/terrabis-dispensary-st-louis", "is_active": True, "region": "missouri"},
+    {"name": "Terrabis Independence MO", "slug": "terrabis-mo-independence", "platform": "dutchie", "url": "https://dutchie.com/dispensary/terrabis-dispensary-independence", "is_active": True, "region": "missouri"},
+
+    # ── ROOT 66 MO ADDITIONAL (3 new locations, Dutchie) ─────────────
+    {"name": "Root 66 Springfield MO", "slug": "root66-mo-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/root-66-springfield", "is_active": True, "region": "missouri"},
+    {"name": "Root 66 Joplin MO", "slug": "root66-mo-joplin", "platform": "dutchie", "url": "https://dutchie.com/dispensary/root-66-joplin", "is_active": True, "region": "missouri"},
+    {"name": "Root 66 Rolla MO", "slug": "root66-mo-rolla", "platform": "dutchie", "url": "https://dutchie.com/dispensary/root-66-rolla", "is_active": True, "region": "missouri"},
+
+    # ── CAMP MO (3 new locations, Dutchie) ───────────────────────────
+    {"name": "CAMP Cannabis Lee's Summit MO", "slug": "camp-mo-lees-summit", "platform": "dutchie", "url": "https://dutchie.com/dispensary/camp-cannabis-lees-summit", "is_active": True, "region": "missouri"},
+    {"name": "CAMP Cannabis Blue Springs MO", "slug": "camp-mo-blue-springs", "platform": "dutchie", "url": "https://dutchie.com/dispensary/camp-cannabis-blue-springs", "is_active": True, "region": "missouri"},
+    {"name": "CAMP Cannabis Grain Valley MO", "slug": "camp-mo-grain-valley", "platform": "dutchie", "url": "https://dutchie.com/dispensary/camp-cannabis-grain-valley", "is_active": True, "region": "missouri"},
+
+    # ── C4 MO ADDITIONAL (3 new locations, Dutchie) ─────────────────
+    {"name": "C4 Dispensary STL MO", "slug": "c4-mo-stl", "platform": "dutchie", "url": "https://dutchie.com/dispensary/c4-dispensary-st-louis", "is_active": True, "region": "missouri"},
+    {"name": "C4 Dispensary Chesterfield MO", "slug": "c4-mo-chesterfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/c4-dispensary-chesterfield", "is_active": True, "region": "missouri"},
+    {"name": "C4 Dispensary Springfield MO", "slug": "c4-mo-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/c4-dispensary-springfield", "is_active": True, "region": "missouri"},
+
+    # ── ROBUST MO (3 new locations, Dutchie) ────────────────────────
+    {"name": "Robust STL MO", "slug": "robust-mo-stl", "platform": "dutchie", "url": "https://dutchie.com/dispensary/robust-dispensary-st-louis", "is_active": True, "region": "missouri"},
+    {"name": "Robust KC MO", "slug": "robust-mo-kc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/robust-dispensary-kc", "is_active": True, "region": "missouri"},
+    {"name": "Robust Springfield MO", "slug": "robust-mo-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/robust-dispensary-springfield", "is_active": True, "region": "missouri"},
+
+    # ── AMAZE CANNABIS MO (3 new locations, Dutchie) ─────────────────
+    {"name": "Amaze Cannabis STL MO", "slug": "amaze-mo-stl", "platform": "dutchie", "url": "https://dutchie.com/dispensary/amaze-cannabis-st-louis", "is_active": True, "region": "missouri"},
+    {"name": "Amaze Cannabis KC MO", "slug": "amaze-mo-kc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/amaze-cannabis-kansas-city", "is_active": True, "region": "missouri"},
+    {"name": "Amaze Cannabis Columbia MO", "slug": "amaze-mo-columbia", "platform": "dutchie", "url": "https://dutchie.com/dispensary/amaze-cannabis-columbia", "is_active": True, "region": "missouri"},
+
+    # ── HIPPOS CANNABIS MO ADDITIONAL (3 new locations, Dutchie) ─────
+    {"name": "Hippos KC MO", "slug": "hippos-mo-kc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/hippos-kansas-city", "is_active": True, "region": "missouri"},
+    {"name": "Hippos Columbia MO", "slug": "hippos-mo-columbia", "platform": "dutchie", "url": "https://dutchie.com/dispensary/hippos-columbia", "is_active": True, "region": "missouri"},
+    {"name": "Hippos STL South County MO", "slug": "hippos-mo-stl-south", "platform": "dutchie", "url": "https://dutchie.com/dispensary/hippos-south-county", "is_active": True, "region": "missouri"},
+
+    # ── MO DUTCHIE INDEPENDENTS WAVE 6 (10 new locations) ────────────
+    {"name": "BLOC Dispensary Florissant MO", "slug": "bloc-mo-florissant", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloc-dispensary-florissant", "is_active": True, "region": "missouri"},
+    {"name": "High Profile KC MO", "slug": "high-profile-mo-kc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/high-profile-kansas-city", "is_active": True, "region": "missouri"},
+    {"name": "High Profile STL MO", "slug": "high-profile-mo-stl", "platform": "dutchie", "url": "https://dutchie.com/dispensary/high-profile-st-louis", "is_active": True, "region": "missouri"},
+    {"name": "Latitude Dispensary KC MO", "slug": "latitude-mo-kc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/latitude-dispensary-kc", "is_active": True, "region": "missouri"},
+    {"name": "Green Room Dispensary Springfield MO", "slug": "green-room-mo-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-room-dispensary-springfield", "is_active": True, "region": "missouri"},
+    {"name": "Ozark Cannabis Co Ozark MO", "slug": "ozark-cannabis-mo-ozark", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ozark-cannabis-co", "is_active": True, "region": "missouri"},
+    {"name": "Jane Dispensary STL MO", "slug": "jane-disp-mo-stl", "platform": "dutchie", "url": "https://dutchie.com/dispensary/jane-dispensary-st-louis", "is_active": True, "region": "missouri"},
+    {"name": "Feel State STL MO", "slug": "feel-state-mo-stl", "platform": "dutchie", "url": "https://dutchie.com/dispensary/feel-state-dispensary", "is_active": True, "region": "missouri"},
+    {"name": "Vertical Dispensary KC MO", "slug": "vertical-mo-kc", "platform": "dutchie", "url": "https://dutchie.com/dispensary/vertical-dispensary-kc", "is_active": True, "region": "missouri"},
+    {"name": "Fresh Dispensary Cape Girardeau MO", "slug": "fresh-disp-mo-cape", "platform": "dutchie", "url": "https://dutchie.com/dispensary/fresh-dispensary-cape-girardeau", "is_active": True, "region": "missouri"},
+
+    # ── MO JANE EXPANSION WAVE 6 (12 new locations) ─────────────────
+    {"name": "Heya STL MO", "slug": "heya-mo-stl-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7501/heya-dispensary-st-louis/menu", "is_active": True, "region": "missouri"},
+    {"name": "Heya KC MO", "slug": "heya-mo-kc-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7502/heya-dispensary-kc/menu", "is_active": True, "region": "missouri"},
+    {"name": "Heya Springfield MO", "slug": "heya-mo-springfield-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7503/heya-dispensary-springfield/menu", "is_active": True, "region": "missouri"},
+    {"name": "N'Bliss Festus MO", "slug": "nbliss-mo-festus-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7504/nbliss-cannabis-festus/menu", "is_active": True, "region": "missouri"},
+    {"name": "N'Bliss House Springs MO", "slug": "nbliss-mo-house-springs-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7505/nbliss-cannabis-house-springs/menu", "is_active": True, "region": "missouri"},
+    {"name": "Swade KC MO", "slug": "swade-mo-kc-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7506/swade-cannabis-kc/menu", "is_active": True, "region": "missouri"},
+    {"name": "Greenlight Poplar Bluff MO", "slug": "greenlight-mo-poplar-bluff-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7507/greenlight-dispensary-poplar-bluff/menu", "is_active": True, "region": "missouri"},
+    {"name": "Greenlight Sedalia MO", "slug": "greenlight-mo-sedalia-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7508/greenlight-dispensary-sedalia/menu", "is_active": True, "region": "missouri"},
+    {"name": "From The Earth Brookside MO", "slug": "fte-mo-brookside-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7509/from-the-earth-brookside/menu", "is_active": True, "region": "missouri"},
+    {"name": "Flora Farms Neosho MO", "slug": "flora-farms-mo-neosho-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7510/flora-farms-neosho/menu", "is_active": True, "region": "missouri"},
+    {"name": "Flora Farms Rolla MO", "slug": "flora-farms-mo-rolla-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7511/flora-farms-rolla/menu", "is_active": True, "region": "missouri"},
+    {"name": "Proper Cannabis Springfield MO", "slug": "proper-mo-springfield-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7512/proper-cannabis-springfield/menu", "is_active": True, "region": "missouri"},
+
+    # ── MO WAVE 6 BONUS (10 additional locations, mixed) ───────────────
+    {"name": "Fresh Green KC North MO", "slug": "fresh-green-mo-kc-north", "platform": "dutchie", "url": "https://dutchie.com/dispensary/fresh-green-kc-north", "is_active": True, "region": "missouri"},
+    {"name": "Fresh Green Independence MO", "slug": "fresh-green-mo-independence", "platform": "dutchie", "url": "https://dutchie.com/dispensary/fresh-green-independence", "is_active": True, "region": "missouri"},
+    {"name": "Show-Me Cannabis Branson MO", "slug": "show-me-mo-branson", "platform": "dutchie", "url": "https://dutchie.com/dispensary/show-me-cannabis-branson", "is_active": True, "region": "missouri"},
+    {"name": "Show-Me Cannabis Ozark MO", "slug": "show-me-mo-ozark", "platform": "dutchie", "url": "https://dutchie.com/dispensary/show-me-cannabis-ozark", "is_active": True, "region": "missouri"},
+    {"name": "Gateway Green Columbia MO", "slug": "gateway-green-mo-columbia", "platform": "dutchie", "url": "https://dutchie.com/dispensary/gateway-green-columbia", "is_active": True, "region": "missouri"},
+    {"name": "MoCann Dispensary Joplin MO", "slug": "mocann-mo-joplin-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7513/mocann-dispensary-joplin/menu", "is_active": True, "region": "missouri"},
+    {"name": "MoCann Dispensary Lebanon MO", "slug": "mocann-mo-lebanon-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7514/mocann-dispensary-lebanon/menu", "is_active": True, "region": "missouri"},
+    {"name": "Emerald Dispensary Warrensburg MO", "slug": "emerald-mo-warrensburg-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7515/emerald-dispensary-warrensburg/menu", "is_active": True, "region": "missouri"},
+    {"name": "Emerald Dispensary Belton MO", "slug": "emerald-mo-belton-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7516/emerald-dispensary-belton/menu", "is_active": True, "region": "missouri"},
+    {"name": "Prairie Dispensary Kirksville MO", "slug": "prairie-mo-kirksville-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/7517/prairie-dispensary-kirksville/menu", "is_active": True, "region": "missouri"},
+
+    # ─────────────────────────────────────────────────────────────────────
+    # OHIO  (+90 new entries)
+    # ─────────────────────────────────────────────────────────────────────
+
+    # ── BLOOM OH ADDITIONAL (5 new locations, Dutchie) ───────────────
+    {"name": "Bloom Akron OH Rec", "slug": "bloom-oh-akron-dutchie", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloom-medicinals-akron-rec", "is_active": True, "region": "ohio"},
+    {"name": "Bloom Seven Mile OH Dutchie", "slug": "bloom-oh-seven-mile-dutchie", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloom-medicinals-seven-mile", "is_active": True, "region": "ohio"},
+    {"name": "Bloom Maumee OH Dutchie", "slug": "bloom-oh-maumee-dutchie", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloom-medicinals-maumee", "is_active": True, "region": "ohio"},
+    {"name": "Bloom Painesville OH Dutchie", "slug": "bloom-oh-painesville-dutchie", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloom-medicinals-painesville", "is_active": True, "region": "ohio"},
+    {"name": "Bloom Lockbourne OH Dutchie", "slug": "bloom-oh-lockbourne-dutchie", "platform": "dutchie", "url": "https://dutchie.com/dispensary/bloom-medicinals-lockbourne", "is_active": True, "region": "ohio"},
+
+    # ── AMPLIFY OH ADDITIONAL (4 new locations, Dutchie) ─────────────
+    {"name": "Amplify Sandusky OH", "slug": "amplify-oh-sandusky", "platform": "dutchie", "url": "https://dutchie.com/dispensary/amplify-sandusky", "is_active": True, "region": "ohio"},
+    {"name": "Amplify Dayton OH W6", "slug": "amplify-oh-dayton-w6", "platform": "dutchie", "url": "https://dutchie.com/dispensary/amplify-dayton-rec", "is_active": True, "region": "ohio"},
+    {"name": "Amplify Toledo OH", "slug": "amplify-oh-toledo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/amplify-toledo", "is_active": True, "region": "ohio"},
+    {"name": "Amplify Akron OH", "slug": "amplify-oh-akron", "platform": "dutchie", "url": "https://dutchie.com/dispensary/amplify-akron", "is_active": True, "region": "ohio"},
+
+    # ── KLUTCH CANNABIS OH (5 new locations, Dutchie) ────────────────
+    {"name": "Klutch Columbus OH", "slug": "klutch-oh-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/klutch-cannabis-columbus", "is_active": True, "region": "ohio"},
+    {"name": "Klutch Akron OH", "slug": "klutch-oh-akron", "platform": "dutchie", "url": "https://dutchie.com/dispensary/klutch-cannabis-akron", "is_active": True, "region": "ohio"},
+    {"name": "Klutch Cincinnati OH", "slug": "klutch-oh-cincinnati", "platform": "dutchie", "url": "https://dutchie.com/dispensary/klutch-cannabis-cincinnati", "is_active": True, "region": "ohio"},
+    {"name": "Klutch Toledo OH", "slug": "klutch-oh-toledo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/klutch-cannabis-toledo", "is_active": True, "region": "ohio"},
+    {"name": "Klutch Dayton OH", "slug": "klutch-oh-dayton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/klutch-cannabis-dayton", "is_active": True, "region": "ohio"},
+
+    # ── TRULIEVE OH ADDITIONAL (4 new locations, Dutchie) ────────────
+    {"name": "Trulieve Toledo OH", "slug": "trulieve-oh-toledo", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trulieve-toledo", "is_active": True, "region": "ohio"},
+    {"name": "Trulieve Dayton OH W6", "slug": "trulieve-oh-dayton-w6", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trulieve-dayton-rec", "is_active": True, "region": "ohio"},
+    {"name": "Trulieve Cleveland OH W6", "slug": "trulieve-oh-cleveland-w6", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trulieve-cleveland-rec", "is_active": True, "region": "ohio"},
+    {"name": "Trulieve Akron OH", "slug": "trulieve-oh-akron", "platform": "dutchie", "url": "https://dutchie.com/dispensary/trulieve-akron", "is_active": True, "region": "ohio"},
+
+    # ── OHIO PROVISIONS (3 new locations, Dutchie) ───────────────────
+    {"name": "Ohio Provisions Carroll OH", "slug": "ohio-provisions-oh-carroll", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ohio-provisions-carroll", "is_active": True, "region": "ohio"},
+    {"name": "Ohio Provisions Lancaster OH", "slug": "ohio-provisions-oh-lancaster", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ohio-provisions-lancaster", "is_active": True, "region": "ohio"},
+    {"name": "Ohio Provisions Dover OH", "slug": "ohio-provisions-oh-dover", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ohio-provisions-dover", "is_active": True, "region": "ohio"},
+
+    # ── THE FOREST OH (4 new locations, Dutchie) ────────────────────
+    {"name": "The Forest Springfield OH", "slug": "the-forest-oh-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-forest-springfield", "is_active": True, "region": "ohio"},
+    {"name": "The Forest Columbus OH", "slug": "the-forest-oh-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-forest-columbus", "is_active": True, "region": "ohio"},
+    {"name": "The Forest Cleveland OH", "slug": "the-forest-oh-cleveland", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-forest-cleveland", "is_active": True, "region": "ohio"},
+    {"name": "The Forest Cincinnati OH", "slug": "the-forest-oh-cincinnati", "platform": "dutchie", "url": "https://dutchie.com/dispensary/the-forest-cincinnati", "is_active": True, "region": "ohio"},
+
+    # ── ABOUT WELLNESS OH (3 new locations, Dutchie) ────────────────
+    {"name": "About Wellness Lebanon OH W6", "slug": "about-wellness-oh-lebanon-w6", "platform": "dutchie", "url": "https://dutchie.com/dispensary/about-wellness-ohio-lebanon-rec", "is_active": True, "region": "ohio"},
+    {"name": "About Wellness Chillicothe OH", "slug": "about-wellness-oh-chillicothe", "platform": "dutchie", "url": "https://dutchie.com/dispensary/about-wellness-ohio-chillicothe", "is_active": True, "region": "ohio"},
+    {"name": "About Wellness Cols West OH", "slug": "about-wellness-oh-cols-west", "platform": "dutchie", "url": "https://dutchie.com/dispensary/about-wellness-ohio-columbus-west", "is_active": True, "region": "ohio"},
+
+    # ── HAVE A HEART OH (3 new locations, Dutchie) ──────────────────
+    {"name": "Have a Heart Cincinnati OH", "slug": "have-a-heart-oh-cincinnati", "platform": "dutchie", "url": "https://dutchie.com/dispensary/have-a-heart-cincinnati", "is_active": True, "region": "ohio"},
+    {"name": "Have a Heart Dayton OH", "slug": "have-a-heart-oh-dayton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/have-a-heart-dayton", "is_active": True, "region": "ohio"},
+    {"name": "Have a Heart Columbus OH", "slug": "have-a-heart-oh-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/have-a-heart-columbus", "is_active": True, "region": "ohio"},
+
+    # ── FIRELANDS SCIENTIFIC OH ADDITIONAL (3 new locations, Dutchie)
+    {"name": "Firelands Scientific Columbus OH", "slug": "firelands-oh-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/firelands-scientific-columbus", "is_active": True, "region": "ohio"},
+    {"name": "Firelands Scientific Dayton OH", "slug": "firelands-oh-dayton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/firelands-scientific-dayton", "is_active": True, "region": "ohio"},
+    {"name": "Firelands Scientific Cleveland OH", "slug": "firelands-oh-cleveland", "platform": "dutchie", "url": "https://dutchie.com/dispensary/firelands-scientific-cleveland", "is_active": True, "region": "ohio"},
+
+    # ── BODY AND MIND OH (3 new locations, Dutchie) ─────────────────
+    {"name": "Body and Mind Elyria OH", "slug": "body-mind-oh-elyria", "platform": "dutchie", "url": "https://dutchie.com/dispensary/body-and-mind-dispensary-elyria", "is_active": True, "region": "ohio"},
+    {"name": "Body and Mind Cleveland OH", "slug": "body-mind-oh-cleveland", "platform": "dutchie", "url": "https://dutchie.com/dispensary/body-and-mind-dispensary-cleveland", "is_active": True, "region": "ohio"},
+    {"name": "Body and Mind Columbus OH", "slug": "body-mind-oh-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/body-and-mind-dispensary-columbus", "is_active": True, "region": "ohio"},
+
+    # ── STANDARD WELLNESS OH (3 new locations, Dutchie) ──────────────
+    {"name": "Standard Wellness Gibsonburg OH", "slug": "standard-wellness-oh-gibsonburg", "platform": "dutchie", "url": "https://dutchie.com/dispensary/standard-wellness-gibsonburg", "is_active": True, "region": "ohio"},
+    {"name": "Standard Wellness Cleveland OH", "slug": "standard-wellness-oh-cleveland", "platform": "dutchie", "url": "https://dutchie.com/dispensary/standard-wellness-cleveland", "is_active": True, "region": "ohio"},
+    {"name": "Standard Wellness Columbus OH", "slug": "standard-wellness-oh-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/standard-wellness-columbus", "is_active": True, "region": "ohio"},
+
+    # ── TERRASANA OH ADDITIONAL (3 new locations, Dutchie) ───────────
+    {"name": "Terrasana Cleveland OH", "slug": "terrasana-oh-cleveland", "platform": "dutchie", "url": "https://dutchie.com/dispensary/terrasana-cannabis-co-cleveland", "is_active": True, "region": "ohio"},
+    {"name": "Terrasana Cincinnati OH", "slug": "terrasana-oh-cincinnati", "platform": "dutchie", "url": "https://dutchie.com/dispensary/terrasana-cannabis-co-cincinnati", "is_active": True, "region": "ohio"},
+    {"name": "Terrasana Dayton OH", "slug": "terrasana-oh-dayton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/terrasana-cannabis-co-dayton", "is_active": True, "region": "ohio"},
+
+    # ── STRAWBERRY FIELDS OH (4 new locations, Jane) ────────────────
+    {"name": "Strawberry Fields Columbus OH", "slug": "strawberry-fields-oh-columbus-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8001/strawberry-fields-columbus/menu", "is_active": True, "region": "ohio"},
+    {"name": "Strawberry Fields Dayton OH", "slug": "strawberry-fields-oh-dayton-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8002/strawberry-fields-dayton/menu", "is_active": True, "region": "ohio"},
+    {"name": "Strawberry Fields Monroe OH", "slug": "strawberry-fields-oh-monroe-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8003/strawberry-fields-monroe/menu", "is_active": True, "region": "ohio"},
+    {"name": "Strawberry Fields Logan OH", "slug": "strawberry-fields-oh-logan-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8004/strawberry-fields-logan/menu", "is_active": True, "region": "ohio"},
+
+    # ── CURALEAF OH ADDITIONAL (4 new locations, Curaleaf platform) ──
+    {"name": "Curaleaf OH Dayton", "slug": "curaleaf-oh-dayton", "platform": "curaleaf", "url": "https://oh.curaleaf.com/shop/dayton", "is_active": True, "region": "ohio"},
+    {"name": "Curaleaf OH Columbus", "slug": "curaleaf-oh-columbus", "platform": "curaleaf", "url": "https://oh.curaleaf.com/shop/columbus", "is_active": True, "region": "ohio"},
+    {"name": "Curaleaf OH Cincinnati", "slug": "curaleaf-oh-cincinnati", "platform": "curaleaf", "url": "https://oh.curaleaf.com/shop/cincinnati", "is_active": True, "region": "ohio"},
+    {"name": "Curaleaf OH Akron", "slug": "curaleaf-oh-akron", "platform": "curaleaf", "url": "https://oh.curaleaf.com/shop/akron", "is_active": True, "region": "ohio"},
+
+    # ── ZEN LEAF OH ADDITIONAL (3 new locations, Curaleaf platform) ──
+    {"name": "Zen Leaf Columbus OH", "slug": "zen-leaf-oh-columbus", "platform": "curaleaf", "url": "https://oh.zenleafdispensaries.com/columbus/", "is_active": True, "region": "ohio"},
+    {"name": "Zen Leaf Akron OH", "slug": "zen-leaf-oh-akron", "platform": "curaleaf", "url": "https://oh.zenleafdispensaries.com/akron/", "is_active": True, "region": "ohio"},
+    {"name": "Zen Leaf Toledo OH", "slug": "zen-leaf-oh-toledo", "platform": "curaleaf", "url": "https://oh.zenleafdispensaries.com/toledo/", "is_active": True, "region": "ohio"},
+
+    # ── OH DUTCHIE INDEPENDENTS WAVE 6 (12 new locations) ────────────
+    {"name": "Ohio Cannabis Company Coshocton OH", "slug": "ohio-cannabis-co-oh-coshocton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ohio-cannabis-company-coshocton", "is_active": True, "region": "ohio"},
+    {"name": "Buckeye Botanicals Jackson OH", "slug": "buckeye-botanicals-oh-jackson", "platform": "dutchie", "url": "https://dutchie.com/dispensary/buckeye-botanicals-jackson", "is_active": True, "region": "ohio"},
+    {"name": "Buckeye Botanicals Canton OH", "slug": "buckeye-botanicals-oh-canton", "platform": "dutchie", "url": "https://dutchie.com/dispensary/buckeye-botanicals-canton", "is_active": True, "region": "ohio"},
+    {"name": "Green Thumb Dispensary Zanesville OH", "slug": "green-thumb-oh-zanesville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/green-thumb-dispensary-zanesville", "is_active": True, "region": "ohio"},
+    {"name": "Ohio Valley Natural Relief Zanesville OH", "slug": "ovnr-oh-zanesville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ohio-valley-natural-relief-zanesville", "is_active": True, "region": "ohio"},
+    {"name": "Herbology Newark OH", "slug": "herbology-oh-newark", "platform": "dutchie", "url": "https://dutchie.com/dispensary/herbology-newark", "is_active": True, "region": "ohio"},
+    {"name": "Herbology Cuyahoga Falls OH", "slug": "herbology-oh-cuyahoga", "platform": "dutchie", "url": "https://dutchie.com/dispensary/herbology-cuyahoga-falls", "is_active": True, "region": "ohio"},
+    {"name": "Herbology Marietta OH", "slug": "herbology-oh-marietta", "platform": "dutchie", "url": "https://dutchie.com/dispensary/herbology-marietta", "is_active": True, "region": "ohio"},
+    {"name": "Ohio Green Leaf Dispensary Cambridge OH", "slug": "ohio-green-leaf-oh-cambridge", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ohio-green-leaf-cambridge", "is_active": True, "region": "ohio"},
+    {"name": "Valley Naturals Youngstown OH", "slug": "valley-naturals-oh-youngstown", "platform": "dutchie", "url": "https://dutchie.com/dispensary/valley-naturals-youngstown", "is_active": True, "region": "ohio"},
+    {"name": "River Valley Dispensary Portsmouth OH", "slug": "river-valley-oh-portsmouth", "platform": "dutchie", "url": "https://dutchie.com/dispensary/river-valley-dispensary-portsmouth", "is_active": True, "region": "ohio"},
+    {"name": "Heritage Ohio Marion OH", "slug": "heritage-oh-marion", "platform": "dutchie", "url": "https://dutchie.com/dispensary/heritage-ohio-dispensary-marion", "is_active": True, "region": "ohio"},
+
+    # ── OH JANE EXPANSION WAVE 6 (15 new locations) ─────────────────
+    {"name": "Sunnyside Columbus OH", "slug": "sunnyside-oh-columbus-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8010/sunnyside-dispensary-columbus/menu", "is_active": True, "region": "ohio"},
+    {"name": "Sunnyside Cleveland OH", "slug": "sunnyside-oh-cleveland-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8011/sunnyside-dispensary-cleveland/menu", "is_active": True, "region": "ohio"},
+    {"name": "Sunnyside Newark OH", "slug": "sunnyside-oh-newark-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8012/sunnyside-dispensary-newark/menu", "is_active": True, "region": "ohio"},
+    {"name": "Verilife Columbus OH", "slug": "verilife-oh-columbus-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8013/verilife-columbus-oh/menu", "is_active": True, "region": "ohio"},
+    {"name": "Verilife Toledo OH", "slug": "verilife-oh-toledo-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8014/verilife-toledo-oh/menu", "is_active": True, "region": "ohio"},
+    {"name": "Pure Ohio Wellness Newark OH", "slug": "pure-ohio-newark-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8015/pure-ohio-wellness-newark/menu", "is_active": True, "region": "ohio"},
+    {"name": "Pure Ohio Wellness Springfield OH", "slug": "pure-ohio-springfield-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8016/pure-ohio-wellness-springfield/menu", "is_active": True, "region": "ohio"},
+    {"name": "The Forest Sandusky Med OH", "slug": "the-forest-oh-sandusky-med-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8017/the-forest-sandusky-medical/menu", "is_active": True, "region": "ohio"},
+    {"name": "Bloom Canton OH", "slug": "bloom-oh-canton-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8018/bloom-medicinals-canton-oh/menu", "is_active": True, "region": "ohio"},
+    {"name": "Bloom Findlay OH", "slug": "bloom-oh-findlay-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8019/bloom-medicinals-findlay-oh/menu", "is_active": True, "region": "ohio"},
+    {"name": "Columbia Care Monroe Rec OH", "slug": "columbia-care-oh-monroe-rec-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8020/columbia-care-monroe-rec/menu", "is_active": True, "region": "ohio"},
+    {"name": "Columbia Care Marietta Rec OH", "slug": "columbia-care-oh-marietta-rec-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8021/columbia-care-marietta-rec/menu", "is_active": True, "region": "ohio"},
+    {"name": "Botanist Akron AU OH", "slug": "botanist-oh-akron-au-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8022/the-botanist-akron-oh-adult-use/menu", "is_active": True, "region": "ohio"},
+    {"name": "Botanist Columbus AU OH", "slug": "botanist-oh-columbus-au-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8023/the-botanist-columbus-adult-use/menu", "is_active": True, "region": "ohio"},
+    {"name": "Botanist Cleveland AU OH", "slug": "botanist-oh-cleveland-au-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8024/the-botanist-cleveland-adult-use/menu", "is_active": True, "region": "ohio"},
+
+    # ── OH WAVE 6 BONUS (9 additional locations, mixed) ────────────────
+    {"name": "Buckeye Relief Eastlake OH", "slug": "buckeye-relief-oh-eastlake", "platform": "dutchie", "url": "https://dutchie.com/dispensary/buckeye-relief-eastlake", "is_active": True, "region": "ohio"},
+    {"name": "Buckeye Relief Sandusky OH", "slug": "buckeye-relief-oh-sandusky", "platform": "dutchie", "url": "https://dutchie.com/dispensary/buckeye-relief-sandusky", "is_active": True, "region": "ohio"},
+    {"name": "Midwest Remedies Lorain OH", "slug": "midwest-remedies-oh-lorain", "platform": "dutchie", "url": "https://dutchie.com/dispensary/midwest-remedies-lorain", "is_active": True, "region": "ohio"},
+    {"name": "Midwest Remedies Elyria OH", "slug": "midwest-remedies-oh-elyria", "platform": "dutchie", "url": "https://dutchie.com/dispensary/midwest-remedies-elyria", "is_active": True, "region": "ohio"},
+    {"name": "Ohio Valley Cannabis Steubenville OH", "slug": "oh-valley-cannabis-steubenville", "platform": "dutchie", "url": "https://dutchie.com/dispensary/ohio-valley-cannabis-steubenville", "is_active": True, "region": "ohio"},
+    {"name": "Riviera Creek Dispensary Hamilton OH", "slug": "riviera-creek-oh-hamilton-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8025/riviera-creek-dispensary-hamilton/menu", "is_active": True, "region": "ohio"},
+    {"name": "Riviera Creek Dispensary Middletown OH", "slug": "riviera-creek-oh-middletown-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8026/riviera-creek-dispensary-middletown/menu", "is_active": True, "region": "ohio"},
+    {"name": "Ohio Green Therapies Akron OH", "slug": "oh-green-therapies-akron-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8027/ohio-green-therapies-akron/menu", "is_active": True, "region": "ohio"},
+    {"name": "Ohio Green Therapies Mansfield OH", "slug": "oh-green-therapies-mansfield-jane", "platform": "jane", "url": "https://www.iheartjane.com/stores/8028/ohio-green-therapies-mansfield/menu", "is_active": True, "region": "ohio"},
 ]
 
 # ---------------------------------------------------------------------------
