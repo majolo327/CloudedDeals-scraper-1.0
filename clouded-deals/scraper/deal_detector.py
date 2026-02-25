@@ -104,6 +104,194 @@ ORIGINAL_PRICE_CEILINGS: dict[str, float] = {
 }
 
 # =====================================================================
+# State-specific price cap overrides
+# =====================================================================
+# The base CATEGORY_PRICE_CAPS are calibrated for Nevada (southern-nv).
+# Other states have very different market dynamics:
+#
+#   Michigan   — ultra-competitive market, flower eighths retail $10-15
+#                regularly.  A $10 eighth is normal, NOT a deal.  Lower
+#                caps prevent everyday prices from flooding the deal feed.
+#   New Jersey — high-tax, limited-license market.  Regular eighths are
+#                $40-55.  A $28 eighth on sale is a genuine deal.  Higher
+#                caps let real deals through.
+#   Ohio       — newer rec market, prices still elevated.  Similar to NJ
+#                but slightly cheaper.
+#   Missouri   — rapidly maturing market, prices between MI and NV.
+#                Slightly higher caps than NV.
+#
+# Overrides are merged on top of CATEGORY_PRICE_CAPS.  Only categories
+# that differ from NV need entries — unlisted categories fall back to
+# the base caps.  The helper ``_get_state_region`` normalises sharded
+# region names like "michigan-2" → "michigan".
+STATE_PRICE_CAP_OVERRIDES: dict[str, dict[str, dict[str, float] | float]] = {
+    "michigan": {
+        "flower": {
+            "3.5": 15,    # MI eighth deals should be $8-12, not $15-22
+            "7": 28,      # MI quarter deals — $20-25 is good
+            "14": 45,     # MI half oz — $35-40 is a deal
+            "28": 80,     # MI oz — $60-70 is a deal
+        },
+        "vape": 22,       # MI carts are cheap — $15-18 is deal territory
+        "edible": 12,     # MI edibles are cheap — $8-10 is deal territory
+        "concentrate": {
+            "0.5": 20,
+            "1": 35,      # MI live resin is $25-30 on sale
+            "2": 60,
+        },
+        "preroll": 7,     # MI prerolls are $3-6 on sale
+        "infused_preroll": 12,
+        "preroll_pack": 20,
+    },
+    "new-jersey": {
+        "flower": {
+            "3.5": 35,    # NJ eighths on sale at $28-32 are genuine deals
+            "7": 60,      # NJ quarter deals — $45-55
+            "14": 90,     # NJ half oz — $70-85
+            "28": 160,    # NJ oz — $120-150
+        },
+        "vape": 40,       # NJ carts are pricey — $30-35 is a deal
+        "edible": 20,     # NJ edibles — $15-18 is a deal
+        "concentrate": {
+            "0.5": 35,
+            "1": 60,      # NJ live resin — $45-55 on sale
+            "2": 100,
+        },
+        "preroll": 12,
+        "infused_preroll": 20,
+        "preroll_pack": 35,
+    },
+    "ohio": {
+        "flower": {
+            "3.5": 30,    # OH eighths — newer rec market, still elevated
+            "7": 55,
+            "14": 80,
+            "28": 140,
+        },
+        "vape": 35,
+        "edible": 18,
+        "concentrate": {
+            "0.5": 30,
+            "1": 55,
+            "2": 90,
+        },
+        "preroll": 11,
+        "infused_preroll": 18,
+        "preroll_pack": 30,
+    },
+    "missouri": {
+        "flower": {
+            "3.5": 25,    # MO — maturing market, between MI and NV
+            "7": 45,
+            "14": 65,
+            "28": 110,
+        },
+        "vape": 30,
+        "edible": 16,
+        "concentrate": {
+            "0.5": 28,
+            "1": 48,
+            "2": 80,
+        },
+        "preroll": 10,
+        "infused_preroll": 16,
+        "preroll_pack": 28,
+    },
+    "illinois": {
+        "flower": {
+            "3.5": 30,    # IL — high-tax market similar to NJ
+            "7": 55,
+            "14": 80,
+            "28": 140,
+        },
+        "vape": 35,
+        "edible": 18,
+        "concentrate": {
+            "0.5": 30,
+            "1": 55,
+            "2": 90,
+        },
+        "preroll": 11,
+        "infused_preroll": 18,
+        "preroll_pack": 30,
+    },
+    "arizona": {
+        "flower": {
+            "3.5": 25,    # AZ — competitive but not as cheap as MI
+            "7": 45,
+            "14": 65,
+            "28": 110,
+        },
+        "vape": 30,
+        "edible": 16,
+        "concentrate": {
+            "0.5": 28,
+            "1": 48,
+            "2": 80,
+        },
+        "preroll": 10,
+        "infused_preroll": 16,
+        "preroll_pack": 28,
+    },
+    "colorado": {
+        "flower": {
+            "3.5": 18,    # CO — mature competitive market, close to MI
+            "7": 32,
+            "14": 50,
+            "28": 90,
+        },
+        "vape": 25,
+        "edible": 14,
+        "concentrate": {
+            "0.5": 22,
+            "1": 40,
+            "2": 65,
+        },
+        "preroll": 8,
+        "infused_preroll": 14,
+        "preroll_pack": 22,
+    },
+    "massachusetts": {
+        "flower": {
+            "3.5": 32,    # MA — high-tax like NJ/IL
+            "7": 58,
+            "14": 85,
+            "28": 150,
+        },
+        "vape": 38,
+        "edible": 18,
+        "concentrate": {
+            "0.5": 32,
+            "1": 58,
+            "2": 95,
+        },
+        "preroll": 12,
+        "infused_preroll": 18,
+        "preroll_pack": 32,
+    },
+    "northern-nv": {
+        # Northern NV (Reno/Sparks/Carson City) has slightly lower prices
+        # than Las Vegas due to less tourism, but same state tax structure.
+        "flower": {
+            "3.5": 20,
+            "7": 38,
+            "14": 52,
+            "28": 95,
+        },
+        "vape": 26,
+        "edible": 14,
+        "concentrate": {
+            "0.5": 24,
+            "1": 42,
+            "2": 72,
+        },
+        "preroll": 9,
+        "infused_preroll": 14,
+        "preroll_pack": 24,
+    },
+}
+
+# =====================================================================
 # Phase 2: Scoring constants
 # =====================================================================
 
@@ -165,6 +353,29 @@ BRAND_TIERS: dict[str, dict[str, Any]] = {
             # NJ expansion — Feb 2026
             "breakwater", "garden state canna", "the heirloom collective",
             "harmony", "apothecarium", "purple leaf", "bloc nj",
+            # Ohio-native popular brands
+            "klutch", "klutch cannabis", "buckeye relief", "firelands scientific",
+            "standard wellness", "galenas", "ancient roots",
+            "ohio clean leaf", "pure ohio wellness", "the botanist oh",
+            "body and mind", "terrasana", "about wellness",
+            "bloom oh", "amplify", "ohio provisions",
+            # Ohio expansion — Feb 2026
+            "butterfly effect", "grow ohio", "columbia care oh",
+            "have a heart", "the forest",
+            # Colorado-native popular brands
+            "green dot labs", "olio", "lazercat", "viola co",
+            "native roots", "the green solution", "livwell",
+            "standing akimbo", "terrapin care station", "l'eagle",
+            "silver stem", "medicine man", "lightshade",
+            "the dab", "bonsai cultivation",
+            # Massachusetts-native popular brands
+            "theory wellness", "commcan", "neta", "curaleaf ma",
+            "good chemistry", "mayflower", "berkshire roots",
+            "happy valley", "fernway", "harbor house collective",
+            "panacea", "bask", "temescal wellness",
+            # Northern NV popular brands (Reno/Sparks/Carson City)
+            "sierra well", "mynt cannabis", "kanna",
+            "blüm", "blum", "greenleaf wellness",
             # Nevada dispensary house brands (boost when detected)
             "deep roots", "deep roots harvest",
             "state flower", "cultivation labs",
@@ -270,16 +481,42 @@ _NON_CANNABIS_KEYWORDS = {
 }
 
 
+def _get_state_region(region: str | None) -> str | None:
+    """Normalise sharded region names (e.g. 'michigan-2' → 'michigan')."""
+    if not region:
+        return None
+    if region[-1:].isdigit():
+        base = region.rsplit("-", 1)[0]
+        return base
+    return region
+
+
+def _get_caps_for_region(category: str, region: str | None) -> dict[str, float] | float | None:
+    """Return the price cap config for *category* in *region*.
+
+    Uses state-specific overrides when available, falling back to the
+    base NV-calibrated ``CATEGORY_PRICE_CAPS``.
+    """
+    state = _get_state_region(region)
+    if state and state in STATE_PRICE_CAP_OVERRIDES:
+        overrides = STATE_PRICE_CAP_OVERRIDES[state]
+        if category in overrides:
+            return overrides[category]
+    return CATEGORY_PRICE_CAPS.get(category)
+
+
 def _passes_price_cap(
     sale_price: float,
     category: str,
     weight_value: float | None,
+    region: str | None = None,
 ) -> bool:
     """Check whether *sale_price* is within the category price cap.
 
     Extracted so it can be reused by both the full and loose filter paths.
+    When *region* is provided, state-specific cap overrides are applied.
     """
-    caps = CATEGORY_PRICE_CAPS.get(category)
+    caps = _get_caps_for_region(category, region)
     if caps is None:
         return sale_price <= 50
 
@@ -304,11 +541,14 @@ def _passes_price_cap(
         return sale_price <= caps
 
 
-def passes_hard_filters(product: dict[str, Any]) -> bool:
+def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> bool:
     """Return ``False`` if the product should be completely excluded.
 
     Checks global price bounds, minimum discount, original price
     presence, category-specific price caps, and non-cannabis keywords.
+
+    When *region* is provided, state-specific price cap overrides are
+    used instead of the NV-calibrated defaults.
 
     **Jane platform exception**: Jane sites do not display original
     prices — only the current/deal price is available.  For Jane
@@ -336,6 +576,11 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     category = product.get("category", "other")
     weight_value = product.get("weight_value")
     source_platform = product.get("source_platform", "")
+
+    # Use region from product if not passed explicitly (supports both
+    # per-product region tagging and caller-supplied region).
+    if not region:
+        region = product.get("region")
 
     # --- Global price floor / ceiling (applies to ALL platforms) ---
     if not sale_price or sale_price < HARD_FILTERS["min_price"]:
@@ -369,7 +614,7 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     # aren't excluded.
     # ------------------------------------------------------------------
     if source_platform in ("jane", "carrot", "aiq"):
-        return _passes_price_cap(sale_price, category, weight_value)
+        return _passes_price_cap(sale_price, category, weight_value, region)
 
     # --- Standard filters (non-Jane platforms) ---
     min_disc = CATEGORY_MIN_DISCOUNT.get(category, HARD_FILTERS["min_discount_percent"])
@@ -392,23 +637,29 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     # prerolls.  Regular 1g flower prerolls should be $5-9 (never $10-12),
     # but infused prerolls are premium products and legitimately cost more.
     if category == "preroll" and subtype == "infused_preroll":
+        infused_cap = _get_caps_for_region("infused_preroll", region)
+        if isinstance(infused_cap, (int, float)):
+            return sale_price <= infused_cap
         return sale_price <= CATEGORY_PRICE_CAPS.get("infused_preroll", 15)
 
-    return _passes_price_cap(sale_price, category, weight_value)
+    return _passes_price_cap(sale_price, category, weight_value, region)
 
 
-def failed_by_price_cap(product: dict[str, Any]) -> bool:
+def failed_by_price_cap(product: dict[str, Any], region: str | None = None) -> bool:
     """Return ``True`` if the product would fail hard filters *specifically*
     due to the category price cap (not discount, not global bounds).
 
     Used for data enrichment metrics — tells us how many products per state
-    are being rejected by NV-calibrated price caps, which signals when
-    state-specific caps are needed.
+    are being rejected by price caps, which signals when state-specific
+    caps need tuning.
     """
     sale_price = product.get("sale_price") or product.get("current_price") or 0
     category = product.get("category", "other")
     weight_value = product.get("weight_value")
     subtype = product.get("product_subtype")
+
+    if not region:
+        region = product.get("region")
 
     if not sale_price or sale_price < HARD_FILTERS["min_price"]:
         return False  # rejected by global floor, not price cap
@@ -416,9 +667,12 @@ def failed_by_price_cap(product: dict[str, Any]) -> bool:
         return False  # rejected by global ceiling, not price cap
 
     if category == "preroll" and subtype == "infused_preroll":
+        infused_cap = _get_caps_for_region("infused_preroll", region)
+        if isinstance(infused_cap, (int, float)):
+            return sale_price > infused_cap
         return sale_price > CATEGORY_PRICE_CAPS.get("infused_preroll", 15)
 
-    return not _passes_price_cap(sale_price, category, weight_value)
+    return not _passes_price_cap(sale_price, category, weight_value, region)
 
 
 # =====================================================================
