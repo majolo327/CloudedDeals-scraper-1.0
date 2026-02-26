@@ -299,4 +299,4 @@ Credit where due — these areas are solid and ready for beta:
 
 *This audit should be re-run after addressing blockers and before public launch.*
 
-> **Feb 26 summary:** 6/6 blockers resolved. 10/15 high-priority items resolved. Product is in locked beta with testers. Re-run this audit before public launch — focus on: Sentry, cookie consent, privacy policy, CSRF, DST cron adjustment.
+> **Feb 26 summary:** 6/6 blockers resolved. 10/15 high-priority items resolved. Product is in locked beta with testers. Re-run this audit before public launch — focus on: Sentry, cookie consent, privacy policy, CSRF.
