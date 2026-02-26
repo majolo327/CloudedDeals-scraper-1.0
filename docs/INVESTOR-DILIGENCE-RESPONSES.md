@@ -556,7 +556,7 @@ app). The primary revenue path is dispensary-side.
 |--------|------------------|
 | **Brands** | Detected algorithmically from product names. Same brand appears across multiple dispensaries. Brand tier affects deal score (+20 premium, +12 popular). |
 | **Dispensaries** | The "stores" in our aggregation. Each dispensary's menu is scraped independently. A dispensary carries 50-200+ brands. |
-| **Budtenders** | Not in our model. We don't involve store staff. The consumer sees the deal online and visits the store. |
+| **Budtenders** | Not in the current model. Post-funding, budtenders become a growth channel — customer-facing ambassadors who recommend CloudedDeals at the register. See Section 7B for the full program design. |
 
 Brands are NOT exclusive to dispensaries — STIIIZY, Cookies, Cresco, etc.
 appear across many stores. Our deal scoring actually benefits from this: we
@@ -841,7 +841,7 @@ Tier 1 (featured placements) is the beachhead — fastest to activate because
 it requires only consumer DAU. But the full revenue picture compounds all
 three tiers:
 
-**24-Month Revenue Composition (Moderate Scenario):**
+**24-Month Revenue Composition (Moderate Scenario) — Tiers 1-3 Only:**
 
 | Revenue Stream | Month 6 | Month 12 | Month 18 | Month 24 |
 |---------------|---------|----------|----------|----------|
@@ -850,6 +850,10 @@ three tiers:
 | **Tier 3: MSO Intelligence** | $0 | $0 | $5K/mo | $15K/mo |
 | **Total MRR** | **$4K** | **$20K** | **$48K** | **$85K** |
 | **Total ARR** | **$48K** | **$240K** | **$576K** | **$1.02M** |
+
+*For the complete revenue stack including Tier 4 (complementary partner
+revenue from accessory brands, delivery platforms, and smoke shops), see
+Section 7C.5. The all-in projection reaches **$1.22M ARR** at Month 24.*
 
 **Why Tiers 2-3 compound with Tier 1:**
 
@@ -869,6 +873,275 @@ three tiers:
 **The diversification matters:** If dispensary budgets tighten in a downturn,
 brand intelligence revenue continues because it serves different buyers with
 different budgets. The three tiers are naturally hedged against each other.
+
+---
+
+## SECTION 7B: BUDTENDER AMBASSADOR PROGRAM
+
+**Timeline:** Post-funding, after proven consumer numbers (target: 100+ DAU
+per market). Not a launch priority — this activates months after Tier 1
+revenue is flowing.
+
+### Why budtenders matter
+
+Budtenders are the last human touchpoint before a cannabis purchase. They
+already influence what consumers buy. In most dispensaries, budtenders
+informally recommend deals, suggest brands, and steer purchasing decisions.
+They're trusted by customers in a way that apps and ads are not.
+
+Right now CloudedDeals acquires consumers through organic search, word of
+mouth, and planned guerrilla marketing (QR flyers on the Strip). Budtenders
+are the missing channel — they can recommend CloudedDeals at the register
+the same way a server recommends an app for restaurant deals.
+
+**The insight:** Budtenders already say things like "check our website for
+today's deals" or "we have a sale on STIIIZY this week." Redirecting that
+moment to "check CloudedDeals for today's best deals across all stores" is
+a natural extension of what they already do — but with an incentive attached.
+
+---
+
+### 7B.1 — Program Structure
+
+Two tracks: official dispensary partnerships (preferred) and independent
+budtender signups (wider reach).
+
+**Track 1: Official Dispensary Partnership**
+
+| Element | Detail |
+|---------|--------|
+| **How it works** | CloudedDeals partners with the dispensary. Dispensary opts their budtenders into the ambassador program. Budtenders get unique referral codes/QR cards. |
+| **Dispensary incentive** | Ties into Tier 1 featured placement — partnered dispensaries get boosted placement as part of the deal. Ambassador program is a value-add for paying Tier 1 subscribers. |
+| **Budtender incentive** | Swag (branded merch — hats, lanyards, stickers), small cash payouts per confirmed referral, monthly leaderboard with bonuses. |
+| **Tracking** | Unique QR code per budtender → tracks app opens + first deal viewed. Attribution window: 7 days from QR scan. |
+| **Compliance** | Dispensary controls which staff participate. No direct cash payments that could conflict with dispensary employment policies — payout can go through dispensary payroll or as gift cards. |
+
+**Track 2: Independent Budtender Signup**
+
+| Element | Detail |
+|---------|--------|
+| **How it works** | Any budtender can sign up independently at a self-serve portal. Gets a personal referral link/QR code. Doesn't require dispensary permission. |
+| **Why this matters** | Many budtenders work at dispensaries that won't officially partner (corporate chains with rigid marketing, small shops that are slow to adopt). Independent signup captures these ambassadors anyway. |
+| **Budtender incentive** | Same swag + referral rewards. Lower per-referral payout than official track (no dispensary co-investment). |
+| **Tracking** | Same QR/referral link system. Budtender self-identifies their dispensary for analytics but the dispensary doesn't need to be involved. |
+| **Risk** | Dispensary could object to staff promoting a third-party app. Mitigated by positioning CloudedDeals as complementary ("we send customers to YOUR store when you have the best deal") rather than competitive. |
+
+---
+
+### 7B.2 — Reward Tiers
+
+Keep rewards low-cost but culturally relevant. Budtenders in cannabis are
+typically young, social-media-savvy, and respond to status/community more
+than small cash amounts.
+
+| Tier | Referrals/Month | Reward |
+|------|----------------|--------|
+| **Starter** | 1-10 | CloudedDeals sticker pack + branded lighter |
+| **Ambassador** | 11-25 | Branded hat/beanie + $25 gift card |
+| **MVP** | 26-50 | Branded hoodie + $50 gift card + featured on CloudedDeals social media |
+| **Legend** | 50+ | $100 cash payout + limited-edition merch drop + "Legend Budtender" badge on their profile |
+
+**Estimated cost per referral:** $1-3 (blended across tiers). At 100 DAU
+driven by budtenders, that's $100-300/month — trivial relative to the
+consumer acquisition value.
+
+**Why swag works in cannabis:** The culture values brand identity and
+community. A CloudedDeals beanie or hoodie worn by a budtender is free
+advertising in every dispensary they work in. Other budtenders see it, ask
+about it, sign up. This is how brands like Cookies built cult followings —
+merch as a status signal.
+
+---
+
+### 7B.3 — Strategic Value Beyond Acquisition
+
+The budtender program isn't just a referral channel. It creates three
+strategic advantages:
+
+**1. Dispensary relationship deepening**
+
+A budtender actively promoting CloudedDeals inside a dispensary creates a
+natural conversation with the dispensary owner/manager: "Your staff is already
+using us — want to make it official and get featured placement?" This converts
+Track 2 (independent) signups into Track 1 (official) partnerships, which
+feeds Tier 1 subscription revenue.
+
+**2. Real-time deal validation**
+
+Budtenders know which deals are real and which are stale/misleading. An
+ambassador program gives us a feedback channel: "Hey, that STIIIZY deal
+expired yesterday" or "We actually have a better deal that's not on the
+menu yet." This improves data accuracy, which improves consumer trust, which
+improves retention. Crowd-sourced quality from people who literally stand at
+the register.
+
+**3. Content and social proof**
+
+Budtender testimonials ("I use CloudedDeals to help my customers save money")
+are authentic marketing content. Instagram/TikTok posts from budtenders
+showing the app create organic reach in exactly the right demographic.
+
+---
+
+### 7B.4 — Unit Economics
+
+| Metric | Estimate |
+|--------|----------|
+| **Cost per budtender signup** | ~$0 (self-serve portal, organic through dispensary relationships) |
+| **Cost per referral** | $1-3 (swag + small cash) |
+| **Referrals per active budtender/month** | 5-15 (they see 50-100+ customers/day) |
+| **Consumer CAC via budtender channel** | $1-3 (vs. $0.20 for flyers, TBD for paid digital) |
+| **LTV of budtender-referred user** | Expected higher than organic — personal recommendation = stronger intent |
+
+**At scale (100 active budtenders across 3 markets):**
+- 500-1,500 new users/month
+- $500-4,500/month program cost
+- Cost-effective relative to any paid digital channel in cannabis (where
+  Meta/Google restrict cannabis advertising)
+
+---
+
+### 7B.5 — Activation Timeline
+
+| Phase | When | What |
+|-------|------|------|
+| **Design** | Month 4-5 (after proven DAU) | Build referral tracking, QR code generation, budtender signup portal |
+| **Vegas pilot** | Month 6-7 | Recruit 10-15 budtenders from 5-8 dispensaries (start with friendly independents, not corporate chains) |
+| **Iterate** | Month 7-9 | Measure referral conversion, adjust reward tiers, collect budtender feedback |
+| **Scale** | Month 10+ | Roll out to Michigan/Illinois markets alongside consumer launches. Target 50-100 active budtenders across 3 markets by Month 12. |
+
+**Prerequisite:** Budtender program only makes sense after consumer product
+is proven (100+ DAU per market). A budtender recommending an app with 10
+users looks bad. A budtender recommending an app that "everyone's using to
+find deals" has social proof.
+
+---
+
+## SECTION 7C: COMPLEMENTARY PARTNER REVENUE
+
+**Timeline:** Post-funding, alongside or after Tier 1 activation. Lower
+priority than dispensary subscriptions but higher margin per placement.
+
+### The opportunity
+
+CloudedDeals' audience isn't just cannabis consumers — they're **cannabis
+lifestyle consumers**. They buy:
+
+- Vaporizer devices (DaVinci, Puffco, Huni Badger, Storz & Bickel, PAX)
+- Rolling papers, grinders, stash gear (RAW, Santa Cruz Shredder)
+- Glass/accessories from smoke shops
+- Third-party delivery services
+- CBD/wellness products
+- Cannabis tourism experiences (in Vegas especially)
+
+These companies have the same problem: Meta and Google restrict cannabis-
+adjacent advertising. They struggle to reach cannabis consumers efficiently.
+CloudedDeals is a **pre-qualified audience** of active cannabis buyers who
+are already in purchase mode.
+
+---
+
+### 7C.1 — Partner Categories
+
+| Category | Example Partners | Why They'd Pay |
+|----------|-----------------|----------------|
+| **Vaporizer devices** | Puffco (Peak Pro), DaVinci (IQC), Huni Badger, Storz & Bickel (Volcano, Mighty), PAX | Cannabis consumers are their exact TAM. Meta/Google ad restrictions limit their reach. A deal platform audience is high-intent. |
+| **Smoke shops / head shops** | Local smoke shops near dispensaries, online retailers (DankStop, Smoke Cartel) | Cross-sell opportunity — consumer checking cannabis deals is likely to also need papers, grinders, glass. |
+| **Delivery platforms** | Cannabis delivery services (where legal — CA, MI, IL, NJ) | Delivery platforms compete with dispensary foot traffic. Reaching consumers who just found a deal and offering delivery is high-conversion. |
+| **Consumption accessories** | RAW (papers), Santa Cruz Shredder, Boveda (humidity packs), stash bags | Low-cost impulse purchases that pair naturally with cannabis deals. |
+| **Cannabis tourism** | Vegas cannabis tours, cannabis-friendly hotels/experiences, consumption lounges | Vegas tourist audience on CloudedDeals is a perfect match. Tourist-focused placement on `/strip` page. |
+| **CBD / wellness** | CBD brands, Delta-8 brands (where legal), cannabis wellness products | Adjacent audience overlap. Lower-margin but high-volume. |
+
+---
+
+### 7C.2 — Ad Formats
+
+These aren't traditional banner ads — they're native placements that feel
+like product recommendations:
+
+| Format | Description | Pricing Model | Est. Price |
+|--------|-------------|---------------|------------|
+| **Native Card** | A branded card in the deals feed styled like a deal card but labeled "Partner" — e.g., "Puffco Peak Pro — 20% off with code CLOUDED" | CPM or flat monthly | $300-800/mo |
+| **Category Companion** | Placed alongside relevant category pages — e.g., DaVinci vaporizer ad on the Vape deals page, RAW papers ad on the Flower deals page | Flat monthly per category | $200-500/mo per category |
+| **SMS/Push Inclusion** | Sponsored line in daily deal digest — "Huni Badger: 15% off this week at [link]" | Per-send or monthly | $500-1,500/mo |
+| **Tourist Spotlight** | Featured card on the `/strip` page — cannabis tour, consumption lounge, or accessory shop near the Strip | Flat monthly | $300-600/mo |
+| **Search Companion** | When a user searches for "vape" or "concentrate," show a device companion — "Need a vape? Puffco Peak Pro — $X at [link]" | Flat monthly per keyword | $200-400/mo per keyword |
+
+---
+
+### 7C.3 — Why This Revenue Is Different (and Valuable)
+
+**1. No supply chain conflict**
+
+Dispensaries and brands are in our supply chain — they could view us as a
+competitor or negotiating partner. Accessory companies have zero conflict.
+Puffco doesn't care which dispensary you buy from. Smoke shops aren't
+competing with dispensaries. This revenue is purely additive with zero
+relationship tension.
+
+**2. Cannabis advertising restriction arbitrage**
+
+Meta, Google, TikTok, and most programmatic ad networks restrict cannabis
+and cannabis-adjacent advertising. Vaporizer companies, smoke shops, and
+accessory brands have **very few efficient channels** to reach cannabis
+consumers. CloudedDeals is one of the rare platforms where they can reach
+a verified, active cannabis audience. This scarcity gives us pricing power
+that wouldn't exist in a normal CPG vertical.
+
+**3. Higher willingness-to-pay per impression**
+
+Because these companies have limited advertising options, they pay premium
+CPMs. Cannabis industry ad networks (where they exist) charge 3-5× standard
+CPMs. A Puffco or DaVinci marketing team with a $500K annual digital budget
+and nowhere efficient to spend it will pay $300-800/mo for a native placement
+reaching thousands of active cannabis consumers.
+
+**4. Scales independently of dispensary relationships**
+
+Tier 1 revenue requires dispensary-by-dispensary sales. Partner revenue
+requires a handful of national brand deals — one contract with Puffco covers
+all markets. The sales effort scales horizontally, not linearly with market
+count.
+
+---
+
+### 7C.4 — Revenue Projections
+
+**Conservative estimate — accessory/partner revenue:**
+
+| Timeline | Partners | Avg. Revenue/Partner | Monthly Revenue |
+|----------|----------|---------------------|----------------|
+| **Month 8-10** | 2-3 (pilot: 1 vape brand, 1 smoke shop, 1 local tourism) | $400/mo | $800-1,200/mo |
+| **Month 12** | 5-8 | $500/mo | $2,500-4,000/mo |
+| **Month 18** | 10-15 (national device brands + local per market) | $600/mo | $6,000-9,000/mo |
+| **Month 24** | 20-30 | $700/mo | $14,000-21,000/mo |
+
+**Why the partner count scales:** Each new consumer market adds local partner
+inventory (Vegas smoke shops, Michigan delivery services, Illinois consumption
+lounges). National device brands (Puffco, DaVinci, PAX) are one contract
+across all markets — their spend increases as our audience grows.
+
+---
+
+### 7C.5 — Updated Revenue Stack (All Streams)
+
+Adding complementary partners to the existing three-tier model:
+
+**24-Month Revenue Composition (Moderate Scenario):**
+
+| Revenue Stream | Month 6 | Month 12 | Month 18 | Month 24 |
+|---------------|---------|----------|----------|----------|
+| **Tier 1: Featured Placements** | $4K/mo | $18K/mo | $35K/mo | $50K/mo |
+| **Tier 2: Brand Intelligence** | $0 | $2K/mo | $8K/mo | $20K/mo |
+| **Tier 3: MSO Intelligence** | $0 | $0 | $5K/mo | $15K/mo |
+| **Tier 4: Complementary Partners** | $0 | $3K/mo | $7K/mo | $17K/mo |
+| **Total MRR** | **$4K** | **$23K** | **$55K** | **$102K** |
+| **Total ARR** | **$48K** | **$276K** | **$660K** | **$1.22M** |
+
+The budtender ambassador program is a **cost center** (estimated $500-4,500/mo
+at scale), not a revenue line — but it accelerates every revenue tier by
+driving consumer acquisition at $1-3 CAC in an industry where traditional
+digital advertising is restricted.
 
 ---
 
