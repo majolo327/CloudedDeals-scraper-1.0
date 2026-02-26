@@ -1,25 +1,25 @@
 """
 Dispensary configuration across 12 regions and 5 active platforms.
 
-Regions (~1683 active / ~1732 total):
-  - michigan:      450 dispensaries (Dutchie + Jane)
-  - colorado:      200 dispensaries (Dutchie + Jane)
-  - massachusetts: 186 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
-  - illinois:      178 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
-  - ohio:          133 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
-  - arizona:       127 dispensaries (Dutchie + Curaleaf/Zen Leaf + Jane)
-  - missouri:      121 dispensaries (Dutchie + Jane)
-  - new-jersey:    106 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
-  - new-york:       76 dispensaries (Dutchie + Jane + Curaleaf)
-  - southern-nv:    66 dispensaries (Dutchie/Jane/Carrot/Curaleaf/Zen Leaf/AIQ)
-  - pennsylvania:   49 dispensaries (Curaleaf/Zen Leaf + Dutchie)
-  - northern-nv:    40 dispensaries (Dutchie + Jane)
+Regions (~2072 active / ~2121 total):
+  - michigan:      446 active / 450 total (Dutchie + Jane)
+  - missouri:      261 active / 261 total (Dutchie + Jane)
+  - ohio:          247 active / 252 total (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - new-jersey:    232 active / 236 total (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - colorado:      200 active / 200 total (Dutchie + Jane)
+  - massachusetts: 184 active / 186 total (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - illinois:      166 active / 178 total (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - arizona:       127 active / 127 total (Dutchie + Curaleaf/Zen Leaf + Jane)
+  - new-york:       73 active /  76 total (Dutchie + Jane + Curaleaf)
+  - southern-nv:    53 active /  66 total (Dutchie/Jane/Carrot/Curaleaf/Zen Leaf/AIQ)
+  - pennsylvania:   43 active /  49 total (Curaleaf/Zen Leaf + Dutchie)
+  - northern-nv:    40 active /  40 total (Dutchie + Jane)
 
-Platforms (~1493 active / ~1542 total):
-  - dutchie: ~846 — iframe-based menus (Dutchie/TD sites)
-  - jane:    ~531 — hybrid iframe/direct with "View More" pagination
-  - curaleaf: ~109 — direct page loads (Curaleaf + Zen Leaf)
-  - rise:        0 — ALL DEACTIVATED (100% Cloudflare blocked)
+Platforms (~2072 active / ~2122 total):
+  - dutchie: ~1260 — iframe-based menus (Dutchie/TD sites)
+  - jane:     ~696 — hybrid iframe/direct with "View More" pagination
+  - curaleaf: ~122 — direct page loads (Curaleaf + Zen Leaf)
+  - rise:       37 — ALL DEACTIVATED (100% Cloudflare blocked)
   - carrot:      5 — JS widget via getcarrot.io
   - aiq:         2 — Alpine IQ / Dispense React SPA
 

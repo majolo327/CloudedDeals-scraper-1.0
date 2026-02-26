@@ -3,7 +3,7 @@
 ## Current State (Feb 2026)
 
 - **11 states** active: NV, MI, IL, AZ, MO, NJ, OH, CO, NY, MA, PA
-- **~1,493 dispensary sites** configured and scraping daily via GitHub Actions cron
+- **~2,072 active dispensary sites** (~2,122 total) configured and scraping daily via GitHub Actions cron
 - **~33,000+ unique products** in database with deal scoring pipeline
 - **Admin dashboard** consolidated to 4 tabs: Dashboard, Scraper, Analytics, Settings
 - **Flagged products** workflow: users flag misinfo from frontend, admin reviews/edits/hides from dashboard
