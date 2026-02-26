@@ -1,5 +1,20 @@
 """
-Product classification: subtypes for all cannabis product categories.
+Product classification: post-detection subtype enrichment and safety nets.
+
+ARCHITECTURE NOTE:
+    Primary category detection is handled by CloudedLogic.detect_category()
+    in clouded_logic.py (10-step hierarchical detection).  This module runs
+    AFTER primary detection and provides:
+
+    1. **Subtype enrichment** — infused prerolls, packs, vape subtypes
+       (disposable/cartridge/pod), concentrate subtypes, edible subtypes
+    2. **Category correction safety nets** — catches edge cases where the
+       primary detector got the category wrong (e.g. "All-In-One 0.5g"
+       classified as concentrate instead of vape)
+    3. **1g flower → preroll recategorization** — 1g flower doesn't exist
+       in retail; it's always a preroll
+
+    This is complementary to clouded_logic, NOT a competing system.
 
 Preroll subtypes:
   - infused_preroll: excluded from Top 100 but searchable
