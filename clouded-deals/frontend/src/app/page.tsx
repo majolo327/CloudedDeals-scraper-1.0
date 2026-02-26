@@ -347,8 +347,11 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button onClick={() => setActivePage('home')} className="focus:outline-none">
-              <h1 className="text-lg sm:text-xl font-bold tracking-tight">
+              <h1 className="text-lg sm:text-xl font-bold tracking-tight flex items-center gap-1.5">
                 Clouded<span className="text-purple-400">Deals</span>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/20 leading-none tracking-wide">
+                  BETA
+                </span>
               </h1>
             </button>
             <LocationSelector />
