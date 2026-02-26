@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse as _urlparse
 
+import sentry_sdk
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
@@ -81,6 +82,20 @@ _PLATFORM_CONCURRENCY = {
 }
 
 load_dotenv()
+
+# ---------------------------------------------------------------------------
+# Sentry error monitoring — catches unhandled exceptions, timeout patterns,
+# parse errors, and new site layout breakages.  DSN is set as a GitHub
+# Actions secret (SENTRY_DSN).  If not set, Sentry silently does nothing.
+# ---------------------------------------------------------------------------
+_SENTRY_DSN = os.getenv("SENTRY_DSN", "")
+if _SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=_SENTRY_DSN,
+        traces_sample_rate=0.1,  # 10% of transactions — keeps within free tier
+        environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+        release=f"scraper@{datetime.now(timezone.utc).strftime('%Y-%m-%d')}",
+    )
 
 logging.basicConfig(
     level=logging.INFO,
@@ -2335,4 +2350,8 @@ def _explain_zero_deals(report_data: dict[str, Any], products: int) -> str:
 
 if __name__ == "__main__":
     slug_arg = sys.argv[1] if len(sys.argv) > 1 else None
-    asyncio.run(run(slug_arg))
+    try:
+        asyncio.run(run(slug_arg))
+    except Exception:
+        sentry_sdk.capture_exception()
+        raise

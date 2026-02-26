@@ -54,10 +54,10 @@ Below is the full breakdown, organized by expert perspective, with each item tag
 - **Fix:** Require auth or restrict to internal IPs.
 - **Status:** Low risk at beta scale. Acceptable for now; restrict before public launch.
 
-### HIGH: No error monitoring/alerting — 🔲 OPEN
+### HIGH: No error monitoring/alerting — ✅ DONE
 - No Sentry, LogRocket, or equivalent configured. If beta testers hit errors, you won't know unless they report it manually.
 - **Fix:** Add Sentry (free tier covers beta volume) before sharing with testers.
-- **Status:** Not yet integrated. Recommended for pre-public-launch.
+- **Resolution (Feb 26):** `@sentry/nextjs` added to frontend — client, server, and edge runtimes. `sentry-sdk` added to Python scraper with init in `main.py`. ErrorBoundary, error.tsx, and global-error.tsx all capture to Sentry. CSP updated for `*.sentry.io`. GitHub Actions workflow passes `SENTRY_SCRAPER_DSN` secret. Requires Sentry account setup + DSN secrets to activate.
 
 ### MEDIUM: `dangerouslySetInnerHTML` on Terms page — 🔲 DEFERRED
 - `TermsPage.tsx` renders a massive raw HTML string via `dangerouslySetInnerHTML`. The content is static and hardcoded (not user input), so the immediate XSS risk is low, but it's a brittle pattern.
