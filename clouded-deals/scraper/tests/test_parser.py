@@ -9,7 +9,6 @@ from parser import (
     validate_prices,
     extract_weight,
     detect_brand,
-    detect_category,
     extract_cannabinoids,
     parse_product,
 )
@@ -315,29 +314,13 @@ class TestDetectBrand:
 
 
 # =====================================================================
-# detect_category
+# detect_category — REMOVED
 # =====================================================================
-
-
-class TestDetectCategory:
-
-    def test_flower(self):
-        assert detect_category("Blue Dream Flower 3.5g") == "flower"
-
-    def test_preroll(self):
-        assert detect_category("Pre-Roll Joint 1g") == "preroll"
-
-    def test_vape_cart(self):
-        assert detect_category("Rove Cart 0.5g") == "vape"
-
-    def test_edible_gummy(self):
-        assert detect_category("Wyld Gummies 100mg") == "edible"
-
-    def test_concentrate(self):
-        assert detect_category("Live Resin Batter 1g") == "concentrate"
-
-    def test_no_category(self):
-        assert detect_category("Unknown Product") is None
+# Category detection tests live in test_clouded_logic.py, which covers
+# the canonical CloudedLogic.detect_category() system (10-step hierarchy).
+# The deprecated parser.detect_category() was deleted in the
+# category-detection-consolidation PR.
+# =====================================================================
 
 
 # =====================================================================
@@ -394,7 +377,8 @@ class TestParseProduct:
         }
         p = parse_product(raw)
         assert p["brand"] == "Cookies"
-        assert p["category"] == "flower"
+        # Category detection is handled by CloudedLogic, not parser.
+        assert p["category"] is None
         assert p["weight_value"] == 3.5
         assert p["original_price"] == 45.0
         assert p["sale_price"] == 22.0

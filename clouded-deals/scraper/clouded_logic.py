@@ -934,7 +934,10 @@ class CloudedLogic:
         # certainly flower too.  This prevents false vape classification
         # when the raw text block contains stray vape keywords (e.g.
         # "pen" inside "Aspen", navigation text, etc.).
-        if re.search(r'\b(3\.5|7|14|28)\s*g\b', t):
+        # EXCEPTION: If the product has explicit vape keywords (cart,
+        # cartridge, pod, disposable), it's a vape even at 3.5g.
+        # Example: "Trendi Cartridges 3.5g" should be vape, not flower.
+        if re.search(r'\b(3\.5|7|14|28)\s*g\b', t) and not has_vape_keyword:
             return 'flower'
 
         # 6. VAPE

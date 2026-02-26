@@ -610,83 +610,16 @@ def detect_brand(text: str) -> str | None:
 
 
 # =====================================================================
-# 4. Category detection
+# 4. Category detection — REMOVED
 # =====================================================================
-# DEPRECATED: These functions are NOT used in production.
 # The canonical category detection system is CloudedLogic.detect_category()
 # in clouded_logic.py (10-step hierarchical detection with vape/concentrate
 # disambiguation and weight-based inference).
 #
-# These simpler keyword-based functions remain only for test_parser.py
-# backwards compatibility.  Do NOT use them in new code.
+# The deprecated keyword-based functions that lived here were deleted in
+# the category-detection-consolidation PR (Feb 2026).  Category detection
+# is NOT parser.py's responsibility.
 # =====================================================================
-
-CATEGORY_KEYWORDS: dict[str, list[str]] = {
-    "skip":        ["rso", "tincture", "topical", "capsule", "cbd only",
-                    "merch", "balm", "salve", "ointment", "lotion",
-                    "transdermal", "patch", "roll-on", "suppository"],
-    "flower":      ["flower", "bud", "buds", "eighth", "quarter", "half oz",
-                    "nug", "smalls", "shake", "popcorn"],
-    "preroll":     ["pre-roll", "pre roll", "preroll", "joint", "blunt",
-                    "infused roll", "pr's", "prs"],
-    "concentrate": ["wax", "shatter", "live resin", "live rosin", "rosin",
-                    "badder", "batter", "budder", "crumble", "sauce",
-                    "diamond", "sugar", "concentrate", "dab", "hash",
-                    "kief"],
-    "vape":        ["cart", "cartridge", "pod", "disposable", "vape",
-                    "510", "pen"],
-    "edible":      ["gummy", "gummies", "chocolate", "beverage", "drink",
-                    "edible", "chew", "lozenge", "mint", "cookie",
-                    "brownie", "candy"],
-}
-
-# Build one compiled pattern per category using word boundaries to prevent
-# false positives (e.g., "mint" matching inside "minting").
-_CATEGORY_PATTERNS: dict[str, re.Pattern[str]] = {
-    cat: re.compile(
-        "|".join(r'\b' + re.escape(kw) + r'\b' for kw in kws),
-        re.IGNORECASE,
-    )
-    for cat, kws in CATEGORY_KEYWORDS.items()
-}
-
-
-def detect_category(text: str) -> str | None:
-    """Return the product category, or ``None`` if unrecognised.
-
-    >>> detect_category("Blue Dream Flower 3.5g")
-    'flower'
-    >>> detect_category("Live Resin Batter 1g")
-    'concentrate'
-    """
-    for category, pattern in _CATEGORY_PATTERNS.items():
-        if pattern.search(text):
-            return category
-    return None
-
-
-def infer_category_from_weight(
-    weight_value: float | None,
-    weight_unit: str | None,
-) -> str | None:
-    """Fallback category inference when no keyword match is found.
-
-    Uses the weight value and unit as a heuristic:
-      - mg → edible (100mg gummies, etc.)
-      - g ≥ 3.5 → flower (eighths and up)
-      - g < 3.5 → concentrate (0.5g–1g dabs/wax)
-      - no weight → vape (carts often omit weight in text)
-
-    Returns ``None`` when there is insufficient data to guess.
-    """
-    if weight_unit == "mg":
-        return "edible"
-    if weight_unit == "g" and weight_value is not None:
-        return "flower" if weight_value >= 3.5 else "concentrate"
-    # No weight info at all — most likely a vape cart / pod
-    if weight_value is None and weight_unit is None:
-        return "vape"
-    return None
 
 
 # =====================================================================
@@ -750,13 +683,9 @@ def parse_product(raw: dict[str, Any]) -> dict[str, Any]:
     parsed.update(extract_cannabinoids(text))
     parsed["brand"] = detect_brand(text)
 
-    # Category: keyword match first, weight-based fallback if no match.
-    category = detect_category(text)
-    if category is None:
-        category = infer_category_from_weight(
-            parsed.get("weight_value"),
-            parsed.get("weight_unit"),
-        )
-    parsed["category"] = category
+    # Category detection is handled by CloudedLogic.detect_category()
+    # in the main pipeline.  parser.py only extracts prices, weights,
+    # brands, and cannabinoids.
+    parsed["category"] = None
 
     return parsed

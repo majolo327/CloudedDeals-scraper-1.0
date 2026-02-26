@@ -78,12 +78,12 @@ CloudedDeals has **excellent architecture and business logic** — the scoring a
 
 ### P1 — Quality Blockers
 
-**7. Duplicate Category Detection Systems** — ⚠️ PARTIAL
+**7. Duplicate Category Detection Systems** — ✅ DONE
 - **Root cause:** `clouded_logic.py:648-751` AND `parser.py:611-646` AND `product_classifier.py:123-199` — Three separate category systems with different keyword lists and logic order
 - **Impact:** Technical debt; different systems can disagree on category for same product
 - **Fix complexity:** Low (consolidate to single system)
 - **Recommended fix:** Deprecate `parser.py:detect_category()`. `clouded_logic` is the authoritative system — document this, add comment to parser.
-- **Status:** `main.py` uses `clouded_logic.detect_category()` as primary. But all three systems still exist. Consolidation deferred to post-beta tech debt.
+- **Resolution:** `parser.detect_category()` and `infer_category_from_weight()` deleted (dead code, never called in production). `clouded_logic.detect_category()` is now the single primary system. `product_classifier.classify_product()` documented as complementary enrichment (subtypes + safety nets), not a competing detector. Flower-by-weight check hardened with vape-keyword exclusion.
 
 **8. No Pagination Retry in Scrapers** — ⚠️ PARTIAL
 - **Root cause:** `platforms/*.py` — If pagination fails on page 3 of 10, only 2 pages of products returned. No retry logic.
