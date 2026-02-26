@@ -401,8 +401,8 @@ export default function Home() {
           </div>
 
           {/* Mobile: deal count + last update time */}
-          <div className="sm:hidden flex items-center gap-2 text-xs text-slate-500">
-            <span>{todaysDeals.length} {isShowingExpired || isDealsFromYesterday(todaysDeals) ? "yesterday's" : ''} deals</span>
+          <div className="sm:hidden flex items-center gap-2 text-xs text-slate-500 min-w-0">
+            <span className="truncate">{todaysDeals.length} {isShowingExpired || isDealsFromYesterday(todaysDeals) ? "yesterday's" : ''} deals</span>
             {todaysDeals.length > 0 && (
               <span className={isDealsFromYesterday(todaysDeals) ? 'text-amber-400/60' : 'text-slate-600'}>{formatUpdateTime(todaysDeals)}</span>
             )}

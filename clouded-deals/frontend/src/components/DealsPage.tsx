@@ -150,7 +150,7 @@ export function DealsPage({
 
           {/* Header row — clean and minimal */}
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <h2 className="text-sm font-medium text-slate-300">
                 {isExpired || (!isExpired && deals.length > 0 && isDealsFromYesterday(deals))
                   ? "Yesterday's deals"
@@ -178,7 +178,7 @@ export function DealsPage({
                 );
               })()}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {!isExpired && filteredDeals.length > 0 && (
                 <button
                   onClick={() => setSwipeOpen(true)}
