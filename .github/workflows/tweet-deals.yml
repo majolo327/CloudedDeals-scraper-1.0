@@ -9,12 +9,13 @@ run-name: >-
 
 on:
   schedule:
-    # 4 tweet slots per day, spaced for NV local peak times (PST = UTC-8).
+    # 4 tweet slots per day, spaced for NV local peak times (PDT = UTC-7).
+    # DST-ADJUSTED (Mar 8 2026): shifted -1hr UTC to preserve local times.
     # GitHub Actions crons can run 10-30 min late — that's fine.
-    - cron: "0 17 * * *"   # Slot 1 — 9:00 AM PST  (morning commute)
-    - cron: "0 20 * * *"   # Slot 2 — 12:00 PM PST (lunch break)
-    - cron: "0 23 * * *"   # Slot 3 — 3:00 PM PST  (afternoon)
-    - cron: "0 2 * * *"    # Slot 4 — 6:00 PM PST  (evening wind-down)
+    - cron: "0 16 * * *"   # Slot 1 — 9:00 AM PDT  (morning commute)
+    - cron: "0 19 * * *"   # Slot 2 — 12:00 PM PDT (lunch break)
+    - cron: "0 22 * * *"   # Slot 3 — 3:00 PM PDT  (afternoon)
+    - cron: "0 1 * * *"    # Slot 4 — 6:00 PM PDT  (evening wind-down)
   workflow_dispatch:
     inputs:
       dry_run:

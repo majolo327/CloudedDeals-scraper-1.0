@@ -224,10 +224,10 @@ If beta testers are cannabis consumers, they'll immediately notice thin selectio
 - **Fix:** Write a 1-page incident runbook covering the top 5 failure scenarios.
 - **Status:** OPERATIONS.md covers platform status and failure modes. Not a formal runbook, but sufficient for beta.
 
-### MEDIUM: Scrape schedule assumes PST/PDT but doesn't adjust for DST — 🔲 DEFERRED
+### MEDIUM: Scrape schedule assumes PST/PDT but doesn't adjust for DST — ✅ DONE
 - Cron times are in UTC. Nevada observes PDT in summer. The "8 AM local time" scrape will shift to 9 AM when clocks spring forward (March 8, 2026).
 - **Fix:** Verify cron schedule accounts for DST. Adjust if needed.
-- **Status:** Noted. DST spring-forward is March 8, 2026 — adjust cron UTC offsets before then.
+- **Resolution:** All 33 scrape crons and 4 tweet crons shifted -1hr UTC for spring-forward. Arizona left unchanged (no DST). Colorado uses minute offsets (:04/:06/:08) to avoid concurrency collision with Arizona at UTC 19. Comments updated EST→EDT, PST→PDT, CST→CDT, MST→MDT.
 
 ### LOW: No staging environment — 🔲 DEFERRED
 - There's only production. Any code changes go straight to the live site.
@@ -275,7 +275,7 @@ If beta testers are cannabis consumers, they'll immediately notice thin selectio
 | 21 | Write incident runbook | Ops | Operations | ⚠️ Partial (OPERATIONS.md) |
 | 22 | Create beta tester onboarding doc | Marketing | Operations | 🔲 Owner action |
 | 23 | Add "last updated" timestamps to deals | Eng | UX | 🔲 Deferred |
-| 24 | Verify DST cron schedule | Ops | Operations | 🔲 Due Mar 8 |
+| 24 | Verify DST cron schedule | Ops | Operations | ✅ Done |
 | 25 | Add service worker for true offline support | Eng | UX | 🔲 Deferred |
 
 ---

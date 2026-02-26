@@ -47,67 +47,72 @@ on:
   schedule:
     # 33 cron jobs across 12 regions, each state in its own hour slot.
     # States with 60+ sites are sharded into parallel jobs of ~60 sites
-    # each via round-robin in main.py.  Spread 8 AM–6 PM EST so GHA
-    # runners aren't competing.  NV is the production anchor at 8 AM PST.
+    # each via round-robin in main.py.  Spread 8 AM–6 PM local so GHA
+    # runners aren't competing.  NV is the production anchor at 8 AM PDT.
     # PA & MA run late afternoon so store menus are fully updated.
     # GHA crons run 5-30 min late — account for that.
     #
-    # ── 8:00 AM EST — New York ────────────────────────────────────
-    - cron: "0 13 * * *"    # new-york-1         — 8:00 AM EST  (shard 1/2, ~37 sites)
-    - cron: "2 13 * * *"    # new-york-2         — 8:02 AM EST  (shard 2/2, ~37 sites)
+    # DST-ADJUSTED (Mar 8 2026): All times shifted -1hr UTC to preserve
+    # local times after spring-forward.  Arizona stays unchanged (no DST).
     #
-    # ── 9:00 AM EST — New Jersey ──────────────────────────────────
-    - cron: "0 14 * * *"    # new-jersey-1       — 9:00 AM EST  (shard 1/4, ~58 sites)
-    - cron: "2 14 * * *"    # new-jersey-2       — 9:02 AM EST  (shard 2/4, ~58 sites)
-    - cron: "4 14 * * *"    # new-jersey-3       — 9:04 AM EST  (shard 3/4, ~58 sites)
-    - cron: "6 14 * * *"    # new-jersey-4       — 9:06 AM EST  (shard 4/4, ~58 sites)
+    # ── 8:00 AM EDT — New York ───────────────────────────────────
+    - cron: "0 12 * * *"    # new-york-1         — 8:00 AM EDT  (shard 1/2, ~37 sites)
+    - cron: "2 12 * * *"    # new-york-2         — 8:02 AM EDT  (shard 2/2, ~37 sites)
     #
-    # ── 10:00 AM EST — Ohio ───────────────────────────────────────
-    - cron: "0 15 * * *"    # ohio-1             — 10:00 AM EST (shard 1/4, ~62 sites)
-    - cron: "2 15 * * *"    # ohio-2             — 10:02 AM EST (shard 2/4, ~62 sites)
-    - cron: "4 15 * * *"    # ohio-3             — 10:04 AM EST (shard 3/4, ~62 sites)
-    - cron: "6 15 * * *"    # ohio-4             — 10:06 AM EST (shard 4/4, ~62 sites)
+    # ── 9:00 AM EDT — New Jersey ─────────────────────────────────
+    - cron: "0 13 * * *"    # new-jersey-1       — 9:00 AM EDT  (shard 1/4, ~58 sites)
+    - cron: "2 13 * * *"    # new-jersey-2       — 9:02 AM EDT  (shard 2/4, ~58 sites)
+    - cron: "4 13 * * *"    # new-jersey-3       — 9:04 AM EDT  (shard 3/4, ~58 sites)
+    - cron: "6 13 * * *"    # new-jersey-4       — 9:06 AM EDT  (shard 4/4, ~58 sites)
     #
-    # ── 8:00 AM PST — Nevada ★ production anchor ─────────────────
-    - cron: "0 16 * * *"    # southern-nv        — 8:00 AM PST  (53 sites) ★
-    - cron: "2 16 * * *"    # northern-nv        — 8:02 AM PST  (~40 sites)
+    # ── 10:00 AM EDT — Ohio ──────────────────────────────────────
+    - cron: "0 14 * * *"    # ohio-1             — 10:00 AM EDT (shard 1/4, ~62 sites)
+    - cron: "2 14 * * *"    # ohio-2             — 10:02 AM EDT (shard 2/4, ~62 sites)
+    - cron: "4 14 * * *"    # ohio-3             — 10:04 AM EDT (shard 3/4, ~62 sites)
+    - cron: "6 14 * * *"    # ohio-4             — 10:06 AM EDT (shard 4/4, ~62 sites)
     #
-    # ── 12:00 PM EST — Michigan ───────────────────────────────────
-    - cron: "0 17 * * *"    # michigan-1         — 12:00 PM EST (shard 1/6, ~75 sites)
-    - cron: "2 17 * * *"    # michigan-2         — 12:02 PM EST (shard 2/6, ~75 sites)
-    - cron: "4 17 * * *"    # michigan-3         — 12:04 PM EST (shard 3/6, ~75 sites)
-    - cron: "6 17 * * *"    # michigan-4         — 12:06 PM EST (shard 4/6, ~74 sites)
-    - cron: "8 17 * * *"    # michigan-5         — 12:08 PM EST (shard 5/6, ~74 sites)
-    - cron: "10 17 * * *"   # michigan-6         — 12:10 PM EST (shard 6/6, ~74 sites)
+    # ── 8:00 AM PDT — Nevada ★ production anchor ────────────────
+    - cron: "0 15 * * *"    # southern-nv        — 8:00 AM PDT  (53 sites) ★
+    - cron: "2 15 * * *"    # northern-nv        — 8:02 AM PDT  (~40 sites)
     #
-    # ── 1:00 PM EST — Illinois ────────────────────────────────────
-    - cron: "0 18 * * *"    # illinois-1         — 1:00 PM EST  (shard 1/3, ~55 sites)
-    - cron: "2 18 * * *"    # illinois-2         — 1:02 PM EST  (shard 2/3, ~55 sites)
-    - cron: "4 18 * * *"    # illinois-3         — 1:04 PM EST  (shard 3/3, ~55 sites)
+    # ── 12:00 PM EDT — Michigan ──────────────────────────────────
+    - cron: "0 16 * * *"    # michigan-1         — 12:00 PM EDT (shard 1/6, ~75 sites)
+    - cron: "2 16 * * *"    # michigan-2         — 12:02 PM EDT (shard 2/6, ~75 sites)
+    - cron: "4 16 * * *"    # michigan-3         — 12:04 PM EDT (shard 3/6, ~75 sites)
+    - cron: "6 16 * * *"    # michigan-4         — 12:06 PM EDT (shard 4/6, ~74 sites)
+    - cron: "8 16 * * *"    # michigan-5         — 12:08 PM EDT (shard 5/6, ~74 sites)
+    - cron: "10 16 * * *"   # michigan-6         — 12:10 PM EDT (shard 6/6, ~74 sites)
     #
-    # ── 12:00 PM MST — Arizona ────────────────────────────────────
+    # ── 12:00 PM CDT — Illinois ──────────────────────────────────
+    - cron: "0 17 * * *"    # illinois-1         — 12:00 PM CDT (shard 1/3, ~55 sites)
+    - cron: "2 17 * * *"    # illinois-2         — 12:02 PM CDT (shard 2/3, ~55 sites)
+    - cron: "4 17 * * *"    # illinois-3         — 12:04 PM CDT (shard 3/3, ~55 sites)
+    #
+    # ── 12:00 PM MST — Arizona (NO DST — unchanged) ─────────────
     - cron: "0 19 * * *"    # arizona-1          — 12:00 PM MST (shard 1/2, ~50 sites)
     - cron: "2 19 * * *"    # arizona-2          — 12:02 PM MST (shard 2/2, ~50 sites)
     #
-    # ── 1:00 PM MST — Colorado ────────────────────────────────────
-    - cron: "0 20 * * *"    # colorado-1         — 1:00 PM MST  (shard 1/3, ~44 sites)
-    - cron: "2 20 * * *"    # colorado-2         — 1:02 PM MST  (shard 2/3, ~44 sites)
-    - cron: "4 20 * * *"    # colorado-3         — 1:04 PM MST  (shard 3/3, ~45 sites)
+    # ── 1:00 PM MDT — Colorado ───────────────────────────────────
+    # Shares UTC 19 with Arizona but uses :04/:06/:08 minute offsets
+    # to keep concurrency groups unique.
+    - cron: "4 19 * * *"    # colorado-1         — 1:04 PM MDT  (shard 1/3, ~44 sites)
+    - cron: "6 19 * * *"    # colorado-2         — 1:06 PM MDT  (shard 2/3, ~44 sites)
+    - cron: "8 19 * * *"    # colorado-3         — 1:08 PM MDT  (shard 3/3, ~45 sites)
     #
-    # ── 3:00 PM CST — Missouri ────────────────────────────────────
-    - cron: "0 21 * * *"    # missouri-1         — 3:00 PM CST  (shard 1/4, ~65 sites)
-    - cron: "2 21 * * *"    # missouri-2         — 3:02 PM CST  (shard 2/4, ~65 sites)
-    - cron: "4 21 * * *"    # missouri-3         — 3:04 PM CST  (shard 3/4, ~65 sites)
-    - cron: "6 21 * * *"    # missouri-4         — 3:06 PM CST  (shard 4/4, ~66 sites)
+    # ── 3:00 PM CDT — Missouri ───────────────────────────────────
+    - cron: "0 20 * * *"    # missouri-1         — 3:00 PM CDT  (shard 1/4, ~65 sites)
+    - cron: "2 20 * * *"    # missouri-2         — 3:02 PM CDT  (shard 2/4, ~65 sites)
+    - cron: "4 20 * * *"    # missouri-3         — 3:04 PM CDT  (shard 3/4, ~65 sites)
+    - cron: "6 20 * * *"    # missouri-4         — 3:06 PM CDT  (shard 4/4, ~66 sites)
     #
-    # ── 5:00 PM EST — Pennsylvania ────────────────────────────────
+    # ── 5:00 PM EDT — Pennsylvania ───────────────────────────────
     # (late afternoon — stores open & menus updated all day)
-    - cron: "0 22 * * *"    # pennsylvania       — 5:00 PM EST  (~43 sites)
+    - cron: "0 21 * * *"    # pennsylvania       — 5:00 PM EDT  (~43 sites)
     #
-    # ── 6:00 PM EST — Massachusetts ───────────────────────────────
+    # ── 6:00 PM EDT — Massachusetts ──────────────────────────────
     # (late afternoon — stores open & menus updated all day)
-    - cron: "0 23 * * *"    # massachusetts-1    — 6:00 PM EST  (shard 1/2, ~56 sites)
-    - cron: "2 23 * * *"    # massachusetts-2    — 6:02 PM EST  (shard 2/2, ~55 sites)
+    - cron: "0 22 * * *"    # massachusetts-1    — 6:00 PM EDT  (shard 1/2, ~56 sites)
+    - cron: "2 22 * * *"    # massachusetts-2    — 6:02 PM EDT  (shard 2/2, ~55 sites)
   workflow_dispatch:
     inputs:
       platform_group:
@@ -209,73 +214,76 @@ jobs:
       - name: Determine region
         id: region
         run: |
+          # DST-ADJUSTED (Mar 8 2026): cron expressions shifted -1hr UTC.
+          # Arizona unchanged (no DST). Colorado uses :04/:06/:08 offsets at
+          # UTC 19 to avoid concurrency-group collision with Arizona.
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "value=${{ github.event.inputs.region || 'all' }}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 13 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "0 12 * * *" ]; then
             echo "value=new-york-1" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "2 13 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "2 12 * * *" ]; then
             echo "value=new-york-2" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 14 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "0 13 * * *" ]; then
             echo "value=new-jersey-1" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "2 14 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "2 13 * * *" ]; then
             echo "value=new-jersey-2" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "4 14 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "4 13 * * *" ]; then
             echo "value=new-jersey-3" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "6 14 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "6 13 * * *" ]; then
             echo "value=new-jersey-4" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 15 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "0 14 * * *" ]; then
             echo "value=ohio-1" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "2 15 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "2 14 * * *" ]; then
             echo "value=ohio-2" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "4 15 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "4 14 * * *" ]; then
             echo "value=ohio-3" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "6 15 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "6 14 * * *" ]; then
             echo "value=ohio-4" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 16 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "0 15 * * *" ]; then
             echo "value=southern-nv" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "2 16 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "2 15 * * *" ]; then
             echo "value=northern-nv" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 17 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "0 16 * * *" ]; then
             echo "value=michigan-1" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "2 17 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "2 16 * * *" ]; then
             echo "value=michigan-2" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "4 17 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "4 16 * * *" ]; then
             echo "value=michigan-3" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "6 17 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "6 16 * * *" ]; then
             echo "value=michigan-4" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "8 17 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "8 16 * * *" ]; then
             echo "value=michigan-5" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "10 17 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "10 16 * * *" ]; then
             echo "value=michigan-6" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 18 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "0 17 * * *" ]; then
             echo "value=illinois-1" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "2 18 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "2 17 * * *" ]; then
             echo "value=illinois-2" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "4 18 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "4 17 * * *" ]; then
             echo "value=illinois-3" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.schedule }}" = "0 19 * * *" ]; then
             echo "value=arizona-1" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.schedule }}" = "2 19 * * *" ]; then
             echo "value=arizona-2" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 20 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "4 19 * * *" ]; then
             echo "value=colorado-1" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "2 20 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "6 19 * * *" ]; then
             echo "value=colorado-2" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "4 20 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "8 19 * * *" ]; then
             echo "value=colorado-3" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 21 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "0 20 * * *" ]; then
             echo "value=missouri-1" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "2 21 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "2 20 * * *" ]; then
             echo "value=missouri-2" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "4 21 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "4 20 * * *" ]; then
             echo "value=missouri-3" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "6 21 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "6 20 * * *" ]; then
             echo "value=missouri-4" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 22 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "0 21 * * *" ]; then
             echo "value=pennsylvania" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 23 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "0 22 * * *" ]; then
             echo "value=massachusetts-1" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "2 23 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "2 22 * * *" ]; then
             echo "value=massachusetts-2" >> $GITHUB_OUTPUT
           else
             echo "::error::Unknown schedule '${{ github.event.schedule }}' — cannot determine region"
