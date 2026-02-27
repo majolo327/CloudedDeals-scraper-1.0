@@ -29,6 +29,10 @@ export function WebSiteJsonLd() {
       },
       'query-input': 'required name=search_term_string',
     },
+    speakable: {
+      '@type': 'SpeakableSpecification',
+      cssSelector: ['h1', '[data-speakable="true"]'],
+    },
   };
 
   return (
@@ -255,4 +259,61 @@ export function slugToCategory(slug: string): Category | null {
     prerolls: 'preroll',
   };
   return map[slug] ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Article schema — for blog posts, with speakable markup for AI/voice
+// ---------------------------------------------------------------------------
+
+interface ArticleJsonLdProps {
+  title: string;
+  description: string;
+  url: string;
+  publishedAt: string;
+  updatedAt: string;
+  speakableSelectors?: string[];
+}
+
+export function ArticleJsonLd({
+  title,
+  description,
+  url,
+  publishedAt,
+  updatedAt,
+  speakableSelectors = ['[data-speakable="true"]'],
+}: ArticleJsonLdProps) {
+  const data = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: title,
+    description,
+    url,
+    datePublished: publishedAt,
+    dateModified: updatedAt,
+    author: {
+      '@type': 'Organization',
+      name: 'CloudedDeals',
+      url: SITE_URL,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'CloudedDeals',
+      url: SITE_URL,
+      logo: {
+        '@type': 'ImageObject',
+        url: `${SITE_URL}/og-image.png`,
+      },
+    },
+    speakable: {
+      '@type': 'SpeakableSpecification',
+      cssSelector: speakableSelectors,
+    },
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+    />
+  );
 }
