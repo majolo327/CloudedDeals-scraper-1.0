@@ -58,6 +58,13 @@ on:
     # DST-ADJUSTED (Mar 8 2026): All times shifted -1hr UTC to preserve
     # local times after spring-forward.  Arizona stays unchanged (no DST).
     #
+    # DST CUTOVER CHECKLIST (Mar 8, verify in Actions tab):
+    #   [ ] southern-nv fires at ~8:00 AM PDT (UTC 15:00)
+    #   [ ] michigan-1 fires at ~12:00 PM EDT (UTC 16:00)
+    #   [ ] arizona fires at 12:00 PM MST (UTC 19:00, unchanged)
+    #   [ ] colorado fires at ~1:04 PM MDT (UTC 19:04, same hour as AZ)
+    #   [ ] no crons show "scheduled" (unlabeled) in run names
+    #
     # ── 8:00 AM EDT — New York ───────────────────────────────────
     - cron: "0 12 * * *"    # new-york-1         — 8:00 AM EDT  (shard 1/2, ~37 sites)
     - cron: "2 12 * * *"    # new-york-2         — 8:02 AM EDT  (shard 2/2, ~37 sites)
