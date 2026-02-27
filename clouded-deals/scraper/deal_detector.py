@@ -484,6 +484,14 @@ _BACKFILL_THRESHOLD = 0.85  # trigger backfill when round 1 fills < 85% of targe
 # shops get visibility alongside high-volume dispensaries.
 MIN_DEALS_PER_DISPENSARY = 1
 
+# Disposable vape per-dispensary guarantee — every dispensary that has
+# qualifying disposable vape deals in the scored pool must surface at
+# least one in the final feed.  Disposable vapes are a high-demand
+# category that consumers actively look for; without this rule the
+# general diversity picks can easily push them out in favour of flower
+# or cartridge deals.
+MIN_DISPOSABLE_VAPES_PER_DISPENSARY = 1
+
 # =====================================================================
 # Phase 4: Badge thresholds
 # =====================================================================
@@ -1732,6 +1740,79 @@ def select_top_deals(
             logger.info(
                 "Dispensary minimum: added %d deals from %d under-represented dispensaries",
                 added, len(missing_disps),
+            )
+
+    # ------------------------------------------------------------------
+    # Step 4b: Disposable vape per-dispensary guarantee
+    # ------------------------------------------------------------------
+    # Disposable vapes are a high-demand consumer category.  Ensure every
+    # dispensary that has qualifying disposable vape deals surfaces at
+    # least MIN_DISPOSABLE_VAPES_PER_DISPENSARY in the final feed.
+    # Build pool of disposable vape deals per dispensary from the full
+    # scored pool (not just what made it into result so far).
+    disp_disposable_pool: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for deal in scored_deals:
+        if (
+            deal.get("category") == "vape"
+            and deal.get("product_subtype") == "disposable"
+        ):
+            disp_id = deal.get("dispensary_id") or ""
+            if disp_id:
+                disp_disposable_pool[disp_id].append(deal)
+
+    if disp_disposable_pool:
+        # Check which dispensaries already have a disposable vape in the result
+        result_disp_disposable: dict[str, int] = defaultdict(int)
+        for deal in result:
+            if (
+                deal.get("category") == "vape"
+                and deal.get("product_subtype") == "disposable"
+            ):
+                disp_id = deal.get("dispensary_id") or ""
+                result_disp_disposable[disp_id] += 1
+
+        result_keys_dv = {
+            (d.get("name", ""), d.get("sale_price")) for d in result
+        }
+        dv_brand_counts: dict[str, int] = defaultdict(int)
+        for deal in result:
+            b = (deal.get("brand") or "").lower()
+            if b:
+                dv_brand_counts[b] += 1
+
+        dv_added = 0
+        for disp_id, pool in disp_disposable_pool.items():
+            existing = result_disp_disposable.get(disp_id, 0)
+            needed = MIN_DISPOSABLE_VAPES_PER_DISPENSARY - existing
+            if needed <= 0:
+                continue
+            # Sort by score descending to pick the best disposable vape
+            pool.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+            picked = 0
+            for deal in pool:
+                if picked >= needed:
+                    break
+                deal_key = (deal.get("name", ""), deal.get("sale_price"))
+                brand_lower = (deal.get("brand") or "").lower()
+                if (
+                    deal_key not in result_keys_dv
+                    and deal.get("brand")
+                    and dv_brand_counts.get(brand_lower, 0) < _BACKFILL_BRAND_TOTAL
+                ):
+                    result.append(deal)
+                    result_keys_dv.add(deal_key)
+                    if brand_lower:
+                        dv_brand_counts[brand_lower] += 1
+                    picked += 1
+                    dv_added += 1
+        if dv_added > 0:
+            logger.info(
+                "Disposable vape guarantee: added %d deals across %d dispensaries",
+                dv_added,
+                sum(
+                    1 for disp_id in disp_disposable_pool
+                    if result_disp_disposable.get(disp_id, 0) < MIN_DISPOSABLE_VAPES_PER_DISPENSARY
+                ),
             )
 
     # ------------------------------------------------------------------
