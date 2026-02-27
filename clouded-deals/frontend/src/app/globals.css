@@ -155,6 +155,12 @@ body {
   100% { background-position: 200% 0; }
 }
 
+@keyframes skeletonGlow {
+  0%, 100% { opacity: 0.4; background-position: -200% 0; }
+  50% { opacity: 0.7; }
+  75% { background-position: 200% 0; }
+}
+
 @keyframes confetti {
   0% { transform: translateY(0) rotate(0deg); opacity: 1; }
   100% { transform: translateY(100px) rotate(720deg); opacity: 0; }

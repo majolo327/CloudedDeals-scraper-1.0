@@ -44,18 +44,15 @@ export function DealModal({
   const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
+    const scrollY = window.scrollY;
+    document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
-    // Prevent iOS scroll bounce bleeding through
-    document.body.style.position = 'fixed';
-    document.body.style.width = '100%';
-    document.body.style.top = `-${window.scrollY}px`;
+    document.body.style.overscrollBehavior = 'none';
     return () => {
-      const scrollY = document.body.style.top;
+      document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.top = '';
-      window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
+      document.body.style.overscrollBehavior = '';
+      window.scrollTo(0, scrollY);
     };
   }, []);
 
@@ -105,6 +102,9 @@ export function DealModal({
   return (
     <div
       className="fixed inset-0 z-[105] flex items-end sm:items-center justify-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Deal details"
       onClick={onClose}
     >
       <div className="absolute inset-0 bg-black/60 animate-soft-reveal" style={{ WebkitBackdropFilter: 'blur(8px) saturate(1.2)', backdropFilter: 'blur(8px) saturate(1.2)' }} />
@@ -132,6 +132,7 @@ export function DealModal({
             <button
               onClick={onClose}
               className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all flex-shrink-0"
+              aria-label="Close deal details"
             >
               <X className="w-5 h-5" />
             </button>

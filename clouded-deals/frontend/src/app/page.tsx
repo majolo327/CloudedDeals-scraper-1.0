@@ -346,7 +346,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 header-border-glow" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderBottom: '1px solid rgba(120, 100, 200, 0.08)', WebkitBackdropFilter: 'blur(40px) saturate(1.3)', backdropFilter: 'blur(40px) saturate(1.3)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div className="max-w-6xl mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={() => setActivePage('home')} className="focus:outline-none">
+            <button onClick={() => setActivePage('home')} className="focus:outline-none" aria-label="Go to deals home">
               <h1 className="text-lg sm:text-xl font-bold tracking-tight flex items-center gap-1.5">
                 Clouded<span className="text-purple-400">Deals</span>
                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/20 leading-none tracking-wide">
