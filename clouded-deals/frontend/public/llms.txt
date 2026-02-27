@@ -15,6 +15,9 @@ CloudedDeals is a free cannabis deal comparison platform covering 27+ licensed L
 
 - [All Las Vegas Dispensary Deals](https://cloudeddeals.com/las-vegas-dispensary-deals): Every deal from every dispensary, filterable and sortable
 - [Strip Dispensary Deals](https://cloudeddeals.com/strip-dispensary-deals): Deals from dispensaries near the Las Vegas Strip
+- [Downtown Dispensary Deals](https://cloudeddeals.com/downtown-dispensary-deals): Deals from Downtown Las Vegas dispensaries near Fremont Street
+- [Local Dispensary Deals](https://cloudeddeals.com/local-dispensary-deals): Off-strip dispensary deals in Henderson, NLV & beyond
+- [Blog](https://cloudeddeals.com/blog): Guides and comparisons for Las Vegas cannabis shopping
 - [Flower Deals](https://cloudeddeals.com/deals/flower): Cannabis flower deals and prices
 - [Vape Deals](https://cloudeddeals.com/deals/vapes): Vape cartridge and pod deals
 - [Edible Deals](https://cloudeddeals.com/deals/edibles): Edible and gummy deals

@@ -79,6 +79,9 @@ CloudedDeals (https://cloudeddeals.com) is a free cannabis deal comparison platf
 | https://cloudeddeals.com | Homepage — today's top deals across all dispensaries |
 | https://cloudeddeals.com/las-vegas-dispensary-deals | All deals hub — every deal from every dispensary |
 | https://cloudeddeals.com/strip-dispensary-deals | Strip-zone deals for tourists |
+| https://cloudeddeals.com/downtown-dispensary-deals | Downtown zone deals for Fremont/Arts District visitors |
+| https://cloudeddeals.com/local-dispensary-deals | Off-strip deals for locals — Henderson, NLV, Spring Valley |
+| https://cloudeddeals.com/blog | Guides, comparisons, and tips for Las Vegas cannabis |
 | https://cloudeddeals.com/browse | Browse all dispensaries |
 | https://cloudeddeals.com/search | Search deals by keyword |
 | https://cloudeddeals.com/about | About CloudedDeals |
@@ -91,6 +94,15 @@ CloudedDeals (https://cloudeddeals.com) is a free cannabis deal comparison platf
 | https://cloudeddeals.com/deals/edibles | All edible deals |
 | https://cloudeddeals.com/deals/concentrates | All concentrate deals |
 | https://cloudeddeals.com/deals/prerolls | All pre-roll deals |
+
+### Blog Posts
+| URL | Description |
+|-----|-------------|
+| https://cloudeddeals.com/blog/best-dispensary-deals-vegas-strip | Guide to Strip dispensary deals with real prices |
+| https://cloudeddeals.com/blog/cheapest-dispensary-las-vegas | Price comparison across all 27+ dispensaries |
+| https://cloudeddeals.com/blog/planet-13-deals-worth-it | Planet 13 pricing analysis and recommendations |
+| https://cloudeddeals.com/blog/vegas-dispensary-deals-today | How daily deals work and where to find them |
+| https://cloudeddeals.com/blog/best-vape-deals-las-vegas | Vape deal guide: carts, pods, and disposables |
 
 ### Dispensary Pages (27 pages)
 Each dispensary has a dedicated page at `https://cloudeddeals.com/dispensary/{slug}` showing:
