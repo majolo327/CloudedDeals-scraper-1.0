@@ -41,7 +41,9 @@ CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
         "28": 100,    # full oz — relaxed from $79
     },
     "vape": 25,           # carts/pods fallback — tightened from $28 (subtype-specific caps below)
-    "edible": 15,         # gummies/chocolates — tightened from $18 ($15 is deal ceiling for 100mg)
+    # Edible cap: $15 for 100mg standard (tightened from $18, settled after $14 trial).
+    # CO=$14, MI/NNV=$12 (competitive), NJ/OH/IL/MA=$18-20 (high-tax).
+    "edible": 15,
     "concentrate": {      # weight-based — tightened significantly
         "0.5": 18,        # half gram — tightened from $25
         "1": 25,          # gram — tightened from $45 ($30 concentrates aren't deals)

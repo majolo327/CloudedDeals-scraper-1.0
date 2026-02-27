@@ -1,3 +1,12 @@
+/**
+ * Blog posts — hardcoded content for SEO landing pages.
+ *
+ * MAINTENANCE: Update `updatedAt` when editing any post content.
+ * Audit quarterly: verify internal /dispensary/ links match active slugs
+ * in config/dispensaries.py. Zone pages pull live deals via ISR but
+ * FAQ text is static — audit dispensary references when sites change.
+ */
+
 export interface BlogSection {
   heading: string;
   content: string[];
