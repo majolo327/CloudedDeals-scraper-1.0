@@ -597,11 +597,14 @@ These are the tactical engineering tasks that make the product production-grade.
 - [ ] **TODO:** Track "Get This Deal" click-through → dispensary website as conversion event
 - [ ] **TODO:** Add per-dispensary engagement breakdown (which dispensaries generate most saves/clicks)
 
-### 3. Error Monitoring
-- [ ] Add Sentry (or Highlight.io) to Next.js frontend — catch unhandled errors, slow renders, failed API calls
-- [ ] Add Sentry to scraper Python codebase — catch parse errors, timeout patterns, new site layouts
-- [ ] Set up Slack alerts for: scraper run failures, zero-product sites, error rate spikes
-- [ ] Goal: know about problems before users report them
+### 3. Error Monitoring ✅ SHIPPED (Feb 26, 2026)
+- [x] `@sentry/nextjs` added to frontend — client, server, and edge runtime configs
+- [x] `sentry-sdk` added to Python scraper — init in main.py with region/environment tags
+- [x] ErrorBoundary, error.tsx, and global-error.tsx all report to Sentry
+- [x] CSP updated to allow `*.sentry.io` connections
+- [x] GitHub Actions `scrape.yml` passes `SENTRY_SCRAPER_DSN` secret
+- [ ] **TODO:** Set up Slack alerts for error rate spikes (Sentry → Slack integration)
+- [ ] **TODO:** Add Sentry alert rules for zero-product scrape runs
 
 ### 4. Performance / Lighthouse Pass
 - [ ] Run Lighthouse CI on every deploy — target 90+ on Performance, Accessibility, SEO
@@ -1214,7 +1217,7 @@ Anything else goes on the post-beta backlog.
 
 - [ ] Run migration `029_deal_reports.sql` on production Supabase
 - [ ] Run migration `035_anonymous_insert_rate_limits.sql` on production Supabase
-- [ ] Add Sentry error monitoring (frontend + scraper)
+- [x] ~~Add Sentry error monitoring (frontend + scraper)~~ — shipped Feb 26
 - [ ] Add UptimeRobot on `/api/health`
 - [ ] CSRF protection on admin endpoints
 - [ ] CSP header via middleware

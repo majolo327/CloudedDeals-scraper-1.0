@@ -341,6 +341,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_SCRAPER_DSN }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
           LIMIT_DISPENSARIES: ${{ github.event.inputs.limit_dispensaries || 'false' }}
           SINGLE_SITE: ${{ github.event.inputs.single_site || '' }}

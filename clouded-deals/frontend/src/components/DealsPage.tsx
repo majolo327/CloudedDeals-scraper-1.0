@@ -304,6 +304,8 @@ export function DealsPage({
             <button
               onClick={() => setPastDealsExpanded(!pastDealsExpanded)}
               className="w-full flex items-center justify-between mb-4 group"
+              aria-expanded={pastDealsExpanded}
+              aria-label="Toggle past deals"
             >
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-slate-800/60 flex items-center justify-center">

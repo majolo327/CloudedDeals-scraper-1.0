@@ -305,7 +305,7 @@ export function FilterSheet({
 
       {/* Overlay — rendered via portal */}
       {isOpen && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[60]">
+        <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-label="Filter deals">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/60 animate-in fade-in duration-200"
@@ -359,6 +359,7 @@ export function FilterSheet({
                       key={cat}
                       onClick={() => toggleCategory(cat)}
                       className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-purple-500/15 text-purple-400 text-xs font-medium"
+                      aria-label={`Remove ${cat} filter`}
                     >
                       {cat}
                       <X className="w-3 h-3" />
@@ -368,6 +369,7 @@ export function FilterSheet({
                     <button
                       onClick={() => onFiltersChange({ ...filters, priceRange: 'all', quickFilter: 'none' })}
                       className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-medium"
+                      aria-label="Remove price filter"
                     >
                       {PRICE_RANGES.find(r => r.id === filters.priceRange)?.label}
                       <X className="w-3 h-3" />
@@ -377,6 +379,7 @@ export function FilterSheet({
                     <button
                       onClick={() => onFiltersChange({ ...filters, minDiscount: 0, quickFilter: 'none' })}
                       className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-amber-500/15 text-amber-400 text-xs font-medium"
+                      aria-label="Remove discount filter"
                     >
                       {filters.minDiscount}%+ off
                       <X className="w-3 h-3" />
@@ -386,6 +389,7 @@ export function FilterSheet({
                     <button
                       onClick={() => onFiltersChange({ ...filters, distanceRange: 'all', quickFilter: 'none' })}
                       className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-blue-500/15 text-blue-400 text-xs font-medium"
+                      aria-label="Remove distance filter"
                     >
                       {DISTANCE_OPTIONS.find(d => d.id === filters.distanceRange)?.label}
                       <X className="w-3 h-3" />
@@ -395,6 +399,7 @@ export function FilterSheet({
                     <button
                       onClick={() => onFiltersChange({ ...filters, weightFilters: [] })}
                       className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] max-w-full rounded-full bg-cyan-500/15 text-cyan-400 text-xs font-medium"
+                      aria-label="Remove weight filter"
                     >
                       <span className="truncate">{filters.weightFilters.join(', ')}</span>
                       <X className="w-3 h-3" />
@@ -404,6 +409,7 @@ export function FilterSheet({
                     <button
                       onClick={() => onFiltersChange({ ...filters, dispensaryIds: [], quickFilter: 'none' })}
                       className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-blue-500/15 text-blue-400 text-xs font-medium"
+                      aria-label="Remove dispensary filter"
                     >
                       {filters.dispensaryIds.length} store{filters.dispensaryIds.length !== 1 ? 's' : ''}
                       <X className="w-3 h-3" />
@@ -420,6 +426,8 @@ export function FilterSheet({
                 <button
                   onClick={() => setSortOpen(!sortOpen)}
                   className="flex items-center justify-between w-full"
+                  aria-expanded={sortOpen}
+                  aria-label="Toggle sort options"
                 >
                   <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
                     Sort: <span className="text-slate-300 normal-case">{SORT_OPTIONS.find(o => o.id === filters.sortBy)?.label}</span>
@@ -541,6 +549,8 @@ export function FilterSheet({
                 <button
                   onClick={() => setLocationOpen(!locationOpen)}
                   className="flex items-center justify-between w-full"
+                  aria-expanded={locationOpen}
+                  aria-label="Toggle location filters"
                 >
                   <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center">
                     <MapPin className="w-3 h-3 mr-1" />
@@ -596,12 +606,14 @@ export function FilterSheet({
                           <button
                             onClick={selectAllDispensaries}
                             className="px-2 py-1 min-h-[32px] text-[11px] text-purple-400 hover:text-purple-300 transition-colors"
+                            aria-label="Select all dispensaries"
                           >
                             All
                           </button>
                           <button
                             onClick={clearAllDispensaries}
                             className="px-2 py-1 min-h-[32px] text-[11px] text-slate-400 hover:text-slate-300 transition-colors"
+                            aria-label="Clear dispensary selection"
                           >
                             None
                           </button>
