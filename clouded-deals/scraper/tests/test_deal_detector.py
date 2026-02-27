@@ -17,6 +17,7 @@ from deal_detector import (
     MAX_SAME_DISPENSARY_TOTAL,
     PREMIUM_BRANDS,
     TARGET_DEAL_COUNT,
+    VAPE_SUBTYPE_PRICE_CAPS,
     VAPE_SUBTYPE_PRICE_FLOORS,
     _score_brand,
     _score_unit_value,
@@ -54,8 +55,18 @@ class TestPassesHardFilters:
                          discount_percent=60)
         assert passes_hard_filters(p) is True
 
-    def test_preroll_pack_still_excluded(self, make_product):
-        p = make_product(product_subtype="preroll_pack")
+    def test_preroll_pack_now_allowed_under_cap(self, make_product):
+        """Preroll packs re-included with $20 cap."""
+        p = make_product(product_subtype="preroll_pack", category="preroll",
+                         sale_price=18.0, original_price=36.0,
+                         discount_percent=50)
+        assert passes_hard_filters(p) is True
+
+    def test_preroll_pack_over_cap_rejected(self, make_product):
+        """Preroll packs over $20 are rejected."""
+        p = make_product(product_subtype="preroll_pack", category="preroll",
+                         sale_price=21.0, original_price=42.0,
+                         discount_percent=50)
         assert passes_hard_filters(p) is False
 
     # ── Global filters ─────────────────────────────────────────────
@@ -146,29 +157,62 @@ class TestPassesHardFilters:
     # ── Flat-cap categories (relaxed) ────────────────────────────────
 
     def test_vape_at_cap(self, make_product):
-        p = make_product(category="vape", sale_price=28.0, original_price=56.0,
+        """Flat vape cap is now $25 (tightened from $28)."""
+        p = make_product(category="vape", sale_price=25.0, original_price=50.0,
                          discount_percent=50)
         assert passes_hard_filters(p) is True
 
     def test_vape_over_cap(self, make_product):
-        p = make_product(category="vape", sale_price=29.0, original_price=56.0,
-                         discount_percent=48)
+        p = make_product(category="vape", sale_price=26.0, original_price=52.0,
+                         discount_percent=50)
         assert passes_hard_filters(p) is False
 
     def test_edible_at_cap(self, make_product):
-        p = make_product(category="edible", sale_price=18.0, original_price=36.0,
+        """Edible cap is now $15 (tightened from $18)."""
+        p = make_product(category="edible", sale_price=15.0, original_price=30.0,
                          discount_percent=50)
         assert passes_hard_filters(p) is True
 
     def test_edible_over_cap(self, make_product):
-        p = make_product(category="edible", sale_price=19.0, original_price=38.0,
+        p = make_product(category="edible", sale_price=16.0, original_price=32.0,
                          discount_percent=50)
         assert passes_hard_filters(p) is False
 
     def test_concentrate_at_cap(self, make_product):
-        p = make_product(category="concentrate", sale_price=35.0, original_price=70.0,
+        """Concentrate 1g cap is now $25 (tightened from $45)."""
+        p = make_product(category="concentrate", sale_price=25.0, original_price=50.0,
                          discount_percent=50)
         assert passes_hard_filters(p) is True
+
+    def test_concentrate_over_cap(self, make_product):
+        """$30 concentrates (1g) should no longer pass (tightened from $45)."""
+        p = make_product(category="concentrate", sale_price=30.0, original_price=60.0,
+                         discount_percent=50, weight_value=1.0)
+        assert passes_hard_filters(p) is False
+
+    def test_concentrate_half_gram_at_cap(self, make_product):
+        """0.5g concentrate at $18 cap — passes."""
+        p = make_product(category="concentrate", sale_price=18.0, original_price=40.0,
+                         discount_percent=55, weight_value=0.5)
+        assert passes_hard_filters(p) is True
+
+    def test_concentrate_half_gram_over_cap(self, make_product):
+        """0.5g concentrate at $19 — exceeds $18 cap."""
+        p = make_product(category="concentrate", sale_price=19.0, original_price=40.0,
+                         discount_percent=52, weight_value=0.5)
+        assert passes_hard_filters(p) is False
+
+    def test_concentrate_2g_at_cap(self, make_product):
+        """2g concentrate bucket at $50 cap — passes."""
+        p = make_product(category="concentrate", sale_price=50.0, original_price=100.0,
+                         discount_percent=50, weight_value=2.0)
+        assert passes_hard_filters(p) is True
+
+    def test_concentrate_2g_over_cap(self, make_product):
+        """2g concentrate bucket at $51 — exceeds $50 cap."""
+        p = make_product(category="concentrate", sale_price=51.0, original_price=100.0,
+                         discount_percent=49, weight_value=2.0)
+        assert passes_hard_filters(p) is False
 
     def test_preroll_at_cap(self, make_product):
         p = make_product(category="preroll", sale_price=9.0, original_price=18.0,
@@ -178,6 +222,36 @@ class TestPassesHardFilters:
     def test_preroll_over_cap(self, make_product):
         p = make_product(category="preroll", sale_price=10.0, original_price=20.0,
                          discount_percent=50)
+        assert passes_hard_filters(p) is False
+
+    # ── Preroll pack and infused preroll caps ─────────────────────
+
+    def test_preroll_pack_at_cap(self, make_product):
+        """Preroll multi-pack at $20 cap — passes."""
+        p = make_product(category="preroll", product_subtype="preroll_pack",
+                         sale_price=20.0, original_price=40.0,
+                         discount_percent=50)
+        assert passes_hard_filters(p) is True
+
+    def test_preroll_pack_over_cap(self, make_product):
+        """Preroll multi-pack at $21 — exceeds $20 cap."""
+        p = make_product(category="preroll", product_subtype="preroll_pack",
+                         sale_price=21.0, original_price=40.0,
+                         discount_percent=47)
+        assert passes_hard_filters(p) is False
+
+    def test_infused_preroll_at_cap(self, make_product):
+        """Infused preroll at $15 cap — passes (premium products)."""
+        p = make_product(category="preroll", product_subtype="infused_preroll",
+                         sale_price=15.0, original_price=30.0,
+                         discount_percent=50)
+        assert passes_hard_filters(p) is True
+
+    def test_infused_preroll_over_cap(self, make_product):
+        """Infused preroll at $16 — exceeds $15 cap."""
+        p = make_product(category="preroll", product_subtype="infused_preroll",
+                         sale_price=16.0, original_price=30.0,
+                         discount_percent=47)
         assert passes_hard_filters(p) is False
 
     # ── Vape subtype price floors (catches listing errors) ─────────
@@ -239,6 +313,71 @@ class TestPassesHardFilters:
         """Vape subtype floors apply to ALL platforms including Jane."""
         p = make_product(category="vape", product_subtype="disposable",
                          sale_price=10.50, weight_value=1.0,
+                         source_platform="jane")
+        assert passes_hard_filters(p) is False
+
+    # ── Vape subtype price CAPS (tighter caps per subtype) ──────────
+
+    def test_disposable_1g_at_cap_passes(self, make_product):
+        """$20 for a 1g disposable is at the cap — passes."""
+        p = make_product(category="vape", product_subtype="disposable",
+                         sale_price=20.0, original_price=40.0,
+                         discount_percent=50, weight_value=1.0)
+        assert passes_hard_filters(p) is True
+
+    def test_disposable_1g_over_cap_rejected(self, make_product):
+        """$22 for a 1g disposable exceeds the $20 cap."""
+        p = make_product(category="vape", product_subtype="disposable",
+                         sale_price=22.0, original_price=44.0,
+                         discount_percent=50, weight_value=1.0)
+        assert passes_hard_filters(p) is False
+
+    def test_disposable_half_gram_over_cap_rejected(self, make_product):
+        """$16 for a 0.5g disposable exceeds the $15 cap."""
+        p = make_product(category="vape", product_subtype="disposable",
+                         sale_price=16.0, original_price=32.0,
+                         discount_percent=50, weight_value=0.5)
+        assert passes_hard_filters(p) is False
+
+    def test_cart_1g_at_cap_passes(self, make_product):
+        """$35 for a 1g cartridge is at the cap — passes."""
+        p = make_product(category="vape", product_subtype="cartridge",
+                         sale_price=25.0, original_price=50.0,
+                         discount_percent=50, weight_value=1.0)
+        assert passes_hard_filters(p) is True
+
+    def test_cart_half_gram_at_cap_passes(self, make_product):
+        """$25 for a 0.5g cartridge is at the cap — passes."""
+        p = make_product(category="vape", product_subtype="cartridge",
+                         sale_price=25.0, original_price=50.0,
+                         discount_percent=50, weight_value=0.5)
+        assert passes_hard_filters(p) is True
+
+    def test_cart_half_gram_over_cap_rejected(self, make_product):
+        """$26 for a 0.5g cartridge exceeds the $25 cap."""
+        p = make_product(category="vape", product_subtype="cartridge",
+                         sale_price=26.0, original_price=52.0,
+                         discount_percent=50, weight_value=0.5)
+        assert passes_hard_filters(p) is False
+
+    def test_vape_no_subtype_uses_flat_cap(self, make_product):
+        """Vapes without subtype fall through to the $25 flat cap."""
+        p = make_product(category="vape", product_subtype=None,
+                         sale_price=25.0, original_price=50.0,
+                         discount_percent=50, weight_value=1.0)
+        assert passes_hard_filters(p) is True
+
+    def test_vape_no_subtype_over_flat_cap_rejected(self, make_product):
+        """Vapes without subtype over $25 are rejected."""
+        p = make_product(category="vape", product_subtype=None,
+                         sale_price=26.0, original_price=52.0,
+                         discount_percent=50, weight_value=1.0)
+        assert passes_hard_filters(p) is False
+
+    def test_disposable_cap_applies_on_jane(self, make_product):
+        """Vape subtype caps apply to ALL platforms including Jane."""
+        p = make_product(category="vape", product_subtype="disposable",
+                         sale_price=22.0, weight_value=1.0,
                          source_platform="jane")
         assert passes_hard_filters(p) is False
 
@@ -330,6 +469,117 @@ class TestStatePriceCaps:
         p = make_product(category="concentrate", sale_price=48.0, original_price=80.0,
                          discount_percent=40, weight_value=1.0, region="missouri")
         assert passes_hard_filters(p) is True  # at $48 MO cap
+
+    # ── Northern NV overrides (lower than base NV) ───────────────────
+
+    def test_northern_nv_flower_eighth_at_cap(self, make_product):
+        """Northern NV eighth cap is $20 (base NV is $22)."""
+        p = make_product(category="flower", sale_price=20.0, original_price=45.0,
+                         discount_percent=56, weight_value=3.5, region="northern-nv")
+        assert passes_hard_filters(p) is True
+
+    def test_northern_nv_flower_eighth_over_cap(self, make_product):
+        """$21 eighth in Northern NV exceeds $20 cap."""
+        p = make_product(category="flower", sale_price=21.0, original_price=45.0,
+                         discount_percent=53, weight_value=3.5, region="northern-nv")
+        assert passes_hard_filters(p) is False
+
+    def test_northern_nv_edible_at_cap(self, make_product):
+        """Northern NV edible cap is $12 (base is $15)."""
+        p = make_product(category="edible", sale_price=12.0, original_price=25.0,
+                         discount_percent=52, region="northern-nv")
+        assert passes_hard_filters(p) is True
+
+    def test_northern_nv_edible_over_cap(self, make_product):
+        """$13 edible in Northern NV exceeds $12 cap."""
+        p = make_product(category="edible", sale_price=13.0, original_price=25.0,
+                         discount_percent=48, region="northern-nv")
+        assert passes_hard_filters(p) is False
+
+    def test_northern_nv_vape_at_cap(self, make_product):
+        """Northern NV vape cap is $23 (base is $25)."""
+        p = make_product(category="vape", sale_price=23.0, original_price=50.0,
+                         discount_percent=54, region="northern-nv")
+        assert passes_hard_filters(p) is True
+
+    def test_northern_nv_concentrate_1g_at_cap(self, make_product):
+        """Northern NV concentrate 1g cap is $23 (base is $25)."""
+        p = make_product(category="concentrate", sale_price=23.0, original_price=50.0,
+                         discount_percent=54, weight_value=1.0, region="northern-nv")
+        assert passes_hard_filters(p) is True
+
+    # ── Colorado overrides (most competitive, lowest edible cap) ─────
+
+    def test_colorado_flower_eighth_at_cap(self, make_product):
+        """Colorado eighth cap is $18 (competitive market near MI)."""
+        p = make_product(category="flower", sale_price=18.0, original_price=40.0,
+                         discount_percent=55, weight_value=3.5, region="colorado")
+        assert passes_hard_filters(p) is True
+
+    def test_colorado_edible_cap(self, make_product):
+        """Colorado edible cap is $14 — the ONLY state below base $15."""
+        p = make_product(category="edible", sale_price=14.0, original_price=28.0,
+                         discount_percent=50, region="colorado")
+        assert passes_hard_filters(p) is True
+
+    def test_colorado_edible_over_cap(self, make_product):
+        """$15 edible in Colorado exceeds $14 cap (tighter than base)."""
+        p = make_product(category="edible", sale_price=15.0, original_price=28.0,
+                         discount_percent=46, region="colorado")
+        assert passes_hard_filters(p) is False
+
+    # ── Illinois overrides (high-tax like NJ) ────────────────────────
+
+    def test_illinois_flower_eighth_at_cap(self, make_product):
+        """IL eighth cap is $30 (high-tax market)."""
+        p = make_product(category="flower", sale_price=30.0, original_price=55.0,
+                         discount_percent=45, weight_value=3.5, region="illinois")
+        assert passes_hard_filters(p) is True
+
+    def test_illinois_flower_eighth_over_cap(self, make_product):
+        p = make_product(category="flower", sale_price=31.0, original_price=55.0,
+                         discount_percent=44, weight_value=3.5, region="illinois")
+        assert passes_hard_filters(p) is False
+
+    # ── Arizona overrides ────────────────────────────────────────────
+
+    def test_arizona_flower_eighth_at_cap(self, make_product):
+        """AZ eighth cap is $25 (competitive but not MI-level)."""
+        p = make_product(category="flower", sale_price=25.0, original_price=50.0,
+                         discount_percent=50, weight_value=3.5, region="arizona")
+        assert passes_hard_filters(p) is True
+
+    def test_arizona_flower_eighth_over_cap(self, make_product):
+        p = make_product(category="flower", sale_price=26.0, original_price=50.0,
+                         discount_percent=48, weight_value=3.5, region="arizona")
+        assert passes_hard_filters(p) is False
+
+    # ── Massachusetts overrides (high-tax like NJ/IL) ────────────────
+
+    def test_massachusetts_flower_eighth_at_cap(self, make_product):
+        """MA eighth cap is $32."""
+        p = make_product(category="flower", sale_price=32.0, original_price=60.0,
+                         discount_percent=47, weight_value=3.5, region="massachusetts")
+        assert passes_hard_filters(p) is True
+
+    def test_massachusetts_flower_eighth_over_cap(self, make_product):
+        p = make_product(category="flower", sale_price=33.0, original_price=60.0,
+                         discount_percent=45, weight_value=3.5, region="massachusetts")
+        assert passes_hard_filters(p) is False
+
+    # ── Pennsylvania (no state override — uses base NV caps) ─────────
+
+    def test_pennsylvania_uses_base_caps(self, make_product):
+        """PA has no state override — falls through to base $22 eighth cap."""
+        p = make_product(category="flower", sale_price=22.0, original_price=50.0,
+                         discount_percent=56, weight_value=3.5, region="pennsylvania")
+        assert passes_hard_filters(p) is True
+
+    def test_pennsylvania_over_base_cap(self, make_product):
+        """PA $23 eighth exceeds base $22 cap (no state override)."""
+        p = make_product(category="flower", sale_price=23.0, original_price=50.0,
+                         discount_percent=54, weight_value=3.5, region="pennsylvania")
+        assert passes_hard_filters(p) is False
 
 
 # =====================================================================
@@ -830,3 +1080,57 @@ class TestConstants:
     def test_disposable_floor_higher_than_cart(self):
         """Disposables should have a higher price floor than carts (they include the battery)."""
         assert VAPE_SUBTYPE_PRICE_FLOORS["disposable"]["1"] > VAPE_SUBTYPE_PRICE_FLOORS["cartridge"]["1"]
+
+    def test_vape_subtype_caps_exist(self):
+        """Vape subtype caps should exist for disposable, cartridge, pod."""
+        for subtype in ("disposable", "cartridge", "pod"):
+            assert subtype in VAPE_SUBTYPE_PRICE_CAPS
+            caps = VAPE_SUBTYPE_PRICE_CAPS[subtype]
+            assert "0.5" in caps
+            assert "1" in caps
+            assert caps["1"] > caps["0.5"]  # full-gram cap > half-gram
+
+    def test_disposable_cap_lower_than_cart(self):
+        """Disposables should have a lower cap than carts (single-use vs reusable)."""
+        assert VAPE_SUBTYPE_PRICE_CAPS["disposable"]["1"] < VAPE_SUBTYPE_PRICE_CAPS["cartridge"]["1"]
+
+
+# =====================================================================
+# Guaranteed deal selection — category diversity
+# =====================================================================
+
+
+class TestGuaranteedDealDiversity:
+    """The _pick_guaranteed_deals function prefers category diversity."""
+
+    def test_picks_from_distinct_categories(self, make_product):
+        """Dispensary with products in 3 categories should get diverse picks."""
+        from deal_detector import _pick_guaranteed_deals
+
+        products = [
+            make_product(name="Top Flower", brand="Cookies", category="flower",
+                         sale_price=12.0),
+            make_product(name="Second Flower", brand="Connected", category="flower",
+                         sale_price=13.0),
+            make_product(name="Top Vape", brand="STIIIZY", category="vape",
+                         sale_price=15.0),
+            make_product(name="Top Edible", brand="Wyld", category="edible",
+                         sale_price=8.0),
+        ]
+        result = _pick_guaranteed_deals(products, max_picks=3)
+        categories = [r["category"] for r in result]
+        assert len(set(categories)) == 3, (
+            f"Expected 3 distinct categories, got {categories}"
+        )
+
+    def test_single_category_still_fills(self, make_product):
+        """When all products are one category, still returns max_picks."""
+        from deal_detector import _pick_guaranteed_deals
+
+        products = [
+            make_product(name=f"Flower {i}", brand=f"Brand{i}", category="flower",
+                         sale_price=10.0 + i)
+            for i in range(5)
+        ]
+        result = _pick_guaranteed_deals(products, max_picks=3)
+        assert len(result) == 3

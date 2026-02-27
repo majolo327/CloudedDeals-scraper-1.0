@@ -21,10 +21,10 @@ export const DEFAULT_FILTERS = DEFAULT_UNIVERSAL_FILTERS;
 
 const CATEGORIES: { id: Category; label: string; icon: string }[] = [
   { id: 'flower', label: 'Flower', icon: '🌿' },
-  { id: 'concentrate', label: 'Concentrates', icon: '💎' },
   { id: 'vape', label: 'Vapes', icon: '💨' },
   { id: 'edible', label: 'Edibles', icon: '🍬' },
   { id: 'preroll', label: 'Pre-Rolls', icon: '🚬' },
+  { id: 'concentrate', label: 'Concentrates', icon: '💎' },
 ];
 
 const PRICE_RANGES: { id: string; label: string; min: number; max: number }[] = [
@@ -398,10 +398,10 @@ export function FilterSheet({
                   {filters.weightFilters.length > 0 && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, weightFilters: [] })}
-                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-cyan-500/15 text-cyan-400 text-xs font-medium"
+                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] max-w-full rounded-full bg-cyan-500/15 text-cyan-400 text-xs font-medium"
                       aria-label="Remove weight filter"
                     >
-                      {filters.weightFilters.join(', ')}
+                      <span className="truncate">{filters.weightFilters.join(', ')}</span>
                       <X className="w-3 h-3" />
                     </button>
                   )}

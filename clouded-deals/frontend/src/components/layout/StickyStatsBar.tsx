@@ -16,10 +16,10 @@ export function StickyStatsBar({
   const categories: { id: DealCategory; label: string }[] = [
     { id: 'all', label: 'All' },
     { id: 'flower', label: 'Flower' },
-    { id: 'concentrate', label: 'Conc.' },
     { id: 'vape', label: 'Vape' },
     { id: 'edible', label: 'Edible' },
     { id: 'preroll', label: 'Preroll' },
+    { id: 'concentrate', label: 'Concentrate' },
   ];
 
   return (

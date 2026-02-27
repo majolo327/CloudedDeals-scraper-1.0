@@ -50,6 +50,22 @@ export function SeoFooter() {
                   Strip Dispensary Deals
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/downtown-dispensary-deals"
+                  className="text-xs text-slate-500 hover:text-purple-400 transition-colors"
+                >
+                  Downtown Deals
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/local-dispensary-deals"
+                  className="text-xs text-slate-500 hover:text-purple-400 transition-colors"
+                >
+                  Local / Off-Strip Deals
+                </Link>
+              </li>
               {CATEGORIES.map((cat) => (
                 <li key={cat.slug}>
                   <Link
@@ -122,6 +138,14 @@ export function SeoFooter() {
                   className="text-xs text-slate-500 hover:text-purple-400 transition-colors"
                 >
                   About
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/blog"
+                  className="text-xs text-slate-500 hover:text-purple-400 transition-colors"
+                >
+                  Blog
                 </Link>
               </li>
             </ul>
