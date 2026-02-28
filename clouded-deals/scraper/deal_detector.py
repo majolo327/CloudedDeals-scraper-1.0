@@ -95,7 +95,7 @@ VAPE_SUBTYPE_PRICE_FLOORS: dict[str, dict[str, float]] = {
 VAPE_SUBTYPE_PRICE_CAPS: dict[str, dict[str, float]] = {
     "disposable": {
         "0.5": 15,    # half-gram disposable cap
-        "1": 20,      # full-gram disposable cap
+        "1": 25,      # full-gram disposable cap (0.8g-1g)
     },
     "cartridge": {
         "0.5": 25,    # half-gram cart cap
@@ -435,10 +435,13 @@ CATEGORY_BOOST: dict[str, int] = {
 
 TARGET_DEAL_COUNT = 200
 
-# Guaranteed-exposure: dispensaries that scraped at least this many products
-# but got 0 deals through the normal pipeline will have their best product
-# force-picked so every store with real inventory gets some representation.
-MIN_PRODUCTS_FOR_GUARANTEE = 10
+# Guaranteed-exposure: every scraped dispensary that yields 0 deals through
+# the normal pipeline will have its best product force-picked so it always
+# gets some representation.  Lowered from 10 → 1 because small stores
+# (e.g. 5 products) were silently dropping to 0 deals when all products
+# failed hard filters.  The _pick_guaranteed_deals() function already
+# rejects true garbage (price < $3, name < 5 chars, non-cannabis keywords).
+MIN_PRODUCTS_FOR_GUARANTEE = 1
 GUARANTEED_DEAL_SCORE_CAP = 25  # modest score so guarantees don't outrank real deals
 
 CATEGORY_TARGETS: dict[str, int] = {
@@ -640,8 +643,8 @@ def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> b
             return False
 
     # --- Vape subtype price CAPS (catches non-deals by subtype) ---
-    # Disposable vapes should be cheaper than carts/pods.  A $25
-    # disposable is retail, not a deal.  Applies to ALL platforms.
+    # Disposable vapes should be cheaper than carts/pods.  Half-gram
+    # disposables cap at $15; full-gram (0.8g-1g) cap at $25.  Applies to ALL platforms.
     if category == "vape" and subtype in VAPE_SUBTYPE_PRICE_CAPS:
         caps = VAPE_SUBTYPE_PRICE_CAPS[subtype]
         try:
@@ -1982,9 +1985,9 @@ def detect_deals(
     logger.info("Selected %d top deals for display", len(top_deals))
 
     # Step 6: Guaranteed minimum exposure
-    # If the dispensary scraped a meaningful number of products but
-    # the normal pipeline found 0 deals, force-pick the best available
-    # product so every store with real inventory gets representation.
+    # If the dispensary was scraped but the normal pipeline found 0 deals,
+    # force-pick the best available product so every store shows something.
+    # Even stores with just a few products deserve representation.
     guaranteed_count = 0
     if len(products) >= MIN_PRODUCTS_FOR_GUARANTEE and not top_deals:
         guaranteed = _pick_guaranteed_deals(products)
