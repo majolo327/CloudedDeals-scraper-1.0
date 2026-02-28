@@ -3,7 +3,9 @@ name: Auto-Post Deals to Twitter
 run-name: >-
   Tweet — ${{
     github.event_name == 'workflow_dispatch'
-      && (github.event.inputs.dry_run == 'true' && 'dry-run' || 'manual')
+      && (github.event.inputs.test_connection == 'true' && 'connection-test'
+          || github.event.inputs.dry_run == 'true' && 'dry-run'
+          || 'manual')
     || 'scheduled'
   }}
 
@@ -27,6 +29,11 @@ on:
         required: false
         type: boolean
         default: false
+      test_connection:
+        description: "Test Twitter API credentials without posting"
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: tweet-deals
@@ -43,19 +50,28 @@ jobs:
           SITE_URL: ${{ secrets.SITE_URL }}
           ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          TEST_CONNECTION: ${{ github.event.inputs.test_connection || 'false' }}
         run: |
           # Default to production URL if SITE_URL secret is not set
           BASE_URL="${SITE_URL:-https://cloudeddeals.com}"
 
           echo "=== Auto-Post Configuration ==="
-          echo "Target:   ${BASE_URL}/api/deals/auto-post"
-          echo "Dry run:  ${DRY_RUN}"
-          echo "Time:     $(date -u '+%Y-%m-%d %H:%M UTC')"
+          echo "Target:           ${BASE_URL}/api/deals/auto-post"
+          echo "Dry run:          ${DRY_RUN}"
+          echo "Test connection:  ${TEST_CONNECTION}"
+          echo "Time:             $(date -u '+%Y-%m-%d %H:%M UTC')"
           echo "==============================="
 
-          BODY="{}"
-          if [ "$DRY_RUN" = "true" ]; then
+          # Build request body based on mode
+          if [ "$TEST_CONNECTION" = "true" ]; then
+            BODY='{"test_connection": true}'
+            echo "Mode: Testing Twitter API credentials..."
+          elif [ "$DRY_RUN" = "true" ]; then
             BODY='{"dry_run": true}'
+            echo "Mode: Dry run (no tweet will be posted)"
+          else
+            BODY='{}'
+            echo "Mode: Live tweet"
           fi
 
           RESPONSE=$(curl -s -w "\n%{http_code}" \
@@ -67,21 +83,36 @@ jobs:
             -d "$BODY")
 
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | head -n -1)
+          RESP_BODY=$(echo "$RESPONSE" | head -n -1)
 
           echo ""
           echo "HTTP Status: ${HTTP_CODE}"
           echo "Response:"
-          echo "$BODY" | python3 -m json.tool 2>/dev/null || echo "$BODY"
+          echo "$RESP_BODY" | python3 -m json.tool 2>/dev/null || echo "$RESP_BODY"
 
-          # Write to step summary
+          # Write to step summary with error categorization
           echo "### Auto-Post Result" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "**Status:** Success" >> $GITHUB_STEP_SUMMARY
+          elif [ "$HTTP_CODE" = "401" ]; then
+            echo "**Status:** Unauthorized — check ADMIN_API_KEY secret" >> $GITHUB_STEP_SUMMARY
+          elif [ "$HTTP_CODE" = "502" ]; then
+            echo "**Status:** Twitter API failure — check credentials in Netlify env vars" >> $GITHUB_STEP_SUMMARY
+          elif [ "$HTTP_CODE" = "503" ]; then
+            echo "**Status:** Twitter credentials not configured in Netlify" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status:** Failed (HTTP ${HTTP_CODE})" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo '```json' >> $GITHUB_STEP_SUMMARY
-          echo "$BODY" | python3 -m json.tool 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "$BODY" >> $GITHUB_STEP_SUMMARY
+          echo "$RESP_BODY" | python3 -m json.tool 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "$RESP_BODY" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
           # Fail the job if the API returned an error
-          if [ "$HTTP_CODE" -ge 400 ]; then
+          if [ "$HTTP_CODE" -ge 400 ] 2>/dev/null; then
             echo "::error::Auto-post failed with HTTP ${HTTP_CODE}"
             exit 1
           fi

@@ -237,3 +237,39 @@ export async function postTweet(text: string): Promise<TweetResult> {
 
   return { success: false, tweet_id: null, error: lastError };
 }
+
+/**
+ * Lightweight credential check — calls GET /2/users/me which is read-only
+ * and doesn't consume the tweet-posting rate limit. Use this to verify that
+ * environment variables are correctly configured before attempting to post.
+ */
+export async function testTwitterConnection(): Promise<{
+  ok: boolean;
+  username?: string;
+  error?: string;
+  status_code?: number;
+}> {
+  try {
+    const config = getConfig();
+    const url = `${TWITTER_API_BASE}/users/me`;
+    const authHeader = await buildAuthHeader("GET", url, config);
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: authHeader },
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const username = data?.data?.username ?? "unknown";
+      return { ok: true, username, status_code: res.status };
+    }
+
+    const body = await res.text();
+    console.error(`[twitter] Connection test failed (${res.status}): ${body}`);
+    return { ok: false, error: body, status_code: res.status };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: msg };
+  }
+}
