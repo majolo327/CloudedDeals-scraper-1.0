@@ -226,12 +226,18 @@ def _seed_dispensaries() -> None:
     logger.info("Seeded %d dispensaries into DB", len(rows))
 
 
+_DEACTIVATE_CHUNK_SIZE = 30  # dispensary slugs per batch to avoid statement timeout
+
+
 def _deactivate_old_deals(group_slugs: list[str] | None = None) -> None:
     """Deactivate previous day's deals so only fresh data is shown.
 
     When *group_slugs* is provided, only products belonging to those
     dispensaries are deactivated.  This prevents a "stable" run from
     wiping yesterday's "new" products (and vice-versa).
+
+    Batches the UPDATE by dispensary slug chunks to avoid Supabase
+    statement timeouts on large regions.
     """
     if DRY_RUN:
         logger.info("[DRY RUN] Would deactivate old deals (group=%s)", PLATFORM_GROUP)
@@ -241,19 +247,39 @@ def _deactivate_old_deals(group_slugs: list[str] | None = None) -> None:
         .replace(hour=0, minute=0, second=0, microsecond=0)
         .isoformat()
     )
-    query = (
-        db.table("products")
-        .update({"is_active": False})
-        .lt("scraped_at", today_start)
-        .eq("is_active", True)
-    )
+
+    total_deactivated = 0
     if group_slugs:
-        query = query.in_("dispensary_id", group_slugs)
-    result = query.execute()
-    count = len(result.data) if result.data else 0
-    if count > 0:
+        # Batch by slug chunks to keep each UPDATE under statement timeout
+        for i in range(0, len(group_slugs), _DEACTIVATE_CHUNK_SIZE):
+            chunk = group_slugs[i : i + _DEACTIVATE_CHUNK_SIZE]
+            result = (
+                db.table("products")
+                .update({"is_active": False})
+                .lt("scraped_at", today_start)
+                .eq("is_active", True)
+                .in_("dispensary_id", chunk)
+                .execute()
+            )
+            total_deactivated += len(result.data) if result.data else 0
+    else:
+        # No group filter — batch using all active dispensary slugs
+        all_slugs = [d["slug"] for d in DISPENSARIES if d.get("is_active", True)]
+        for i in range(0, len(all_slugs), _DEACTIVATE_CHUNK_SIZE):
+            chunk = all_slugs[i : i + _DEACTIVATE_CHUNK_SIZE]
+            result = (
+                db.table("products")
+                .update({"is_active": False})
+                .lt("scraped_at", today_start)
+                .eq("is_active", True)
+                .in_("dispensary_id", chunk)
+                .execute()
+            )
+            total_deactivated += len(result.data) if result.data else 0
+
+    if total_deactivated > 0:
         scope = f"group={PLATFORM_GROUP}" if group_slugs else "all"
-        logger.info("Deactivated %d old products (%s)", count, scope)
+        logger.info("Deactivated %d old products (%s)", total_deactivated, scope)
 
     # Also deactivate stale products from INACTIVE dispensaries.
     # When a site is deactivated in config (is_active=False), its old
@@ -264,14 +290,17 @@ def _deactivate_old_deals(group_slugs: list[str] | None = None) -> None:
         if not d.get("is_active", True)
     ]
     if inactive_slugs:
-        inactive_result = (
-            db.table("products")
-            .update({"is_active": False, "deal_score": 0})
-            .eq("is_active", True)
-            .in_("dispensary_id", inactive_slugs)
-            .execute()
-        )
-        inactive_count = len(inactive_result.data) if inactive_result.data else 0
+        inactive_count = 0
+        for i in range(0, len(inactive_slugs), _DEACTIVATE_CHUNK_SIZE):
+            chunk = inactive_slugs[i : i + _DEACTIVATE_CHUNK_SIZE]
+            inactive_result = (
+                db.table("products")
+                .update({"is_active": False, "deal_score": 0})
+                .eq("is_active", True)
+                .in_("dispensary_id", chunk)
+                .execute()
+            )
+            inactive_count += len(inactive_result.data) if inactive_result.data else 0
         if inactive_count > 0:
             logger.info(
                 "Deactivated %d orphan products from %d inactive dispensaries",
@@ -1030,24 +1059,29 @@ def _expire_stale_deal_history(group_slugs: list[str] | None = None) -> None:
 
     Called once per run after all sites are scraped.  Deals that were
     active yesterday but not re-observed today get is_active=False.
+
+    Batches by dispensary slug chunks to avoid statement timeouts.
     """
     if DRY_RUN:
         return
 
     today = datetime.now(timezone.utc).date().isoformat()
     try:
-        query = (
-            db.table("deal_history")
-            .update({"is_active": False})
-            .eq("is_active", True)
-            .lt("last_seen_date", today)
-        )
-        if group_slugs:
-            query = query.in_("dispensary_id", group_slugs)
-        result = query.execute()
-        count = len(result.data) if result.data else 0
-        if count > 0:
-            logger.info("Expired %d stale deal_history entries", count)
+        total_expired = 0
+        slugs = group_slugs or [d["slug"] for d in DISPENSARIES if d.get("is_active", True)]
+        for i in range(0, len(slugs), _DEACTIVATE_CHUNK_SIZE):
+            chunk = slugs[i : i + _DEACTIVATE_CHUNK_SIZE]
+            result = (
+                db.table("deal_history")
+                .update({"is_active": False})
+                .eq("is_active", True)
+                .lt("last_seen_date", today)
+                .in_("dispensary_id", chunk)
+                .execute()
+            )
+            total_expired += len(result.data) if result.data else 0
+        if total_expired > 0:
+            logger.info("Expired %d stale deal_history entries", total_expired)
     except Exception as exc:
         logger.warning("Failed to expire stale deal history: %s", exc)
 
