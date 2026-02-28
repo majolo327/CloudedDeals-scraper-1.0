@@ -95,7 +95,7 @@ VAPE_SUBTYPE_PRICE_FLOORS: dict[str, dict[str, float]] = {
 VAPE_SUBTYPE_PRICE_CAPS: dict[str, dict[str, float]] = {
     "disposable": {
         "0.5": 15,    # half-gram disposable cap
-        "1": 20,      # full-gram disposable cap
+        "1": 25,      # full-gram disposable cap (0.8g-1g)
     },
     "cartridge": {
         "0.5": 25,    # half-gram cart cap
@@ -643,8 +643,8 @@ def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> b
             return False
 
     # --- Vape subtype price CAPS (catches non-deals by subtype) ---
-    # Disposable vapes should be cheaper than carts/pods.  A $25
-    # disposable is retail, not a deal.  Applies to ALL platforms.
+    # Disposable vapes should be cheaper than carts/pods.  Half-gram
+    # disposables cap at $15; full-gram (0.8g-1g) cap at $25.  Applies to ALL platforms.
     if category == "vape" and subtype in VAPE_SUBTYPE_PRICE_CAPS:
         caps = VAPE_SUBTYPE_PRICE_CAPS[subtype]
         try:

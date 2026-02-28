@@ -319,16 +319,23 @@ class TestPassesHardFilters:
     # ── Vape subtype price CAPS (tighter caps per subtype) ──────────
 
     def test_disposable_1g_at_cap_passes(self, make_product):
-        """$20 for a 1g disposable is at the cap — passes."""
+        """$25 for a 1g disposable is at the cap — passes."""
         p = make_product(category="vape", product_subtype="disposable",
-                         sale_price=20.0, original_price=40.0,
+                         sale_price=25.0, original_price=50.0,
+                         discount_percent=50, weight_value=1.0)
+        assert passes_hard_filters(p) is True
+
+    def test_disposable_1g_at_22_passes(self, make_product):
+        """$22 for a 1g disposable is under the $25 cap — passes."""
+        p = make_product(category="vape", product_subtype="disposable",
+                         sale_price=22.0, original_price=44.0,
                          discount_percent=50, weight_value=1.0)
         assert passes_hard_filters(p) is True
 
     def test_disposable_1g_over_cap_rejected(self, make_product):
-        """$22 for a 1g disposable exceeds the $20 cap."""
+        """$27 for a 1g disposable exceeds the $25 cap."""
         p = make_product(category="vape", product_subtype="disposable",
-                         sale_price=22.0, original_price=44.0,
+                         sale_price=27.0, original_price=54.0,
                          discount_percent=50, weight_value=1.0)
         assert passes_hard_filters(p) is False
 
@@ -377,7 +384,7 @@ class TestPassesHardFilters:
     def test_disposable_cap_applies_on_jane(self, make_product):
         """Vape subtype caps apply to ALL platforms including Jane."""
         p = make_product(category="vape", product_subtype="disposable",
-                         sale_price=22.0, weight_value=1.0,
+                         sale_price=27.0, weight_value=1.0,
                          source_platform="jane")
         assert passes_hard_filters(p) is False
 
