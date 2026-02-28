@@ -9,13 +9,17 @@ run-name: >-
 
 on:
   schedule:
-    # 4 tweet slots per day, spaced for NV local peak times (PDT = UTC-7).
+    # 8 tweet slots per day, spaced for NV local peak times (PDT = UTC-7).
     # DST-ADJUSTED (Mar 8 2026): shifted -1hr UTC to preserve local times.
     # GitHub Actions crons can run 10-30 min late — that's fine.
-    - cron: "0 16 * * *"   # Slot 1 — 9:00 AM PDT  (morning commute)
-    - cron: "0 19 * * *"   # Slot 2 — 12:00 PM PDT (lunch break)
-    - cron: "0 22 * * *"   # Slot 3 — 3:00 PM PDT  (afternoon)
-    - cron: "0 1 * * *"    # Slot 4 — 6:00 PM PDT  (evening wind-down)
+    - cron: "0 15 * * *"    # Slot 1 — 8:00 AM PDT  (early bird)
+    - cron: "0 16 * * *"    # Slot 2 — 9:00 AM PDT  (morning commute)
+    - cron: "30 17 * * *"   # Slot 3 — 10:30 AM PDT (mid-morning)
+    - cron: "0 19 * * *"    # Slot 4 — 12:00 PM PDT (lunch break)
+    - cron: "30 20 * * *"   # Slot 5 — 1:30 PM PDT  (early afternoon)
+    - cron: "0 22 * * *"    # Slot 6 — 3:00 PM PDT  (afternoon)
+    - cron: "30 23 * * *"   # Slot 7 — 4:30 PM PDT  (late afternoon)
+    - cron: "0 1 * * *"     # Slot 8 — 6:00 PM PDT  (evening wind-down)
   workflow_dispatch:
     inputs:
       dry_run:
@@ -55,6 +59,8 @@ jobs:
           fi
 
           RESPONSE=$(curl -s -w "\n%{http_code}" \
+            --retry 3 --retry-delay 5 --retry-all-errors \
+            --max-time 25 \
             -X POST "${BASE_URL}/api/deals/auto-post" \
             -H "Authorization: Bearer ${ADMIN_API_KEY}" \
             -H "Content-Type: application/json" \
