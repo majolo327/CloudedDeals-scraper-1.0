@@ -1,14 +1,15 @@
 /**
  * Auto-post deal selection logic.
  *
- * Picks 1-4 deals per day for @CloudedDeals Twitter with diversity rules:
+ * Picks 1-8 deals per day for @CloudedDeals Twitter with diversity rules:
  *  - Southern NV region only (beta market)
  *  - Target categories: 1g disposable vapes, 3.5g/7g flower,
- *    100mg+ edibles, 1g live resin/rosin/badder concentrates
+ *    100mg+ edibles, 1g live resin/rosin/badder concentrates,
+ *    single/2-pack prerolls
  *  - Price cap: $35
  *  - No brand repeats within the same day
  *  - No brand+dispensary combo repeats within the same day
- *  - Minimum deal score: 45
+ *  - Minimum deal score: 50
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
@@ -39,8 +40,8 @@ export interface SelectionRules {
 }
 
 const DEFAULT_RULES: SelectionRules = {
-  maxPerDay: 4,
-  minScore: 45,
+  maxPerDay: 8,
+  minScore: 50,
   maxPrice: 35,
   region: "southern-nv",
 };
@@ -51,6 +52,7 @@ const DEFAULT_RULES: SelectionRules = {
  * - Flower: 3.5g or 7g
  * - Edible: 100mg+ multi-dose (gummies, chocolates, etc.)
  * - Concentrate: 1g live resin/rosin/badder
+ * - Preroll: single or 2-pack (no large multi-packs)
  */
 function matchesTargetCategory(candidate: AutoPostCandidate): boolean {
   const { category, weight_value, weight_unit, product_subtype, product_name } =
@@ -139,6 +141,13 @@ function matchesTargetCategory(candidate: AutoPostCandidate): boolean {
       nameLC.includes("1 g");
 
     return isLive && is1g;
+  }
+
+  if (category === "preroll") {
+    // Single prerolls and 2-packs; exclude large multi-packs (5+)
+    const packMatch = nameLC.match(/(\d+)\s*(?:pk|pack|ct|count)/i);
+    const packSize = packMatch ? parseInt(packMatch[1], 10) : 1;
+    return packSize <= 2;
   }
 
   return false;
@@ -288,11 +297,13 @@ export async function selectDealsToPost(
   const flowerCandidates = targetDeals.filter((d) => d.category === "flower");
   const edibleCandidates = targetDeals.filter((d) => d.category === "edible");
   const concentrateCandidates = targetDeals.filter((d) => d.category === "concentrate");
+  const prerollCandidates = targetDeals.filter((d) => d.category === "preroll");
 
-  // Try to get a mix: alternate picking from each category (vape/flower first, then edible/concentrate)
-  const buckets = [vapeCandidates, flowerCandidates, edibleCandidates, concentrateCandidates].filter(
-    (b) => b.length > 0
-  );
+  // Try to get a mix: alternate picking from each category
+  const buckets = [
+    vapeCandidates, flowerCandidates, edibleCandidates,
+    concentrateCandidates, prerollCandidates,
+  ].filter((b) => b.length > 0);
   let bucketIdx = 0;
 
   while (selected.length < slotsRemaining) {
