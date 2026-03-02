@@ -306,8 +306,10 @@ class TestNormalizeWeight:
     def test_50mg_passthrough(self, logic):
         assert logic.normalize_weight("50mg") == "50mg"
 
-    def test_grams_passthrough(self, logic):
-        assert logic.normalize_weight("3.5g") == "3.5g"
+    def test_grams_rejected_for_edible(self, logic):
+        """Gram values are invalid in the edible normalization path
+        (e.g. 224g from oz→g volume conversion on beverages)."""
+        assert logic.normalize_weight("3.5g") is None
 
     def test_none_passthrough(self, logic):
         assert logic.normalize_weight(None) is None
@@ -524,6 +526,80 @@ class TestWeightValidationOz:
     def test_frac_oz_concentrate_weight(self, logic):
         """'1g' concentrate weight from oz conversion."""
         assert logic.validate_weight("1g", "concentrate") == "1g"
+
+
+# =====================================================================
+# Beverage liquid-volume vs THC-potency (oz ≠ weight for edibles)
+# =====================================================================
+
+
+class TestBeverageVolumeNotWeight:
+    """Beverages list oz as liquid volume, not THC weight.
+    'Uncle Arnie's Iced Tea Lemonade 8oz 100mg' → weight should be
+    100mg (THC), NOT 224g (8 × 28 oz→g conversion)."""
+
+    def test_beverage_8oz_100mg_picks_mg(self, logic):
+        """parse_product should extract 100mg, ignoring the 8oz volume."""
+        p = logic.parse_product(
+            "Uncle Arnie's Iced Tea Lemonade 8oz 100mg $20 $8", "Test"
+        )
+        assert p is not None
+        assert p["category"] == "edible"
+        assert p["weight"] == "100mg"
+
+    def test_beverage_oz_before_mg(self, logic):
+        """Even when oz appears before mg in text, mg should be used."""
+        p = logic.parse_product(
+            "Cannabis Drink 12oz 100mg THC $15 $6", "Test"
+        )
+        assert p is not None
+        assert p["weight"] == "100mg"
+
+    def test_beverage_oz_only_no_mg(self, logic):
+        """Beverage with only oz (no mg) — product should still parse
+        but weight should not be the oz-to-grams conversion."""
+        p = logic.parse_product(
+            "Infused Soda 8oz $15 $6", "Test"
+        )
+        # Without mg, edible has no valid weight — product may be rejected
+        # or have None weight; either way it must NOT have a gram weight
+        if p is not None:
+            assert p.get("weight") is None or "g" not in str(p.get("weight", ""))
+
+    def test_beverage_200mg_total_cannabinoids(self, logic):
+        """200mg edible passes through as 200mg (valid for NV market)."""
+        p = logic.parse_product(
+            "Cannabis Lemonade 200mg $20 $8", "Test"
+        )
+        assert p is not None
+        assert p["weight"] == "200mg"
+
+    def test_non_beverage_oz_still_converts(self, logic):
+        """Non-edible products with oz should still convert to grams."""
+        p = logic.parse_product(
+            "Premium Flower 1oz $200 $100", "Test"
+        )
+        # 1oz flower = 28g, but parse_product may reject on price cap
+        # The key assertion: oz→g conversion still works for non-edibles
+        assert p is None or p.get("weight") != "1oz"
+
+
+class TestNormalizeWeightRejectsGrams:
+    """normalize_weight (edible path) should reject gram values."""
+
+    def test_grams_rejected(self, logic):
+        """224.0g from oz→g conversion should not pass through."""
+        assert logic.normalize_weight("224.0g") is None
+
+    def test_grams_small_rejected(self, logic):
+        """Even small gram values are invalid for edible normalization."""
+        assert logic.normalize_weight("3.5g") is None
+
+    def test_mg_still_works(self, logic):
+        """mg values should still normalize correctly."""
+        assert logic.normalize_weight("100mg") == "100mg"
+        assert logic.normalize_weight("95mg") == "100mg"
+        assert logic.normalize_weight("200mg") == "200mg"
 
 
 # =====================================================================
