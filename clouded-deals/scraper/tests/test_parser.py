@@ -271,6 +271,32 @@ class TestExtractWeight:
         assert r["weight_value"] == 28.0
         assert r["weight_unit"] == "g"
 
+    # -- Beverage volume: oz is liquid volume, not weight ─────────────
+
+    def test_beverage_oz_skipped_for_mg(self):
+        """Beverage with 8oz volume and 100mg THC → prefer mg."""
+        r = extract_weight("Uncle Arnie's Iced Tea 8oz 100mg")
+        assert r["weight_value"] == 100.0
+        assert r["weight_unit"] == "mg"
+
+    def test_beverage_oz_only_returns_empty(self):
+        """Beverage with oz but no mg → no weight (oz is volume)."""
+        r = extract_weight("Cannabis Drink 8oz")
+        assert r["weight_value"] is None
+        assert r["weight_unit"] is None
+
+    def test_beverage_lemonade_oz_skipped(self):
+        """'Lemonade 12oz 100mg' → 100mg, not 336g."""
+        r = extract_weight("Infused Lemonade 12oz 100mg THC")
+        assert r["weight_value"] == 100.0
+        assert r["weight_unit"] == "mg"
+
+    def test_non_beverage_oz_still_converts(self):
+        """'Full 1oz' flower should still convert to 28g."""
+        r = extract_weight("Premium Flower Full 1oz")
+        assert r["weight_value"] == 28.0
+        assert r["weight_unit"] == "g"
+
 
 # =====================================================================
 # detect_brand

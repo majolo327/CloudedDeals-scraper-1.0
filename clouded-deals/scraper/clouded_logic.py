@@ -1079,7 +1079,11 @@ class CloudedLogic:
     # ────────────────────────────────────────────────────────────────
 
     def normalize_weight(self, weight_str):
-        """Normalize weight string, especially for edibles with fuzzy mg values."""
+        """Normalize weight string, especially for edibles with fuzzy mg values.
+
+        This is called in the edible code path — only mg values are meaningful.
+        Gram values (e.g. from oz→g volume conversion on beverages) are rejected.
+        """
         if not weight_str:
             return weight_str
         w = str(weight_str)
@@ -1100,6 +1104,11 @@ class CloudedLogic:
                 if val < 50:
                     return None
                 return f"{int(val)}mg"
+
+        # Non-mg values (e.g. "224.0g" from an 8oz beverage volume
+        # conversion) are not valid edible weights — reject them.
+        if 'g' in w.lower() and 'mg' not in w.lower():
+            return None
 
         return weight_str
 
@@ -1283,10 +1292,17 @@ class CloudedLogic:
             raw_weight = f"{grams}g"
             weight = self.validate_weight(raw_weight, category)
         else:
-            weight_match = re.search(r'([\d.]+)\s*(g|mg|oz)\b', clean_text, re.IGNORECASE)
+            if category == 'edible':
+                # Edibles use mg for THC potency.  oz is liquid volume
+                # (e.g. "8oz" on a beverage), NOT weight — converting it
+                # to grams produces a nonsensical value (224g) that can
+                # leak through normalize_weight.  Only match mg here.
+                weight_match = re.search(r'([\d.]+)\s*mg\b', clean_text, re.IGNORECASE)
+            else:
+                weight_match = re.search(r'([\d.]+)\s*(g|mg|oz)\b', clean_text, re.IGNORECASE)
             if weight_match:
                 raw_weight = weight_match.group(0)
-                # Convert oz to grams for validation
+                # Convert oz to grams for validation (non-edible only)
                 oz_m = re.match(r'([\d.]+)\s*oz\b', raw_weight, re.IGNORECASE)
                 if oz_m:
                     oz_val = float(oz_m.group(1))

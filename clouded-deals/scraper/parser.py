@@ -283,6 +283,14 @@ _FRAC_TO_GRAMS: dict[str, float] = {
     "1/2": 14.0,
 }
 
+# Beverage keywords — when present, "oz" is liquid volume (not weight).
+# Used to prefer mg over oz for drinks/beverages.
+_BEVERAGE_KEYWORDS_RE = re.compile(
+    r"\b(?:drink|shot|elixir|mocktail|beverage|seltzer|sparkling|tonic|soda"
+    r"|tea|lemonade|juice|punch|infused water)\b",
+    re.IGNORECASE,
+)
+
 
 def extract_weight(text: str) -> dict[str, Any]:
     """Return ``weight_value`` and ``weight_unit`` parsed from *text*.
@@ -313,6 +321,20 @@ def extract_weight(text: str) -> dict[str, Any]:
     if m:
         value = float(m.group("qty"))
         unit = m.group("unit").lower()
+
+        # Beverage fix: "oz" on a drink is liquid volume, NOT weight.
+        # E.g. "Uncle Arnie's Iced Tea 8oz 100mg" — "8oz" is the bottle
+        # size, "100mg" is the THC potency.  Skip the oz match and
+        # re-scan for mg when beverage keywords are present.
+        if unit == "oz" and _BEVERAGE_KEYWORDS_RE.search(text):
+            mg_match = re.search(
+                r"(?P<qty>\d*\.?\d+)\s*mg\b", text, re.IGNORECASE,
+            )
+            if mg_match:
+                result["weight_value"] = float(mg_match.group("qty"))
+                result["weight_unit"] = "mg"
+            # No mg found — return empty (oz volume is meaningless)
+            return result
 
         # Convert oz to grams (e.g. "1oz" → 28g)
         if unit == "oz":
