@@ -27,15 +27,6 @@ const CATEGORIES: { id: Category; label: string; icon: string }[] = [
   { id: 'concentrate', label: 'Concentrates', icon: '💎' },
 ];
 
-const PRICE_RANGES: { id: string; label: string; min: number; max: number }[] = [
-  { id: 'all', label: 'Any Price', min: 0, max: Infinity },
-  { id: 'under10', label: 'Under $10', min: 0, max: 10 },
-  { id: '10-20', label: '$10 – $20', min: 10, max: 20 },
-  { id: '20-30', label: '$20 – $30', min: 20, max: 30 },
-  { id: '30-50', label: '$30 – $50', min: 30, max: 50 },
-  { id: '50+', label: '$50+', min: 50, max: Infinity },
-];
-
 const SORT_OPTIONS: { id: SortOption; label: string }[] = [
   { id: 'deal_score', label: 'Best Deal (Curated)' },
   { id: 'price_asc', label: 'Price: Low to High' },
@@ -87,11 +78,6 @@ function getWeightOptions(selectedCategories: Category[]): { id: string; label: 
   return options;
 }
 
-export function getPriceRangeBounds(rangeId: string): { min: number; max: number } {
-  const range = PRICE_RANGES.find((r) => r.id === rangeId);
-  return range ? { min: range.min, max: range.max } : { min: 0, max: Infinity };
-}
-
 type LocationPromptState = 'hidden' | 'choose' | 'requesting' | 'zip';
 
 interface FilterSheetProps {
@@ -141,8 +127,6 @@ export function FilterSheet({
   const activeFilterCount = externalActiveCount ?? [
     filters.categories.length > 0,
     filters.dispensaryIds.length > 0,
-    filters.priceRange !== 'all',
-    filters.minDiscount > 0,
     filters.distanceRange !== 'all',
     filters.weightFilters.length > 0,
   ].filter(Boolean).length;
@@ -365,26 +349,6 @@ export function FilterSheet({
                       <X className="w-3 h-3" />
                     </button>
                   ))}
-                  {filters.priceRange !== 'all' && (
-                    <button
-                      onClick={() => onFiltersChange({ ...filters, priceRange: 'all', quickFilter: 'none' })}
-                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-medium"
-                      aria-label="Remove price filter"
-                    >
-                      {PRICE_RANGES.find(r => r.id === filters.priceRange)?.label}
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-                  {filters.minDiscount > 0 && (
-                    <button
-                      onClick={() => onFiltersChange({ ...filters, minDiscount: 0, quickFilter: 'none' })}
-                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-amber-500/15 text-amber-400 text-xs font-medium"
-                      aria-label="Remove discount filter"
-                    >
-                      {filters.minDiscount}%+ off
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
                   {filters.distanceRange !== 'all' && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, distanceRange: 'all', quickFilter: 'none' })}
@@ -542,6 +506,45 @@ export function FilterSheet({
                       )}
                     </div>
                   )}
+              </section>
+
+              {/* Weight / Size — multi-select */}
+              <section>
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                  Size / Weight
+                  {filters.weightFilters.length > 0 && (
+                    <button
+                      onClick={() => onFiltersChange({ ...filters, weightFilters: [] })}
+                      className="ml-2 text-[10px] text-cyan-400/60 hover:text-cyan-400 normal-case font-normal"
+                    >
+                      clear
+                    </button>
+                  )}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {weightOptions.filter(o => o.id !== 'all').map((opt) => {
+                    const isSelected = filters.weightFilters.includes(opt.id);
+                    return (
+                    <button
+                      key={opt.id}
+                      onClick={() => {
+                        const next = isSelected
+                          ? filters.weightFilters.filter(w => w !== opt.id)
+                          : [...filters.weightFilters, opt.id];
+                        onFiltersChange({ ...filters, weightFilters: next });
+                        if (next.length > 0) trackEvent('filter_change', undefined, { weights: next.join(',') });
+                      }}
+                      className={`px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all ${
+                        isSelected
+                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                          : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                    );
+                  })}
+                </div>
               </section>
 
               {/* Location & Dispensary (collapsible) */}
@@ -722,85 +725,6 @@ export function FilterSheet({
                     </div>
                   </div>
                 )}
-              </section>
-
-              {/* Price Range */}
-              <section>
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Price Range</h3>
-                <div className="flex flex-wrap gap-2">
-                  {PRICE_RANGES.map((range) => (
-                    <button
-                      key={range.id}
-                      onClick={() => onFiltersChange({ ...filters, priceRange: range.id, quickFilter: 'none' })}
-                      className={`px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all ${
-                        filters.priceRange === range.id
-                          ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                          : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
-                      }`}
-                    >
-                      {range.label}
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              {/* Weight / Size — multi-select */}
-              <section>
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                  Size / Weight
-                  {filters.weightFilters.length > 0 && (
-                    <button
-                      onClick={() => onFiltersChange({ ...filters, weightFilters: [] })}
-                      className="ml-2 text-[10px] text-cyan-400/60 hover:text-cyan-400 normal-case font-normal"
-                    >
-                      clear
-                    </button>
-                  )}
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {weightOptions.filter(o => o.id !== 'all').map((opt) => {
-                    const isSelected = filters.weightFilters.includes(opt.id);
-                    return (
-                    <button
-                      key={opt.id}
-                      onClick={() => {
-                        const next = isSelected
-                          ? filters.weightFilters.filter(w => w !== opt.id)
-                          : [...filters.weightFilters, opt.id];
-                        onFiltersChange({ ...filters, weightFilters: next });
-                        if (next.length > 0) trackEvent('filter_change', undefined, { weights: next.join(',') });
-                      }}
-                      className={`px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all ${
-                        isSelected
-                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                          : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                    );
-                  })}
-                </div>
-              </section>
-
-              {/* Min Discount (least used — at bottom) */}
-              <section>
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                  Min Discount: {filters.minDiscount > 0 ? `${filters.minDiscount}%+` : 'Any'}
-                </h3>
-                <input
-                  type="range"
-                  min={0}
-                  max={70}
-                  step={5}
-                  value={filters.minDiscount}
-                  onChange={(e) => onFiltersChange({ ...filters, minDiscount: Number(e.target.value), quickFilter: 'none' })}
-                  className="w-full accent-purple-500"
-                />
-                <div className="flex justify-between text-[11px] text-slate-500 mt-1">
-                  <span>Any</span>
-                  <span>70%+</span>
-                </div>
               </section>
             </div>
 

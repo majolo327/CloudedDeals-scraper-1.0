@@ -248,19 +248,9 @@ export function SearchPage({
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [baseFilteredDeals, baseCategoryExtendedDeals]);
 
-  // ---- Final results with dispensary filter + universal price/discount/distance filters ----
+  // ---- Final results with dispensary filter + universal weight/distance filters ----
   const filteredDeals = useMemo(() => {
     let result = activeDispensary === 'all' ? baseFilteredDeals : baseFilteredDeals.filter((d) => d.dispensary.id === activeDispensary);
-    // Apply universal price filter
-    if (universalFilters.priceRange !== 'all') {
-      const bounds = { under10: { min: 0, max: 10 }, '10-20': { min: 10, max: 20 }, '20-30': { min: 20, max: 30 }, '30-50': { min: 30, max: 50 }, '50+': { min: 50, max: Infinity } }[universalFilters.priceRange] ?? { min: 0, max: Infinity };
-      if (bounds.min > 0) result = result.filter(d => d.deal_price >= bounds.min);
-      if (bounds.max < Infinity) result = result.filter(d => d.deal_price <= bounds.max);
-    }
-    // Apply universal min discount
-    if (universalFilters.minDiscount > 0) {
-      result = result.filter(d => d.original_price ? ((d.original_price - d.deal_price) / d.original_price) * 100 >= universalFilters.minDiscount : false);
-    }
     // Apply weight filter
     if (universalFilters.weightFilters.length > 0) {
       const hasDisposable = universalFilters.weightFilters.includes('disposable');
@@ -291,14 +281,6 @@ export function SearchPage({
   const filteredExtendedDeals = useMemo(() => {
     let result = activeDispensary === 'all' ? baseCategoryExtendedDeals : baseCategoryExtendedDeals.filter((d) => d.dispensary.id === activeDispensary);
     // Apply same universal filters
-    if (universalFilters.priceRange !== 'all') {
-      const bounds = { under10: { min: 0, max: 10 }, '10-20': { min: 10, max: 20 }, '20-30': { min: 20, max: 30 }, '30-50': { min: 30, max: 50 }, '50+': { min: 50, max: Infinity } }[universalFilters.priceRange] ?? { min: 0, max: Infinity };
-      if (bounds.min > 0) result = result.filter(d => d.deal_price >= bounds.min);
-      if (bounds.max < Infinity) result = result.filter(d => d.deal_price <= bounds.max);
-    }
-    if (universalFilters.minDiscount > 0) {
-      result = result.filter(d => d.original_price ? ((d.original_price - d.deal_price) / d.original_price) * 100 >= universalFilters.minDiscount : false);
-    }
     if (universalFilters.weightFilters.length > 0) {
       const hasDisposable = universalFilters.weightFilters.includes('disposable');
       const weightOnly = universalFilters.weightFilters.filter(w => w !== 'disposable');

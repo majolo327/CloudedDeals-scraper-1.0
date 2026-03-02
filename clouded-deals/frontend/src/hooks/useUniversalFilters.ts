@@ -11,13 +11,11 @@ import { trackEvent } from '@/lib/analytics';
 
 export type SortOption = 'deal_score' | 'price_asc' | 'price_desc' | 'discount' | 'distance';
 export type DistanceRange = 'all' | 'near' | 'nearby' | 'across_town';
-export type QuickFilter = 'none' | 'near_me' | 'big_discount';
+export type QuickFilter = 'none' | 'near_me';
 
 export interface UniversalFilterState {
   categories: Category[];
   dispensaryIds: string[];
-  priceRange: string;
-  minDiscount: number;
   sortBy: SortOption;
   distanceRange: DistanceRange;
   quickFilter: QuickFilter;
@@ -27,8 +25,6 @@ export interface UniversalFilterState {
 export const DEFAULT_UNIVERSAL_FILTERS: UniversalFilterState = {
   categories: [],
   dispensaryIds: [],
-  priceRange: 'all',
-  minDiscount: 0,
   sortBy: 'deal_score',
   distanceRange: 'all',
   quickFilter: 'none',
@@ -157,8 +153,6 @@ export function useUniversalFilters() {
     return [
       filters.categories.length > 0,
       filters.dispensaryIds.length > 0,
-      filters.priceRange !== 'all',
-      filters.minDiscount > 0,
       filters.distanceRange !== 'all',
       filters.quickFilter !== 'none',
       filters.weightFilters.length > 0,
@@ -197,7 +191,7 @@ export function useUniversalFilters() {
   const applyQuickFilter = useCallback((qf: QuickFilter) => {
     if (qf === filters.quickFilter) {
       // Toggle off
-      setFiltersRaw(prev => ({ ...prev, quickFilter: 'none', distanceRange: 'all', minDiscount: 0 }));
+      setFiltersRaw(prev => ({ ...prev, quickFilter: 'none', distanceRange: 'all' }));
     } else if (qf === 'near_me') {
       setFiltersRaw(prev => ({
         ...prev,
@@ -206,14 +200,6 @@ export function useUniversalFilters() {
         sortBy: 'distance',
       }));
       trackEvent('filter_change', undefined, { quick_filter: 'near_me' });
-    } else if (qf === 'big_discount') {
-      setFiltersRaw(prev => ({
-        ...prev,
-        quickFilter: 'big_discount',
-        minDiscount: 20,
-        distanceRange: 'all',
-      }));
-      trackEvent('filter_change', undefined, { quick_filter: 'big_discount' });
     }
   }, [filters.quickFilter]);
 
@@ -238,22 +224,6 @@ export function useUniversalFilters() {
     // Dispensary filter
     if (filters.dispensaryIds.length > 0) {
       result = result.filter(d => filters.dispensaryIds.includes(d.dispensary.id));
-    }
-
-    // Price range
-    if (filters.priceRange !== 'all') {
-      const bounds = getPriceRangeBounds(filters.priceRange);
-      if (bounds.min > 0) result = result.filter(d => d.deal_price >= bounds.min);
-      if (bounds.max < Infinity) result = result.filter(d => d.deal_price <= bounds.max);
-    }
-
-    // Min discount
-    if (filters.minDiscount > 0) {
-      result = result.filter(d => {
-        if (!d.original_price) return false;
-        const discount = ((d.original_price - d.deal_price) / d.original_price) * 100;
-        return discount >= filters.minDiscount;
-      });
     }
 
     // Weight filter — multi-select (match ANY selected weight or subtype)
@@ -322,18 +292,3 @@ export function useUniversalFilters() {
   };
 }
 
-// ---- Price range helper (shared with FilterSheet) ----
-
-const PRICE_RANGES: { id: string; min: number; max: number }[] = [
-  { id: 'all', min: 0, max: Infinity },
-  { id: 'under10', min: 0, max: 10 },
-  { id: '10-20', min: 10, max: 20 },
-  { id: '20-30', min: 20, max: 30 },
-  { id: '30-50', min: 30, max: 50 },
-  { id: '50+', min: 50, max: Infinity },
-];
-
-function getPriceRangeBounds(rangeId: string): { min: number; max: number } {
-  const range = PRICE_RANGES.find((r) => r.id === rangeId);
-  return range ? { min: range.min, max: range.max } : { min: 0, max: Infinity };
-}
