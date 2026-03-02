@@ -163,7 +163,7 @@ export interface TweetResult {
 }
 
 const MAX_ATTEMPTS = 3;
-const RETRY_DELAYS = [1000, 1500]; // ms between retries — keeps total <10s for Netlify
+const RETRY_DELAYS = [2000, 4000]; // ms between retries — 2s then 4s (fits within 26s Netlify timeout)
 const RETRYABLE_STATUSES = new Set([500, 502, 503, 504]);
 
 export async function postTweet(text: string): Promise<TweetResult> {
