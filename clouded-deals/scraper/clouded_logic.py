@@ -409,6 +409,10 @@ _BRAND_VARIATION_MAP: dict[str, str] = {
     'and shine': '&Shine',
     # "The Lab" brand — dispensaries sometimes list as just "Lab"
     'lab': 'The Lab',
+    # Nevada abbreviation brands — menus use the abbreviation, not full name
+    'alternative medicine association': 'AMA',
+    'alternative medical association': 'AMA',
+    'high sierra holistics': 'HSH',
 }
 
 def _variation_pattern(var: str) -> re.Pattern:
@@ -1150,13 +1154,23 @@ class CloudedLogic:
                 start_bonus = 100 if pos < 3 else (50 if pos < 10 else 0)
                 found_brands.append((brand, len(brand) + start_bonus))
 
+        # Also check brand variation patterns (full names, misspellings).
+        # These compete with exact brand matches using the same scoring
+        # so that "Alternative Medical Association" (→ AMA, 35 chars)
+        # outscores "Runtz" (5 chars) when both appear in the same text.
+        seen_canonicals = {b for b, _ in found_brands}
+        for var_pat, canonical in _VARIATION_PATTERNS:
+            if canonical in blocked_brands or canonical in seen_canonicals:
+                continue
+            m = var_pat.search(text)
+            if m:
+                pos = m.start()
+                start_bonus = 100 if pos < 3 else (50 if pos < 10 else 0)
+                # Use the variation string length for scoring (longer = better)
+                found_brands.append((canonical, len(m.group(0).strip()) + start_bonus))
+                seen_canonicals.add(canonical)
+
         if not found_brands:
-            # Fallback: try brand variation patterns (misspellings, alternate forms)
-            for var_pat, canonical in _VARIATION_PATTERNS:
-                if canonical in blocked_brands:
-                    continue
-                if var_pat.search(text):
-                    return canonical
             return None
 
         # Return best match (longest + position-weighted), resolved through aliases
