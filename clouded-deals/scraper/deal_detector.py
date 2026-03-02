@@ -651,8 +651,16 @@ def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> b
             wv = float(weight_value) if weight_value else 0
         except (ValueError, TypeError):
             wv = 0
-        # ≤0.6g → half-gram cap; >0.6g → full-gram cap
-        cap = caps.get("1", 0) if wv > 0.6 else caps.get("0.5", 0)
+        # ≤0.6g → half-gram cap; >0.6g → full-gram cap.
+        # For disposables with unknown weight (wv=0), use the more permissive
+        # full-gram cap — the $15 half-gram cap is too tight as a fallback
+        # and silently kills most disposable vapes without weight in the name.
+        if wv > 0.6:
+            cap = caps.get("1", 0)
+        elif wv == 0 and subtype == "disposable":
+            cap = caps.get("1", 0)
+        else:
+            cap = caps.get("0.5", 0)
         if cap and sale_price > cap:
             return False
 

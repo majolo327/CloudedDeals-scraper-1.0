@@ -346,6 +346,29 @@ class TestPassesHardFilters:
                          discount_percent=50, weight_value=0.5)
         assert passes_hard_filters(p) is False
 
+    def test_disposable_no_weight_uses_permissive_cap(self, make_product):
+        """Disposable with no weight detected uses the $25 full-gram cap,
+        not the $15 half-gram cap — most unweighted disposables are 1g."""
+        p = make_product(category="vape", product_subtype="disposable",
+                         sale_price=22.0, original_price=44.0,
+                         discount_percent=50, weight_value=None)
+        assert passes_hard_filters(p) is True
+
+    def test_disposable_no_weight_over_full_gram_cap_rejected(self, make_product):
+        """Disposable with no weight still rejects above the $25 cap."""
+        p = make_product(category="vape", product_subtype="disposable",
+                         sale_price=27.0, original_price=54.0,
+                         discount_percent=50, weight_value=None)
+        assert passes_hard_filters(p) is False
+
+    def test_cart_no_weight_uses_conservative_cap(self, make_product):
+        """Cartridges with no weight still use the conservative $25 half-gram cap
+        (only disposables get the permissive fallback)."""
+        p = make_product(category="vape", product_subtype="cartridge",
+                         sale_price=26.0, original_price=52.0,
+                         discount_percent=50, weight_value=None)
+        assert passes_hard_filters(p) is False
+
     def test_cart_1g_at_cap_passes(self, make_product):
         """$35 for a 1g cartridge is at the cap — passes."""
         p = make_product(category="vape", product_subtype="cartridge",
