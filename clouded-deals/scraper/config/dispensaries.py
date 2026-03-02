@@ -1491,7 +1491,7 @@ DISPENSARIES = [
     {"name": "3C Joliet IL", "slug": "3c-joliet", "platform": "jane", "url": "https://www.3ccannabis.com/joliet-menu", "is_active": True, "region": "illinois"},
 
     # ── MAPLEGLEN CARE CENTER IL (Jane) ─────────────────────────────
-    {"name": "Mapleglen Rockford IL", "slug": "mapleglen-rockford", "platform": "jane", "url": "https://mapleglencannabis.com/rockford-rec", "is_active": True, "region": "illinois"},
+    {"name": "Mapleglen Rockford IL", "slug": "mapleglen-rockford", "platform": "jane", "url": "https://mapleglencannabis.com/rockford-rec", "is_active": False, "region": "illinois"},  # DNS dead — domain no longer resolves (Mar 2026)
 
     # ── OTHER IL DUTCHIE/JANE ADDITIONS ─────────────────────────────
     {"name": "MedMen Oak Park IL", "slug": "medmen-oak-park", "platform": "dutchie", "url": "https://dutchie.com/dispensary/medmen-oak-park", "is_active": False, "region": "illinois"},  # closed — now Dutchess Cannabis

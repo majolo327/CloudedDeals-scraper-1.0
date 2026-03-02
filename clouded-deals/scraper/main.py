@@ -1578,7 +1578,7 @@ async def scrape_site(
             # Success — return immediately
             return result
         except asyncio.TimeoutError:
-            logger.error("[%s] Timed out after %ds (attempt %d)", slug, timeout, attempt)
+            logger.warning("[%s] Timed out after %ds (attempt %d)", slug, timeout, attempt)
             if attempt < _MAX_RETRIES:
                 delay = _RETRY_DELAYS[min(attempt - 1, len(_RETRY_DELAYS) - 1)]
                 logger.info("[%s] Retrying in %ds...", slug, delay)
