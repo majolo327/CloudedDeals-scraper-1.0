@@ -6,6 +6,16 @@
 [build.environment]
   NODE_VERSION = "22"
 
+# Extend serverless function timeout from default 10s to 26s.
+# The auto-post route needs time for: Supabase query (~3s) + Twitter API
+# with up to 3 retries (~10s worst case) + overhead.
+[functions]
+  external_node_modules = ["@netlify/plugin-nextjs"]
+  node_bundler = "esbuild"
+
+[functions."*"]
+  timeout = 26
+
 # Next.js requires the Netlify Next.js runtime plugin.
 # Install @netlify/plugin-nextjs as a dev dependency or add it here.
 [[plugins]]
