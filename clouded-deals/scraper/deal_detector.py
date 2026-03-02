@@ -678,7 +678,15 @@ def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> b
         return _passes_price_cap(sale_price, category, weight_value, region)
 
     # --- Standard filters (non-Jane platforms) ---
-    min_disc = CATEGORY_MIN_DISCOUNT.get(category, HARD_FILTERS["min_discount_percent"])
+    # Budget edibles and prerolls under $10 sale price are genuine deals
+    # that consumers actively seek.  A $5 edible marked from $6 is only
+    # 17%, and a $9 edible from $10 is 10% — below the normal 12% floor.
+    # At these price points the absolute price IS the value proposition,
+    # so we only require *any* discount (>0%) instead of the full minimum.
+    if category in ("edible", "preroll") and sale_price <= 10:
+        min_disc = 1
+    else:
+        min_disc = CATEGORY_MIN_DISCOUNT.get(category, HARD_FILTERS["min_discount_percent"])
     if discount is None or discount < min_disc:
         return False
     if discount > HARD_FILTERS["max_discount_percent"]:

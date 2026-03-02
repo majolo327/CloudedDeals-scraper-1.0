@@ -178,6 +178,46 @@ class TestPassesHardFilters:
                          discount_percent=50)
         assert passes_hard_filters(p) is False
 
+    # ── Budget edible/preroll discount bypass ───────────────────────
+    # Edibles and prerolls under $10 only need *any* discount (>0%)
+    # instead of the normal 12% floor — absolute price IS the value.
+
+    def test_budget_edible_low_discount_passes(self, make_product):
+        """$9 edible from $10 = 10% — below 12% floor but budget bypass lets it through."""
+        p = make_product(category="edible", sale_price=9.0, original_price=10.0,
+                         discount_percent=10)
+        assert passes_hard_filters(p) is True
+
+    def test_budget_edible_5_dollar_passes(self, make_product):
+        """$5 edible from $6 = 17% — classic budget deal, easily passes."""
+        p = make_product(category="edible", sale_price=5.0, original_price=6.0,
+                         discount_percent=17)
+        assert passes_hard_filters(p) is True
+
+    def test_budget_edible_tiny_discount_passes(self, make_product):
+        """$8 edible from $8.50 = 6% — still passes with budget bypass."""
+        p = make_product(category="edible", sale_price=8.0, original_price=8.50,
+                         discount_percent=6)
+        assert passes_hard_filters(p) is True
+
+    def test_budget_edible_zero_discount_rejected(self, make_product):
+        """$9 edible with 0% discount still rejected — need *some* markdown."""
+        p = make_product(category="edible", sale_price=9.0, original_price=9.0,
+                         discount_percent=0)
+        assert passes_hard_filters(p) is False
+
+    def test_non_budget_edible_needs_12pct(self, make_product):
+        """$12 edible at 10% — above $10 threshold, normal 12% floor applies."""
+        p = make_product(category="edible", sale_price=12.0, original_price=13.33,
+                         discount_percent=10)
+        assert passes_hard_filters(p) is False
+
+    def test_budget_preroll_low_discount_passes(self, make_product):
+        """$5 preroll from $5.50 = 9% — budget bypass applies to prerolls too."""
+        p = make_product(category="preroll", sale_price=5.0, original_price=5.50,
+                         discount_percent=9)
+        assert passes_hard_filters(p) is True
+
     def test_concentrate_at_cap(self, make_product):
         """Concentrate 1g cap is now $25 (tightened from $45)."""
         p = make_product(category="concentrate", sale_price=25.0, original_price=50.0,
