@@ -1,7 +1,7 @@
 # Dashboard KPI Audit & Enhancement Plan
 
-**Date:** 2026-02-20 (reviewed 2026-02-25)
-**Status:** Proposed — awaiting approval before implementation
+**Date:** 2026-02-20 (reviewed 2026-02-25, P0 implemented 2026-03-02)
+**Status:** P0 implemented — shard fix, per-state KPI table, analytics cohort fix
 
 ---
 
@@ -190,11 +190,37 @@ Full reference with:
 
 ## Implementation Priority
 
-| Phase | Effort | Impact | Items |
-|-------|--------|--------|-------|
-| **P0** | ~2-3 hours | Critical — fixes broken data | #1, #2, #3 |
-| **P1** | ~1-2 hours | High — prevents confusion | #4, #5 |
-| **P2** | ~4-6 hours | High — fundraising readiness | #6, #7, #8 |
-| **P3** | ~3-4 hours | Medium — self-service clarity | #9, #10, #11 |
+| Phase | Effort | Impact | Items | Status |
+|-------|--------|--------|-------|--------|
+| **P0** | ~2-3 hours | Critical — fixes broken data | #1, #2, #3 | **DONE** |
+| **P1** | ~1-2 hours | High — prevents confusion | #4, #5 | Pending |
+| **P2** | ~4-6 hours | High — fundraising readiness | #6, #7, #8 | Partial (KPI table done) |
+| **P3** | ~3-4 hours | Medium — self-service clarity | #9, #10, #11 | Pending |
 
 **Recommended order:** P0 → P1 → P2 → P3
+
+---
+
+## ADDITIONAL BUGS FOUND (2026-03-02)
+
+### BUG: Supabase 1,000-Row Default Limit Truncates Data
+
+Supabase JS client returns max 1,000 rows when no `.limit()` is specified. This silently truncates data in three places:
+
+| Location | Impact | Fix |
+|----------|--------|-----|
+| `scraper/page.tsx:102-105` | Dispensary count capped at 1,000 (should be 2,093) — explains the 2K vs 1K discrepancy between Dashboard and Scraper pages | Added `.limit(5000)` |
+| `useAnalytics.ts:212-216` | Analytics events in range capped at 1,000 oldest | Added `.limit(50000)` |
+| `useAnalytics.ts:234-238` | 30-day events for retention cohorts capped at 1,000 oldest — **weekly unique user cohort stops updating** because only oldest events are returned | Added `.limit(50000)` |
+
+### P0 Implementation Summary (2026-03-02)
+
+**Files modified:**
+- `frontend/src/app/admin/scraper/page.tsx` — Fixed shard filtering (lines 123, 338), 1K row cap, region badge resolution
+- `frontend/src/app/admin/page.tsx` — Added per-state KPI table with time window toggle, fixed RegionBadge for shards, replaced stat cards
+- `frontend/src/hooks/useAnalytics.ts` — Fixed 1K row cap on analytics events queries (fixes cohort issue)
+
+**New files:**
+- `supabase/migrations/037_region_kpi_functions.sql` — `get_region_unique_products(window_days)` and `get_region_site_coverage()` RPC functions
+
+**Migration required:** Run `037_region_kpi_functions.sql` against Supabase before the dashboard will show per-state data.

@@ -313,12 +313,13 @@ export function useAnalytics(range: DateRange = '7d') {
         mauEventsRes,
         rpcKpis,
       ] = await Promise.all([
-        // All events in selected range
+        // All events in selected range (override Supabase default 1000-row limit)
         supabase
           .from('analytics_events')
           .select('anon_id, event_name, properties, created_at')
           .gte('created_at', rangeStart)
-          .order('created_at', { ascending: true }),
+          .order('created_at', { ascending: true })
+          .limit(50000),
         // Recent events for live stream
         supabase
           .from('analytics_events')
@@ -340,7 +341,8 @@ export function useAnalytics(range: DateRange = '7d') {
           .from('analytics_events')
           .select('anon_id, event_name, created_at')
           .gte('created_at', mauStart)
-          .order('created_at', { ascending: true }),
+          .order('created_at', { ascending: true })
+          .limit(50000),
         // Server-side KPIs (fires in parallel, returns null if unavailable)
         rpcPromise,
       ]);
