@@ -332,6 +332,15 @@ class TestDetectBrand:
     def test_and_shine_variation_space(self):
         assert detect_brand("& Shine Live Resin 1g") == "&Shine"
 
+    def test_variation_alternative_medicine_association(self):
+        assert detect_brand("Alternative Medicine Association Cured Resin") == "AMA"
+
+    def test_variation_alternative_medical_association(self):
+        assert detect_brand("Alternative Medical Association Runtz") == "AMA"
+
+    def test_variation_high_sierra_holistics(self):
+        assert detect_brand("High Sierra Holistics Grape Zkittlez") == "HSH"
+
     def test_no_brand(self):
         assert detect_brand("Random Unknown Product") is None
 

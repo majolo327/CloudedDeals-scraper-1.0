@@ -568,6 +568,8 @@ BRAND_VARIATIONS: dict[str, list[str]] = {
     "Tyson 2.0": ["Tyson", "Mike Tyson"],
     "Khalifa Kush": ["KK", "Wiz Khalifa"],
     "&Shine": ["& Shine", "And Shine"],
+    "AMA": ["Alternative Medicine Association", "Alternative Medical Association"],
+    "HSH": ["High Sierra Holistics"],
 }
 
 # Pre-compile a single pattern for speed (case-insensitive) with word boundaries
@@ -600,35 +602,42 @@ _RE_VARIATION = re.compile(
 
 
 def detect_brand(text: str) -> str | None:
-    """Return the first known brand found in *text*, or ``None``.
+    """Return the best known brand found in *text*, or ``None``.
 
-    Checks exact brand names first, then falls back to known
-    brand-name variations (fuzzy matching).  Matches against
-    ``NOT_BRANDS`` are silently discarded to prevent generic words
-    (colours, product types, promo terms) from being treated as brands.
+    Checks both exact brand names and brand-name variations, and
+    returns the longest match (which is most specific).  This ensures
+    that "Alternative Medical Association" (→ AMA) wins over "Runtz"
+    when both appear in the same text.
 
     >>> detect_brand("STIIIZY Premium Pod 1g")
     'STIIIZY'
     >>> detect_brand("no brand here")
     """
+    best_brand: str | None = None
+    best_len = 0
+
     # Strategy 1: exact match against canonical brand names.
     m = _RE_BRAND.search(text)
     if m:
-        # Strip leading whitespace from (?:^|\s) groups used by
-        # non-word-char brands like "&Shine".
         matched = m.group(0).strip()
         for brand in KNOWN_BRANDS:
             if brand.lower() == matched.lower():
-                return brand
-        return matched
+                best_brand = brand
+                best_len = len(matched)
+                break
+        if best_brand is None:
+            best_brand = matched
+            best_len = len(matched)
 
-    # Strategy 2: check brand variations.
+    # Strategy 2: check brand variations — compete with exact match.
     if _RE_VARIATION is not None:
         m = _RE_VARIATION.search(text)
         if m:
-            return _VARIATION_TO_CANONICAL[m.group(0).strip().lower()]
+            var_text = m.group(0).strip()
+            if len(var_text) > best_len:
+                best_brand = _VARIATION_TO_CANONICAL[var_text.lower()]
 
-    return None
+    return best_brand
 
 
 # =====================================================================

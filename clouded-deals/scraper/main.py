@@ -352,6 +352,9 @@ _BRAND_ABBREVIATIONS: dict[str, list[str]] = {
     "Vlasic Labs": ["Vlasic"],
     "Tyson 2.0": ["Tyson"],
     "Tsunami Labs": ["Tsunami"],
+    # NV abbreviation brands — full names appear in product text
+    "AMA": ["Alternative Medicine Association", "Alternative Medical Association"],
+    "HSH": ["High Sierra Holistics"],
 }
 
 # Weight prefix patterns: "3.5g |", "1g |", ".5g |"
@@ -567,6 +570,32 @@ def _extract_brand_from_url(url: str) -> str | None:
             or f"-{brand_lower.replace(' ', '-')}-" in search_text
         ):
             return canonical
+    return None
+
+
+def _detect_brand_from_raw_text_lines(
+    raw_text: str, current_brand: str | None, logic,
+) -> str | None:
+    """Check raw_text lines for a standalone brand label.
+
+    Returns a brand if found on its own line in raw_text AND it differs
+    from *current_brand*.  This catches DOM structures where the brand is
+    a separate element (e.g. ``<span>AMA</span>``) distinct from the
+    product name heading.  Only matches lines where the ENTIRE line
+    (after stripping punctuation) equals a known brand name.
+    """
+    if not raw_text:
+        return None
+    current_lower = current_brand.lower() if current_brand else ""
+    for line in raw_text.split("\n"):
+        candidate = line.strip().strip(".,;:-|")
+        if not candidate or len(candidate) > 30:
+            continue
+        if candidate.lower() == current_lower:
+            continue
+        detected = logic.detect_brand(candidate)
+        if detected and detected.lower() != current_lower and candidate.lower() == detected.lower():
+            return detected
     return None
 
 
@@ -1167,7 +1196,7 @@ async def _scrape_site_inner(
         stripped_raw = _strip_offer_text(raw_text)
         clean_text = f"{raw_name} {stripped_raw}"
 
-        # Brand priority: scraped element > URL > product name > clean text
+        # Brand priority: scraped element > URL > raw_text label > product name > clean text
         # Some scrapers (Dutchie) extract brand from a dedicated card element
         # (e.g. "ROVE" label above the product title) — highest confidence.
         scraped_brand = rp.get("scraped_brand", "")
@@ -1176,9 +1205,29 @@ async def _scrape_site_inner(
             product_url = rp.get("product_url", "")
             brand = _extract_brand_from_url(product_url)
         if not brand:
+            # Check for a standalone brand label in raw_text lines FIRST.
+            # Many platforms (Carrot/ShowGrow) put the brand in a separate
+            # DOM element (<span>AMA</span>) — the full line equals the
+            # brand name.  This is higher-confidence than name-based
+            # detection because it avoids brand/strain confusion (e.g.
+            # "Runtz" is a strain in "AMA Runtz Cured Resin", not the
+            # Runtz brand).
+            label_brand = _detect_brand_from_raw_text_lines(raw_text, None, logic)
+            if label_brand:
+                brand = label_brand
+        if not brand:
             brand = logic.detect_brand(raw_name)
         if not brand:
             brand = logic.detect_brand(clean_text)
+        # Brand conflict resolution: if brand was detected from the product
+        # name and a DIFFERENT brand appears as a standalone label in the
+        # raw_text, prefer the raw_text brand.  This handles the case where
+        # the product name starts with a strain that's also a brand name
+        # (e.g. "Runtz Cured Resin" where Runtz is a strain sold by AMA).
+        if brand and not scraped_brand:
+            label_brand = _detect_brand_from_raw_text_lines(raw_text, brand, logic)
+            if label_brand:
+                brand = label_brand
 
         # Track unmatched brands for data enrichment metrics
         if not brand:
@@ -1386,8 +1435,20 @@ async def _scrape_site_inner(
         # 12. Strip THC:CBD ratio text: "2:1", "[THC:CBN]"
         display_name = _RE_RATIO_BRACKET.sub("", display_name).strip()
 
+        # 13. Strip inline strain-type indicators: "I/H", "I/S", "S/H",
+        # "(I/H)", standalone "I", "S", "H" at end of name.  These are
+        # abbreviations for Indica/Sativa/Hybrid that leak from product
+        # card DOM elements (common on Carrot/ShowGrow menus).
+        display_name = re.sub(
+            r"\s*\(?\s*[ISH]\s*/\s*[ISH]\s*\)?\s*", " ",
+            display_name,
+        ).strip()
+
+        # 14. Strip empty parentheses "()" left after weight/content stripping
+        display_name = re.sub(r"\s*\(\s*\)\s*", " ", display_name).strip()
+
         display_name = re.sub(r"\s{2,}", " ", display_name).strip()
-        display_name = display_name.strip(" -–—|") or raw_name or "Unknown"
+        display_name = display_name.strip(" -–—|/") or raw_name or "Unknown"
 
         # Run product classifier early so category corrections (e.g.
         # "All-In-One" reclassified from concentrate → vape) are applied

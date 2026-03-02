@@ -494,6 +494,28 @@ class TestDetectBrand:
         """'PACKS' at start of text IS the PACKS brand."""
         assert logic.detect_brand("PACKS Premium Pre-Roll 1g") == "PACKS"
 
+    # ---- AMA / HSH brand variation detection ----
+
+    def test_ama_abbreviation_detected(self, logic):
+        """'AMA' abbreviation is detected as brand."""
+        assert logic.detect_brand("AMA Gary Peyton Live Resin 1.0g") == "AMA"
+
+    def test_alternative_medicine_association_maps_to_ama(self, logic):
+        """Full name 'Alternative Medicine Association' resolves to 'AMA'."""
+        assert logic.detect_brand("Alternative Medicine Association Cured Resin") == "AMA"
+
+    def test_alternative_medical_association_maps_to_ama(self, logic):
+        """Alternate spelling 'Alternative Medical Association' resolves to 'AMA'."""
+        assert logic.detect_brand("Alternative Medical Association Runtz 0.5g") == "AMA"
+
+    def test_hsh_abbreviation_detected(self, logic):
+        """'HSH' abbreviation is detected as brand."""
+        assert logic.detect_brand("HSH Grape Zkittlez OG") == "HSH"
+
+    def test_high_sierra_holistics_maps_to_hsh(self, logic):
+        """Full name 'High Sierra Holistics' resolves to 'HSH'."""
+        assert logic.detect_brand("High Sierra Holistics Purple Crunch") == "HSH"
+
 
 # =====================================================================
 # Category detection — concentrate with fractional oz weight
