@@ -361,22 +361,9 @@ export function SearchPage({
         </div>
       </div>
 
-      {/* Category Filters + Advanced Filter Button */}
+      {/* Filter Button + Category Filters */}
       <div className="mb-5 sm:mb-6 -mx-3 sm:-mx-4 px-3 sm:px-4 overflow-x-auto scrollbar-hide">
         <div className="flex items-center gap-2 pb-2">
-          {CATEGORY_FILTERS.map((filter) => (
-            <button
-              key={filter.id}
-              onClick={() => handleCategoryFilter(filter.id as FilterCategory)}
-              className={`shrink-0 px-3.5 sm:px-4 py-2 min-h-[44px] rounded-full text-sm font-medium transition-all duration-200 ${
-                activeCategory === filter.id
-                  ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/25'
-                  : 'bg-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700'
-              }`}
-            >
-              {filter.label}
-            </button>
-          ))}
           <div className="shrink-0">
             <FilterSheet
               filters={universalFilters}
@@ -387,6 +374,19 @@ export function SearchPage({
               activeFilterCount={activeFilterCount}
             />
           </div>
+          {CATEGORY_FILTERS.map((filter) => (
+            <button
+              key={filter.id}
+              onClick={() => handleCategoryFilter(filter.id as FilterCategory)}
+              className={`shrink-0 px-3.5 sm:px-4 py-2 min-h-[44px] rounded-full text-sm font-medium transition-all duration-200 ${
+                activeCategory === filter.id
+                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                  : 'bg-slate-700/50 text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10'
+              }`}
+            >
+              {filter.label}
+            </button>
+          ))}
         </div>
       </div>
 
