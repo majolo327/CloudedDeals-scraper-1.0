@@ -526,9 +526,6 @@ class DutchieScraper(BaseScraper):
             smart_wait_ok = True
         except PlaywrightTimeout:
             logger.warning("[%s] Smart-wait: no Dutchie content after %ds — will try detection anyway", self.slug, smart_wait_ms // 1000)
-        except PlaywrightError:
-            logger.warning("[%s] Smart-wait: page closed — aborting", self.slug)
-            return []
             # Re-check Cloudflare after smart-wait timeout — the page may
             # have been intermittently blocked (not detected on initial load
             # but Cloudflare challenge appeared during JS execution).  Bail
@@ -539,6 +536,9 @@ class DutchieScraper(BaseScraper):
                     return await self._scrape_with_fallback(fallback_url, embed_hint)
                 logger.warning("[%s] Cloudflare appeared during smart-wait — aborting", self.slug)
                 return []
+        except PlaywrightError:
+            logger.warning("[%s] Smart-wait: page closed — aborting", self.slug)
+            return []
 
         # --- Detect Dutchie content using embed_type hint -----------------
         # When we know the embed type (e.g. TD = js_embed), skip the
@@ -755,7 +755,7 @@ class DutchieScraper(BaseScraper):
                     pass
                 except PlaywrightError:
                     logger.warning("[%s] Page closed during inline fallback smart-wait", self.slug)
-                    break
+                    return all_products
 
                 # Auto-detect dutchie.com fallback URLs as "direct" type
                 fb_host = urlparse(fallback_url).netloc
