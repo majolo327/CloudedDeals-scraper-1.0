@@ -114,7 +114,7 @@ export function FilterSheet({
   onLocationSet,
 }: FilterSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [sortOpen, setSortOpen] = useState(true);
+  const [sortOpen, setSortOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationPrompt, setLocationPrompt] = useState<LocationPromptState>('hidden');
   const [zipInput, setZipInput] = useState('');
@@ -296,10 +296,10 @@ export function FilterSheet({
         className={`relative flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium whitespace-nowrap transition-all ${
           activeFilterCount > 0
             ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
-            : 'bg-slate-700/50 text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10'
+            : 'bg-slate-800/70 text-slate-300 hover:text-white border border-slate-600/50 hover:border-purple-500/30'
         }`}
       >
-        <SlidersHorizontal className="w-3.5 h-3.5" />
+        <SlidersHorizontal className="w-4 h-4" />
         {activeFilterCount > 0 ? activeFilterCount : 'Filter'}
       </button>
 
@@ -421,7 +421,31 @@ export function FilterSheet({
 
             {/* Scrollable content */}
             <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain">
-              {/* Sort By (collapsible at top) */}
+              {/* Category — primary filter, shown first */}
+              <section>
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Category</h3>
+                <div className="flex flex-wrap gap-2">
+                  {CATEGORIES.map((cat) => {
+                    const isSelected = filters.categories.includes(cat.id);
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => toggleCategory(cat.id)}
+                        className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all ${
+                          isSelected
+                            ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
+                        }`}
+                      >
+                        <span className="text-sm">{cat.icon}</span>
+                        {cat.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              {/* Sort By (collapsible, collapsed by default) */}
               <section>
                 <button
                   onClick={() => setSortOpen(!sortOpen)}
@@ -518,30 +542,6 @@ export function FilterSheet({
                       )}
                     </div>
                   )}
-              </section>
-
-              {/* Category */}
-              <section>
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Category</h3>
-                <div className="flex flex-wrap gap-2">
-                  {CATEGORIES.map((cat) => {
-                    const isSelected = filters.categories.includes(cat.id);
-                    return (
-                      <button
-                        key={cat.id}
-                        onClick={() => toggleCategory(cat.id)}
-                        className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all ${
-                          isSelected
-                            ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                            : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
-                        }`}
-                      >
-                        <span className="text-sm">{cat.icon}</span>
-                        {cat.label}
-                      </button>
-                    );
-                  })}
-                </div>
               </section>
 
               {/* Location & Dispensary (collapsible) */}
