@@ -3,7 +3,8 @@ name: Auto-Post Deals to Twitter
 run-name: >-
   Tweet — ${{
     github.event_name == 'workflow_dispatch'
-      && (github.event.inputs.test_connection == 'true' && 'connection-test'
+      && (github.event.inputs.diagnose == 'true' && 'diagnose'
+          || github.event.inputs.test_connection == 'true' && 'connection-test'
           || github.event.inputs.dry_run == 'true' && 'dry-run'
           || 'manual')
     || 'scheduled'
@@ -34,6 +35,11 @@ on:
         required: false
         type: boolean
         default: false
+      diagnose:
+        description: "Full diagnostic — test credentials, read endpoint, and report"
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: tweet-deals
@@ -45,25 +51,97 @@ jobs:
     timeout-minutes: 5
 
     steps:
+      # Step 1: Health check — verify Twitter credentials are working
+      # before attempting to tweet. Skip if in test/diagnose-only mode.
+      - name: Pre-flight health check
+        if: >-
+          github.event.inputs.test_connection != 'true'
+          && github.event.inputs.diagnose != 'true'
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+        run: |
+          BASE_URL="${SITE_URL:-https://cloudeddeals.com}"
+
+          echo "=== Pre-flight Health Check ==="
+          echo "Time: $(date -u '+%Y-%m-%d %H:%M UTC')"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            --max-time 15 \
+            -X POST "${BASE_URL}/api/deals/auto-post" \
+            -H "Authorization: Bearer ${ADMIN_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"test_connection": true}')
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          RESP_BODY=$(echo "$RESPONSE" | head -n -1)
+
+          echo "Health check HTTP: ${HTTP_CODE}"
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            USERNAME=$(echo "$RESP_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('username','?'))" 2>/dev/null || echo "?")
+            echo "Authenticated as @${USERNAME}"
+            echo "### Pre-flight Check" >> $GITHUB_STEP_SUMMARY
+            echo "**Status:** Connected as @${USERNAME}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::warning::Health check failed (HTTP ${HTTP_CODE})"
+            echo "$RESP_BODY" | python3 -m json.tool 2>/dev/null || echo "$RESP_BODY"
+
+            echo "### Pre-flight Check" >> $GITHUB_STEP_SUMMARY
+            echo "**Status:** FAILED (HTTP ${HTTP_CODE})" >> $GITHUB_STEP_SUMMARY
+
+            # Extract guidance if available
+            GUIDANCE=$(echo "$RESP_BODY" | python3 -c "
+          import sys, json
+          try:
+              d = json.load(sys.stdin)
+              e = d.get('error', {})
+              if isinstance(e, dict):
+                  print(e.get('guidance', ''))
+              else:
+                  print(d.get('guidance', ''))
+          except: pass
+          " 2>/dev/null)
+
+            if [ -n "$GUIDANCE" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Guidance:** ${GUIDANCE}" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            echo "$RESP_BODY" | python3 -m json.tool 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "$RESP_BODY" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+
+            # Don't hard-fail — proceed to tweet step anyway.
+            # The 503 might be intermittent and the actual tweet attempt
+            # could succeed. The tweet step will fail definitively if needed.
+            echo "Proceeding to tweet step despite health check failure..."
+          fi
+
+      # Step 2: Post deal to Twitter (or run diagnostic/test modes)
       - name: Post deal to Twitter
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
           ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
           TEST_CONNECTION: ${{ github.event.inputs.test_connection || 'false' }}
+          DIAGNOSE: ${{ github.event.inputs.diagnose || 'false' }}
         run: |
-          # Default to production URL if SITE_URL secret is not set
           BASE_URL="${SITE_URL:-https://cloudeddeals.com}"
 
           echo "=== Auto-Post Configuration ==="
           echo "Target:           ${BASE_URL}/api/deals/auto-post"
           echo "Dry run:          ${DRY_RUN}"
           echo "Test connection:  ${TEST_CONNECTION}"
+          echo "Diagnose:         ${DIAGNOSE}"
           echo "Time:             $(date -u '+%Y-%m-%d %H:%M UTC')"
           echo "==============================="
 
           # Build request body based on mode
-          if [ "$TEST_CONNECTION" = "true" ]; then
+          if [ "$DIAGNOSE" = "true" ]; then
+            BODY='{"diagnose": true}'
+            echo "Mode: Full diagnostic report..."
+          elif [ "$TEST_CONNECTION" = "true" ]; then
             BODY='{"test_connection": true}'
             echo "Mode: Testing Twitter API credentials..."
           elif [ "$DRY_RUN" = "true" ]; then
@@ -74,34 +152,78 @@ jobs:
             echo "Mode: Live tweet"
           fi
 
-          RESPONSE=$(curl -s -w "\n%{http_code}" \
-            --retry 3 --retry-delay 5 --retry-all-errors \
-            --max-time 25 \
-            -X POST "${BASE_URL}/api/deals/auto-post" \
-            -H "Authorization: Bearer ${ADMIN_API_KEY}" \
-            -H "Content-Type: application/json" \
-            -d "$BODY")
+          # Retry wrapper: attempt up to 2 times with a 30s pause between.
+          # This handles the case where Twitter returns a transient 503
+          # and the internal 3-attempt retry in twitter.ts wasn't enough.
+          MAX_WORKFLOW_ATTEMPTS=2
+          ATTEMPT=1
 
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          RESP_BODY=$(echo "$RESPONSE" | head -n -1)
+          while [ $ATTEMPT -le $MAX_WORKFLOW_ATTEMPTS ]; do
+            echo ""
+            echo "--- Workflow attempt ${ATTEMPT}/${MAX_WORKFLOW_ATTEMPTS} ---"
 
-          echo ""
-          echo "HTTP Status: ${HTTP_CODE}"
-          echo "Response:"
-          echo "$RESP_BODY" | python3 -m json.tool 2>/dev/null || echo "$RESP_BODY"
+            RESPONSE=$(curl -s -w "\n%{http_code}" \
+              --max-time 30 \
+              -X POST "${BASE_URL}/api/deals/auto-post" \
+              -H "Authorization: Bearer ${ADMIN_API_KEY}" \
+              -H "Content-Type: application/json" \
+              -d "$BODY")
+
+            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+            RESP_BODY=$(echo "$RESPONSE" | head -n -1)
+
+            echo "HTTP Status: ${HTTP_CODE}"
+            echo "Response:"
+            echo "$RESP_BODY" | python3 -m json.tool 2>/dev/null || echo "$RESP_BODY"
+
+            # Success or non-retryable error — break out
+            if [ "$HTTP_CODE" -lt 500 ] 2>/dev/null; then
+              break
+            fi
+
+            # 5xx error — check if retryable
+            if [ $ATTEMPT -lt $MAX_WORKFLOW_ATTEMPTS ]; then
+              # Extract error category
+              CATEGORY=$(echo "$RESP_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('category',''))" 2>/dev/null || echo "")
+
+              if [ "$CATEGORY" = "server" ]; then
+                echo "Twitter server error — waiting 30s before retry..."
+                sleep 30
+              else
+                echo "Non-retryable error category: ${CATEGORY}"
+                break
+              fi
+            fi
+
+            ATTEMPT=$((ATTEMPT + 1))
+          done
 
           # Write to step summary with error categorization
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Auto-Post Result" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "$HTTP_CODE" = "200" ]; then
             echo "**Status:** Success" >> $GITHUB_STEP_SUMMARY
           elif [ "$HTTP_CODE" = "401" ]; then
-            echo "**Status:** Unauthorized — check ADMIN_API_KEY secret" >> $GITHUB_STEP_SUMMARY
+            echo "**Status:** Unauthorized" >> $GITHUB_STEP_SUMMARY
+            echo "**Fix:** Check ADMIN_API_KEY secret in GitHub Actions matches Netlify env var" >> $GITHUB_STEP_SUMMARY
           elif [ "$HTTP_CODE" = "502" ]; then
-            echo "**Status:** Twitter API failure — check credentials in Netlify env vars" >> $GITHUB_STEP_SUMMARY
+            # Extract structured error info
+            CATEGORY=$(echo "$RESP_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('category','unknown'))" 2>/dev/null || echo "unknown")
+            MESSAGE=$(echo "$RESP_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('message',''))" 2>/dev/null || echo "")
+            GUIDANCE=$(echo "$RESP_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('guidance',''))" 2>/dev/null || echo "")
+
+            echo "**Status:** Twitter API failure (${CATEGORY})" >> $GITHUB_STEP_SUMMARY
+            if [ -n "$MESSAGE" ]; then
+              echo "**Error:** ${MESSAGE}" >> $GITHUB_STEP_SUMMARY
+            fi
+            if [ -n "$GUIDANCE" ]; then
+              echo "**Fix:** ${GUIDANCE}" >> $GITHUB_STEP_SUMMARY
+            fi
           elif [ "$HTTP_CODE" = "503" ]; then
             echo "**Status:** Twitter credentials not configured in Netlify" >> $GITHUB_STEP_SUMMARY
+            echo "**Fix:** Set TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET in Netlify env vars and redeploy" >> $GITHUB_STEP_SUMMARY
           else
             echo "**Status:** Failed (HTTP ${HTTP_CODE})" >> $GITHUB_STEP_SUMMARY
           fi

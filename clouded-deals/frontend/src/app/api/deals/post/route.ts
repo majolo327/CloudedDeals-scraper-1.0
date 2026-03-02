@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
-import { postTweet } from "@/lib/twitter";
+import { postTweet, TwitterError } from "@/lib/twitter";
 import { formatDealTweet } from "@/lib/tweet-formatter";
 import { Deal } from "@/lib/types";
 
@@ -79,8 +79,15 @@ export async function POST(req: NextRequest) {
   const result = await postTweet(tweetText);
 
   if (!result.success) {
+    const err = result.error as TwitterError;
     return NextResponse.json(
-      { error: "Tweet failed", details: result.error },
+      {
+        error: "Tweet failed",
+        category: err?.category ?? "unknown",
+        message: err?.message ?? "Unknown error",
+        guidance: err?.guidance ?? null,
+        details: err?.rawBody ?? null,
+      },
       { status: 502 }
     );
   }

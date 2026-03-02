@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
-import { postTweet, validateTwitterCredentials, testTwitterConnection } from "@/lib/twitter";
+import {
+  postTweet,
+  validateTwitterCredentials,
+  testTwitterConnection,
+  diagnoseTwitter,
+  TwitterError,
+} from "@/lib/twitter";
 import { formatCandidateTweet } from "@/lib/tweet-formatter";
 import { selectDealsToPost } from "@/lib/auto-post-selector";
 
@@ -22,6 +28,7 @@ import { selectDealsToPost } from "@/lib/auto-post-selector";
  * Body (optional):
  *   { dry_run?: boolean }           — select deal but don't tweet
  *   { test_connection?: boolean }   — verify Twitter credentials only
+ *   { diagnose?: boolean }          — full diagnostic report
  */
 export async function POST(req: NextRequest) {
   // Auth check
@@ -39,19 +46,35 @@ export async function POST(req: NextRequest) {
       `[auto-post] Missing Twitter credentials: ${credCheck.missing.join(", ")}`
     );
     return NextResponse.json(
-      { error: "Twitter credentials not configured", missing: credCheck.missing },
+      {
+        error: "Twitter credentials not configured",
+        missing: credCheck.missing,
+        guidance:
+          "Set TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, " +
+          "and TWITTER_ACCESS_SECRET in Netlify environment variables, then redeploy.",
+      },
       { status: 503 }
     );
   }
 
   let dryRun = false;
   let testConnection = false;
+  let diagnose = false;
   try {
     const body = await req.json();
     dryRun = body?.dry_run === true;
     testConnection = body?.test_connection === true;
+    diagnose = body?.diagnose === true;
   } catch {
     // No body is fine — default to live mode
+  }
+
+  // Diagnostic mode: comprehensive health check of Twitter integration.
+  if (diagnose) {
+    const report = await diagnoseTwitter();
+    return NextResponse.json(report, {
+      status: report.readEndpoint.ok ? 200 : 502,
+    });
   }
 
   // Test-connection mode: verify Twitter credentials without posting.
@@ -59,7 +82,21 @@ export async function POST(req: NextRequest) {
   // have the right permissions.
   if (testConnection) {
     const result = await testTwitterConnection();
-    return NextResponse.json(result, { status: result.ok ? 200 : 502 });
+    if (result.ok) {
+      return NextResponse.json({
+        ok: true,
+        username: result.username,
+        message: `Authenticated as @${result.username}`,
+      });
+    }
+    return NextResponse.json(
+      {
+        ok: false,
+        error: result.error,
+        status_code: result.status_code,
+      },
+      { status: 502 }
+    );
   }
 
   const supabase = createServiceClient();
@@ -121,9 +158,23 @@ export async function POST(req: NextRequest) {
   const result = await postTweet(tweetText);
 
   if (!result.success) {
-    console.error("[auto-post] Tweet failed:", result.error);
+    const err = result.error as TwitterError;
+    console.error(
+      "[auto-post] Tweet failed:",
+      JSON.stringify({
+        category: err?.category,
+        message: err?.message,
+        httpStatus: err?.httpStatus,
+      })
+    );
     return NextResponse.json(
-      { error: "Tweet failed", details: result.error },
+      {
+        error: "Tweet failed",
+        category: err?.category ?? "unknown",
+        message: err?.message ?? "Unknown error",
+        guidance: err?.guidance ?? null,
+        details: err?.rawBody ?? null,
+      },
       { status: 502 }
     );
   }
