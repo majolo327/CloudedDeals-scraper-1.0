@@ -818,9 +818,15 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
     if _PROMO_TEXT_RE.search(name):
         return False
 
-    # Reject products with no weight in categories that need it
+    # Reject products with no weight in categories that need it.
+    # Disposable vapes are exempted — they're commonly listed without weight
+    # ("Rove All-In-One", "Cookies Disposable Pen") and requiring weight
+    # would silently drop them before the per-dispensary disposable guarantee
+    # (Step 4b in select_top_deals) can rescue them.
     if category in _WEIGHT_REQUIRED_CATEGORIES and not weight_value:
-        return False
+        subtype = product.get("product_subtype")
+        if subtype != "disposable":
+            return False
 
     # Reject edibles with tiny THC content — 9.5mg, 10mg single-dose items
     # are not real deals.  Standard dispensary edibles are 100mg+.

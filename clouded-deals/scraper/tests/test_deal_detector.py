@@ -818,10 +818,26 @@ class TestPassesQualityGate:
                          category="flower", weight_value=None)
         assert passes_quality_gate(p) is False
 
-    def test_vape_without_weight_rejected(self, make_product):
+    def test_vape_cart_without_weight_rejected(self, make_product):
+        """Cartridges still require weight — only disposables exempted."""
         p = make_product(name="Lemon Cake Cart", brand="STIIIZY",
+                         category="vape", product_subtype="cartridge",
+                         weight_value=None)
+        assert passes_quality_gate(p) is False
+
+    def test_vape_no_subtype_without_weight_rejected(self, make_product):
+        """Vapes with no subtype still require weight."""
+        p = make_product(name="Lemon Cake Vape Pen", brand="STIIIZY",
                          category="vape", weight_value=None)
         assert passes_quality_gate(p) is False
+
+    def test_disposable_without_weight_passes(self, make_product):
+        """Disposable vapes without weight pass quality gate so the
+        per-dispensary guarantee (Step 4b) can pick them."""
+        p = make_product(name="Rove All-In-One Live Resin", brand="Rove",
+                         category="vape", product_subtype="disposable",
+                         weight_value=None)
+        assert passes_quality_gate(p) is True
 
     def test_edible_without_weight_passes(self, make_product):
         """Edibles don't always have standardized weights — allow them."""
@@ -1097,6 +1113,32 @@ class TestDetectDeals:
         result = detect_deals(products)
         assert len(result) >= 1, (
             "Store with 1 product should still get a guaranteed deal"
+        )
+
+    def test_disposable_no_weight_survives_full_pipeline(self, make_product):
+        """A disposable vape without weight must survive the quality gate
+        and be available for the per-dispensary guarantee in select_top_deals.
+        This is the critical path — if weight blocks it at the quality gate,
+        Step 4b can never pick it."""
+        # Mix of flower deals (to fill the store) + one weightless disposable
+        products = [make_product(
+            name=f"Flower Deal {i} 3.5g", brand=f"Brand{i}",
+            category="flower", sale_price=15.0, original_price=30.0,
+            discount_percent=50, weight_value=3.5,
+            dispensary_id="disp-1",
+        ) for i in range(20)]
+        products.append(make_product(
+            name="Cookies Disposable Pen", brand="Cookies",
+            category="vape", product_subtype="disposable",
+            sale_price=22.0, original_price=44.0,
+            discount_percent=50, weight_value=None,
+            dispensary_id="disp-1",
+        ))
+        result = detect_deals(products)
+        disposables = [d for d in result if d.get("product_subtype") == "disposable"]
+        assert len(disposables) >= 1, (
+            "Disposable vape without weight should survive quality gate "
+            "and appear in results via the per-dispensary guarantee"
         )
 
 
