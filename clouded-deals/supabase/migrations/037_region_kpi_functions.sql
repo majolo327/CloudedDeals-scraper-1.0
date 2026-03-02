@@ -47,20 +47,21 @@ RETURNS TABLE (
   total_sites     BIGINT,
   active_sites    BIGINT,
   scraped_last_30d BIGINT
-) LANGUAGE sql STABLE AS $$
+) LANGUAGE plpgsql STABLE AS $$
+BEGIN
+  RETURN QUERY
   WITH recent_runs AS (
-    SELECT id, sites_scraped,
-      -- Map sharded region to base region
+    SELECT sr.id, sr.sites_scraped,
       CASE
-        WHEN region ~ '^.+-\d+$' AND regexp_replace(region, '-\d+$', '') IN (
+        WHEN sr.region ~ '^.+-\d+$' AND regexp_replace(sr.region, '-\d+$', '') IN (
           'southern-nv','michigan','illinois','colorado','massachusetts',
           'new-jersey','arizona','missouri','ohio','new-york','pennsylvania'
-        ) THEN regexp_replace(region, '-\d+$', '')
-        ELSE region
+        ) THEN regexp_replace(sr.region, '-\d+$', '')
+        ELSE sr.region
       END AS base_region
-    FROM scrape_runs
-    WHERE started_at >= NOW() - INTERVAL '30 days'
-      AND status IN ('completed', 'completed_with_errors')
+    FROM scrape_runs sr
+    WHERE sr.started_at >= NOW() - INTERVAL '30 days'
+      AND sr.status IN ('completed', 'completed_with_errors')
   ),
   scraped_slugs AS (
     SELECT DISTINCT rr.base_region, slug.val AS slug
@@ -73,9 +74,9 @@ RETURNS TABLE (
     ) AS slug(val)
   ),
   scraped_counts AS (
-    SELECT ss.base_region AS region, COUNT(DISTINCT ss.slug) AS cnt
+    SELECT ss.base_region AS sc_region, COUNT(DISTINCT ss.slug) AS cnt
     FROM scraped_slugs ss
-    JOIN dispensaries d ON d.id = ss.slug
+    JOIN dispensaries dd ON dd.id = ss.slug
     GROUP BY ss.base_region
   )
   SELECT
@@ -84,9 +85,10 @@ RETURNS TABLE (
     COUNT(*) FILTER (WHERE d.is_active)    AS active_sites,
     COALESCE(sc.cnt, 0)                    AS scraped_last_30d
   FROM dispensaries d
-  LEFT JOIN scraped_counts sc ON sc.region = d.region
+  LEFT JOIN scraped_counts sc ON sc.sc_region = d.region
   GROUP BY d.region, sc.cnt
   ORDER BY active_sites DESC;
+END;
 $$;
 
 COMMENT ON FUNCTION get_region_site_coverage IS
