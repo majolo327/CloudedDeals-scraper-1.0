@@ -225,22 +225,28 @@ class BaseScraper(abc.ABC):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        # Always close page and context (we own them)
+        # Always close page and context (we own them).
+        # Use BaseException to also catch CancelledError (a BaseException
+        # subclass in Python 3.9+) — asyncio.wait_for cancellation must
+        # not leak page/context handles in the shared browser.
         for obj in (self._page, self._context):
             if obj:
                 try:
                     await obj.close()
-                except Exception:
+                except BaseException:
                     pass
         # Only close browser + playwright if we own them (standalone mode)
         if not self._shared_browser:
             if self._browser:
                 try:
                     await self._browser.close()
-                except Exception:
+                except BaseException:
                     pass
             if self._pw:
-                await self._pw.stop()
+                try:
+                    await self._pw.stop()
+                except BaseException:
+                    pass
         logger.info("[%s] Cleanup done", self.slug)
 
     # ------------------------------------------------------------------

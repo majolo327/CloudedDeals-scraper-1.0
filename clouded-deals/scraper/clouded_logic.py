@@ -1013,7 +1013,10 @@ class CloudedLogic:
         if not match:
             return None
 
-        val = float(match.group(1))
+        try:
+            val = float(match.group(1))
+        except ValueError:
+            return None
         unit = match.group(2).lower()
 
         # ── PREROLL ──────────────────────────────────────────────
@@ -1095,7 +1098,10 @@ class CloudedLogic:
         if 'mg' in w.lower():
             mg_match = re.search(r'([\d.]+)', w)
             if mg_match:
-                val = float(mg_match.group(1))
+                try:
+                    val = float(mg_match.group(1))
+                except ValueError:
+                    return None
                 if 82 <= val <= 118:
                     return '100mg'
                 if 180 <= val <= 220:
@@ -1319,8 +1325,12 @@ class CloudedLogic:
                 # Convert oz to grams for validation (non-edible only)
                 oz_m = re.match(r'([\d.]+)\s*oz\b', raw_weight, re.IGNORECASE)
                 if oz_m:
-                    oz_val = float(oz_m.group(1))
-                    raw_weight = f"{round(oz_val * 28, 1)}g"
+                    try:
+                        oz_val = float(oz_m.group(1))
+                    except ValueError:
+                        raw_weight = None
+                    else:
+                        raw_weight = f"{round(oz_val * 28, 1)}g"
                 weight = self.validate_weight(raw_weight, category)
 
             # Special handling for edibles — only normalize when a weight

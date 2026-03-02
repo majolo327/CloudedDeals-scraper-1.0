@@ -21,7 +21,7 @@ import logging
 import re
 from typing import Any
 
-from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
+from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout, Error as PlaywrightError
 
 from config.dispensaries import PLATFORM_DEFAULTS, is_expansion_region
 from handlers import dismiss_age_gate, get_iframe, handle_jane_view_more
@@ -349,6 +349,9 @@ class JaneScraper(BaseScraper):
                     return frame
             except PlaywrightTimeout:
                 continue
+            except PlaywrightError:
+                logger.warning("[%s] Page closed while finding iframe", self.slug)
+                return None
 
         # Last resort: use the generic handler from handlers/iframe.py.
         # get_iframe returns (frame, about_blank_srcs) — unpack to match
@@ -370,6 +373,9 @@ class JaneScraper(BaseScraper):
                 )
             except PlaywrightTimeout:
                 continue
+            except PlaywrightError:
+                logger.warning("[%s] Page closed while waiting for products", self.slug)
+                return []
 
             elements = await target.locator(selector).all()
             if not elements:
