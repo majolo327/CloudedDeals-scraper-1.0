@@ -200,6 +200,37 @@ class TestPassesHardFilters:
         p.pop("sale_price")
         assert passes_hard_filters(p) is True
 
+    # ── Disposable vape price cap ─────────────────────────────────────
+
+    def test_disposable_vape_at_35_passes(self, make_product):
+        """Disposable vapes have a higher cap than carts ($35 vs $28)."""
+        p = make_product(category="vape", product_subtype="disposable",
+                         sale_price=35.0, original_price=50.0, discount_percent=30,
+                         weight_value=0.5)
+        assert passes_hard_filters(p) is True
+
+    def test_disposable_vape_at_36_rejected(self, make_product):
+        """Disposable vapes above $35 are rejected."""
+        p = make_product(category="vape", product_subtype="disposable",
+                         sale_price=36.0, original_price=50.0, discount_percent=28,
+                         weight_value=0.5)
+        assert passes_hard_filters(p) is False
+
+    def test_disposable_vape_jane_at_35_passes(self, make_product):
+        """Jane disposables also get the higher cap."""
+        p = make_product(category="vape", product_subtype="disposable",
+                         sale_price=35.0, source_platform="jane",
+                         weight_value=0.5, discount_percent=None,
+                         original_price=None)
+        assert passes_hard_filters(p) is True
+
+    def test_regular_vape_at_29_still_rejected(self, make_product):
+        """Regular carts stay at $28 cap — disposable cap doesn't leak."""
+        p = make_product(category="vape", product_subtype=None,
+                         sale_price=29.0, original_price=50.0, discount_percent=42,
+                         weight_value=0.5)
+        assert passes_hard_filters(p) is False
+
 
 # =====================================================================
 # Brand scoring
@@ -629,6 +660,30 @@ class TestDetectDeals:
         result = detect_deals(products)
         assert len(result) <= MAX_SAME_BRAND_PER_DISPENSARY
 
+    # ── Hard-filter floor guarantee ───────────────────────────────────
+
+    def test_hard_filter_floor_forces_one_product(self, make_product):
+        """Dispensary with 15 products where all fail price caps gets 1 deal."""
+        products = [
+            make_product(name=f"Product {i}", sale_price=50.0, category="flower",
+                         weight_value=3.5, source_platform="jane",
+                         original_price=None, discount_percent=None)
+            for i in range(15)
+        ]
+        result = detect_deals(products)
+        assert len(result) >= 1
+
+    def test_hard_filter_floor_skips_small_dispensaries(self, make_product):
+        """Dispensary with <10 products and all failing caps gets 0 deals."""
+        products = [
+            make_product(name=f"Product {i}", sale_price=50.0, category="flower",
+                         weight_value=3.5, source_platform="jane",
+                         original_price=None, discount_percent=None)
+            for i in range(5)
+        ]
+        result = detect_deals(products)
+        assert len(result) == 0
+
 
 # =====================================================================
 # Constants validation
@@ -645,7 +700,7 @@ class TestConstants:
             assert isinstance(b, str) and len(b) > 0
 
     def test_category_price_caps_complete(self):
-        expected = {"flower", "vape", "edible", "concentrate", "preroll", "preroll_pack", "infused_preroll"}
+        expected = {"flower", "vape", "edible", "concentrate", "preroll", "preroll_pack", "infused_preroll", "disposable"}
         assert expected == set(CATEGORY_PRICE_CAPS.keys())
 
     def test_flower_caps_all_weights(self):

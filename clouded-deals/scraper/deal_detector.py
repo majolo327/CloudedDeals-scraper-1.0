@@ -41,6 +41,7 @@ CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
         "28": 100,    # full oz — relaxed from $79
     },
     "vape": 28,           # carts/pods — tightened from $35 ($24 .5g cart is already borderline)
+    "disposable": 35,     # vape disposables — self-contained devices, higher MSRP than carts
     "edible": 14,         # gummies/chocolates — tightened from $15 ($15 edible is not a deal)
     "concentrate": {      # weight-based: live rosin can be pricier
         "0.5": 25,        # half gram
@@ -248,6 +249,13 @@ _NON_CANNABIS_KEYWORDS = {
 }
 
 
+def _is_non_cannabis(product: dict[str, Any]) -> bool:
+    """Return True if the product is non-cannabis (apparel, merch, etc.)."""
+    name_lower = (product.get("name") or "").lower()
+    raw_lower = (product.get("raw_text") or "").lower()
+    return any(kw in name_lower or kw in raw_lower for kw in _NON_CANNABIS_KEYWORDS)
+
+
 def _passes_price_cap(
     sale_price: float,
     category: str,
@@ -302,11 +310,8 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
         return False
 
     # Exclude non-cannabis products (apparel, accessories, merch, etc.)
-    name_lower = (product.get("name") or "").lower()
-    raw_lower = (product.get("raw_text") or "").lower()
-    for keyword in _NON_CANNABIS_KEYWORDS:
-        if keyword in name_lower or keyword in raw_lower:
-            return False
+    if _is_non_cannabis(product):
+        return False
 
     sale_price = product.get("sale_price") or product.get("current_price") or 0
     original_price = product.get("original_price") or 0
@@ -332,6 +337,8 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     # aren't excluded.
     # ------------------------------------------------------------------
     if source_platform in ("jane", "carrot", "aiq"):
+        if category == "vape" and subtype == "disposable":
+            return sale_price <= CATEGORY_PRICE_CAPS.get("disposable", 35)
         return _passes_price_cap(sale_price, category, weight_value)
 
     # --- Standard filters (non-Jane platforms) ---
@@ -354,6 +361,8 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     # Preroll-specific: infused prerolls use a higher cap than regular flower
     # prerolls.  Regular 1g flower prerolls should be $5-9 (never $10-12),
     # but infused prerolls are premium products and legitimately cost more.
+    if category == "vape" and subtype == "disposable":
+        return sale_price <= CATEGORY_PRICE_CAPS.get("disposable", 35)
     if category == "preroll" and subtype == "infused_preroll":
         return sale_price <= CATEGORY_PRICE_CAPS.get("infused_preroll", 15)
 
@@ -1297,6 +1306,29 @@ def detect_deals(
     logger.info(
         "Hard filter: %d/%d products passed", len(qualifying), len(products)
     )
+
+    # Step 1b: Hard-filter floor — guarantee ≥1 product from dispensaries
+    # with real inventory where nothing passed price caps.  Picks the
+    # cheapest valid product as minimal representation.  It will score
+    # low (no discount data) so it won't displace real deals.
+    if len(qualifying) == 0 and len(products) >= 10:
+        candidates = [
+            p for p in products
+            if (p.get("sale_price") or 0) >= HARD_FILTERS["min_price"]
+            and (p.get("sale_price") or 0) <= HARD_FILTERS["max_price_absolute"]
+            and not _is_non_cannabis(p)
+            and passes_relaxed_quality_gate(p)
+        ]
+        if candidates:
+            best = min(candidates, key=lambda p: p.get("sale_price") or 999)
+            qualifying.append(best)
+            logger.info(
+                "Hard-filter floor: forced 1 product (%s @ $%.2f) — "
+                "dispensary has %d products but none passed price caps",
+                best.get("name", "?"),
+                best.get("sale_price", 0),
+                len(products),
+            )
 
     # Step 2: Score qualifying deals
     scored: list[dict[str, Any]] = []
