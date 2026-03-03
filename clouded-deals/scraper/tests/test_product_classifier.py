@@ -76,6 +76,14 @@ class TestPackDetection:
 
 
 class TestVapeDisposableDetection:
+    """Test disposable vape subtype detection — multi-layer strategy.
+
+    Layer 1: Explicit keyword indicators (disposable, AIO, RTU, etc.)
+    Layer 2: Brand-specific disposable product lines (STIIIZY LIIIL, etc.)
+    Layer 3: NOT-disposable exclusions (510, cartridge, battery, etc.)
+    """
+
+    # --- Layer 1: Explicit keyword indicators ---
 
     @pytest.mark.parametrize("name", [
         "Strawberry All In One Live Resin 0.5g",
@@ -84,6 +92,13 @@ class TestVapeDisposableDetection:
         "Ready To Use Disposable Pen",
         "Ready-To-Use Live Resin 0.5g",
         "Disposable Vape 0.3g",
+        "RTU Live Resin 0.5g",
+        "Draw Activated Vape Pen",
+        "Draw-Activated Live Resin",
+        "Built In Battery Vape",
+        "Non-Rechargeable Vape Pen",
+        "Rechargeable Disposable 1g",
+        "Ripper OG 0.5g",
     ])
     def test_disposable_indicators_when_vape(self, name):
         r = classify_product(name, brand=None, category="vape")
@@ -96,6 +111,89 @@ class TestVapeDisposableDetection:
             brand="STIIIZY", category="vape",
         )
         assert r["product_subtype"] == "disposable"
+
+    # --- Layer 2: Brand-specific disposable product lines ---
+
+    def test_stiiizy_liiil_is_disposable(self):
+        """STIIIZY LIIIL is their disposable line."""
+        r = classify_product("LIIIL Indica 0.5g", brand="STIIIZY", category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_stiiizy_pod_is_disposable(self):
+        """STIIIZY pods are closed systems (AIO-equivalent)."""
+        r = classify_product("Birthday Cake Pod", brand="STIIIZY", category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_select_bite_is_disposable(self):
+        """Select Bite is their disposable line."""
+        r = classify_product("Bite Blueberry 0.5g", brand="Select", category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_select_cliq_is_disposable(self):
+        """Select Cliq is their pod/disposable line."""
+        r = classify_product("Cliq Blue Dream", brand="Select", category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_rove_ready_is_disposable(self):
+        """Rove Ready is their ready-to-use disposable line."""
+        r = classify_product("Ready Live Resin 0.5g", brand="Rove", category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_airopro_is_disposable(self):
+        """AiroPro devices are proprietary closed systems."""
+        r = classify_product("Blue Dream 0.5g", brand="AiroPro", category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    # --- Layer 3: NOT-disposable exclusions ---
+
+    def test_stiiizy_510_cartridge_not_disposable(self):
+        """STIIIZY 510 Cartridge has a NOT-disposable signal → should not be disposable."""
+        r = classify_product("Blue Dream 510 Cartridge", brand="STIIIZY", category="vape")
+        assert r["product_subtype"] == "cartridge"
+
+    def test_510_cart_not_disposable(self):
+        """Products with only '510' are standard carts, not disposable."""
+        r = classify_product("Blue Dream 510 0.5g", brand=None, category="vape")
+        assert r["product_subtype"] == "cartridge"
+
+    def test_replacement_not_disposable(self):
+        """Products with 'replacement' are refill parts, not disposable."""
+        r = classify_product("Replacement Pod 0.5g", brand=None, category="vape")
+        # "pod" keyword takes priority over NOT-disposable check
+        assert r["product_subtype"] == "pod"
+
+    def test_battery_not_disposable(self):
+        """Products with 'battery' are just battery devices."""
+        r = classify_product("Pen Battery Starter Kit", brand=None, category="vape")
+        # "pen" heuristic is blocked by NOT-disposable "battery" signal
+        assert r["product_subtype"] is None
+
+    def test_explicit_disposable_overrides_not_disposable(self):
+        """Explicit 'disposable' keyword overrides NOT-disposable signals."""
+        r = classify_product("510 Disposable Pen", brand=None, category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    # --- Standard cart/pod detection still works ---
+
+    def test_cartridge_keyword(self):
+        r = classify_product("Blue Dream Cartridge 0.5g", brand=None, category="vape")
+        assert r["product_subtype"] == "cartridge"
+
+    def test_pod_keyword(self):
+        r = classify_product("Blue Dream Pod 0.5g", brand=None, category="vape")
+        assert r["product_subtype"] == "pod"
+
+    def test_pax_brand_fallback_pod(self):
+        """PAX brand → pod fallback (not in disposable brand lines)."""
+        r = classify_product("Blue Dream 0.5g", brand="PAX", category="vape")
+        assert r["product_subtype"] == "pod"
+
+    def test_kingpen_brand_fallback_cartridge(self):
+        """Kingpen brand → cartridge fallback (not in disposable brand lines)."""
+        r = classify_product("Blue Dream 0.5g", brand="Kingpen", category="vape")
+        assert r["product_subtype"] == "cartridge"
+
+    # --- Category correction safety net ---
 
     @pytest.mark.parametrize("name,wrong_cat", [
         ("Strawberry Milkshake All In One Live Resin", "flower"),

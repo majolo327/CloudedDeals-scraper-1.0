@@ -76,15 +76,59 @@ _INFUSED_BRAND_LINES: dict[str, list[re.Pattern]] = {
 }
 
 # =====================================================================
-# Vape subtype detection
+# Vape subtype detection — multi-layer strategy
 # =====================================================================
+#
+# Layer 1 (keywords): Explicit disposable/AIO indicators in product name.
+# Layer 2 (brand lines): Brand-specific product lines that are always
+#   disposable (e.g. STIIIZY LIIIL, Select Bite/Cliq).
+# Layer 3 (exclusions): NOT-disposable signals to prevent false positives
+#   (510 thread, cartridge-only, replacement/refill, battery device).
+# Layer 4 (fallback): Generic pod/cart keywords and brand-based fallback.
+#
+# Detection order: disposable keywords → brand disposable lines →
+#   pod/cart keywords → brand pod/cart fallback → "pen" heuristic.
 
 _VAPE_DISPOSABLE_INDICATORS = [
     re.compile(r"\bdisposable\b", re.IGNORECASE),
     re.compile(r"\ball[- ]?in[- ]?one\b", re.IGNORECASE),
     re.compile(r"\baio\b", re.IGNORECASE),
     re.compile(r"\bready[- ]?to[- ]?use\b", re.IGNORECASE),
+    re.compile(r"\brtu\b", re.IGNORECASE),
     re.compile(r"\bripper\b", re.IGNORECASE),
+    re.compile(r"\bdraw[- ]?activated\b", re.IGNORECASE),
+    re.compile(r"\bbuilt[- ]?in[- ]?battery\b", re.IGNORECASE),
+    re.compile(r"\bnon[- ]?rechargeable\b", re.IGNORECASE),
+    re.compile(r"\brechargeable[- ]?disposable\b", re.IGNORECASE),
+]
+
+# Brand-specific product lines that are ALWAYS disposable/AIO.
+# These override the generic pod/cart brand fallback.
+_DISPOSABLE_BRAND_LINES: dict[str, list[re.Pattern]] = {
+    "stiiizy": [
+        re.compile(r"\bliiil\b", re.IGNORECASE),   # STIIIZY's disposable line
+        re.compile(r"\bpod\b", re.IGNORECASE),      # STIIIZY pods = closed system (AIO-equivalent)
+    ],
+    "select": [
+        re.compile(r"\bbite\b", re.IGNORECASE),     # Select Bite disposable
+        re.compile(r"\bcliq\b", re.IGNORECASE),      # Select Cliq pod/disposable
+    ],
+    "rove": [
+        re.compile(r"\bready\b", re.IGNORECASE),     # Rove Ready-to-Use disposable line
+    ],
+    "airopro": [
+        re.compile(r".", re.IGNORECASE),              # All AiroPro = proprietary closed systems
+    ],
+}
+
+# NOT-disposable signals — prevent false positives when only brand/heuristic
+# matches are present (explicit disposable keywords still override these).
+_NOT_DISPOSABLE_INDICATORS = [
+    re.compile(r"\b510\b"),                          # standard cart thread
+    re.compile(r"\bcartridges?\b", re.IGNORECASE),   # standard cart
+    re.compile(r"\breplacement\b", re.IGNORECASE),
+    re.compile(r"\brefill\b", re.IGNORECASE),
+    re.compile(r"\bbattery\b", re.IGNORECASE),       # just the battery device
 ]
 
 _VAPE_CARTRIDGE_INDICATORS = [
@@ -96,33 +140,53 @@ _VAPE_POD_INDICATORS = [
     re.compile(r"\bpod\b", re.IGNORECASE),
 ]
 
-# Brands whose vapes are ALWAYS pods (proprietary systems)
-_POD_BRANDS = {"stiiizy", "pax", "plug play"}
+# Brands whose vapes are ALWAYS pods (proprietary systems) — only applies
+# when the brand is NOT in _DISPOSABLE_BRAND_LINES (which takes priority).
+_POD_BRANDS = {"pax", "plug play"}
 
-# Brands whose vapes are ALWAYS cartridges (510 thread)
-_CART_BRANDS = {"rove", "select", "kingpen", "brass knuckles", "raw garden"}
+# Brands whose vapes are ALWAYS cartridges (510 thread) — only applies
+# when the brand is NOT in _DISPOSABLE_BRAND_LINES (which takes priority).
+_CART_BRANDS = {"kingpen", "brass knuckles", "raw garden"}
 
 
 def _classify_vape_subtype(name_lower: str, brand_lower: str) -> str | None:
-    """Determine vape subtype from product name and brand."""
-    # Explicit keyword matches take priority
-    if any(p.search(name_lower) for p in _VAPE_POD_INDICATORS):
-        return "pod"
+    """Determine vape subtype from product name and brand.
+
+    Detection priority:
+      1. Explicit disposable keywords (highest confidence — overrides everything)
+      2. Brand-specific disposable product lines (with NOT-disposable guard)
+      3. Explicit pod/cartridge keywords in product name
+      4. Brand-based pod/cart fallback (only for brands not in disposable lines)
+      5. "pen" heuristic → disposable (with NOT-disposable guard)
+    """
+    has_not_disposable = any(p.search(name_lower) for p in _NOT_DISPOSABLE_INDICATORS)
+
+    # 1. Explicit disposable keywords override everything (even NOT-disposable)
     if any(p.search(name_lower) for p in _VAPE_DISPOSABLE_INDICATORS):
         return "disposable"
+
+    # 2. Brand-specific disposable product lines
+    if brand_lower in _DISPOSABLE_BRAND_LINES:
+        if any(p.search(name_lower) for p in _DISPOSABLE_BRAND_LINES[brand_lower]):
+            if not has_not_disposable:
+                return "disposable"
+
+    # 3. Explicit pod/cartridge keywords in product name
+    if any(p.search(name_lower) for p in _VAPE_POD_INDICATORS):
+        return "pod"
     if any(p.search(name_lower) for p in _VAPE_CARTRIDGE_INDICATORS):
         return "cartridge"
 
-    # Brand-based fallback
+    # 4. Brand-based fallback (only if not in disposable brand lines)
     if brand_lower in _POD_BRANDS:
         return "pod"
     if brand_lower in _CART_BRANDS:
         return "cartridge"
 
-    # Keyword heuristics in product name
-    # "pen" without other indicators usually means disposable
+    # 5. "pen" heuristic — vape pens are typically disposable/AIO
     if re.search(r"\bpen\b", name_lower):
-        return "disposable"
+        if not has_not_disposable:
+            return "disposable"
 
     return None
 
