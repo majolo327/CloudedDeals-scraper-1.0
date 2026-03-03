@@ -532,6 +532,49 @@ class TestPassesHardFilters:
         p.pop("sale_price")
         assert passes_hard_filters(p) is True
 
+    # ── Jane/Carrot/AIQ loose qualification cap multiplier ───────────
+
+    def test_jane_loose_qual_cap_multiplier(self, make_product):
+        """Jane flower at $28 (above $22 cap, within $22*1.3=$28.60) — passes."""
+        p = make_product(
+            category="flower", sale_price=28.0, weight_value=3.5,
+            source_platform="jane",
+        )
+        assert passes_hard_filters(p) is True
+
+    def test_jane_product_still_rejected_above_relaxed_cap(self, make_product):
+        """Jane flower at $35 (above $22*1.3=$28.60) — still rejected."""
+        p = make_product(
+            category="flower", sale_price=35.0, weight_value=3.5,
+            source_platform="jane",
+        )
+        assert passes_hard_filters(p) is False
+
+    def test_dutchie_unaffected_by_jane_relaxation(self, make_product):
+        """Dutchie flower at $28 with proper discount — fails price cap ($22)."""
+        p = make_product(
+            category="flower", sale_price=28.0, original_price=40.0,
+            discount_percent=30, weight_value=3.5,
+            source_platform="dutchie",
+        )
+        assert passes_hard_filters(p) is False
+
+    def test_jane_edible_within_relaxed_cap(self, make_product):
+        """Jane edible at $18 (above $15 cap, within $15*1.3=$19.50) — passes."""
+        p = make_product(
+            category="edible", sale_price=18.0,
+            source_platform="jane",
+        )
+        assert passes_hard_filters(p) is True
+
+    def test_jane_edible_over_relaxed_cap(self, make_product):
+        """Jane edible at $22 (above $15*1.3=$19.50) — rejected."""
+        p = make_product(
+            category="edible", sale_price=22.0,
+            source_platform="jane",
+        )
+        assert passes_hard_filters(p) is False
+
 
 # =====================================================================
 # State-specific price caps
@@ -583,10 +626,15 @@ class TestStatePriceCaps:
         assert passes_hard_filters(p) is True  # at $22 base cap
 
     def test_michigan_jane_loose_qual_uses_mi_caps(self, make_product):
-        """Michigan Jane sites should use MI price caps for loose qualification."""
+        """Michigan Jane sites should use MI price caps with 1.3x multiplier."""
+        # $16 is above the $15 MI cap but within $15*1.3=$19.50 → passes
         p = make_product(category="flower", sale_price=16.0, weight_value=3.5,
                          source_platform="jane", region="michigan")
-        assert passes_hard_filters(p) is False  # > $15 MI cap for Jane loose qual
+        assert passes_hard_filters(p) is True
+        # $21 is above $15*1.3=$19.50 → rejected
+        p2 = make_product(category="flower", sale_price=21.0, weight_value=3.5,
+                          source_platform="jane", region="michigan")
+        assert passes_hard_filters(p2) is False
 
     def test_ohio_vape_higher_cap(self, make_product):
         """OH vape cap ($35) is higher than NV ($28)."""
@@ -1213,6 +1261,28 @@ class TestDetectDeals:
         result = detect_deals(products)
         assert len(result) >= 1, (
             "Store with 1 product should still get a guaranteed deal"
+        )
+
+    def test_guaranteed_picks_two_deals(self, make_product):
+        """Store where all products fail hard filters should get 2 guaranteed deals."""
+        # Products that fail hard filters: over price cap, no discount
+        products = [
+            make_product(
+                name=f"Deep Roots {cat.title()} Product",
+                brand="Deep Roots",
+                category=cat,
+                sale_price=40.0,
+                original_price=40.0,
+                discount_percent=0,
+                weight_value=3.5 if cat == "flower" else 1.0,
+                dispensary_id="deep-roots-craig",
+            )
+            for cat in ["flower", "vape", "edible", "concentrate"]
+        ]
+        result = detect_deals(products)
+        assert len(result) == 2, (
+            f"Store with all products failing hard filters should get 2 "
+            f"guaranteed deals, got {len(result)}"
         )
 
     def test_disposable_no_weight_survives_full_pipeline(self, make_product):

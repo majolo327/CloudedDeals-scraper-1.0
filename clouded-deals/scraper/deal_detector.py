@@ -63,6 +63,13 @@ HARD_FILTERS = {
     "require_original_price": True,
 }
 
+# Loose qualification cap multiplier — Jane/Carrot/AIQ platforms display
+# retail prices (not sale prices), so the deal-calibrated caps are too
+# tight.  A 1.3x multiplier turns a $22 eighth cap into $28.60, letting
+# competitive-but-not-discounted house-brand products through (e.g. Deep
+# Roots Harvest) while still filtering out truly overpriced items ($35+).
+_LOOSE_QUAL_CAP_MULTIPLIER = 1.3
+
 # Vape subtype price floors — minimum believable SALE price per subtype
 # and weight tier.  Prices below these are almost certainly listing errors
 # on the dispensary menu (e.g. $10 for a 1g disposable when the real market
@@ -565,15 +572,18 @@ def _passes_price_cap(
     category: str,
     weight_value: float | None,
     region: str | None = None,
+    cap_multiplier: float = 1.0,
 ) -> bool:
     """Check whether *sale_price* is within the category price cap.
 
     Extracted so it can be reused by both the full and loose filter paths.
     When *region* is provided, state-specific cap overrides are applied.
+    When *cap_multiplier* > 1.0, all caps are scaled up (used for
+    Jane/Carrot/AIQ platforms where displayed prices are retail, not sale).
     """
     caps = _get_caps_for_region(category, region)
     if caps is None:
-        return sale_price <= 50
+        return sale_price <= 50 * cap_multiplier
 
     if isinstance(caps, dict):
         sorted_keys = sorted(caps.keys(), key=lambda k: float(k))
@@ -583,17 +593,17 @@ def _passes_price_cap(
                 weight_str = str(int(float(weight_value)))
             cap = caps.get(weight_str)
             if cap is not None:
-                return sale_price <= cap
+                return sale_price <= cap * cap_multiplier
             wv = float(weight_value)
             best_cap = caps[sorted_keys[0]]
             for k in sorted_keys:
                 if float(k) <= wv:
                     best_cap = caps[k]
-            return sale_price <= best_cap
+            return sale_price <= best_cap * cap_multiplier
         else:
-            return sale_price <= caps[sorted_keys[0]]
+            return sale_price <= caps[sorted_keys[0]] * cap_multiplier
     else:
-        return sale_price <= caps
+        return sale_price <= caps * cap_multiplier
 
 
 def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> bool:
@@ -682,13 +692,17 @@ def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> b
     # Jane, Carrot, and AIQ do NOT display original prices — only the
     # current/deal price.  We cannot calculate discount_percent, so we
     # skip the discount and original-price checks.  Qualification is
-    # price cap only.  Brand is NOT required here — many of these sites
-    # have unreliable brand extraction.  Products with recognized brands
-    # score higher in Phase 2; brandless products get a lower score but
-    # aren't excluded.
+    # price cap only (with a 1.3x multiplier since the displayed price
+    # is the retail price, not a sale price).  Brand is NOT required
+    # here — many of these sites have unreliable brand extraction.
+    # Products with recognized brands score higher in Phase 2; brandless
+    # products get a lower score but aren't excluded.
     # ------------------------------------------------------------------
     if source_platform in ("jane", "carrot", "aiq"):
-        return _passes_price_cap(sale_price, category, weight_value, region)
+        return _passes_price_cap(
+            sale_price, category, weight_value, region,
+            cap_multiplier=_LOOSE_QUAL_CAP_MULTIPLIER,
+        )
 
     # --- Standard filters (non-Jane platforms) ---
     # Budget bypass: certain product types at accessible price points are
@@ -2221,7 +2235,7 @@ def detect_deals(
     # Even stores with just a few products deserve representation.
     guaranteed_count = 0
     if len(products) >= MIN_PRODUCTS_FOR_GUARANTEE and not top_deals:
-        guaranteed = _pick_guaranteed_deals(products)
+        guaranteed = _pick_guaranteed_deals(products, max_picks=2)
         if guaranteed:
             top_deals.extend(guaranteed)
             guaranteed_count = len(guaranteed)
