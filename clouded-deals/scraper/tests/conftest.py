@@ -102,4 +102,25 @@ def scored_deals_pool(make_product):
                     dispensary_id=disp,
                     deal_score=max(20, score - i * 3 - j * 2),
                 ))
+
+    # Disposable vape deals (category=vape, product_subtype=disposable).
+    # These are bucketed as "disposable" virtual category during selection.
+    disposable_brands = ["STIIIZY", "Rove", "Cookies", "Select",
+                         "Heavy Hitters", "Trendi", "City Trees", "Puff Bar"]
+    for i, brand in enumerate(disposable_brands):
+        for j in range(4):
+            disp = dispensaries[(i + j) % len(dispensaries)]
+            deals.append(make_product(
+                name=f"{brand} Disposable {j}",
+                brand=brand,
+                category="vape",
+                product_subtype="disposable",
+                sale_price=18.0 + j,
+                original_price=36.0 + j,
+                discount_percent=40 + j,
+                weight_value=0.5 if j % 2 == 0 else 1.0,
+                dispensary_id=disp,
+                deal_score=max(20, score - i * 3 - j * 2),
+            ))
+
     return deals

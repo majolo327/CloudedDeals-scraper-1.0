@@ -2138,9 +2138,12 @@ def _log_deal_report(
     by_cat: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for d in top_deals:
         cat = d.get("category", "other")
+        # Split vape into vape (carts/pods) and disposable for reporting
+        if cat == "vape" and d.get("product_subtype") == "disposable":
+            cat = "disposable"
         by_cat[cat].append(d)
 
-    cat_order = ["flower", "vape", "edible", "concentrate", "preroll", "other"]
+    cat_order = ["flower", "vape", "disposable", "edible", "concentrate", "preroll", "other"]
     for cat in cat_order:
         deals = by_cat.get(cat, [])
         if not deals:
@@ -2247,7 +2250,7 @@ def _log_scrape_summary(
         disp_id = d.get("dispensary_id") or "unknown"
         cut_by_disp[disp_id].append(d)
 
-    cat_order = ["flower", "vape", "edible", "concentrate", "preroll"]
+    cat_order = ["flower", "vape", "disposable", "edible", "concentrate", "preroll"]
 
     for sr in sorted(site_reports, key=lambda s: s["name"]):
         slug = sr["slug"]
@@ -2294,7 +2297,10 @@ def _log_scrape_summary(
         site_deals = deals_by_disp[slug]
         by_cat: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for d in site_deals:
-            by_cat[d.get("category", "other")].append(d)
+            c = d.get("category", "other")
+            if c == "vape" and d.get("product_subtype") == "disposable":
+                c = "disposable"
+            by_cat[c].append(d)
 
         for cat in cat_order:
             cat_deals = by_cat.get(cat)
@@ -2351,7 +2357,10 @@ def _log_scrape_summary(
     _w("-" * 80)
     cat_counter: Counter[str] = Counter()
     for d in all_top_deals:
-        cat_counter[d.get("category", "other")] += 1
+        c = d.get("category", "other")
+        if c == "vape" and d.get("product_subtype") == "disposable":
+            c = "disposable"
+        cat_counter[c] += 1
 
     for cat in cat_order:
         actual = cat_counter.get(cat, 0)
