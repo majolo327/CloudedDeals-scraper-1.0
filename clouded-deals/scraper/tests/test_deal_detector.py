@@ -767,7 +767,7 @@ class TestBrandScoring:
     """Two-tier brand system: premium (20 pts), popular (12 pts), any (5 pts)."""
 
     def test_premium_brand(self):
-        assert _score_brand("Cookies") == 20
+        assert _score_brand("Connected") == 20
 
     def test_premium_brand_case_insensitive(self):
         assert _score_brand("STIIIZY") == 20
@@ -893,7 +893,7 @@ class TestCalculateDealScore:
         assert s >= 50
 
     def test_popular_brand_scores_between_premium_and_none(self, make_product):
-        p_premium = make_product(discount_percent=30, brand="Cookies",
+        p_premium = make_product(discount_percent=30, brand="Connected",
                                  sale_price=15.0, original_price=30.0,
                                  category="flower", weight_value=3.5)
         p_popular = make_product(discount_percent=30, brand="Rove",
@@ -910,7 +910,7 @@ class TestCalculateDealScore:
     # ── Score cap ──────────────────────────────────────────────────
 
     def test_score_capped_at_100(self, make_product):
-        p = make_product(discount_percent=80, brand="Cookies", sale_price=12.0,
+        p = make_product(discount_percent=80, brand="Connected", sale_price=12.0,
                          original_price=60.0, category="flower", weight_value=3.5)
         s = calculate_deal_score(p)
         assert s <= 100
@@ -939,28 +939,28 @@ class TestPassesQualityGate:
     """Quality gate rejects incomplete / garbage deals."""
 
     def test_valid_deal_passes(self, make_product):
-        p = make_product(name="Purple Punch 3.5g", brand="Cookies",
+        p = make_product(name="Purple Punch 3.5g", brand="Connected",
                          category="flower", weight_value=3.5)
         assert passes_quality_gate(p) is True
 
     def test_strain_only_name_rejected(self, make_product):
         for name in ("Hybrid", "indica", "SATIVA", "Thc"):
-            p = make_product(name=name, brand="Cookies", category="vape",
+            p = make_product(name=name, brand="Connected", category="vape",
                              weight_value=0.5)
             assert passes_quality_gate(p) is False, f"'{name}' should be rejected"
 
     def test_short_name_rejected(self, make_product):
-        p = make_product(name="OG", brand="Cookies", category="flower",
+        p = make_product(name="OG", brand="Connected", category="flower",
                          weight_value=3.5)
         assert passes_quality_gate(p) is False
 
     def test_name_equals_brand_rejected(self, make_product):
-        p = make_product(name="Cookies", brand="Cookies", category="flower",
+        p = make_product(name="Connected", brand="Connected", category="flower",
                          weight_value=3.5)
         assert passes_quality_gate(p) is False
 
     def test_flower_without_weight_rejected(self, make_product):
-        p = make_product(name="Purple Punch", brand="Cookies",
+        p = make_product(name="Purple Punch", brand="Connected",
                          category="flower", weight_value=None)
         assert passes_quality_gate(p) is False
 
@@ -999,7 +999,7 @@ class TestPassesQualityGate:
         assert passes_quality_gate(p) is False
 
     def test_unknown_name_rejected(self, make_product):
-        p = make_product(name="Unknown", brand="Cookies",
+        p = make_product(name="Unknown", brand="Connected",
                          category="flower", weight_value=3.5)
         assert passes_quality_gate(p) is False
 
@@ -1037,13 +1037,13 @@ class TestRemoveSimilarDeals:
     def test_different_categories_not_capped(self, make_product):
         """Same brand at same dispensary but different categories should all pass."""
         deals = [
-            make_product(name="Cookies Flower", brand="Cookies",
+            make_product(name="Connected Flower", brand="Connected",
                          category="flower", dispensary_id="planet13",
                          deal_score=80),
-            make_product(name="Cookies Preroll", brand="Cookies",
+            make_product(name="Connected Preroll", brand="Connected",
                          category="preroll", dispensary_id="planet13",
                          deal_score=75),
-            make_product(name="Cookies Vape", brand="Cookies",
+            make_product(name="Connected Vape", brand="Connected",
                          category="vape", dispensary_id="planet13",
                          deal_score=70),
         ]
@@ -1112,7 +1112,7 @@ class TestSelectTopDeals:
         # kicks in with relaxed cap.
         from deal_detector import _BACKFILL_BRAND_TOTAL
         deals = [
-            make_product(name=f"P{i}", brand="Cookies", dispensary_id=f"D{i}",
+            make_product(name=f"P{i}", brand="Connected", dispensary_id=f"D{i}",
                          category="flower", deal_score=80 - i)
             for i in range(50)
         ]
@@ -1228,7 +1228,7 @@ class TestDetectDeals:
         # All products fail hard filters: no discount, no original price
         products = [make_product(
             name=f"Good Product {i} 3.5g",
-            brand="Cookies",
+            brand="Connected",
             category="flower",
             sale_price=25.0,  # over $22 flower cap → fails price cap
             original_price=25.0,  # no discount → fails discount check
@@ -1294,7 +1294,7 @@ class TestDetectDeals:
             dispensary_id=f"disp-{i % 5}",
         ) for i in range(20)]
         products.append(make_product(
-            name="Cookies Disposable Pen", brand="Cookies",
+            name="Connected Disposable Pen", brand="Connected",
             category="vape", product_subtype="disposable",
             sale_price=22.0, original_price=44.0,
             discount_percent=50, weight_value=None,
@@ -1385,7 +1385,7 @@ class TestGuaranteedDealDiversity:
         from deal_detector import _pick_guaranteed_deals
 
         products = [
-            make_product(name="Top Flower", brand="Cookies", category="flower",
+            make_product(name="Top Flower", brand="Connected", category="flower",
                          sale_price=12.0),
             make_product(name="Second Flower", brand="Connected", category="flower",
                          sale_price=13.0),
