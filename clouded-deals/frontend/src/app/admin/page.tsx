@@ -495,6 +495,10 @@ export default function AdminDashboard() {
           <div className="p-4">
             <div className="h-48 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />
           </div>
+        ) : regionCoverage.length === 0 ? (
+          <div className="p-8 text-center text-sm text-zinc-400 dark:text-zinc-500">
+            No region data available. Open the browser console (F12) for details.
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">

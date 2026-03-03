@@ -92,8 +92,8 @@ export default function ScraperPage() {
 
     (async () => {
       try {
-        // Fetch recent runs for all regions and active site counts in parallel
-        const [runsResult, dispensaryResult] = await Promise.all([
+        // Fetch recent runs, exact active-site count, and per-region coverage in parallel
+        const [runsResult, dispensaryCountResult, regionCoverageResult] = await Promise.all([
           supabase
             .from("scrape_runs")
             .select("*")
@@ -101,9 +101,9 @@ export default function ScraperPage() {
             .limit(300),
           supabase
             .from("dispensaries")
-            .select("region")
-            .eq("is_active", true)
-            .limit(5000),
+            .select("id", { count: "exact", head: true })
+            .eq("is_active", true),
+          supabase.rpc("get_region_site_coverage"),
         ]);
 
         const allRuns = (runsResult.data ?? []) as ScrapeRun[];
@@ -112,12 +112,17 @@ export default function ScraperPage() {
         const running = allRuns.find((r) => r.status === "running");
         if (running) setCurrentRun(running);
 
-        // Count active sites per region from DB
+        // Use server-side count (no 1k row-limit cap)
+        setTotalActiveSites(dispensaryCountResult.count ?? 0);
+
+        // Build per-region active-site counts from RPC
         const regionCounts: Record<string, number> = {};
-        for (const d of dispensaryResult.data ?? []) {
-          regionCounts[d.region] = (regionCounts[d.region] || 0) + 1;
+        if (regionCoverageResult.error) {
+          console.error("get_region_site_coverage RPC error:", regionCoverageResult.error);
         }
-        setTotalActiveSites(dispensaryResult.data?.length ?? 0);
+        for (const row of regionCoverageResult.data ?? []) {
+          regionCounts[row.region] = Number(row.active_sites);
+        }
 
         // Build region summaries
         const regionSummaries = ALL_REGIONS.map((r) => {
