@@ -369,9 +369,13 @@ _RE_BUNDLE_QTY = re.compile(
 # Strain type anywhere in name (not just trailing)
 _RE_STRAIN_TYPE = re.compile(r"\b(?:Indica|Sativa|Hybrid)\b", re.IGNORECASE)
 
-# Redundant vape category words in display name
+# Redundant vape category words in display name.
+# NOTE: "Disposable" is intentionally excluded — it's the primary signal for
+# disposable subtype classification in product_classifier.py.  Stripping it
+# here destroyed the keyword before classify_product() could see it, causing
+# disposable vapes to fall into the generic "vape" bucket (2/30 target).
 _RE_VAPE_WORDS = re.compile(
-    r"\b(?:Cartridges?|Carts?|Distillate|Disposable|Pod|Vape)\b",
+    r"\b(?:Cartridges?|Carts?|Distillate|Pod|Vape)\b",
     re.IGNORECASE,
 )
 
@@ -1458,6 +1462,24 @@ async def _scrape_site_inner(
         if classification["corrected_category"]:
             category = classification["corrected_category"]
             effective_cat = category
+
+        # Disposable subtype fallback: if the product is "vape" but no subtype
+        # was detected from the cleaned display_name, check the original
+        # raw_name and raw_text for disposable signals.  This catches products
+        # listed under "Disposable" tabs whose cleaned names are generic
+        # (e.g. "Brand Strain 0.5g" from a Dutchie "Disposable" category).
+        if (
+            effective_cat == "vape"
+            and classification["product_subtype"] is None
+        ):
+            _raw_check = f"{raw_name} {raw_text}".lower()
+            if re.search(
+                r"\b(?:disposable|all[- ]?in[- ]?one|aio|rtu|"
+                r"ready[- ]?to[- ]?use|draw[- ]?activated|"
+                r"built[- ]?in[- ]?battery)\b",
+                _raw_check,
+            ):
+                classification["product_subtype"] = "disposable"
 
         # Map CloudedLogic output to the DB schema expected by _upsert_products
         enriched: dict[str, Any] = {

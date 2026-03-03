@@ -99,6 +99,10 @@ _CATEGORY_LABEL_MAP: dict[str, str] = {
     "vapes": "vape",
     "cartridge": "vape",
     "cartridges": "vape",
+    "disposable": "vape",
+    "disposables": "vape",
+    "disposable vape": "vape",
+    "disposable vapes": "vape",
     "concentrate": "concentrate",
     "concentrates": "concentrate",
     "edible": "edible",
@@ -108,7 +112,8 @@ _CATEGORY_LABEL_MAP: dict[str, str] = {
 # Regex to detect standalone category labels in raw_text lines
 _RE_CATEGORY_LABEL = re.compile(
     r"^\s*(?:Pre[-\s]?Rolls?|Prerolls?|Pre[-\s]?Roll\s+Single|"
-    r"Flower|Vapes?|Cartridges?|Concentrates?|Edibles?)\s*$",
+    r"Flower|Vapes?|Cartridges?|Disposable(?:\s+Vapes?)?|Disposables?|"
+    r"Concentrates?|Edibles?)\s*$",
     re.IGNORECASE | re.MULTILINE,
 )
 
