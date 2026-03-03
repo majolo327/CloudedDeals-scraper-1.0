@@ -535,12 +535,37 @@ DISPENSARIES = [
         "region": "southern-nv",
     },
     {
-        # NOTE: The Source shares one /specials/ URL for all 4 locations.
-        # This entry captures the specials page; per-location menus TBD.
-        "name": "The Source",
-        "slug": "the-source",
+        # The Source NV has 4 locations, all on iHeartJane.
+        # Split into individual entries (was a single /specials/ URL).
+        "name": "The Source Las Vegas",
+        "slug": "the-source-lv",
         "platform": "jane",
-        "url": "https://www.thesourcenv.com/specials/",
+        "url": "https://www.iheartjane.com/embed/stores/3012/menu",
+        "fallback_url": "https://www.thesourcenv.com/specials/",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "The Source North Las Vegas",
+        "slug": "the-source-nlv",
+        "platform": "jane",
+        "url": "https://www.iheartjane.com/embed/stores/3104/menu",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "The Source Henderson",
+        "slug": "the-source-henderson",
+        "platform": "jane",
+        "url": "https://www.iheartjane.com/embed/stores/3013/menu",
+        "is_active": True,
+        "region": "southern-nv",
+    },
+    {
+        "name": "The Source Pahrump",
+        "slug": "the-source-pahrump",
+        "platform": "jane",
+        "url": "https://www.iheartjane.com/embed/stores/4606/menu",
         "is_active": True,
         "region": "southern-nv",
     },
@@ -727,12 +752,12 @@ DISPENSARIES = [
     },
     {
         # Recon (Feb 2026): switched from AIQ to Dutchie.
-        # Dutchie page: dutchie.com/dispensaries/jardin-premium-cannabis-dispensary
+        # Use standard dispensary page (not /embedded-menu/) for reliable scraping.
         # jardinlasvegas.com/store now embeds Dutchie (no longer AIQ).
         "name": "Jardin",
         "slug": "jardin",
         "platform": "dutchie",
-        "url": "https://dutchie.com/embedded-menu/jardin-premium-cannabis-dispensary/specials",
+        "url": "https://dutchie.com/dispensary/jardin-premium-cannabis-dispensary",
         "fallback_url": "https://www.jardinlasvegas.com/store",
         "is_active": True,
         "region": "southern-nv",
@@ -2972,6 +2997,11 @@ DISPENSARY_CHAINS: dict[str, str] = {
     "deep-roots-craig": "deep-roots",
     "deep-roots-blue-diamond": "deep-roots",
     "deep-roots-parkson": "deep-roots",
+    # The Source NV (4 locations)
+    "the-source-lv": "the-source",
+    "the-source-nlv": "the-source",
+    "the-source-henderson": "the-source",
+    "the-source-pahrump": "the-source",
     # Cultivate (2 locations)
     "cultivate-spring": "cultivate",
     "cultivate-durango": "cultivate",
