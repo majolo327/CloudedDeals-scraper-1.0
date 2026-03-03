@@ -368,6 +368,9 @@ export default function AdminDashboard() {
           supabase.rpc("get_region_site_coverage"),
         ]);
 
+        if (prodRes.error) console.error("get_region_unique_products RPC error:", prodRes.error);
+        if (covRes.error) console.error("get_region_site_coverage RPC error:", covRes.error);
+
         setRegionProducts((prodRes.data ?? []) as RegionProductData[]);
         setRegionCoverage((covRes.data ?? []) as RegionCoverageData[]);
       } catch (err) {

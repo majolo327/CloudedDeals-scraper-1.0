@@ -19,7 +19,7 @@ RETURNS TABLE (
   region       TEXT,
   unique_products BIGINT,
   unique_deals    BIGINT
-) LANGUAGE sql STABLE AS $$
+) LANGUAGE sql STABLE SECURITY DEFINER AS $$
   SELECT
     d.region,
     COUNT(DISTINCT p.id)                                     AS unique_products,
@@ -34,6 +34,8 @@ $$;
 COMMENT ON FUNCTION get_region_unique_products IS
   'Per-region unique product/deal counts within a rolling window. Used by admin dashboard.';
 
+GRANT EXECUTE ON FUNCTION get_region_unique_products TO anon, authenticated;
+
 
 -- =========================================================================
 -- 2. get_region_site_coverage()
@@ -47,7 +49,7 @@ RETURNS TABLE (
   total_sites     BIGINT,
   active_sites    BIGINT,
   scraped_last_30d BIGINT
-) LANGUAGE plpgsql STABLE AS $$
+) LANGUAGE plpgsql STABLE SECURITY DEFINER AS $$
 BEGIN
   RETURN QUERY
   WITH recent_runs AS (
@@ -93,3 +95,5 @@ $$;
 
 COMMENT ON FUNCTION get_region_site_coverage IS
   'Per-region site coverage: total, active, and successfully scraped in last 30 days.';
+
+GRANT EXECUTE ON FUNCTION get_region_site_coverage TO anon, authenticated;
