@@ -216,7 +216,7 @@ export default function AnalyticsPage() {
     scoreboard, funnel, eventBreakdown, topDeals, hourlyActivity, recentEvents,
     dailyVisitors, devices, referrers, retentionCohorts,
     totalEventsInRange, viral, growth, dispensaryMetrics,
-    campaignSegments, kpis,
+    campaignSegments, kpis, allTimeUniqueVisitors,
   } = data;
 
   const progressPct = Math.min((kpis.totalUniqueUsers / VISITOR_GOAL) * 100, 100);
@@ -1870,6 +1870,8 @@ function CampaignKPI({ label, value, sub, indicator }: {
       </div>
       {sub && <p className="text-[10px] text-zinc-400 mt-0.5">{sub}</p>}
     </div>
+  );
+}
 
 function StartupHealthCard({ growth, allTimeUsers }: { growth: GrowthMetrics; allTimeUsers: number }) {
   const churnColor = growth.churnRate <= 30
