@@ -1125,8 +1125,8 @@ def _expire_stale_deal_history(group_slugs: list[str] | None = None) -> None:
 
 
 _SITE_TIMEOUT_SEC = 480  # 8 min — Dutchie cascade (90s smart-wait + 105s detection + 30s card-wait + extraction) needs room.
-_SITE_TIMEOUT_SEC_EXPANSION = 600  # 10 min for expansion states — category tab iteration + deeper pagination needs more time.
-_RETRY_TIMEOUT_SEC = 300  # 5 min for retries — enough for a full detection pass on slow sites.
+_SITE_TIMEOUT_SEC_EXPANSION = 480  # 8 min for expansion states (was 600s/10min — reduced to match NV; most sites finish in 2-4 min)
+_RETRY_TIMEOUT_SEC = 240  # 4 min for retries (was 300s — enough for warm retry with primed caches)
 _MAX_RETRIES = 2  # 2 attempts total — saves ~5 min per broken site vs 3
 _RETRY_DELAYS = [5, 15]  # Backoff between retries
 
@@ -1850,10 +1850,11 @@ async def run(slug_filter: str | None = None) -> None:
         # (e.g. 111 Michigan sites on dutchie.com), insert a randomized
         # delay between requests to avoid triggering WAF / bot detection.
         # Each domain gets its own asyncio.Lock so only one request at a
-        # time negotiates the cooldown.  Range 3-7s mimics human browsing
-        # cadence and prevents predictable request patterns.
-        _DOMAIN_MIN_INTERVAL = float(os.getenv("DOMAIN_MIN_INTERVAL", "3.0"))
-        _DOMAIN_MAX_JITTER = float(os.getenv("DOMAIN_MAX_JITTER", "4.0"))
+        # time negotiates the cooldown.  Reduced from 3-7s to 1.5-3.5s
+        # to improve throughput on large expansion state shards (~75 sites)
+        # while still avoiding predictable request patterns.
+        _DOMAIN_MIN_INTERVAL = float(os.getenv("DOMAIN_MIN_INTERVAL", "1.5"))
+        _DOMAIN_MAX_JITTER = float(os.getenv("DOMAIN_MAX_JITTER", "2.0"))
         domain_locks: dict[str, asyncio.Lock] = {}
         domain_last_request: dict[str, float] = {}
 
@@ -2071,18 +2072,64 @@ async def run(slug_filter: str | None = None) -> None:
         logger.info("")
         logger.info("=" * 64)
 
+        # Count deadline-skipped sites for visibility
+        deadline_skips = sum(
+            1 for f in sites_failed
+            if "deadline" in f.get("error", "").lower()
+            or "insufficient time" in f.get("error", "").lower()
+        )
+
         logger.info("=" * 60)
         logger.info("SCRAPE COMPLETE")
         logger.info("  Status:     %s", status)
         logger.info("  Products:   %d", total_products)
         logger.info("  Deals:      %d", total_deals)
         logger.info("  Sites OK:   %d/%d", len(sites_scraped), len(dispensaries))
+        if deadline_skips:
+            logger.info("  Deadline:   %d sites skipped (budget exhausted)", deadline_skips)
         logger.info("  Duration:   %.1f min", elapsed / 60)
         if sites_failed:
             logger.info("  Failed:")
             for f in sites_failed:
                 logger.info("    - %s: %s", f["slug"], f["error"])
         logger.info("=" * 60)
+
+        # ─── Shard coverage check ─────────────────────────────────────
+        # For sharded regions, check how many sibling shards completed today.
+        # This helps operators identify GHA cron reliability issues.
+        shard_match = re.match(r"^(.+)-(\d+)$", REGION)
+        if shard_match and shard_match.group(1) in REGION_SHARDS and not DRY_RUN:
+            base_region = shard_match.group(1)
+            expected_shards = REGION_SHARDS[base_region]
+            try:
+                today_start = (
+                    datetime.now(timezone.utc)
+                    .replace(hour=0, minute=0, second=0, microsecond=0)
+                    .isoformat()
+                )
+                shard_runs = (
+                    db.table("scrape_runs")
+                    .select("region")
+                    .like("region", f"{base_region}-%")
+                    .gte("started_at", today_start)
+                    .in_("status", ["completed", "completed_with_errors", "running"])
+                    .execute()
+                )
+                ran_shards = {row["region"] for row in shard_runs.data}
+                missing = [
+                    f"{base_region}-{i}"
+                    for i in range(1, expected_shards + 1)
+                    if f"{base_region}-{i}" not in ran_shards
+                ]
+                logger.info("")
+                logger.info("  Shard coverage for %s: %d/%d ran today",
+                            base_region, len(ran_shards), expected_shards)
+                if missing:
+                    logger.warning("  MISSING SHARDS: %s", ", ".join(missing))
+                else:
+                    logger.info("  All shards accounted for")
+            except Exception as exc:
+                logger.debug("Shard coverage check failed: %s", exc)
 
         # ─── Aggregate unmatched brand candidates across all sites ────
         _unmatched_freq: dict[str, int] = {}

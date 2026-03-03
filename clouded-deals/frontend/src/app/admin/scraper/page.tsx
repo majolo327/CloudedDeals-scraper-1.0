@@ -41,6 +41,13 @@ interface RegionSummary {
   successRate7: number;
   avgRuntime7: number;
   activeSites: number;
+  // Aggregated today's data across all shards
+  todaySitesOk: number;
+  todaySitesFailed: number;
+  todayProducts: number;
+  todayDeals: number;
+  todayShardsRan: number;
+  todayShardsExpected: number;
 }
 
 const REGION_LABELS: Record<string, string> = {
@@ -56,6 +63,22 @@ const REGION_LABELS: Record<string, string> = {
   massachusetts: "MA",
   pennsylvania: "PA",
   all: "ALL",
+};
+
+// Expected shards per region — must match REGION_SHARDS in main.py
+const EXPECTED_SHARDS: Record<string, number> = {
+  "southern-nv": 1,
+  "northern-nv": 1,
+  michigan: 6,
+  illinois: 3,
+  colorado: 3,
+  massachusetts: 2,
+  "new-jersey": 4,
+  arizona: 2,
+  missouri: 4,
+  ohio: 4,
+  "new-york": 2,
+  pennsylvania: 1,
 };
 
 const REGION_COLORS: Record<string, string> = {
@@ -124,7 +147,10 @@ export default function ScraperPage() {
           regionCounts[row.region] = Number(row.active_sites);
         }
 
-        // Build region summaries
+        // Build region summaries — aggregate ALL of today's shard runs
+        const todayStart = new Date();
+        todayStart.setUTCHours(0, 0, 0, 0);
+
         const regionSummaries = ALL_REGIONS.map((r) => {
           const regionRuns = allRuns.filter(
             (run) => run.region === r.id || run.region?.startsWith(r.id + "-")
@@ -151,6 +177,22 @@ export default function ScraperPage() {
 
           const latestRun = regionRuns[0] ?? null;
 
+          // Aggregate today's runs across ALL shards for this region
+          const todayRuns = regionRuns.filter(
+            (run) => new Date(run.started_at) >= todayStart
+          );
+          const uniqueShards = new Set(todayRuns.map((run) => run.region));
+          let todaySitesOk = 0;
+          let todaySitesFailed = 0;
+          let todayProducts = 0;
+          let todayDeals = 0;
+          for (const run of todayRuns) {
+            todaySitesOk += Array.isArray(run.sites_scraped) ? run.sites_scraped.length : 0;
+            todaySitesFailed += Array.isArray(run.sites_failed) ? run.sites_failed.length : 0;
+            todayProducts += run.total_products || 0;
+            todayDeals += run.qualifying_deals || 0;
+          }
+
           return {
             region: r.id,
             label: r.label,
@@ -161,6 +203,12 @@ export default function ScraperPage() {
             successRate7: successRate,
             avgRuntime7: avgRuntime,
             activeSites: regionCounts[r.id] ?? 0,
+            todaySitesOk,
+            todaySitesFailed,
+            todayProducts,
+            todayDeals,
+            todayShardsRan: uniqueShards.size,
+            todayShardsExpected: EXPECTED_SHARDS[r.id] ?? 1,
           };
         });
 
@@ -466,12 +514,9 @@ function RegionCard({
     zinc: "bg-zinc-300",
   };
 
-  const sitesOk = hasData
-    ? Array.isArray(latestRun.sites_scraped) ? latestRun.sites_scraped.length : 0
-    : 0;
-  const sitesFailed = hasData
-    ? Array.isArray(latestRun.sites_failed) ? latestRun.sites_failed.length : 0
-    : 0;
+  const { todaySitesOk, todaySitesFailed, todayProducts, todayShardsRan, todayShardsExpected } = summary;
+  const hasTodayData = todaySitesOk > 0 || todaySitesFailed > 0;
+  const shardCoverage = todayShardsExpected > 0 ? todayShardsRan / todayShardsExpected : 0;
 
   return (
     <button
@@ -494,17 +539,42 @@ function RegionCard({
             {activeSites} active sites
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className={`h-2.5 w-2.5 rounded-full ${dotStyles[statusColor]}`} />
-          <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-            {hasData ? latestRun.status.replace(/_/g, " ") : "no data"}
-          </span>
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-1.5">
+            <span className={`h-2.5 w-2.5 rounded-full ${dotStyles[statusColor]}`} />
+            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+              {hasData ? latestRun.status.replace(/_/g, " ") : "no data"}
+            </span>
+          </div>
+          {todayShardsExpected > 1 && (
+            <span className={`text-[10px] font-medium ${
+              shardCoverage >= 1 ? "text-green-600 dark:text-green-400"
+                : shardCoverage > 0 ? "text-yellow-600 dark:text-yellow-400"
+                : "text-zinc-400"
+            }`}>
+              {todayShardsRan}/{todayShardsExpected} shards
+            </span>
+          )}
         </div>
       </div>
 
-      {hasData ? (
+      {hasTodayData ? (
+        <div className="mt-3 grid grid-cols-4 gap-2">
+          <MiniStat
+            label="Sites OK"
+            value={`${todaySitesOk}/${todaySitesOk + todaySitesFailed}`}
+            accent={todaySitesFailed === 0 && todaySitesOk > 0}
+          />
+          <MiniStat label="Products" value={todayProducts.toLocaleString()} />
+          <MiniStat label="Deals" value={summary.todayDeals.toLocaleString()} />
+          <MiniStat label="7d Rate" value={`${successRate7}%`} accent={successRate7 >= 80} />
+        </div>
+      ) : hasData ? (
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <MiniStat label="Sites OK" value={`${sitesOk}/${sitesOk + sitesFailed}`} />
+          <MiniStat
+            label="Sites OK"
+            value={`${Array.isArray(latestRun.sites_scraped) ? latestRun.sites_scraped.length : 0}/${(Array.isArray(latestRun.sites_scraped) ? latestRun.sites_scraped.length : 0) + (Array.isArray(latestRun.sites_failed) ? latestRun.sites_failed.length : 0)}`}
+          />
           <MiniStat label="Products" value={latestRun.total_products?.toLocaleString() ?? "0"} />
           <MiniStat label="7d Rate" value={`${successRate7}%`} accent={successRate7 >= 80} />
         </div>
