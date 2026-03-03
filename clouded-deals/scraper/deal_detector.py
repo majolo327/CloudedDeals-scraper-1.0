@@ -94,7 +94,7 @@ VAPE_SUBTYPE_PRICE_FLOORS: dict[str, dict[str, float]] = {
 # Products without a detected weight use the conservative "0.5" cap.
 VAPE_SUBTYPE_PRICE_CAPS: dict[str, dict[str, float]] = {
     "disposable": {
-        "0.5": 15,    # half-gram disposable cap
+        "0.5": 18,    # half-gram disposable cap (widened from $15 — premium brands like Rove/STIIIZY are $15-18 on sale)
         "1": 25,      # full-gram disposable cap (0.8g-1g)
     },
     "cartridge": {
@@ -678,12 +678,18 @@ def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> b
         return _passes_price_cap(sale_price, category, weight_value, region)
 
     # --- Standard filters (non-Jane platforms) ---
-    # Budget edibles and prerolls under $10 sale price are genuine deals
-    # that consumers actively seek.  A $5 edible marked from $6 is only
-    # 17%, and a $9 edible from $10 is 10% — below the normal 12% floor.
-    # At these price points the absolute price IS the value proposition,
-    # so we only require *any* discount (>0%) instead of the full minimum.
-    if category in ("edible", "preroll") and sale_price <= 10:
+    # Budget bypass: certain product types at accessible price points are
+    # genuine deals where the absolute price IS the value proposition.
+    # A $9 edible from $10 is 10%, a $20 disposable from $22 is 9% —
+    # both below the normal 12-15% floors but clearly good deals.
+    # We only require *any* discount (>0%) instead of the full minimum.
+    is_budget_deal = (
+        (category in ("edible", "preroll") and sale_price <= 10)
+        or (category == "vape"
+            and subtype == "disposable"
+            and sale_price <= 25)
+    )
+    if is_budget_deal:
         min_disc = 1
     else:
         min_disc = CATEGORY_MIN_DISCOUNT.get(category, HARD_FILTERS["min_discount_percent"])

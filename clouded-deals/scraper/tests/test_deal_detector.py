@@ -218,6 +218,61 @@ class TestPassesHardFilters:
                          discount_percent=9)
         assert passes_hard_filters(p) is True
 
+    # ── Disposable vape budget discount bypass ──────────────────────
+    # Disposable vapes ≤$25 only need *any* discount (>0%) instead of
+    # the normal 15% floor — same pattern as budget edibles/prerolls.
+
+    def test_disposable_low_discount_passes(self, make_product):
+        """$20 disposable from $22 = 9% — below 15% floor but budget bypass lets it through."""
+        p = make_product(category="vape", sale_price=20.0, original_price=22.0,
+                         discount_percent=9, product_subtype="disposable",
+                         weight_value=1.0)
+        assert passes_hard_filters(p) is True
+
+    def test_disposable_5pct_discount_passes(self, make_product):
+        """$18 disposable from $19 = 5% — passes with budget bypass."""
+        p = make_product(category="vape", sale_price=18.0, original_price=19.0,
+                         discount_percent=5, product_subtype="disposable",
+                         weight_value=1.0)
+        assert passes_hard_filters(p) is True
+
+    def test_disposable_zero_discount_rejected(self, make_product):
+        """$20 disposable with 0% discount still rejected — need *some* markdown."""
+        p = make_product(category="vape", sale_price=20.0, original_price=20.0,
+                         discount_percent=0, product_subtype="disposable",
+                         weight_value=1.0)
+        assert passes_hard_filters(p) is False
+
+    def test_non_budget_vape_cart_needs_15pct(self, make_product):
+        """$20 cartridge at 10% — bypass is disposable-only, carts still need 15%."""
+        p = make_product(category="vape", sale_price=20.0, original_price=22.22,
+                         discount_percent=10, product_subtype="cartridge",
+                         weight_value=1.0)
+        assert passes_hard_filters(p) is False
+
+    def test_disposable_over_25_needs_15pct(self, make_product):
+        """$26 disposable at 10% — above $25 threshold, needs full 15%."""
+        p = make_product(category="vape", sale_price=26.0, original_price=28.89,
+                         discount_percent=10, product_subtype="disposable",
+                         weight_value=1.0)
+        assert passes_hard_filters(p) is False
+
+    # ── Half-gram disposable cap widened $15 → $18 ─────────────────
+
+    def test_half_gram_disposable_at_new_cap(self, make_product):
+        """0.5g disposable at $18 — passes with widened cap."""
+        p = make_product(category="vape", sale_price=18.0, original_price=36.0,
+                         discount_percent=50, product_subtype="disposable",
+                         weight_value=0.5)
+        assert passes_hard_filters(p) is True
+
+    def test_half_gram_disposable_over_new_cap(self, make_product):
+        """0.5g disposable at $19 — exceeds widened $18 cap."""
+        p = make_product(category="vape", sale_price=19.0, original_price=38.0,
+                         discount_percent=50, product_subtype="disposable",
+                         weight_value=0.5)
+        assert passes_hard_filters(p) is False
+
     def test_concentrate_at_cap(self, make_product):
         """Concentrate 1g cap is now $25 (tightened from $45)."""
         p = make_product(category="concentrate", sale_price=25.0, original_price=50.0,
@@ -380,9 +435,9 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is False
 
     def test_disposable_half_gram_over_cap_rejected(self, make_product):
-        """$16 for a 0.5g disposable exceeds the $15 cap."""
+        """$19 for a 0.5g disposable exceeds the $18 cap."""
         p = make_product(category="vape", product_subtype="disposable",
-                         sale_price=16.0, original_price=32.0,
+                         sale_price=19.0, original_price=38.0,
                          discount_percent=50, weight_value=0.5)
         assert passes_hard_filters(p) is False
 
