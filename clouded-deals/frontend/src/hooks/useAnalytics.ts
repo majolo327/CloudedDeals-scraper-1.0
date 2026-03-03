@@ -103,6 +103,12 @@ export interface GrowthMetrics {
   activationRate: number;
   /** Avg events per user in range (engagement depth) */
   eventsPerUser: number;
+  /** Churn rate: % of prior-week users not seen this week */
+  churnRate: number;
+  /** Compound weekly growth rate over last 4 weeks (%) */
+  growthVelocity: number;
+  /** % of activated users (saved a deal) who returned within 7 days */
+  activationToRetention: number;
 }
 
 export interface DispensaryMetric {
@@ -267,6 +273,7 @@ export function useAnalytics(range: DateRange = '7d') {
         growth: {
           visitorsWoW: 0, savesWoW: 0, clicksWoW: 0, sharesWoW: 0,
           wau: 0, mau: 0, stickiness: 0, activationRate: 0, eventsPerUser: 0,
+          churnRate: 0, growthVelocity: 0, activationToRetention: 0,
         },
         dispensaryMetrics: [],
         campaignSegments: [],
@@ -313,12 +320,13 @@ export function useAnalytics(range: DateRange = '7d') {
         mauEventsRes,
         rpcKpis,
       ] = await Promise.all([
-        // All events in selected range
+        // All events in selected range (override Supabase default 1000-row limit)
         supabase
           .from('analytics_events')
           .select('anon_id, event_name, properties, created_at')
           .gte('created_at', rangeStart)
-          .order('created_at', { ascending: true }),
+          .order('created_at', { ascending: true })
+          .limit(50000),
         // Recent events for live stream
         supabase
           .from('analytics_events')
@@ -340,7 +348,8 @@ export function useAnalytics(range: DateRange = '7d') {
           .from('analytics_events')
           .select('anon_id, event_name, created_at')
           .gte('created_at', mauStart)
-          .order('created_at', { ascending: true }),
+          .order('created_at', { ascending: true })
+          .limit(50000),
         // Server-side KPIs (fires in parallel, returns null if unavailable)
         rpcPromise,
       ]);
@@ -620,7 +629,7 @@ export function useAnalytics(range: DateRange = '7d') {
 
       const retentionCohorts: RetentionCohort[] = Object.entries(cohortMap)
         .sort(([a], [b]) => a.localeCompare(b))
-        .slice(-6)
+        .slice(-12)
         .map(([cohortDate, { users }]) => {
           const cohortStart = new Date(cohortDate);
           let day1 = 0, day3 = 0, day7 = 0, day14 = 0;
@@ -745,6 +754,41 @@ export function useAnalytics(range: DateRange = '7d') {
       const eventsPerUser = funnelVisitors.size > 0
         ? parseFloat((events.length / funnelVisitors.size).toFixed(1)) : 0;
 
+      // ----- Churn rate: % of last-week users NOT seen this week -----
+      let churnedCount = 0;
+      lastWeekVisitors.forEach((uid) => {
+        if (!thisWeekVisitors.has(uid)) churnedCount++;
+      });
+      const churnRate = lastWeekVisitors.size > 0
+        ? Math.round((churnedCount / lastWeekVisitors.size) * 100) : 0;
+
+      // ----- Growth velocity: compound weekly growth over last 4 weeks -----
+      const weeklyBuckets: Set<string>[] = [new Set(), new Set(), new Set(), new Set()];
+      for (const e of mauEvents) {
+        const ageMs = now.getTime() - new Date(e.created_at).getTime();
+        const weekIdx = Math.floor(ageMs / (7 * 24 * 60 * 60 * 1000));
+        if (weekIdx >= 0 && weekIdx < 4) weeklyBuckets[weekIdx].add(e.anon_id);
+      }
+      // weeklyBuckets[0] = most recent week, [3] = 4 weeks ago
+      const nonZeroWeeks = weeklyBuckets.filter(s => s.size > 0);
+      let growthVelocity = 0;
+      if (nonZeroWeeks.length >= 2) {
+        const oldest = weeklyBuckets[weeklyBuckets.length - 1].size || weeklyBuckets[weeklyBuckets.length - 2].size;
+        const newest = weeklyBuckets[0].size;
+        if (oldest > 0 && newest > 0) {
+          growthVelocity = Math.round(((newest / oldest) ** (1 / (nonZeroWeeks.length - 1)) - 1) * 100);
+        }
+      }
+
+      // ----- Activation-to-retention: % of activated users who returned within 7d -----
+      let activatedAndReturned = 0;
+      funnelActivated.forEach((uid) => {
+        const days = userAllDays[uid];
+        if (days && days.size >= 2) activatedAndReturned++;
+      });
+      const activationToRetention = funnelActivated.size > 0
+        ? Math.round((activatedAndReturned / funnelActivated.size) * 100) : 0;
+
       const growth: GrowthMetrics = {
         visitorsWoW: wowPct(thisWeekVisitors.size, lastWeekVisitors.size),
         savesWoW: wowPct(thisWeekSaves, lastWeekSaves),
@@ -755,6 +799,9 @@ export function useAnalytics(range: DateRange = '7d') {
         stickiness: Math.round((avgDau / mauSize) * 100),
         activationRate,
         eventsPerUser,
+        churnRate,
+        growthVelocity,
+        activationToRetention,
       };
 
       // ----- B2B dispensary metrics -----

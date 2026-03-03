@@ -92,8 +92,8 @@ export default function ScraperPage() {
 
     (async () => {
       try {
-        // Fetch recent runs for all regions and active site counts in parallel
-        const [runsResult, dispensaryResult] = await Promise.all([
+        // Fetch recent runs, exact active-site count, and per-region coverage in parallel
+        const [runsResult, dispensaryCountResult, regionCoverageResult] = await Promise.all([
           supabase
             .from("scrape_runs")
             .select("*")
@@ -101,8 +101,9 @@ export default function ScraperPage() {
             .limit(300),
           supabase
             .from("dispensaries")
-            .select("region")
+            .select("id", { count: "exact", head: true })
             .eq("is_active", true),
+          supabase.rpc("get_region_site_coverage"),
         ]);
 
         const allRuns = (runsResult.data ?? []) as ScrapeRun[];
@@ -111,16 +112,23 @@ export default function ScraperPage() {
         const running = allRuns.find((r) => r.status === "running");
         if (running) setCurrentRun(running);
 
-        // Count active sites per region from DB
+        // Use server-side count (no 1k row-limit cap)
+        setTotalActiveSites(dispensaryCountResult.count ?? 0);
+
+        // Build per-region active-site counts from RPC
         const regionCounts: Record<string, number> = {};
-        for (const d of dispensaryResult.data ?? []) {
-          regionCounts[d.region] = (regionCounts[d.region] || 0) + 1;
+        if (regionCoverageResult.error) {
+          console.error("get_region_site_coverage RPC error:", regionCoverageResult.error);
         }
-        setTotalActiveSites(dispensaryResult.data?.length ?? 0);
+        for (const row of regionCoverageResult.data ?? []) {
+          regionCounts[row.region] = Number(row.active_sites);
+        }
 
         // Build region summaries
         const regionSummaries = ALL_REGIONS.map((r) => {
-          const regionRuns = allRuns.filter((run) => run.region === r.id);
+          const regionRuns = allRuns.filter(
+            (run) => run.region === r.id || run.region?.startsWith(r.id + "-")
+          );
           const last7 = regionRuns.slice(0, 7);
           const completed7 = last7.filter(
             (run) =>
@@ -335,7 +343,7 @@ export default function ScraperPage() {
       {/* Expanded region detail */}
       {selectedRegion && (
         <RegionDetail
-          runs={runs.filter((r) => r.region === selectedRegion)}
+          runs={runs.filter((r) => r.region === selectedRegion || r.region?.startsWith(selectedRegion + "-"))}
           regionLabel={
             ALL_REGIONS.find((r) => r.id === selectedRegion)?.label ?? selectedRegion
           }
@@ -378,9 +386,9 @@ export default function ScraperPage() {
                     </td>
                     <td className="px-4 py-2">
                       <span
-                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${REGION_COLORS[run.region] ?? "bg-zinc-100 text-zinc-600"}`}
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${REGION_COLORS[getBaseRegion(run.region)] ?? "bg-zinc-100 text-zinc-600"}`}
                       >
-                        {REGION_LABELS[run.region] ?? run.region}
+                        {REGION_LABELS[getBaseRegion(run.region)] ?? run.region}
                       </span>
                     </td>
                     <td className="px-4 py-2">
@@ -673,6 +681,13 @@ function StatusBadge({ status }: { status: string }) {
       {labels[status] ?? status}
     </span>
   );
+}
+
+/** Map sharded region names like "michigan-2" to their base "michigan". */
+function getBaseRegion(region: string): string {
+  const match = region.match(/^(.+)-(\d+)$/);
+  if (match && match[1] in REGION_LABELS) return match[1];
+  return region;
 }
 
 function ts(): string {

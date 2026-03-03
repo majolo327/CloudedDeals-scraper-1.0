@@ -65,6 +65,36 @@ interface FlaggedDeal {
   } | null;
 }
 
+interface RegionProductData {
+  region: string;
+  unique_products: number;
+  unique_deals: number;
+}
+
+interface RegionCoverageData {
+  region: string;
+  total_sites: number;
+  active_sites: number;
+  scraped_last_30d: number;
+}
+
+type TimeWindow = "30d" | "month" | "all";
+
+const TIME_WINDOW_LABELS: Record<TimeWindow, string> = {
+  "30d": "Last 30 Days",
+  month: "This Month",
+  all: "All Time",
+};
+
+function getWindowDays(tw: TimeWindow): number {
+  if (tw === "30d") return 30;
+  if (tw === "month") {
+    const now = new Date();
+    return now.getDate(); // days since start of month
+  }
+  return 3650; // ~10 years = effectively all time
+}
+
 interface DashboardData {
   totalProducts: number;
   totalDeals: number;
@@ -89,6 +119,20 @@ const REGION_LABELS: Record<string, string> = {
   massachusetts: "MA",
   pennsylvania: "PA",
   all: "ALL",
+};
+
+const REGION_FULL_NAMES: Record<string, string> = {
+  "southern-nv": "Nevada",
+  michigan: "Michigan",
+  illinois: "Illinois",
+  arizona: "Arizona",
+  missouri: "Missouri",
+  "new-jersey": "New Jersey",
+  ohio: "Ohio",
+  colorado: "Colorado",
+  "new-york": "New York",
+  massachusetts: "Massachusetts",
+  pennsylvania: "Pennsylvania",
 };
 
 const REGION_COLORS: Record<string, string> = {
@@ -118,6 +162,10 @@ export default function AdminDashboard() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [exportCopied, setExportCopied] = useState(false);
+  const [timeWindow, setTimeWindow] = useState<TimeWindow>("30d");
+  const [regionProducts, setRegionProducts] = useState<RegionProductData[]>([]);
+  const [regionCoverage, setRegionCoverage] = useState<RegionCoverageData[]>([]);
+  const [regionLoading, setRegionLoading] = useState(true);
 
   const fetchFlags = useCallback(async () => {
     setFlagsError(null);
@@ -304,6 +352,34 @@ export default function AdminDashboard() {
     })();
   }, []);
 
+  // Fetch per-region KPI data (re-fetches when time window changes)
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setRegionLoading(false);
+      return;
+    }
+    setRegionLoading(true);
+    const windowDays = getWindowDays(timeWindow);
+
+    (async () => {
+      try {
+        const [prodRes, covRes] = await Promise.all([
+          supabase.rpc("get_region_unique_products", { window_days: windowDays }),
+          supabase.rpc("get_region_site_coverage"),
+        ]);
+
+        if (prodRes.error) console.error("get_region_unique_products RPC error:", prodRes.error);
+        if (covRes.error) console.error("get_region_site_coverage RPC error:", covRes.error);
+
+        setRegionProducts((prodRes.data ?? []) as RegionProductData[]);
+        setRegionCoverage((covRes.data ?? []) as RegionCoverageData[]);
+      } catch (err) {
+        console.error("Failed to load region KPIs:", err);
+      }
+      setRegionLoading(false);
+    })();
+  }, [timeWindow]);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -367,13 +443,17 @@ export default function AdminDashboard() {
       </div>
 
       {/* Key stats */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Active Sites" value={data.activeSites.toLocaleString()} sub="dispensaries in DB" />
-        <StatCard label="Products in DB" value={data.totalProducts.toLocaleString()} sub="unique products" />
         <StatCard
-          label="Qualifying Deals"
+          label="Total Products Scraped"
+          value={data.totalProducts.toLocaleString()}
+          sub="unique rows collected"
+        />
+        <StatCard
+          label="Total Deals Scraped"
           value={data.totalDeals.toLocaleString()}
-          sub={`${data.activeDeals.toLocaleString()} active`}
+          sub={`${data.activeDeals.toLocaleString()} active today`}
         />
         <StatCard
           label="Success Rate"
@@ -381,6 +461,135 @@ export default function AdminDashboard() {
           accent={data.successRate >= 91 ? "text-green-600 dark:text-green-400" : "text-orange-500"}
           sub="last 15 runs"
         />
+        <StatCard
+          label="States Live"
+          value={String(regionCoverage.filter((r) => r.scraped_last_30d > 0).length)}
+          sub={`of ${regionCoverage.length} configured`}
+        />
+      </div>
+
+      {/* ── Per-State KPI Breakdown ─────────────────────────── */}
+      <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            Coverage by State
+          </h3>
+          <div className="flex gap-1">
+            {(Object.keys(TIME_WINDOW_LABELS) as TimeWindow[]).map((tw) => (
+              <button
+                key={tw}
+                onClick={() => setTimeWindow(tw)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  timeWindow === tw
+                    ? "bg-green-600 text-white"
+                    : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                }`}
+              >
+                {TIME_WINDOW_LABELS[tw]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {regionLoading ? (
+          <div className="p-4">
+            <div className="h-48 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />
+          </div>
+        ) : regionCoverage.length === 0 ? (
+          <div className="p-8 text-center text-sm text-zinc-400 dark:text-zinc-500">
+            No region data available. Open the browser console (F12) for details.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-zinc-200 text-xs text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
+                <tr>
+                  <th className="px-4 py-2 font-semibold">State</th>
+                  <th className="px-4 py-2 font-semibold text-right">Active Sites</th>
+                  <th className="px-4 py-2 font-semibold text-right">Scraped (30d)</th>
+                  <th className="px-4 py-2 font-semibold text-right">Coverage</th>
+                  <th className="px-4 py-2 font-semibold text-right">Unique Products</th>
+                  <th className="px-4 py-2 font-semibold text-right">Deals Found</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {regionCoverage.map((cov) => {
+                  const prod = regionProducts.find((p) => p.region === cov.region);
+                  const coveragePct = cov.active_sites > 0
+                    ? Math.round((cov.scraped_last_30d / cov.active_sites) * 100)
+                    : 0;
+                  return (
+                    <tr key={cov.region} className="text-zinc-800 dark:text-zinc-200">
+                      <td className="px-4 py-2">
+                        <div className="flex items-center gap-2">
+                          <RegionBadge region={cov.region} />
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {REGION_FULL_NAMES[cov.region] ?? cov.region}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {cov.active_sites.toLocaleString()}
+                        {cov.total_sites > cov.active_sites && (
+                          <span className="ml-1 text-xs text-zinc-400">
+                            / {cov.total_sites.toLocaleString()}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {cov.scraped_last_30d.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${
+                          coveragePct >= 90
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+                            : coveragePct >= 70
+                              ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400"
+                              : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+                        }`}>
+                          {coveragePct}%
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums font-medium">
+                        {(prod?.unique_products ?? 0).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {(prod?.unique_deals ?? 0).toLocaleString()}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {/* Totals row */}
+                {regionCoverage.length > 0 && (
+                  <tr className="border-t-2 border-zinc-300 bg-zinc-50 font-semibold text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800/50 dark:text-zinc-100">
+                    <td className="px-4 py-2">
+                      Total ({regionCoverage.length} states)
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {regionCoverage.reduce((s, r) => s + r.active_sites, 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {regionCoverage.reduce((s, r) => s + r.scraped_last_30d, 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {(() => {
+                        const totalActive = regionCoverage.reduce((s, r) => s + r.active_sites, 0);
+                        const totalScraped = regionCoverage.reduce((s, r) => s + r.scraped_last_30d, 0);
+                        return totalActive > 0 ? `${Math.round((totalScraped / totalActive) * 100)}%` : "—";
+                      })()}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {regionProducts.reduce((s, r) => s + r.unique_products, 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {regionProducts.reduce((s, r) => s + r.unique_deals, 0).toLocaleString()}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* ── Flagged Products ──────────────────────────────────── */}
@@ -970,9 +1179,18 @@ function MetricRow({
   );
 }
 
+/** Map sharded region names like "michigan-2" to their base "michigan". */
+function getBaseRegion(region: string): string {
+  if (REGION_LABELS[region]) return region;
+  const match = region.match(/^(.+)-(\d+)$/);
+  if (match && REGION_LABELS[match[1]]) return match[1];
+  return region;
+}
+
 function RegionBadge({ region }: { region: string }) {
-  const label = REGION_LABELS[region] ?? region;
-  const color = REGION_COLORS[region] ?? "bg-zinc-100 text-zinc-600";
+  const base = getBaseRegion(region);
+  const label = REGION_LABELS[base] ?? region;
+  const color = REGION_COLORS[base] ?? "bg-zinc-100 text-zinc-600";
   return (
     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>
       {label}

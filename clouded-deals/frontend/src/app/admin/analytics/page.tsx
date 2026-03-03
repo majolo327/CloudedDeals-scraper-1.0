@@ -349,6 +349,7 @@ export default function AnalyticsPage() {
         <SectionHeading>Growth Trends</SectionHeading>
         <DailyVisitorsChart data={dailyVisitors} />
         <GrowthCard growth={growth} />
+        <StartupHealthCard growth={growth} allTimeUsers={allTimeUniqueVisitors} />
       </section>
 
       {/* ================================================================ */}
@@ -1869,6 +1870,72 @@ function CampaignKPI({ label, value, sub, indicator }: {
       </div>
       {sub && <p className="text-[10px] text-zinc-400 mt-0.5">{sub}</p>}
     </div>
+
+function StartupHealthCard({ growth, allTimeUsers }: { growth: GrowthMetrics; allTimeUsers: number }) {
+  const churnColor = growth.churnRate <= 30
+    ? 'text-green-600 dark:text-green-400'
+    : growth.churnRate <= 50
+      ? 'text-amber-600 dark:text-amber-400'
+      : 'text-red-500 dark:text-red-400';
+
+  const velocityColor = growth.growthVelocity > 0
+    ? 'text-green-600 dark:text-green-400'
+    : growth.growthVelocity === 0
+      ? 'text-zinc-400'
+      : 'text-red-500 dark:text-red-400';
+
+  const retentionColor = growth.activationToRetention >= 40
+    ? 'text-green-600 dark:text-green-400'
+    : growth.activationToRetention >= 20
+      ? 'text-amber-600 dark:text-amber-400'
+      : 'text-red-500 dark:text-red-400';
+
+  const metrics = [
+    {
+      label: 'Weekly Churn',
+      value: `${growth.churnRate}%`,
+      color: churnColor,
+      sub: 'prior-week users not seen this week',
+      target: 'target: <30%',
+    },
+    {
+      label: 'Growth Velocity',
+      value: `${growth.growthVelocity > 0 ? '+' : ''}${growth.growthVelocity}%`,
+      color: velocityColor,
+      sub: 'compound weekly rate (4wk)',
+      target: 'target: >10% WoW',
+    },
+    {
+      label: 'Activation \u2192 Retention',
+      value: `${growth.activationToRetention}%`,
+      color: retentionColor,
+      sub: 'activated users who returned',
+      target: 'target: >40%',
+    },
+    {
+      label: 'Total Users (All Time)',
+      value: allTimeUsers.toLocaleString(),
+      color: 'text-zinc-900 dark:text-zinc-100',
+      sub: 'unique visitors since launch',
+      target: '',
+    },
+  ];
+
+  return (
+    <Card title="Startup Health">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {metrics.map((m) => (
+          <div key={m.label} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+            <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide">{m.label}</p>
+            <div className="flex items-baseline gap-2 mt-1">
+              <p className={`text-2xl font-bold ${m.color}`}>{m.value}</p>
+            </div>
+            <p className="text-[10px] text-zinc-400 mt-0.5">{m.sub}</p>
+            {m.target && <p className="text-[10px] text-zinc-400 mt-0.5">{m.target}</p>}
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
