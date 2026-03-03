@@ -20,8 +20,8 @@ run-name: >-
     || contains(github.event.schedule || '', '2 14') && 'ohio (2/4)'
     || contains(github.event.schedule || '', '4 14') && 'ohio (3/4)'
     || contains(github.event.schedule || '', '6 14') && 'ohio (4/4)'
-    || contains(github.event.schedule || '', '0 15') && 'southern-nv ★'
-    || contains(github.event.schedule || '', '2 15') && 'northern-nv'
+    || contains(github.event.schedule || '', '30 15') && 'southern-nv ★'
+    || contains(github.event.schedule || '', '32 15') && 'northern-nv'
     || contains(github.event.schedule || '', '10 16') && 'michigan (6/6)'
     || contains(github.event.schedule || '', '0 16') && 'michigan (1/6)'
     || contains(github.event.schedule || '', '2 16') && 'michigan (2/6)'
@@ -59,7 +59,7 @@ on:
     # local times after spring-forward.  Arizona stays unchanged (no DST).
     #
     # DST CUTOVER CHECKLIST (Mar 8, verify in Actions tab):
-    #   [ ] southern-nv fires at ~8:00 AM PDT (UTC 15:00)
+    #   [ ] southern-nv fires at ~8:30 AM PDT (UTC 15:30)
     #   [ ] michigan-1 fires at ~12:00 PM EDT (UTC 16:00)
     #   [ ] arizona fires at 12:00 PM MST (UTC 19:00, unchanged)
     #   [ ] colorado fires at ~1:04 PM MDT (UTC 19:04, same hour as AZ)
@@ -82,8 +82,8 @@ on:
     - cron: "6 14 * * *"    # ohio-4             — 10:06 AM EDT (shard 4/4, ~62 sites)
     #
     # ── 8:00 AM PDT — Nevada ★ production anchor ────────────────
-    - cron: "0 15 * * *"    # southern-nv        — 8:00 AM PDT  (53 sites) ★
-    - cron: "2 15 * * *"    # northern-nv        — 8:02 AM PDT  (~40 sites)
+    - cron: "30 15 * * *"   # southern-nv        — 8:30 AM PDT  (53 sites) ★
+    - cron: "32 15 * * *"   # northern-nv        — 8:32 AM PDT  (~40 sites)
     #
     # ── 12:00 PM EDT — Michigan ──────────────────────────────────
     - cron: "0 16 * * *"    # michigan-1         — 12:00 PM EDT (shard 1/6, ~75 sites)
@@ -249,9 +249,9 @@ jobs:
             echo "value=ohio-3" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.schedule }}" = "6 14 * * *" ]; then
             echo "value=ohio-4" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 15 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "30 15 * * *" ]; then
             echo "value=southern-nv" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "2 15 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "32 15 * * *" ]; then
             echo "value=northern-nv" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.schedule }}" = "0 16 * * *" ]; then
             echo "value=michigan-1" >> $GITHUB_OUTPUT
