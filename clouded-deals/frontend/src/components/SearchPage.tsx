@@ -329,6 +329,10 @@ export function SearchPage({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={isExpired ? "Search yesterday's deals..." : "Search deals, brands, stores..."}
             autoFocus
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
             className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 sm:pl-12 pr-10 py-3 sm:py-4 min-h-[48px] text-white placeholder:text-slate-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all text-base sm:text-lg"
           />
           {searchQuery && (

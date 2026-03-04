@@ -10,10 +10,23 @@ import { AgeGate, Footer } from '@/components/layout';
 import dynamic from 'next/dynamic';
 import { DealsPage } from '@/components/DealsPage';
 
+// Tab loading skeleton — shown while lazy tabs hydrate
+function TabSkeleton() {
+  // Import is hoisted so DealCardSkeleton is available
+  const { DealCardSkeleton: Skel } = require('@/components/Skeleton');
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+        {Array.from({ length: 6 }).map((_, i) => <Skel key={i} />)}
+      </div>
+    </div>
+  );
+}
+
 // Lazy-load secondary tabs — defers JS until user switches tab
-const SearchPage = dynamic(() => import('@/components/SearchPage').then(m => ({ default: m.SearchPage })), { ssr: false });
-const BrowsePage = dynamic(() => import('@/components/BrowsePage').then(m => ({ default: m.BrowsePage })), { ssr: false });
-const SavedPage = dynamic(() => import('@/components/SavedPage').then(m => ({ default: m.SavedPage })), { ssr: false });
+const SearchPage = dynamic(() => import('@/components/SearchPage').then(m => ({ default: m.SearchPage })), { ssr: false, loading: TabSkeleton });
+const BrowsePage = dynamic(() => import('@/components/BrowsePage').then(m => ({ default: m.BrowsePage })), { ssr: false, loading: TabSkeleton });
+const SavedPage = dynamic(() => import('@/components/SavedPage').then(m => ({ default: m.SavedPage })), { ssr: false, loading: TabSkeleton });
 const AboutPage = dynamic(() => import('@/components/AboutPage').then(m => ({ default: m.AboutPage })), { ssr: false });
 const TermsPage = dynamic(() => import('@/components/TermsPage').then(m => ({ default: m.TermsPage })), { ssr: false });
 const PrivacyPage = dynamic(() => import('@/components/PrivacyPage').then(m => ({ default: m.PrivacyPage })), { ssr: false });
@@ -57,6 +70,19 @@ export default function Home() {
   const { savedDeals, usedDeals, toggleSavedDeal, removeSavedDeals, markDealUsed, isDealUsed, savedCount } =
     useSavedDeals();
   const dealHistory = useDealHistory();
+
+  // Save counter pulse — brief animation when savedCount increases
+  const [savePulse, setSavePulse] = useState(false);
+  const prevSavedRef = useRef(savedCount);
+  useEffect(() => {
+    if (savedCount > prevSavedRef.current) {
+      setSavePulse(true);
+      const t = setTimeout(() => setSavePulse(false), 300);
+      prevSavedRef.current = savedCount;
+      return () => clearTimeout(t);
+    }
+    prevSavedRef.current = savedCount;
+  }, [savedCount]);
 
   // Age verification & anonymous tracking
   useEffect(() => {
@@ -428,7 +454,7 @@ export default function Home() {
             >
               <Heart className={`w-5 h-5 ${savedCount > 0 ? 'fill-current' : ''}`} />
               {savedCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full bg-purple-500 text-[10px] font-bold text-white">
+                <span className={`absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full bg-purple-500 text-[10px] font-bold text-white ${savePulse ? 'animate-heart-pulse' : ''}`}>
                   {savedCount > 9 ? '9+' : savedCount}
                 </span>
               )}

@@ -179,9 +179,9 @@ export function DealModal({
           {/* Price card */}
           <div className="glass-subtle frost rounded-2xl p-4 sm:p-5 mb-6">
             <div className="flex items-baseline gap-2 sm:gap-3 mb-2 flex-wrap">
-              <span className="text-3xl sm:text-4xl font-bold text-purple-400" style={{ textShadow: '0 0 20px rgba(168, 85, 247, 0.2)' }}>${deal.deal_price}</span>
+              <span className="text-3xl sm:text-4xl font-bold text-purple-400" style={{ textShadow: '0 0 20px rgba(168, 85, 247, 0.2)' }}>${Number(deal.deal_price).toFixed(2)}</span>
               {deal.original_price && (
-                <span className="text-lg sm:text-xl text-slate-500 line-through">${deal.original_price}</span>
+                <span className="text-lg sm:text-xl text-slate-500 line-through">${Number(deal.original_price).toFixed(2)}</span>
               )}
               {savingsPercent > 0 && (
                 <span className="px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold bg-purple-500/15 text-purple-400">

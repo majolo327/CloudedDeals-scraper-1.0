@@ -40,10 +40,10 @@ export function StickyStatsBar({
               <button
                 key={category.id}
                 onClick={() => onCategoryChange(category.id)}
-                className={`px-3 py-1.5 min-h-[36px] flex items-center rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                className={`px-3 py-1.5 min-h-[36px] flex items-center rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 ${
                   activeCategory === category.id
-                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                    : 'text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10'
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 scale-105 shadow-[0_0_8px_rgba(168,85,247,0.15)]'
+                    : 'text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10 scale-100'
                 }`}
               >
                 {category.label}

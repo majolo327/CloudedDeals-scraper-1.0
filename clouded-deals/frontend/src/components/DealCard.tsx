@@ -243,7 +243,7 @@ export const DealCard = memo(function DealCard({ deal, isSaved, isUsed = false, 
 
       {/* Price — sale price only, big and clean */}
       <div className="mb-2 sm:mb-3 flex items-baseline gap-1.5">
-        <span className="text-base sm:text-xl font-mono font-bold text-white" style={{ textShadow: '0 0 12px rgba(168, 85, 247, 0.15)' }}>${deal.deal_price}</span>
+        <span className="text-base sm:text-xl font-mono font-bold text-white" style={{ textShadow: '0 0 12px rgba(168, 85, 247, 0.15)' }}>${Number(deal.deal_price).toFixed(2)}</span>
         {deal.category === 'flower' && (() => {
           const ppg = getPricePerUnit(deal);
           return ppg ? <span className="text-[10px] text-slate-500 font-medium">{ppg}</span> : null;
@@ -265,7 +265,7 @@ export const DealCard = memo(function DealCard({ deal, isSaved, isUsed = false, 
               e.stopPropagation();
               onDismiss();
             }}
-            className="p-2 min-w-[44px] min-h-[44px] -mr-2 -mb-1 rounded-lg text-slate-600 hover:text-slate-400 hover:bg-white/5 transition-colors shrink-0 flex items-center justify-center"
+            className="p-2 min-w-[44px] min-h-[44px] -mr-2 -mb-1 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-colors shrink-0 flex items-center justify-center"
             aria-label="Dismiss deal"
           >
             <X className="w-3.5 h-3.5" />
