@@ -9,7 +9,6 @@ import type { Deal } from '@/types';
 import { AgeGate, Footer } from '@/components/layout';
 import dynamic from 'next/dynamic';
 import { DealsPage } from '@/components/DealsPage';
-import { DealCardSkeleton } from '@/components/Skeleton';
 
 // Tab loading skeleton — shown while lazy tabs hydrate
 function TabSkeleton() {
