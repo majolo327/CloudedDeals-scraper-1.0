@@ -124,6 +124,16 @@ class TestVapeDisposableDetection:
         r = classify_product("Birthday Cake Pod", brand="STIIIZY", category="vape")
         assert r["product_subtype"] == "disposable"
 
+    def test_stiiizy_generic_name_is_disposable(self):
+        """STIIIZY with generic strain name → disposable (all STIIIZY = closed system)."""
+        r = classify_product("Blue Dream 0.5g", brand="STIIIZY", category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_stiiizy_strain_only_is_disposable(self):
+        """STIIIZY with just a strain name → disposable (catch-all)."""
+        r = classify_product("OG Kush", brand="STIIIZY", category="vape")
+        assert r["product_subtype"] == "disposable"
+
     def test_select_bite_is_disposable(self):
         """Select Bite is their disposable line."""
         r = classify_product("Bite Blueberry 0.5g", brand="Select", category="vape")
