@@ -55,6 +55,8 @@ export function CoachMark({ id, children, duration = 3000 }: CoachMarkProps) {
 
   return (
     <div
+      aria-hidden="true"
+      role="presentation"
       className="pointer-events-none animate-in fade-in duration-500"
       style={{ animation: `fadeInOut ${duration}ms ease-in-out forwards` }}
     >

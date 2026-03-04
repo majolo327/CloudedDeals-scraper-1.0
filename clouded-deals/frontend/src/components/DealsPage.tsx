@@ -274,7 +274,7 @@ export function DealsPage({
               )}
               {hasActiveFilters && (
                 <button
-                  onClick={resetFilters}
+                  onClick={() => { resetFilters(); window.dispatchEvent(new CustomEvent('clouded:toast', { detail: { message: 'Filters cleared', type: 'success' } })); }}
                   className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
                 >
                   Clear filters
