@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Clock, ChevronDown, Sparkles } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Clock, ChevronDown, Sparkles, Loader2 } from 'lucide-react';
 import type { Deal } from '@/types';
 import { DealCard } from './cards';
 import { SwipeOverlay } from './SwipeOverlay';
@@ -13,6 +13,7 @@ import { DealCardSkeleton } from './Skeleton';
 import { getTimeUntilMidnight, formatUpdateTime, isDealsFromYesterday } from '@/utils';
 import { useDeck } from '@/hooks/useDeck';
 import { useUniversalFilters, formatDistance } from '@/hooks/useUniversalFilters';
+import { hapticSpecial } from '@/lib/haptics';
 
 type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'preroll';
 
@@ -29,6 +30,7 @@ interface DealsPageProps {
   onShareSaves?: () => void;
   swipeOpen?: boolean;
   onSwipeOpenChange?: (open: boolean) => void;
+  onRefresh?: () => Promise<void>;
 }
 
 export function DealsPage({
@@ -44,6 +46,7 @@ export function DealsPage({
   onShareSaves,
   swipeOpen: swipeOpenProp = false,
   onSwipeOpenChange,
+  onRefresh,
 }: DealsPageProps) {
   const [activeCategory, setActiveCategory] = useState<DealCategory>('all');
   const [isLoading, setIsLoading] = useState(true);
@@ -104,6 +107,13 @@ export function DealsPage({
   const isDefaultSort = !filters.sortBy || filters.sortBy === 'deal_score';
   const deck = useDeck(filteredDeals, { shuffle: isDefaultSort });
 
+  // Haptic feedback on jackpot reveal (STEAL deal)
+  useEffect(() => {
+    if (deck.replacementDealScore !== null && deck.replacementDealScore >= 80) {
+      hapticSpecial();
+    }
+  }, [deck.replacementDealScore]);
+
   // Swipe mode: save = heart + advance, dismiss = advance
   const handleSwipeSave = useCallback((dealId: string) => {
     toggleSavedDeal(dealId);
@@ -114,6 +124,53 @@ export function DealsPage({
     deck.dismissImmediate(dealId);
     onDismissDeal?.();
   }, [deck, onDismissDeal]);
+
+  // Pull-to-refresh
+  const [refreshing, setRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const pullStartY = useRef<number | null>(null);
+  const lastRefreshTime = useRef(0);
+  const PULL_THRESHOLD = 70;
+
+  const handlePullStart = useCallback((e: React.TouchEvent) => {
+    if (window.scrollY <= 0 && !refreshing) {
+      pullStartY.current = e.touches[0].clientY;
+    }
+  }, [refreshing]);
+
+  const handlePullMove = useCallback((e: React.TouchEvent) => {
+    if (pullStartY.current === null) return;
+    const delta = e.touches[0].clientY - pullStartY.current;
+    if (delta > 0) {
+      // Rubber-band: diminishing returns past threshold
+      setPullDistance(Math.min(delta * 0.4, 100));
+    } else {
+      pullStartY.current = null;
+      setPullDistance(0);
+    }
+  }, []);
+
+  const handlePullEnd = useCallback(async () => {
+    if (pullStartY.current === null) return;
+    pullStartY.current = null;
+    if (pullDistance >= PULL_THRESHOLD && onRefresh) {
+      const now = Date.now();
+      if (now - lastRefreshTime.current < 60_000) {
+        setPullDistance(0);
+        return; // Rate limit: 1 refresh per 60s
+      }
+      lastRefreshTime.current = now;
+      setRefreshing(true);
+      setPullDistance(0);
+      try {
+        await onRefresh();
+      } finally {
+        setRefreshing(false);
+      }
+    } else {
+      setPullDistance(0);
+    }
+  }, [pullDistance, onRefresh]);
 
   return (
     <>
@@ -132,7 +189,32 @@ export function DealsPage({
         />
       </StickyStatsBar>
 
-      <div className="max-w-6xl mx-auto px-4 py-4">
+      <div
+        className="max-w-6xl mx-auto px-4 py-4"
+        onTouchStart={handlePullStart}
+        onTouchMove={handlePullMove}
+        onTouchEnd={handlePullEnd}
+      >
+        {/* Pull-to-refresh indicator */}
+        {(pullDistance > 0 || refreshing) && (
+          <div
+            className="flex items-center justify-center transition-opacity duration-200"
+            style={{
+              height: refreshing ? 40 : pullDistance,
+              opacity: refreshing ? 1 : Math.min(pullDistance / PULL_THRESHOLD, 1),
+            }}
+          >
+            <Loader2 className={`w-5 h-5 text-purple-400 ${refreshing ? 'animate-spin' : ''}`}
+              style={!refreshing ? { transform: `rotate(${pullDistance * 3}deg)` } : undefined}
+            />
+            {!refreshing && pullDistance >= PULL_THRESHOLD && (
+              <span className="ml-2 text-xs text-purple-400">Release to refresh</span>
+            )}
+            {refreshing && (
+              <span className="ml-2 text-xs text-purple-400">Refreshing...</span>
+            )}
+          </div>
+        )}
         <div className="animate-in fade-in">
           {/* Expired deals banner */}
           {isExpired && <ExpiredDealsBanner expiredCount={deals.length} />}
@@ -212,22 +294,36 @@ export function DealsPage({
             <div className="text-center py-16">
               <div className="text-4xl mb-4">&#127881;</div>
               <h3 className="text-lg font-semibold text-slate-200 mb-2">
-                You&apos;ve seen all {deck.totalDeals} deals today
+                You&apos;ve reviewed all {deck.totalDeals} deals today
               </h3>
-              <p className="text-sm text-slate-500 mb-1">
-                New deals drop every morning at 8 AM.
+              <p className="text-sm text-slate-400 mb-1">
+                {savedCount > 0
+                  ? `You saved ${savedCount} deal${savedCount !== 1 ? 's' : ''} — nice finds.`
+                  : 'Nothing caught your eye? New deals drop at 8 AM PT.'}
               </p>
-              <p className="text-xs text-slate-500">
-                Refreshes in {countdown}
+              <p className="text-xs text-slate-500 mb-4">
+                Fresh deals in {countdown}
               </p>
+              <button
+                onClick={() => { deck.resetDismissed(); }}
+                className="px-4 py-2 bg-white/5 text-slate-400 rounded-lg text-xs font-medium hover:bg-white/10 hover:text-white transition-colors"
+              >
+                Browse again
+              </button>
             </div>
           ) : filteredDeals.length === 0 && hasActiveFilters ? (
             <div className="text-center py-16">
-              <p className="text-slate-400 text-sm mb-2">
-                Nothing matches right now
+              <p className="text-slate-300 text-sm font-medium mb-2">
+                No {filters.categories.length === 1 ? filters.categories[0] : ''} deals match{filters.dispensaryIds.length > 0 ? ' at those stores' : ''}
               </p>
               <p className="text-slate-500 text-xs mb-4">
-                Deals refresh every morning &mdash; or try loosening your filters.
+                {filters.categories.length > 0 && filters.dispensaryIds.length > 0
+                  ? 'Try removing the dispensary filter to see more options.'
+                  : filters.dispensaryIds.length > 0
+                  ? 'Try checking other stores or remove the dispensary filter.'
+                  : filters.categories.length > 1
+                  ? 'Try selecting just one category to see what\'s available.'
+                  : 'Deals refresh every morning — or try loosening your filters.'}
               </p>
               <button
                 onClick={resetFilters}
@@ -243,7 +339,7 @@ export function DealsPage({
                 {isExpired ? "All yesterday's deals have been browsed" : 'No deals yet today'}
               </p>
               <p className="text-slate-500">
-                {isExpired ? 'New deals drop every morning around 8 AM PT.' : 'Deals refresh every morning. Check back soon.'}
+                {isExpired ? 'New deals drop every morning around 8 AM PT.' : 'Deals refresh every morning — typically by 8–9 AM PT.'}
               </p>
             </div>
           ) : (
@@ -285,6 +381,7 @@ export function DealsPage({
                       isSaved={savedDeals.has(deal.id)}
                       isUsed={usedDeals.has(deal.id)}
                       isExpired={isExpired}
+                      seenBefore={deck.previouslySeenIds.has(deal.id)}
                       onSave={() => toggleSavedDeal(deal.id)}
                       onDismiss={() => { deck.dismissDeal(deal.id); onDismissDeal?.(); }}
                       onClick={() => setSelectedDeal(deal)}

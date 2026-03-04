@@ -1,10 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
-import { Heart, MapPin, X } from 'lucide-react';
+import { useMemo, useRef, useState, useCallback } from 'react';
+import { Heart, MapPin, X, Share, ExternalLink, Navigation } from 'lucide-react';
 import type { Deal } from '@/types';
-import { getDistanceMiles, getDisplayName, getPricePerUnit } from '@/utils';
+import { getDistanceMiles, getDisplayName, getPricePerUnit, getMapsUrl } from '@/utils';
 import { getUserCoords } from './ftue';
+import { hapticMedium } from '@/lib/haptics';
+import { trackGetDealClick } from '@/lib/analytics';
 
 interface DealCardProps {
   deal: Deal;
@@ -17,6 +19,8 @@ interface DealCardProps {
   distanceLabel?: string;
   /** Shown as a subtle personalization signal, e.g. "For You" or "Your brand" */
   recommendationLabel?: string;
+  /** Whether this deal was seen in a previous session */
+  seenBefore?: boolean;
 }
 
 const categoryLabels: Record<string, string> = {
@@ -27,7 +31,37 @@ const categoryLabels: Record<string, string> = {
   preroll: 'Pre-Roll',
 };
 
-export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onSave, onDismiss, onClick, distanceLabel, recommendationLabel }: DealCardProps) {
+export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onSave, onDismiss, onClick, distanceLabel, recommendationLabel, seenBefore = false }: DealCardProps) {
+  // Long-press quick actions
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchStartLP = useCallback((e: React.TouchEvent) => {
+    touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    longPressTimer.current = setTimeout(() => {
+      hapticMedium();
+      setQuickActionsOpen(true);
+    }, 500);
+  }, []);
+
+  const handleTouchMoveLP = useCallback((e: React.TouchEvent) => {
+    if (!touchStartPos.current || !longPressTimer.current) return;
+    const dx = e.touches[0].clientX - touchStartPos.current.x;
+    const dy = e.touches[0].clientY - touchStartPos.current.y;
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const handleTouchEndLP = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
   const distance = useMemo(() => {
     const userCoords = getUserCoords();
     if (!userCoords) return null;
@@ -48,8 +82,11 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
 
   return (
     <div
-      onClick={onClick}
-      className={`group glass frost rounded-2xl p-3 sm:p-4 xl:p-5 cursor-pointer transition-gentle card-interactive h-full flex flex-col ${
+      onClick={quickActionsOpen ? undefined : onClick}
+      onTouchStart={handleTouchStartLP}
+      onTouchMove={handleTouchMoveLP}
+      onTouchEnd={handleTouchEndLP}
+      className={`group glass frost rounded-2xl p-3 sm:p-4 xl:p-5 cursor-pointer transition-gentle card-interactive h-full flex flex-col relative ${
         isExpired ? 'opacity-50 saturate-[0.6]' : ''
       } ${
         isSaved
@@ -57,6 +94,67 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
           : 'hover:border-[rgba(120,100,200,0.2)] hover:bg-[rgba(22,28,52,0.85)]'
       }`}
     >
+      {/* Long-press quick actions overlay */}
+      {quickActionsOpen && (
+        <>
+          <div className="fixed inset-0 z-[90]" onClick={(e) => { e.stopPropagation(); setQuickActionsOpen(false); }} />
+          <div
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[91] flex gap-2 p-2 rounded-2xl animate-in fade-in zoom-in-95 duration-150"
+            style={{ backgroundColor: 'rgba(12, 14, 28, 0.95)', border: '1px solid rgba(120, 100, 200, 0.15)', backdropFilter: 'blur(20px)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={(e) => { e.stopPropagation(); onSave(); setQuickActionsOpen(false); }}
+              className="flex flex-col items-center gap-1 p-3 min-w-[60px] rounded-xl hover:bg-white/5 transition-colors"
+              aria-label={isSaved ? 'Unsave' : 'Save'}
+            >
+              <Heart className={`w-5 h-5 ${isSaved ? 'text-purple-400 fill-current' : 'text-slate-400'}`} />
+              <span className="text-[10px] text-slate-400">{isSaved ? 'Saved' : 'Save'}</span>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const url = `${window.location.origin}/deal/${deal.id}`;
+                if (navigator.share) {
+                  navigator.share({ title: deal.product_name, url }).catch(() => {});
+                } else {
+                  navigator.clipboard.writeText(url).catch(() => {});
+                }
+                setQuickActionsOpen(false);
+              }}
+              className="flex flex-col items-center gap-1 p-3 min-w-[60px] rounded-xl hover:bg-white/5 transition-colors"
+              aria-label="Share"
+            >
+              <Share className="w-5 h-5 text-slate-400" />
+              <span className="text-[10px] text-slate-400">Share</span>
+            </button>
+            <a
+              href={deal.product_url || deal.dispensary?.menu_url || '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => { e.stopPropagation(); trackGetDealClick(deal.id, deal.dispensary?.name || '', deal.product_url || deal.dispensary?.menu_url || ''); setQuickActionsOpen(false); }}
+              className="flex flex-col items-center gap-1 p-3 min-w-[60px] rounded-xl hover:bg-white/5 transition-colors"
+              aria-label="Get deal"
+            >
+              <ExternalLink className="w-5 h-5 text-purple-400" />
+              <span className="text-[10px] text-purple-400">Get Deal</span>
+            </a>
+            {deal.dispensary?.address && (
+              <a
+                href={getMapsUrl(deal.dispensary.address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => { e.stopPropagation(); setQuickActionsOpen(false); }}
+                className="flex flex-col items-center gap-1 p-3 min-w-[60px] rounded-xl hover:bg-white/5 transition-colors"
+                aria-label="Get directions"
+              >
+                <Navigation className="w-5 h-5 text-slate-400" />
+                <span className="text-[10px] text-slate-400">Directions</span>
+              </a>
+            )}
+          </div>
+        </>
+      )}
       {/* Top row: brand + save */}
       <div className="flex items-start justify-between gap-2 sm:gap-3 mb-1 sm:mb-2">
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
@@ -77,6 +175,9 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
             <span className="text-[10px] font-medium text-purple-300/80 bg-purple-500/10 px-1.5 py-0.5 rounded-md">
               {recommendationLabel}
             </span>
+          )}
+          {seenBefore && !isUsed && !isExpired && !recommendationLabel && (
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-600 flex-shrink-0" title="Seen before" />
           )}
         </div>
         <button

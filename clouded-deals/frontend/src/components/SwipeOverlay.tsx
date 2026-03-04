@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { X, Heart, Share } from 'lucide-react';
 import type { Deal } from '@/types';
 import { SwipeableCard } from './SwipeableCard';
+import { CoachMark } from './CoachMark';
 
 interface SwipeOverlayProps {
   deals: Deal[];
@@ -181,6 +182,14 @@ export function SwipeOverlay({
                 );
               })}
             </div>
+
+            {/* First-time swipe hints */}
+            <CoachMark id="swipe_hints" duration={3000}>
+              <div className="absolute inset-0 flex items-center justify-between px-8 z-20">
+                <span className="text-sm font-medium text-red-400/70 bg-black/30 px-3 py-1.5 rounded-full backdrop-blur-sm">Nah</span>
+                <span className="text-sm font-medium text-green-400/70 bg-black/30 px-3 py-1.5 rounded-full backdrop-blur-sm">Save</span>
+              </div>
+            </CoachMark>
 
             {/* Action buttons */}
             <div className="relative z-10 flex items-center justify-center gap-8 mt-4 mb-2">

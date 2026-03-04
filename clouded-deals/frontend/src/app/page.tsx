@@ -29,6 +29,7 @@ import type { UserCoords } from '@/components/ftue';
 import { CookieConsent } from '@/components/CookieConsent';
 import { createShareLink } from '@/lib/share';
 import { formatUpdateTime, isDealsFromYesterday } from '@/utils';
+import { hapticLight, hapticMedium } from '@/lib/haptics';
 
 type AppPage = 'home' | 'search' | 'browse' | 'saved' | 'about' | 'terms' | 'privacy';
 
@@ -256,9 +257,7 @@ export default function Home() {
       toggleSavedDeal(dealId);
 
       // Haptic feedback on mobile
-      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        navigator.vibrate(wasSaved ? 10 : 30);
-      }
+      if (wasSaved) hapticLight(); else hapticMedium();
 
       if (!wasSaved) {
         const deal = deals.find((d) => d.id === dealId);
@@ -271,6 +270,16 @@ export default function Home() {
     },
     [savedDeals, toggleSavedDeal, deals, dealHistory]
   );
+
+  // Pull-to-refresh handler — clears cache and re-fetches deals
+  const handleRefresh = useCallback(async () => {
+    try {
+      localStorage.removeItem('clouded_deals_cache');
+    } catch { /* ignore */ }
+    const result = await fetchDeals();
+    setDeals(result.deals);
+    setError(result.error);
+  }, []);
 
   // Share saves handler — used by swipe overlay's "Share today's favorites" CTA
   const handleShareSaves = useCallback(async () => {
@@ -473,6 +482,7 @@ export default function Home() {
               onShareSaves={handleShareSaves}
               swipeOpen={swipeOpen}
               onSwipeOpenChange={setSwipeOpen}
+              onRefresh={handleRefresh}
             />
           )
         )}
