@@ -109,16 +109,15 @@ export function DealModal({
     >
       <div className="absolute inset-0 bg-black/60 animate-soft-reveal" style={{ WebkitBackdropFilter: 'blur(8px) saturate(1.2)', backdropFilter: 'blur(8px) saturate(1.2)' }} />
       <div
-        className="relative w-full sm:max-w-lg glass-strong frost rounded-t-3xl sm:rounded-3xl max-h-[85vh] overflow-y-auto animate-soft-reveal"
+        className="relative w-full sm:max-w-lg glass-strong frost rounded-t-3xl sm:rounded-3xl max-h-[85vh] flex flex-col animate-soft-reveal"
         onClick={(e) => e.stopPropagation()}
-        style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}
       >
         {/* Mobile drag handle */}
-        <div className="sm:hidden flex justify-center pt-2">
+        <div className="sm:hidden flex justify-center pt-2 flex-shrink-0">
           <div className="w-10 h-1 bg-slate-600 rounded-full" />
         </div>
 
-        <div className="p-4 sm:p-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
           {/* Header heat + close */}
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-2 flex-wrap">
@@ -242,17 +241,6 @@ export function DealModal({
                 <Heart className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
                 <span className="text-sm sm:text-base">{isSaved ? 'Saved' : 'Save'}</span>
               </button>
-              <a
-                href={deal.product_url || deal.dispensary?.menu_url || '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => trackGetDealClick(deal.id, deal.dispensary?.name || '', deal.product_url || deal.dispensary?.menu_url || '')}
-                className="flex-1 py-3.5 sm:py-4 min-h-[48px] bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white font-semibold rounded-2xl transition-all shadow-lg shadow-purple-500/25 flex items-center justify-center gap-2"
-                style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12), 0 4px 16px rgba(139, 92, 246, 0.25)' }}
-              >
-                <span className="text-sm sm:text-base">Get This Deal</span>
-                <ExternalLink className="w-4 h-4" />
-              </a>
             </div>
 
             {isSaved && onMarkUsed && (
@@ -270,6 +258,21 @@ export function DealModal({
               </button>
             )}
           </div>
+        </div>
+
+        {/* Sticky "Get This Deal" footer — always visible */}
+        <div className="flex-shrink-0 p-4 sm:px-6" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))', background: 'linear-gradient(to top, rgba(12, 14, 28, 0.98) 70%, transparent)' }}>
+          <a
+            href={deal.product_url || deal.dispensary?.menu_url || '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackGetDealClick(deal.id, deal.dispensary?.name || '', deal.product_url || deal.dispensary?.menu_url || '')}
+            className="w-full py-3.5 sm:py-4 min-h-[48px] bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white font-semibold rounded-2xl transition-all shadow-lg shadow-purple-500/25 flex items-center justify-center gap-2"
+            style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12), 0 4px 16px rgba(139, 92, 246, 0.25)' }}
+          >
+            <span className="text-sm sm:text-base">Get This Deal</span>
+            <ExternalLink className="w-4 h-4" />
+          </a>
         </div>
       </div>
 

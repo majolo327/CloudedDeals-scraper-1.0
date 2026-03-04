@@ -5,6 +5,9 @@
 :root {
   --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-gentle: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);       /* Apple-style spring for opens */
+  --ease-dismiss: cubic-bezier(0.4, 0, 1, 1);           /* Fast exit for dismissals */
+  --duration-instant: 100ms;
   --duration-fast: 200ms;
   --duration-normal: 350ms;
   --duration-slow: 500ms;
@@ -198,6 +201,13 @@ body {
   outline: none;
 }
 
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -217,8 +227,8 @@ body {
     display: none;
   }
 
-  .animate-soft-reveal { animation: softReveal var(--duration-normal) var(--ease-smooth) forwards; }
-  .animate-soft-dismiss { animation: softDismiss var(--duration-fast) var(--ease-gentle) forwards; }
+  .animate-soft-reveal { animation: softReveal 250ms var(--ease-spring) forwards; }
+  .animate-soft-dismiss { animation: softDismiss var(--duration-instant) var(--ease-dismiss) forwards; }
   .animate-gentle-glow { animation: gentleGlow 3s var(--ease-gentle) infinite; }
   .animate-sparkle { animation: sparkleIn 2s var(--ease-gentle) forwards; }
   .animate-heart-pulse { animation: heartPulse 300ms var(--ease-smooth); }
