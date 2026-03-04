@@ -60,6 +60,7 @@ export interface RetentionCohort {
   day3: number;
   day7: number;
   day14: number;
+  day30: number;
 }
 
 export interface ViralMetrics {
@@ -292,7 +293,7 @@ export function useAnalytics(range: DateRange = '7d') {
       const todayStart = new Date(now);
       todayStart.setHours(0, 0, 0, 0);
       const todayStr = todayStart.toISOString().slice(0, 10);
-      const mauStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const mauStart = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
       // Fetch all data in parallel
@@ -343,7 +344,7 @@ export function useAnalytics(range: DateRange = '7d') {
         supabase
           .from('user_sessions')
           .select('user_id', { count: 'exact', head: true }),
-        // 30-day events for return rate + retention cohorts
+        // 90-day events for return rate + retention cohorts (wider window for day30)
         supabase
           .from('analytics_events')
           .select('anon_id, event_name, created_at')
@@ -603,7 +604,7 @@ export function useAnalytics(range: DateRange = '7d') {
         .sort((a, b) => b.count - a.count)
         .slice(0, 10);
 
-      // ----- Retention Cohorts (Day 1 / Day 3 / Day 7 / Day 14) -----
+      // ----- Retention Cohorts (Day 1 / Day 3 / Day 7 / Day 14 / Day 30) -----
       const userFirstDay: Record<string, string> = {};
       const userAllDays: Record<string, Set<string>> = {};
       for (const e of mauEvents) {
@@ -632,11 +633,11 @@ export function useAnalytics(range: DateRange = '7d') {
         .slice(-12)
         .map(([cohortDate, { users }]) => {
           const cohortStart = new Date(cohortDate);
-          let day1 = 0, day3 = 0, day7 = 0, day14 = 0;
+          let day1 = 0, day3 = 0, day7 = 0, day14 = 0, day30 = 0;
           for (const uid of users) {
             const days = userAllDays[uid];
             if (!days) continue;
-            let d1 = false, d3 = false, d7 = false, d14 = false;
+            let d1 = false, d3 = false, d7 = false, d14 = false, d30 = false;
             for (const d of Array.from(days)) {
               const diff = Math.floor(
                 (new Date(d).getTime() - cohortStart.getTime()) / (24 * 60 * 60 * 1000)
@@ -645,11 +646,13 @@ export function useAnalytics(range: DateRange = '7d') {
               if (diff >= 1 && diff <= 3) d3 = true;
               if (diff >= 1 && diff <= 7) d7 = true;
               if (diff >= 1 && diff <= 14) d14 = true;
+              if (diff >= 1 && diff <= 30) d30 = true;
             }
             if (d1) day1++;
             if (d3) day3++;
             if (d7) day7++;
             if (d14) day14++;
+            if (d30) day30++;
           }
           const n = users.length;
           return {
@@ -659,6 +662,7 @@ export function useAnalytics(range: DateRange = '7d') {
             day3: n > 0 ? Math.round((day3 / n) * 100) : 0,
             day7: n > 0 ? Math.round((day7 / n) * 100) : 0,
             day14: n > 0 ? Math.round((day14 / n) * 100) : 0,
+            day30: n > 0 ? Math.round((day30 / n) * 100) : 0,
           };
         });
 
