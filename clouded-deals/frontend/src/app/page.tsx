@@ -199,8 +199,11 @@ export default function Home() {
           const activeIds = new Set(dealsResult.deals.map(d => d.id));
           const uniqueExpired = expiredResult.deals.filter(d => !activeIds.has(d.id));
           setExpiredDeals(uniqueExpired);
-          // Only flag as "showing expired" when there are NO active deals
-          if (dealsResult.deals.length === 0) {
+          // Only flag as "showing expired" when there are NO active deals AND
+          // the fetch itself didn't error. If fetchDeals errored (timeout, network),
+          // we want the error UI with a retry button — not a misleading "yesterday's
+          // deals" fallback that hides a transient failure.
+          if (dealsResult.deals.length === 0 && !dealsResult.error) {
             setIsShowingExpired(true);
           }
         }
