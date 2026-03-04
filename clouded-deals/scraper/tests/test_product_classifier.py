@@ -119,20 +119,20 @@ class TestVapeDisposableDetection:
         r = classify_product("LIIIL Indica 0.5g", brand="STIIIZY", category="vape")
         assert r["product_subtype"] == "disposable"
 
-    def test_stiiizy_pod_is_disposable(self):
-        """STIIIZY pods are closed systems (AIO-equivalent)."""
+    def test_stiiizy_pod_is_pod(self):
+        """STIIIZY pods are a proprietary pod system, NOT disposable."""
         r = classify_product("Birthday Cake Pod", brand="STIIIZY", category="vape")
-        assert r["product_subtype"] == "disposable"
+        assert r["product_subtype"] == "pod"
 
-    def test_stiiizy_generic_name_is_disposable(self):
-        """STIIIZY with generic strain name → disposable (all STIIIZY = closed system)."""
+    def test_stiiizy_generic_is_pod(self):
+        """STIIIZY generic strain name → pod (STIIIZY default = proprietary pod)."""
         r = classify_product("Blue Dream 0.5g", brand="STIIIZY", category="vape")
-        assert r["product_subtype"] == "disposable"
+        assert r["product_subtype"] == "pod"
 
-    def test_stiiizy_strain_only_is_disposable(self):
-        """STIIIZY with just a strain name → disposable (catch-all)."""
+    def test_stiiizy_strain_only_is_pod(self):
+        """STIIIZY with just a strain name → pod (pod brand fallback)."""
         r = classify_product("OG Kush", brand="STIIIZY", category="vape")
-        assert r["product_subtype"] == "disposable"
+        assert r["product_subtype"] == "pod"
 
     def test_select_bite_is_disposable(self):
         """Select Bite is their disposable line."""
@@ -140,8 +140,13 @@ class TestVapeDisposableDetection:
         assert r["product_subtype"] == "disposable"
 
     def test_select_cliq_is_disposable(self):
-        """Select Cliq is their pod/disposable line."""
+        """Select Cliq is their disposable line."""
         r = classify_product("Cliq Blue Dream", brand="Select", category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_select_squeeze_is_disposable(self):
+        """Select Squeeze is their disposable line."""
+        r = classify_product("Squeeze Watermelon 0.5g", brand="Select", category="vape")
         assert r["product_subtype"] == "disposable"
 
     def test_rove_ready_is_disposable(self):
@@ -149,15 +154,60 @@ class TestVapeDisposableDetection:
         r = classify_product("Ready Live Resin 0.5g", brand="Rove", category="vape")
         assert r["product_subtype"] == "disposable"
 
-    def test_airopro_is_disposable(self):
-        """AiroPro devices are proprietary closed systems."""
-        r = classify_product("Blue Dream 0.5g", brand="AiroPro", category="vape")
+    def test_rove_found_is_disposable(self):
+        """Rove Found is their disposable line."""
+        r = classify_product("Found Mango Haze 0.5g", brand="Rove", category="vape")
         assert r["product_subtype"] == "disposable"
 
-    # --- Layer 2b: Brand cart fallback (non-disposable product lines) ---
+    def test_airopro_airo_go_is_disposable(self):
+        """AiroPro Airo Go is their disposable line."""
+        r = classify_product("Airo Go Blue Dream 0.5g", brand="AiroPro", category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_airopro_generic_is_pod(self):
+        """AiroPro without Airo Go → pod (proprietary pod system)."""
+        r = classify_product("Blue Dream 0.5g", brand="AiroPro", category="vape")
+        assert r["product_subtype"] == "pod"
+
+    def test_plug_play_expo_is_disposable(self):
+        """Plug Play Expo is their disposable line."""
+        r = classify_product("Expo Blue Dream 0.5g", brand="Plug Play", category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_plug_play_generic_is_pod(self):
+        """Plug Play without Expo → pod (proprietary pod system)."""
+        r = classify_product("Blue Dream 0.5g", brand="Plug Play", category="vape")
+        assert r["product_subtype"] == "pod"
+
+    def test_jeeter_juice_is_disposable(self):
+        """Jeeter Juice is their disposable line."""
+        r = classify_product("Juice Liquid Diamonds Blue Dream", brand="Jeeter", category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_sundaze_is_disposable(self):
+        """ALL Sundaze products are disposable (Wyld's vape sub-brand)."""
+        r = classify_product("Live Resin OG Kush 0.5g", brand="Sundaze", category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_and_shine_is_disposable(self):
+        """ALL &Shine vapes are disposable."""
+        r = classify_product("BDT Distillate Blue Dream 0.5g", brand="&Shine", category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_ama_is_disposable(self):
+        """ALL AMA vapes are disposable (all-in-one brand)."""
+        r = classify_product("Pineapple Watermelon 0.35g", brand="AMA", category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_matrix_ripper_is_disposable(self):
+        """Matrix NV Ripper is caught by 'ripper' keyword (Layer 1)."""
+        r = classify_product("Ripper Live Resin 0.5g", brand="Matrix", category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    # --- Layer 2b: Brand cart/pod fallback (non-disposable product lines) ---
 
     def test_rove_generic_is_cartridge(self):
-        """Rove products without 'Ready' fall back to cartridge via _CART_BRANDS."""
+        """Rove products without disposable line name → cartridge."""
         r = classify_product("Granddaddy Purp Live Resin Diamond", brand="Rove", category="vape")
         assert r["product_subtype"] == "cartridge"
 
@@ -167,13 +217,18 @@ class TestVapeDisposableDetection:
         assert r["product_subtype"] == "cartridge"
 
     def test_select_generic_is_cartridge(self):
-        """Select products without Bite/Cliq fall back to cartridge via _CART_BRANDS."""
+        """Select products without Bite/Cliq/Squeeze → cartridge."""
         r = classify_product("Essentials 0.5g", brand="Select", category="vape")
         assert r["product_subtype"] == "cartridge"
 
     def test_select_elite_is_cartridge(self):
         """Select Elite (non-disposable line) → cartridge."""
         r = classify_product("Elite Live Resin 0.5g", brand="Select", category="vape")
+        assert r["product_subtype"] == "cartridge"
+
+    def test_raw_garden_generic_is_cartridge(self):
+        """Raw Garden without RTU → cartridge."""
+        r = classify_product("Live Resin 0.5g", brand="Raw Garden", category="vape")
         assert r["product_subtype"] == "cartridge"
 
     # --- Layer 3: NOT-disposable exclusions ---

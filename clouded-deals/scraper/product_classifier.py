@@ -100,23 +100,127 @@ _VAPE_DISPOSABLE_INDICATORS = [
     re.compile(r"\bbuilt[- ]?in[- ]?battery\b", re.IGNORECASE),
     re.compile(r"\bnon[- ]?rechargeable\b", re.IGNORECASE),
     re.compile(r"\brechargeable[- ]?disposable\b", re.IGNORECASE),
+    re.compile(r"\bdisp\b", re.IGNORECASE),
+    re.compile(r"\brechargeable[- ]?all[- ]?in[- ]?one\b", re.IGNORECASE),
 ]
 
 # Brand-specific product lines that are ALWAYS disposable/AIO.
-# These override the generic pod/cart brand fallback.
+# Only needed when the product name does NOT contain a universal disposable
+# keyword (Layer 1 already catches those).  These catch products where only
+# the sub-brand name signals it's a disposable.
+#
+# Brands with BOTH cart AND disposable lines appear here AND in _CART_BRANDS;
+# Step 2 (disposable brand lines) fires before Step 4 (cart brand fallback).
 _DISPOSABLE_BRAND_LINES: dict[str, list[re.Pattern]] = {
+    # --- Tier 1: High-volume NV / multi-state brands ---
     "stiiizy": [
-        re.compile(r".", re.IGNORECASE),             # All STIIIZY vapes = proprietary closed system
+        re.compile(r"\bliiil\b", re.IGNORECASE),         # STIIIZY LIIIL = disposable line
+    ],
+    "heavy hitters": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+        re.compile(r"\ball[- ]?in[- ]?one\b", re.IGNORECASE),
+    ],
+    "jeeter": [
+        re.compile(r"\bjuice\b", re.IGNORECASE),         # Jeeter Juice = disposable line
+    ],
+    "raw garden": [
+        re.compile(r"\bready[- ]?to[- ]?use\b", re.IGNORECASE),
+        re.compile(r"\brtu\b", re.IGNORECASE),
+    ],
+    "sundaze": [
+        re.compile(r".", re.IGNORECASE),                  # ALL Sundaze = disposable (Wyld sub-brand)
+    ],
+    "friendly farms": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+        re.compile(r"\ball[- ]?in[- ]?one\b", re.IGNORECASE),
+    ],
+    # --- Major national / NV-present brands ---
+    "packwoods": [
+        re.compile(r"\bpackspod\b", re.IGNORECASE),
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "plug play": [
+        re.compile(r"\bexpo\b", re.IGNORECASE),          # Plug Play Expo = disposable
     ],
     "select": [
-        re.compile(r"\bbite\b", re.IGNORECASE),     # Select Bite disposable
-        re.compile(r"\bcliq\b", re.IGNORECASE),      # Select Cliq pod/disposable
+        re.compile(r"\bbite\b", re.IGNORECASE),          # Select Bite
+        re.compile(r"\bcliq\b", re.IGNORECASE),           # Select Cliq
+        re.compile(r"\bsqueeze\b", re.IGNORECASE),        # Select Squeeze
     ],
     "rove": [
-        re.compile(r"\bready\b", re.IGNORECASE),     # Rove Ready-to-Use disposable line
+        re.compile(r"\bready\b", re.IGNORECASE),          # Rove Ready-to-Use
+        re.compile(r"\bfound\b", re.IGNORECASE),           # Rove Found
+        re.compile(r"\bdiamond\s+disposable\b", re.IGNORECASE),
+        re.compile(r"\bpremier.*disposable\b", re.IGNORECASE),
     ],
     "airopro": [
-        re.compile(r".", re.IGNORECASE),              # All AiroPro = proprietary closed systems
+        re.compile(r"\bairo\s*go\b", re.IGNORECASE),     # AiroPro Airo Go = disposable
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "airo": [
+        re.compile(r"\bairo\s*go\b", re.IGNORECASE),
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "bloom farms": [
+        re.compile(r"\bhighlighter\b", re.IGNORECASE),   # Bloom Farms Highlighter
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "wana": [
+        re.compile(r"\bquick\b", re.IGNORECASE),          # Wana Quick
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "cresco": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "kanha": [
+        re.compile(r"\bnano\b", re.IGNORECASE),           # Kanha Nano
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "plus": [
+        re.compile(r"\buplift\b", re.IGNORECASE),         # PLUS Uplift
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "binske": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    # --- Nevada-specific / common in LV market ---
+    "matrix": [
+        re.compile(r"\bripper\b", re.IGNORECASE),         # Matrix NV Ripper
+    ],
+    "matrix nv": [
+        re.compile(r"\bripper\b", re.IGNORECASE),
+    ],
+    "trendi": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+        re.compile(r"\b2\s*hottie\b", re.IGNORECASE),    # TRENDI 2 Hottie
+    ],
+    "camp": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+        re.compile(r"\b3\.0\b", re.IGNORECASE),           # CAMP Disposable 3.0
+    ],
+    "&shine": [
+        re.compile(r".", re.IGNORECASE),                   # ALL &Shine vapes = disposable
+    ],
+    "dime industries": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "dime": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "ama": [
+        re.compile(r".", re.IGNORECASE),                   # ALL AMA = disposable (all-in-one)
+    ],
+    "the 55": [
+        re.compile(r".", re.IGNORECASE),                   # ALL The 55 = disposable
+    ],
+    "dabwoods": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "high heads": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "viola": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
     ],
 }
 
@@ -127,6 +231,7 @@ _NOT_DISPOSABLE_INDICATORS = [
     re.compile(r"\bcartridges?\b", re.IGNORECASE),   # standard cart
     re.compile(r"\breplacement\b", re.IGNORECASE),
     re.compile(r"\brefill\b", re.IGNORECASE),
+    re.compile(r"\brefillable\b", re.IGNORECASE),
     re.compile(r"\bbattery\b", re.IGNORECASE),       # just the battery device
 ]
 
@@ -139,12 +244,12 @@ _VAPE_POD_INDICATORS = [
     re.compile(r"\bpod\b", re.IGNORECASE),
 ]
 
-# Brands whose vapes are ALWAYS pods (proprietary systems) — only applies
-# when the brand is NOT in _DISPOSABLE_BRAND_LINES (which takes priority).
-_POD_BRANDS = {"pax", "plug play"}
+# Brands whose vapes default to pod (proprietary systems).
+# Disposable brand lines (Step 2) take priority over this fallback (Step 4).
+_POD_BRANDS = {"pax", "plug play", "stiiizy", "airopro", "airo"}
 
-# Brands whose vapes are ALWAYS cartridges (510 thread) — only applies
-# when the brand is NOT in _DISPOSABLE_BRAND_LINES (which takes priority).
+# Brands whose vapes default to cartridge (510 thread).
+# Disposable brand lines (Step 2) take priority over this fallback (Step 4).
 _CART_BRANDS = {"kingpen", "brass knuckles", "raw garden", "rove", "select"}
 
 

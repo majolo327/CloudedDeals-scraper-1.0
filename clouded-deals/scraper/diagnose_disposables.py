@@ -30,48 +30,59 @@ from product_classifier import classify_product
 # =====================================================================
 
 _OFFLINE_SAMPLES: list[dict] = [
-    # STIIIZY products (should all be disposable except 510/cartridge)
-    {"name": "Blue Dream 0.5g", "brand": "STIIIZY", "category": "vape"},
-    {"name": "OG Kush 1g", "brand": "STIIIZY", "category": "vape"},
-    {"name": "Strawnana Live Resin 0.5g", "brand": "STIIIZY", "category": "vape"},
+    # STIIIZY (LIIIL/AIO = disposable, pods/generic = pod, 510 = cartridge)
     {"name": "LIIIL Indica 0.5g", "brand": "STIIIZY", "category": "vape"},
-    {"name": "Birthday Cake Pod", "brand": "STIIIZY", "category": "vape"},
-    {"name": "Blue Dream 510 Cartridge", "brand": "STIIIZY", "category": "vape"},
     {"name": "Strawberry Milkshake All In One Live Resin", "brand": "STIIIZY", "category": "vape"},
-    {"name": "CDT Pod SFV OG 1g", "brand": "STIIIZY", "category": "vape"},
-    {"name": "Biscotti 0.5g", "brand": "STIIIZY", "category": "vape"},
-    {"name": "Skywalker OG Live Resin", "brand": "STIIIZY", "category": "vape"},
-    # Select products
+    {"name": "Blue Dream 0.5g", "brand": "STIIIZY", "category": "vape"},
+    {"name": "Birthday Cake Pod", "brand": "STIIIZY", "category": "vape"},
+    {"name": "OG Kush 1g", "brand": "STIIIZY", "category": "vape"},
+    {"name": "Blue Dream 510 Cartridge", "brand": "STIIIZY", "category": "vape"},
+    # AiroPro (Airo Go/Disposable = disposable, generic = pod)
+    {"name": "Airo Go Blue Dream 0.5g", "brand": "AiroPro", "category": "vape"},
+    {"name": "Disposable Midnight Moon 0.5g", "brand": "AiroPro", "category": "vape"},
+    {"name": "Blue Dream 0.5g", "brand": "AiroPro", "category": "vape"},
+    # Plug Play (Expo = disposable, generic = pod)
+    {"name": "Expo Blue Dream 0.5g", "brand": "Plug Play", "category": "vape"},
+    {"name": "Blue Dream 0.5g", "brand": "Plug Play", "category": "vape"},
+    # Select (Bite/Cliq/Squeeze = disposable, generic = cartridge)
     {"name": "Bite Blueberry 0.5g", "brand": "Select", "category": "vape"},
     {"name": "Cliq Blue Dream", "brand": "Select", "category": "vape"},
+    {"name": "Squeeze Watermelon 0.5g", "brand": "Select", "category": "vape"},
     {"name": "Elite Live Resin 0.5g", "brand": "Select", "category": "vape"},
-    {"name": "Essentials Cartridge 1g", "brand": "Select", "category": "vape"},
     {"name": "Essentials 0.5g", "brand": "Select", "category": "vape"},
-    # Rove products
+    # Rove (Ready/Found = disposable, generic = cartridge)
     {"name": "Ready Live Resin 0.5g", "brand": "Rove", "category": "vape"},
+    {"name": "Found Mango Haze 0.5g", "brand": "Rove", "category": "vape"},
     {"name": "Featured Farms 0.5g", "brand": "Rove", "category": "vape"},
-    {"name": "Granddaddy Purp Live Resin Diamond", "brand": "Rove", "category": "vape"},
     {"name": "Pro Pack 3pk", "brand": "Rove", "category": "vape"},
-    # AiroPro products
-    {"name": "Blue Dream 0.5g", "brand": "AiroPro", "category": "vape"},
-    {"name": "Midnight Moon Live Flower", "brand": "AiroPro", "category": "vape"},
-    # Provisions products
+    # Jeeter (Juice = disposable)
+    {"name": "Juice Liquid Diamonds Blue Dream", "brand": "Jeeter", "category": "vape"},
+    {"name": "Cartridge OG Kush 0.5g", "brand": "Jeeter", "category": "vape"},
+    # All-disposable brands (catch-all)
+    {"name": "Live Resin OG Kush 0.5g", "brand": "Sundaze", "category": "vape"},
+    {"name": "BDT Distillate Blue Dream 0.5g", "brand": "&Shine", "category": "vape"},
+    {"name": "Pineapple Watermelon 0.35g", "brand": "AMA", "category": "vape"},
+    {"name": "Grape Fizz 0.5g", "brand": "The 55", "category": "vape"},
+    # NV-specific brands
+    {"name": "Ripper Live Resin 0.5g", "brand": "Matrix", "category": "vape"},
+    {"name": "2 Hottie Biscotti Live Resin", "brand": "TRENDI", "category": "vape"},
+    {"name": "Disposable 3.0 Rosin 0.5g", "brand": "CAMP", "category": "vape"},
+    # Provisions
     {"name": "AIO Strawberry Lemonade 0.5g", "brand": "Provisions", "category": "vape"},
     {"name": "Disposable Pen Blue Dream 0.3g", "brand": "Provisions", "category": "vape"},
     # Generic disposable indicators
     {"name": "All In One Live Resin Pen 0.5g", "brand": None, "category": "vape"},
     {"name": "RTU Vape 0.5g", "brand": None, "category": "vape"},
     {"name": "Disposable Vape 0.3g", "brand": None, "category": "vape"},
-    {"name": "Draw Activated Pen 0.5g", "brand": None, "category": "vape"},
     # Standard carts/pods — should NOT be disposable
     {"name": "Blue Dream Cartridge 0.5g", "brand": None, "category": "vape"},
     {"name": "OG Kush 510 0.5g", "brand": None, "category": "vape"},
     {"name": "Blue Dream Pod 0.5g", "brand": None, "category": "vape"},
-    {"name": "Replacement Pod 0.5g", "brand": None, "category": "vape"},
     {"name": "Pen Battery Starter Kit", "brand": None, "category": "vape"},
-    # PAX / Kingpen brand fallback
+    # PAX / Kingpen / Raw Garden brand fallback
     {"name": "Blue Dream 0.5g", "brand": "PAX", "category": "vape"},
     {"name": "Gelato 0.5g", "brand": "Kingpen", "category": "vape"},
+    {"name": "Live Resin 0.5g", "brand": "Raw Garden", "category": "vape"},
     # Wrong category — should correct to vape
     {"name": "All In One Live Resin 0.5g", "brand": None, "category": "flower"},
     {"name": "AIO Pen 0.5g", "brand": None, "category": "concentrate"},
