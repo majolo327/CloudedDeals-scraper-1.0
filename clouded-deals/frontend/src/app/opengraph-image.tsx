@@ -2,7 +2,7 @@ import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
 
-export const alt = 'Clouded Deals — Every Deal. Every Dispensary. One Place.';
+export const alt = 'Clouded Deals — The Best Deals. Every Dispensary.';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -62,8 +62,7 @@ export default function OGImage() {
             gap: 8,
           }}
         >
-          <span>Every Deal.</span>
-          <span>Every Dispensary.</span>
+          <span>The Best Deals.</span>
           <span
             style={{
               background: 'linear-gradient(90deg, #34d399, #a78bfa)',
@@ -71,7 +70,7 @@ export default function OGImage() {
               color: 'transparent',
             }}
           >
-            One Place.
+            Every Dispensary.
           </span>
         </div>
 
@@ -85,7 +84,7 @@ export default function OGImage() {
             lineHeight: 1.5,
           }}
         >
-          Las Vegas cannabis deals, updated daily. Flower, vapes, edibles, concentrates — the best prices from every dispensary.
+          Las Vegas cannabis deals, curated daily. Only the best prices from every dispensary make the cut.
         </div>
 
         {/* Bottom accent line */}
