@@ -106,8 +106,7 @@ _VAPE_DISPOSABLE_INDICATORS = [
 # These override the generic pod/cart brand fallback.
 _DISPOSABLE_BRAND_LINES: dict[str, list[re.Pattern]] = {
     "stiiizy": [
-        re.compile(r"\bliiil\b", re.IGNORECASE),   # STIIIZY's disposable line
-        re.compile(r"\bpod\b", re.IGNORECASE),      # STIIIZY pods = closed system (AIO-equivalent)
+        re.compile(r".", re.IGNORECASE),             # All STIIIZY vapes = proprietary closed system
     ],
     "select": [
         re.compile(r"\bbite\b", re.IGNORECASE),     # Select Bite disposable

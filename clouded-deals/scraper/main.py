@@ -2396,6 +2396,27 @@ def _log_scrape_summary(
         _w(f"  {'other':12s}: {other:3d}")
     _w()
 
+    # ── 4b. VAPE SUBTYPE BREAKDOWN ──────────────────────────────────────
+    # Diagnostic: show how vape products are classified by subtype so we can
+    # catch regressions in disposable detection early.
+    vape_deals = [d for d in all_top_deals if d.get("category") == "vape" or
+                  (d.get("category") == "vape" and d.get("product_subtype") == "disposable")]
+    disp_deals = [d for d in all_top_deals
+                  if d.get("category") == "vape" and d.get("product_subtype") == "disposable"]
+    if vape_deals or disp_deals:
+        _w("  VAPE SUBTYPE BREAKDOWN:")
+        vape_sub_counter: Counter[str] = Counter()
+        for d in all_top_deals:
+            if d.get("category") == "vape":
+                sub = d.get("product_subtype") or "unclassified"
+                vape_sub_counter[sub] += 1
+        for sub, cnt in vape_sub_counter.most_common():
+            _w(f"    {sub:20s}: {cnt:3d}")
+        # Also show how many disposable deals are in the actual selected set
+        selected_disposables = cat_counter.get("disposable", 0)
+        _w(f"    disposable (selected): {selected_disposables:3d} (target: {CATEGORY_TARGETS.get('disposable', 0)})")
+        _w()
+
     # ── 5. TOP CUT DEALS (almost made it) ─────────────────────────────
     if all_cut_deals:
         all_cut_sorted = sorted(all_cut_deals, key=lambda x: x.get("deal_score", 0), reverse=True)
