@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { SlidersHorizontal, X, RotateCcw, Check, MapPin, ChevronDown, Navigation, Loader2, Search } from 'lucide-react';
+import { SlidersHorizontal, X, RotateCcw, Check, MapPin, ChevronDown, Navigation, Loader2, Search, ArrowLeft } from 'lucide-react';
 import type { Category } from '@/types';
 import { DISPENSARIES } from '@/data/dispensaries';
 import { VALID_WEIGHTS_BY_CATEGORY } from '@/utils/weightNormalizer';
@@ -106,9 +106,11 @@ export function FilterSheet({
   const [zipInput, setZipInput] = useState('');
   const [zipError, setZipError] = useState('');
   const [dispensarySearch, setDispensarySearch] = useState('');
+  const [dispoFullscreen, setDispoFullscreen] = useState(false);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
+  const dispoListRef = useRef<HTMLDivElement>(null);
 
   const dispensaries = useMemo(() => {
     return DISPENSARIES
@@ -234,12 +236,14 @@ export function FilterSheet({
     }
   }, [hasLocation, filters.distanceRange, filters.dispensaryIds]);
 
-  // Lock body scroll when open
+  // Lock body scroll when open; reset dispensary fullscreen on close
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
+      setDispoFullscreen(false);
+      setDispensarySearch('');
     }
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
@@ -271,6 +275,14 @@ export function FilterSheet({
     touchStartY.current = null;
   }, []);
 
+  // Expand dispensary list to fullscreen when user starts scrolling it
+  const handleDispoScrollIntent = useCallback(() => {
+    if (!dispoFullscreen) {
+      setDispoFullscreen(true);
+      trackEvent('filter_change', undefined, { action: 'dispo_fullscreen_open' });
+    }
+  }, [dispoFullscreen]);
+
   return (
     <>
       {/* Trigger button — styled as a chip to match category pills */}
@@ -300,20 +312,40 @@ export function FilterSheet({
           {/* Sheet */}
           <div
             ref={sheetRef}
-            className="absolute bottom-0 left-0 right-0 sm:left-auto sm:top-0 sm:bottom-0 sm:w-[380px] max-h-[80vh] sm:max-h-none sm:h-full border-t sm:border-t-0 sm:border-l rounded-t-3xl sm:rounded-none flex flex-col"
+            className={`absolute bottom-0 left-0 right-0 sm:left-auto sm:top-0 sm:bottom-0 sm:w-[380px] sm:max-h-none sm:h-full border-t sm:border-t-0 sm:border-l rounded-t-3xl sm:rounded-none flex flex-col transition-[max-height] duration-300 ease-out ${
+              dispoFullscreen ? 'max-h-[95vh]' : 'max-h-[80vh]'
+            }`}
             style={{ backgroundColor: 'rgba(12, 14, 28, 0.98)', borderColor: 'rgba(120, 100, 200, 0.1)', WebkitBackdropFilter: 'blur(32px) saturate(1.3)', backdropFilter: 'blur(32px) saturate(1.3)' }}
             onClick={(e) => e.stopPropagation()}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
-            {/* Drag handle (mobile) */}
-            <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
-              <div className="w-10 h-1 rounded-full bg-slate-700" />
-            </div>
+            {/* Drag handle (mobile) — hidden in dispo fullscreen */}
+            {!dispoFullscreen && (
+              <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
+                <div className="w-10 h-1 rounded-full bg-slate-700" />
+              </div>
+            )}
 
             {/* Header */}
             <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: 'rgba(120, 100, 200, 0.08)' }}>
-              <h2 className="text-lg font-semibold text-white">Filters</h2>
+              {dispoFullscreen ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setDispoFullscreen(false)}
+                    className="p-1.5 -ml-1.5 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors sm:hidden"
+                    aria-label="Back to filters"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <h2 className="text-lg font-semibold text-white">Dispensaries</h2>
+                  {filters.dispensaryIds.length > 0 && (
+                    <span className="text-sm text-purple-400">({filters.dispensaryIds.length})</span>
+                  )}
+                </div>
+              ) : (
+                <h2 className="text-lg font-semibold text-white">Filters</h2>
+              )}
               <div className="flex items-center gap-2">
                 {activeFilterCount > 0 && (
                   <button
@@ -334,8 +366,8 @@ export function FilterSheet({
               </div>
             </div>
 
-            {/* Active filter chips */}
-            {activeFilterCount > 0 && (
+            {/* Active filter chips — hidden in dispensary fullscreen */}
+            {activeFilterCount > 0 && !dispoFullscreen && (
               <div className="flex-shrink-0 px-5 pt-3 pb-1">
                 <div className="flex flex-wrap gap-1.5">
                   {filters.categories.map(cat => (
@@ -384,9 +416,11 @@ export function FilterSheet({
             )}
 
             {/* Scrollable content */}
-            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-6 overscroll-contain">
-              {/* Category — primary filter, shown first */}
-              <section>
+            <div ref={scrollRef} className={`flex-1 min-h-0 px-5 py-4 overscroll-contain ${
+              dispoFullscreen ? 'flex flex-col' : 'overflow-y-auto space-y-6'
+            }`}>
+              {/* Category — primary filter, shown first (hidden in dispo fullscreen) */}
+              {!dispoFullscreen && <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Category</h3>
                 <div className="flex flex-wrap gap-2">
                   {CATEGORIES.map((cat) => {
@@ -407,10 +441,10 @@ export function FilterSheet({
                     );
                   })}
                 </div>
-              </section>
+              </section>}
 
-              {/* Sort By (collapsible, collapsed by default) */}
-              <section>
+              {/* Sort By (collapsible, collapsed by default — hidden in dispo fullscreen) */}
+              {!dispoFullscreen && <section>
                 <button
                   onClick={() => setSortOpen(!sortOpen)}
                   className="flex items-center justify-between w-full"
@@ -506,10 +540,10 @@ export function FilterSheet({
                       )}
                     </div>
                   )}
-              </section>
+              </section>}
 
-              {/* Weight / Size — multi-select */}
-              <section>
+              {/* Weight / Size — multi-select (hidden in dispo fullscreen) */}
+              {!dispoFullscreen && <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
                   Size / Weight
                   {filters.weightFilters.length > 0 && (
@@ -545,10 +579,11 @@ export function FilterSheet({
                     );
                   })}
                 </div>
-              </section>
+              </section>}
 
-              {/* Location & Dispensary (collapsible) */}
-              <section>
+              {/* Location & Dispensary (collapsible — in fullscreen mode, only dispensary shows) */}
+              <section className={dispoFullscreen ? 'flex flex-col flex-1 min-h-0' : ''}>
+                {!dispoFullscreen && (
                 <button
                   onClick={() => setLocationOpen(!locationOpen)}
                   className="flex items-center justify-between w-full"
@@ -561,10 +596,11 @@ export function FilterSheet({
                   </h3>
                   <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${locationOpen ? 'rotate-180' : ''}`} />
                 </button>
-                {locationOpen && (
-                  <div className="mt-3 space-y-5">
-                    {/* Distance */}
-                    {hasLocation && (
+                )}
+                {(locationOpen || dispoFullscreen) && (
+                  <div className={dispoFullscreen ? 'flex flex-col flex-1 min-h-0' : 'mt-3 space-y-5'}>
+                    {/* Distance — hidden in dispo fullscreen */}
+                    {hasLocation && !dispoFullscreen && (
                       <div>
                         <p className="text-xs text-slate-500 mb-2">Distance</p>
                         <div className="grid grid-cols-2 gap-2">
@@ -597,7 +633,9 @@ export function FilterSheet({
                     )}
 
                     {/* Dispensary — A-Z grouped with alphabet rail */}
-                    <div>
+                    <div className={dispoFullscreen ? 'flex flex-col flex-1 min-h-0' : ''}>
+                      {/* Section header — hidden in fullscreen since the sheet header shows it */}
+                      {!dispoFullscreen && (
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs text-slate-500">
                           Dispensary
@@ -622,6 +660,26 @@ export function FilterSheet({
                           </button>
                         </div>
                       </div>
+                      )}
+                      {/* All/None row in fullscreen mode */}
+                      {dispoFullscreen && (
+                        <div className="flex items-center justify-end gap-3 mb-2">
+                          <button
+                            onClick={selectAllDispensaries}
+                            className="px-2 py-1 min-h-[32px] text-[11px] text-purple-400 hover:text-purple-300 transition-colors"
+                            aria-label="Select all dispensaries"
+                          >
+                            All
+                          </button>
+                          <button
+                            onClick={clearAllDispensaries}
+                            className="px-2 py-1 min-h-[32px] text-[11px] text-slate-400 hover:text-slate-300 transition-colors"
+                            aria-label="Clear dispensary selection"
+                          >
+                            None
+                          </button>
+                        </div>
+                      )}
                       {/* Dispensary search */}
                       <div className="relative mb-2">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
@@ -629,12 +687,20 @@ export function FilterSheet({
                           type="text"
                           value={dispensarySearch}
                           onChange={(e) => setDispensarySearch(e.target.value)}
+                          onFocus={handleDispoScrollIntent}
                           placeholder="Search dispensaries..."
                           className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500/50 transition-colors"
                         />
                       </div>
                       {/* A-Z grouped list with alphabet rail */}
-                      <div className="relative flex rounded-lg bg-slate-800/50 overflow-hidden" style={{ maxHeight: '220px' }}>
+                      <div
+                        ref={dispoListRef}
+                        className={`relative flex rounded-lg bg-slate-800/50 overflow-hidden transition-[max-height] duration-300 ease-out ${
+                          dispoFullscreen ? 'flex-1' : ''
+                        }`}
+                        style={dispoFullscreen ? undefined : { maxHeight: '220px' }}
+                        onTouchStart={handleDispoScrollIntent}
+                      >
                         {/* Scrollable dispensary list */}
                         <div className="flex-1 overflow-y-auto py-1 pr-6" id="dispensary-scroll-list">
                           {(() => {
