@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, MapPin, DollarSign, ArrowRight } from 'lucide-react';
+import { Search, RefreshCw, ArrowRight } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 
 interface ValuePropSplashProps {
@@ -62,18 +62,10 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
               color: 'text-purple-400 bg-purple-500/10',
             },
             {
-              icon: MapPin,
-              title: 'Get directions',
-              desc: 'One tap to any dispensary in Vegas, sorted by distance',
+              icon: RefreshCw,
+              title: 'Fresh every morning',
+              desc: 'New drops daily. Tap to save.',
               color: 'text-emerald-400 bg-emerald-500/10',
-            },
-            {
-              icon: DollarSign,
-              title: 'Save deals you like',
-              desc: dealCount > 0
-                ? `Tap the heart, build your list. ${dealCount} deals live right now.`
-                : 'Tap the heart to save. 27 dispensaries checked every morning.',
-              color: 'text-amber-400 bg-amber-500/10',
             },
           ].map((feature) => (
             <div
