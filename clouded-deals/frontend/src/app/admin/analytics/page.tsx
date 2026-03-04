@@ -74,6 +74,35 @@ export default function AnalyticsPage() {
     byCategory: { category: string; db: number; visible: number }[];
   } | null>(null);
 
+  // Server-side retention KPIs with time window filter
+  type RetentionWindow = '7d' | '30d' | '90d' | 'all';
+  const [retentionWindow, setRetentionWindow] = useState<RetentionWindow>('90d');
+  const [serverRetention, setServerRetention] = useState<{
+    total_users: number;
+    retention_7d: number;
+    retention_30d: number;
+    cohorts: {
+      cohort_week: string;
+      cohort_size: number;
+      day1: number; day3: number; day7: number; day14: number; day30: number;
+    }[];
+  } | null>(null);
+
+  const fetchRetentionKpis = useCallback(async () => {
+    try {
+      const lookback = retentionWindow === '7d' ? 14
+        : retentionWindow === '30d' ? 60
+        : retentionWindow === '90d' ? 90
+        : 365;
+      const { data } = await supabase.rpc('get_retention_kpis', { lookback_days: lookback });
+      if (data) setServerRetention(data as typeof serverRetention);
+    } catch {
+      // non-critical — falls back to client-side cohorts
+    }
+  }, [retentionWindow]);
+
+  useEffect(() => { fetchRetentionKpis(); }, [fetchRetentionKpis]);
+
   // Fetch deal pipeline data: raw DB counts vs what survives diversity filters
   const fetchPipeline = useCallback(async () => {
     try {
@@ -440,7 +469,95 @@ export default function AnalyticsPage() {
       {/* ================================================================ */}
       {/* SECTION 11: RETENTION COHORTS (collapsible)                      */}
       {/* ================================================================ */}
-      <CollapsibleSection title="Retention Cohorts">
+      <CollapsibleSection title="Retention & Cohorts">
+        {/* Server-side retention headline KPIs */}
+        {serverRetention && (
+          <div className="mb-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Server-side Retention KPIs</h3>
+              <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+                {(['7d', '30d', '90d', 'all'] as const).map((w) => (
+                  <button
+                    key={w}
+                    onClick={() => setRetentionWindow(w)}
+                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                      retentionWindow === w
+                        ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100'
+                        : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    {w === 'all' ? 'All Time' : w}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">Total Users</p>
+                <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{serverRetention.total_users}</p>
+              </div>
+              <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">7d Retention</p>
+                <p className={`mt-1 text-2xl font-bold ${
+                  serverRetention.retention_7d >= 30 ? 'text-green-600 dark:text-green-400'
+                    : serverRetention.retention_7d >= 15 ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-red-600 dark:text-red-400'
+                }`}>{serverRetention.retention_7d}%</p>
+              </div>
+              <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">30d Retention</p>
+                <p className={`mt-1 text-2xl font-bold ${
+                  serverRetention.retention_30d >= 20 ? 'text-green-600 dark:text-green-400'
+                    : serverRetention.retention_30d >= 10 ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-red-600 dark:text-red-400'
+                }`}>{serverRetention.retention_30d}%</p>
+              </div>
+            </div>
+            {/* Server-side cohort table */}
+            {serverRetention.cohorts && serverRetention.cohorts.length > 0 && (
+              <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-200 dark:border-zinc-700">
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400">Week</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-600 dark:text-zinc-400">Users</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-600 dark:text-zinc-400">D1</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-600 dark:text-zinc-400">D3</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-600 dark:text-zinc-400">D7</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-600 dark:text-zinc-400">D14</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-600 dark:text-zinc-400">D30</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                    {serverRetention.cohorts.map((c) => {
+                      const cellColor = (pct: number | null) => {
+                        if (pct === null || pct === undefined) return 'bg-zinc-50 text-zinc-300 dark:bg-zinc-900 dark:text-zinc-600';
+                        if (pct >= 30) return 'bg-green-500/30 text-green-700 dark:text-green-400';
+                        if (pct >= 15) return 'bg-amber-500/20 text-amber-600 dark:text-amber-400';
+                        if (pct > 0) return 'bg-red-500/15 text-red-600 dark:text-red-400';
+                        return 'bg-zinc-50 text-zinc-300 dark:bg-zinc-900 dark:text-zinc-600';
+                      };
+                      return (
+                        <tr key={c.cohort_week}>
+                          <td className="px-3 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-200">{c.cohort_week}</td>
+                          <td className="px-3 py-2 text-center text-xs font-bold text-zinc-800 dark:text-zinc-200">{c.cohort_size}</td>
+                          {[c.day1, c.day3, c.day7, c.day14, c.day30].map((pct, i) => (
+                            <td key={i} className="px-3 py-2 text-center">
+                              <span className={`inline-block rounded px-2 py-0.5 text-xs font-bold ${cellColor(pct)}`}>
+                                {pct != null ? `${pct}%` : '—'}
+                              </span>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+        {/* Client-side fallback cohorts */}
         <RetentionCohortsCard cohorts={retentionCohorts} />
       </CollapsibleSection>
 
@@ -1085,7 +1202,7 @@ function RetentionCohortsCard({ cohorts }: { cohorts: RetentionCohort[] }) {
   };
 
   return (
-    <Card title="Weekly Retention Cohorts">
+    <Card title="Weekly Retention Cohorts (90-day window)">
       {cohorts.length === 0 ? (
         <p className="text-sm text-zinc-400">Need more data for cohort analysis (at least 2 weeks)</p>
       ) : (
@@ -1099,6 +1216,7 @@ function RetentionCohortsCard({ cohorts }: { cohorts: RetentionCohort[] }) {
                 <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-600 dark:text-zinc-400">Day 3</th>
                 <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-600 dark:text-zinc-400">Day 7</th>
                 <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-600 dark:text-zinc-400">Day 14</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-600 dark:text-zinc-400">Day 30</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -1110,7 +1228,7 @@ function RetentionCohortsCard({ cohorts }: { cohorts: RetentionCohort[] }) {
                   <td className="px-3 py-2 text-center text-xs font-bold text-zinc-800 dark:text-zinc-200">
                     {c.cohortSize}
                   </td>
-                  {[c.day1, c.day3, c.day7, c.day14].map((pct, i) => (
+                  {[c.day1, c.day3, c.day7, c.day14, c.day30].map((pct, i) => (
                     <td key={i} className="px-3 py-2 text-center">
                       <span className={`inline-block rounded px-2 py-0.5 text-xs font-bold ${cellColor(pct)}`}>
                         {pct}%

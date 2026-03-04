@@ -106,6 +106,21 @@ interface DashboardData {
   pipelineStatus: "healthy" | "degraded" | "down";
 }
 
+interface RetentionKpis {
+  total_users: number;
+  retention_7d: number;
+  retention_30d: number;
+  cohorts: {
+    cohort_week: string;
+    cohort_size: number;
+    day1: number;
+    day3: number;
+    day7: number;
+    day14: number;
+    day30: number;
+  }[];
+}
+
 const REGION_LABELS: Record<string, string> = {
   "southern-nv": "NV",
   michigan: "MI",
@@ -165,6 +180,7 @@ export default function AdminDashboard() {
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("30d");
   const [regionProducts, setRegionProducts] = useState<RegionProductData[]>([]);
   const [regionCoverage, setRegionCoverage] = useState<RegionCoverageData[]>([]);
+  const [retentionKpis, setRetentionKpis] = useState<RetentionKpis | null>(null);
   const [regionLoading, setRegionLoading] = useState(true);
 
   const fetchFlags = useCallback(async () => {
@@ -335,6 +351,14 @@ export default function AdminDashboard() {
           pipeline,
           pipelineStatus,
         });
+        // Fetch retention KPIs in parallel (graceful null if migration 039 not yet applied)
+        try {
+          const { data: retData, error: retErr } = await supabase.rpc("get_retention_kpis", { lookback_days: 90 });
+          if (!retErr && retData) setRetentionKpis(retData as RetentionKpis);
+        } catch {
+          // Migration 039 may not be applied yet — ignore
+        }
+
       } catch (err) {
         console.error("Failed to load dashboard:", err);
         setData({
@@ -467,6 +491,90 @@ export default function AdminDashboard() {
           sub={`of ${regionCoverage.length} configured`}
         />
       </div>
+
+      {/* ── User & Retention KPIs ──────────────────────────── */}
+      {retentionKpis && (
+        <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              Users & Retention
+            </h3>
+            <a
+              href="/admin/analytics"
+              className="text-xs font-medium text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+            >
+              Full Analytics
+            </a>
+          </div>
+          <div className="grid grid-cols-2 gap-px bg-zinc-100 dark:bg-zinc-800 sm:grid-cols-4">
+            <div className="bg-white px-4 py-3 dark:bg-zinc-900">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Total Users</p>
+              <p className="mt-0.5 text-xl font-bold text-zinc-900 dark:text-zinc-100">{retentionKpis.total_users}</p>
+              <p className="mt-0.5 text-[10px] text-zinc-400">all-time unique</p>
+            </div>
+            <div className="bg-white px-4 py-3 dark:bg-zinc-900">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">7d Retention</p>
+              <p className={`mt-0.5 text-xl font-bold ${
+                retentionKpis.retention_7d >= 30 ? "text-green-600 dark:text-green-400"
+                  : retentionKpis.retention_7d >= 15 ? "text-amber-600 dark:text-amber-400"
+                  : "text-red-500"
+              }`}>{retentionKpis.retention_7d}%</p>
+              <p className="mt-0.5 text-[10px] text-zinc-400">users returning within 7d</p>
+            </div>
+            <div className="bg-white px-4 py-3 dark:bg-zinc-900">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">30d Retention</p>
+              <p className={`mt-0.5 text-xl font-bold ${
+                retentionKpis.retention_30d >= 20 ? "text-green-600 dark:text-green-400"
+                  : retentionKpis.retention_30d >= 10 ? "text-amber-600 dark:text-amber-400"
+                  : "text-red-500"
+              }`}>{retentionKpis.retention_30d}%</p>
+              <p className="mt-0.5 text-[10px] text-zinc-400">users returning within 30d</p>
+            </div>
+            <div className="bg-white px-4 py-3 dark:bg-zinc-900">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Cohorts</p>
+              <p className="mt-0.5 text-xl font-bold text-zinc-900 dark:text-zinc-100">{retentionKpis.cohorts?.length ?? 0}</p>
+              <p className="mt-0.5 text-[10px] text-zinc-400">weekly cohorts tracked</p>
+            </div>
+          </div>
+
+          {/* Mini cohort table */}
+          {retentionKpis.cohorts && retentionKpis.cohorts.length > 0 && (
+            <div className="overflow-x-auto border-t border-zinc-100 dark:border-zinc-800">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-100 dark:border-zinc-800">
+                    <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase text-zinc-500 dark:text-zinc-400">Week</th>
+                    <th className="px-3 py-2 text-center text-[10px] font-semibold uppercase text-zinc-500 dark:text-zinc-400">Users</th>
+                    <th className="px-3 py-2 text-center text-[10px] font-semibold uppercase text-zinc-500 dark:text-zinc-400">D1</th>
+                    <th className="px-3 py-2 text-center text-[10px] font-semibold uppercase text-zinc-500 dark:text-zinc-400">D3</th>
+                    <th className="px-3 py-2 text-center text-[10px] font-semibold uppercase text-zinc-500 dark:text-zinc-400">D7</th>
+                    <th className="px-3 py-2 text-center text-[10px] font-semibold uppercase text-zinc-500 dark:text-zinc-400">D14</th>
+                    <th className="px-3 py-2 text-center text-[10px] font-semibold uppercase text-zinc-500 dark:text-zinc-400">D30</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
+                  {retentionKpis.cohorts.slice(-8).map((c) => (
+                    <tr key={c.cohort_week}>
+                      <td className="px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">{c.cohort_week}</td>
+                      <td className="px-3 py-1.5 text-center text-xs font-bold text-zinc-800 dark:text-zinc-200">{c.cohort_size}</td>
+                      {[c.day1, c.day3, c.day7, c.day14, c.day30].map((pct, i) => (
+                        <td key={i} className="px-3 py-1.5 text-center">
+                          <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                            pct >= 30 ? "bg-green-500/20 text-green-700 dark:text-green-400"
+                              : pct >= 15 ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                              : pct > 0 ? "bg-red-500/10 text-red-500 dark:text-red-400"
+                              : "text-zinc-300 dark:text-zinc-600"
+                          }`}>{pct > 0 ? `${pct}%` : "—"}</span>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Per-State KPI Breakdown ─────────────────────────── */}
       <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
