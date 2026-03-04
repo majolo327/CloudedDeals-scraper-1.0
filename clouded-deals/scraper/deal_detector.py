@@ -526,6 +526,7 @@ _NON_CANNABIS_KEYWORDS = {
     "rolling paper", "pipe", "bong", "stash", "bag", "backpack",
     "lanyard", "keychain", "pin", "sticker", "poster",
     "gift card", "gift certificate",
+    "vape battery", "pen battery",
 }
 
 

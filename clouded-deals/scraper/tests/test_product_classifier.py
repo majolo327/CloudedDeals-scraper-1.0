@@ -154,6 +154,28 @@ class TestVapeDisposableDetection:
         r = classify_product("Blue Dream 0.5g", brand="AiroPro", category="vape")
         assert r["product_subtype"] == "disposable"
 
+    # --- Layer 2b: Brand cart fallback (non-disposable product lines) ---
+
+    def test_rove_generic_is_cartridge(self):
+        """Rove products without 'Ready' fall back to cartridge via _CART_BRANDS."""
+        r = classify_product("Granddaddy Purp Live Resin Diamond", brand="Rove", category="vape")
+        assert r["product_subtype"] == "cartridge"
+
+    def test_rove_featured_farms_is_cartridge(self):
+        """Rove Featured Farms (non-disposable line) → cartridge."""
+        r = classify_product("Featured Farms 0.5g", brand="Rove", category="vape")
+        assert r["product_subtype"] == "cartridge"
+
+    def test_select_generic_is_cartridge(self):
+        """Select products without Bite/Cliq fall back to cartridge via _CART_BRANDS."""
+        r = classify_product("Essentials 0.5g", brand="Select", category="vape")
+        assert r["product_subtype"] == "cartridge"
+
+    def test_select_elite_is_cartridge(self):
+        """Select Elite (non-disposable line) → cartridge."""
+        r = classify_product("Elite Live Resin 0.5g", brand="Select", category="vape")
+        assert r["product_subtype"] == "cartridge"
+
     # --- Layer 3: NOT-disposable exclusions ---
 
     def test_stiiizy_510_cartridge_not_disposable(self):

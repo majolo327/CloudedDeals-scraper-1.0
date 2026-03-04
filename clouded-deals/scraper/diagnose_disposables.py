@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 from collections import Counter, defaultdict
 
@@ -45,9 +46,11 @@ _OFFLINE_SAMPLES: list[dict] = [
     {"name": "Cliq Blue Dream", "brand": "Select", "category": "vape"},
     {"name": "Elite Live Resin 0.5g", "brand": "Select", "category": "vape"},
     {"name": "Essentials Cartridge 1g", "brand": "Select", "category": "vape"},
+    {"name": "Essentials 0.5g", "brand": "Select", "category": "vape"},
     # Rove products
     {"name": "Ready Live Resin 0.5g", "brand": "Rove", "category": "vape"},
     {"name": "Featured Farms 0.5g", "brand": "Rove", "category": "vape"},
+    {"name": "Granddaddy Purp Live Resin Diamond", "brand": "Rove", "category": "vape"},
     {"name": "Pro Pack 3pk", "brand": "Rove", "category": "vape"},
     # AiroPro products
     {"name": "Blue Dream 0.5g", "brand": "AiroPro", "category": "vape"},
@@ -144,7 +147,6 @@ def _run_database():
         .execute()
     )
     # Filter to ones with vape indicators in name
-    import re
     vape_kw = re.compile(
         r"\b(?:disposable|all[- ]?in[- ]?one|aio|cart|cartridge|pod|vape|pen)\b",
         re.IGNORECASE,
@@ -158,7 +160,7 @@ def _run_database():
     print(f"  Potentially miscategorized vapes: {len(miscat_vapes)}")
     print()
 
-    # Re-classify each vape product
+    # Re-classify each vape product, simulating the main.py raw_text fallback
     results = []
     for p in vape_products:
         r = classify_product(
@@ -166,6 +168,22 @@ def _run_database():
             brand=p.get("brand"),
             category=p.get("category") or "vape",
         )
+        # Simulate main.py raw_text fallback: if vape with no subtype,
+        # check raw_text for disposable/cart/pod keywords that were
+        # stripped from the cleaned display name.
+        if r.get("product_subtype") is None and (p.get("category") or "vape") == "vape":
+            raw_check = f"{p.get('name', '')} {p.get('raw_text', '')}".lower()
+            if re.search(
+                r"\b(?:disposable|all[- ]?in[- ]?one|aio|rtu|"
+                r"ready[- ]?to[- ]?use|draw[- ]?activated|"
+                r"built[- ]?in[- ]?battery)\b",
+                raw_check,
+            ):
+                r["product_subtype"] = "disposable"
+            elif re.search(r"\bcartridges?\b|\bcarts?\b|\b510\b", raw_check):
+                r["product_subtype"] = "cartridge"
+            elif re.search(r"\bpods?\b", raw_check):
+                r["product_subtype"] = "pod"
         results.append({
             "name": p.get("name", "???"),
             "brand": p.get("brand"),

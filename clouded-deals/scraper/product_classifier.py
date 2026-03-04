@@ -145,7 +145,7 @@ _POD_BRANDS = {"pax", "plug play"}
 
 # Brands whose vapes are ALWAYS cartridges (510 thread) — only applies
 # when the brand is NOT in _DISPOSABLE_BRAND_LINES (which takes priority).
-_CART_BRANDS = {"kingpen", "brass knuckles", "raw garden"}
+_CART_BRANDS = {"kingpen", "brass knuckles", "raw garden", "rove", "select"}
 
 
 def _classify_vape_subtype(name_lower: str, brand_lower: str) -> str | None:

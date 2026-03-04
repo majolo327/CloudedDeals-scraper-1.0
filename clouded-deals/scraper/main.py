@@ -1480,6 +1480,10 @@ async def _scrape_site_inner(
                 _raw_check,
             ):
                 classification["product_subtype"] = "disposable"
+            elif re.search(r"\bcartridges?\b|\bcarts?\b|\b510\b", _raw_check):
+                classification["product_subtype"] = "cartridge"
+            elif re.search(r"\bpods?\b", _raw_check):
+                classification["product_subtype"] = "pod"
 
         # Map CloudedLogic output to the DB schema expected by _upsert_products
         enriched: dict[str, Any] = {
