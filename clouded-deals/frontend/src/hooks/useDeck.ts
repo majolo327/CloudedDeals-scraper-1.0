@@ -111,6 +111,8 @@ export interface DeckState {
   dismissDeal: (dealId: string) => void;
   /** Immediately add to dismissed set (no animation, for stack/swipe mode) */
   dismissImmediate: (dealId: string) => void;
+  /** Reset all dismissed deals so the user can browse again */
+  resetDismissed: () => void;
 }
 
 export interface DeckOptions {
