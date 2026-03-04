@@ -112,7 +112,7 @@ BRANDS = sorted(set([
     'Cannabiotix', 'Cannabreezy', 'Cannalean', 'Cannavative', 'Cannavore',
     'Cannavore Confections', 'Caviar Gold', 'Cheeba Chews', 'Church',
     'Circle S Farms', 'City Trees', 'Claybourne Co.', 'CLEAR Brands', 'Clout King',
-    'Connected', 'Cookies', 'Cosmonaut', 'Cotton Mouth', 'Cresco', 'Crumbs',
+    'Connected', 'Cosmonaut', 'Cotton Mouth', 'Cresco', 'Crumbs',
     'Cultivate', 'Curaleaf',
     # D
     'Dabwoods', 'DADiRRi', 'Dazed!', 'Deep Roots', 'Desert Blaze',
@@ -446,44 +446,6 @@ _STRAIN_BRAND_BLOCKERS = [
     (re.compile(r'\b(?:ghost\s*train|super\s*(?:lemon|silver)|purple|amnesia|neville|blue|catpiss|dungeon|hawaiian|original|golden|x|double|single|citrus|lemon|lime|mango|strawberry|peach|tropical)\s+haze\b', re.IGNORECASE), 'Haze'),
     # Also block if "haze" follows known connectors in compound strain names
     (re.compile(r'\bhaze\s+(?:og|kush|berry|dawg|diesel|cake|cookies|dream|punch|wreck|star|pie|queen|king|widow|mac|zkittlez)\b', re.IGNORECASE), 'Haze'),
-
-    # "Cookies" is a brand — but only block if the word isn't at the start
-    # (e.g., "Girl Scout Cookies" strain, but "Cookies Gary Payton" IS the brand)
-    #
-    # ENGINEERING NOTE — Cookie strains are EXTREMELY prevalent:
-    # GSC (Girl Scout Cookies) is one of the most-crossed parent strains in
-    # cannabis.  Breeders routinely cross it with other genetics, producing
-    # hundreds of "X Cookies" cultivar names.  In practice, dispensary menus
-    # contain far more cookie-cross STRAIN names than actual Cookies-brand
-    # products.  This list must be kept comprehensive; when in doubt, add the
-    # prefix — a missing entry causes a false Cookies-brand tag on every unit
-    # of that strain across every dispensary we scrape.
-    #
-    # Rule of thumb: if "<word> Cookies" appears on a menu and the product
-    # is NOT manufactured by the Cookies brand, the prefix belongs here.
-    (re.compile(r'\b(?:'
-                # --- classic / OG cookie crosses ---
-                r'girl\s*scout|thin\s*mint|platinum|animal|lemon|cherry|'
-                r'forum\s*cut|sugar|blueberry|sunset|fire|sour\s*fire|og|'
-                r'mandarin|guava|grape|peanut\s*butter|london\s*pound|kush|'
-                r'berry|tropical|tropicana|strawberry|orange|purple|white|'
-                r'gelato|biscotti|garlic|alien|'
-                # --- additional common cookie-cross strains ---
-                r'lilac|pink|monster|samoa|space|key\s*lime|mint|banana|'
-                r'royal|tangerine|mac|golden|frosted|peach|papaya|'
-                r'watermelon|melon|mochi|diesel|gorilla|jungle|dosi|'
-                r'wedding|miracle|gmo|cream|funky|snow|moon|dirty|'
-                r'sour|butter|candy|honey|rainbow|coffee|lava|crunch|'
-                r'modified|crispy|emerald|neon|exotic|cosmic|red\s*velvet|'
-                r'caramel|vanilla|coconut|lavender|apricot|citrus|ginger|'
-                r'ice\s*cream|pumpkin|pistachio|truffle|'
-                # --- catch-all for numbered / lettered prefixes ---
-                r'\d+\s*'
-                r')\s+cookies\b', re.IGNORECASE), 'Cookies'),
-
-    # "Cookies and Cream" / "Cookies N Cream" is a strain (Starfighter x GSC),
-    # NOT a Cookies-brand product — even though "Cookies" appears at the start.
-    (re.compile(r'\bcookies\s+(?:and|n|&|x)\s+cream\b', re.IGNORECASE), 'Cookies'),
 
     # "Runtz" is a brand, but these are strains:
     (re.compile(r'\b(?:white|pink|gelatti|gelato|tropical|gruntz|rainbow|'
@@ -1626,7 +1588,6 @@ def run_tests():
     print("\n🏷️  BRAND DETECTION:")
     brand_tests = [
         ('AMA Gary Peyton Live Resin 1.0g',    'AMA'),
-        ('Cookies Gary Payton 3.5g',            'Cookies'),
         ('STIIIZY SIP Party Hurricane',         'STIIIZY'),
         ('City Trees Garlic Zoap 1g',           'City Trees'),
         ('Random Unknown Product 3.5g',          None),

@@ -419,7 +419,7 @@ BRAND_TIERS: dict[str, dict[str, Any]] = {
 
 # Backwards-compat: flat set of all known brands (used by tests/imports)
 PREMIUM_BRANDS: set[str] = {
-    "STIIIZY", "Cookies", "Raw Garden", "Kiva", "Wyld",
+    "STIIIZY", "Raw Garden", "Kiva", "Wyld",
     "Select", "Trendi", "CAMP", "Old Pal", "Pacific Stone",
     "Fleur", "Virtue", "Rove", "Heavy Hitters",
     "Runtz", "Connected", "Alien Labs", "Jungle Boys",

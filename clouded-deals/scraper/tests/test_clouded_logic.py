@@ -408,62 +408,6 @@ class TestDetectBrand:
         (Wedding Cake, Ice Cream Cake, Orange Kush Cake, etc.)."""
         assert logic.detect_brand("Cake She Hits Different 1g") is None
 
-    def test_cookies_at_start_is_brand(self, logic):
-        """'Cookies' at the start IS the Cookies brand."""
-        assert logic.detect_brand("Cookies Gary Payton 3.5g") == "Cookies"
-
-    # ---- Expanded cookie-strain blocker coverage ----
-    # GSC is one of the most-crossed parents in cannabis; these strains
-    # should NEVER be tagged as Cookies brand.
-
-    @pytest.mark.parametrize("text", [
-        "Lilac Cookies Badder 1g",
-        "Pink Cookies 3.5g",
-        "Monster Cookies Flower 7g",
-        "Samoa Cookies 3.5g",
-        "Space Cookies 1g Cart",
-        "Key Lime Cookies 3.5g",
-        "Mint Cookies Flower 3.5g",
-        "Banana Cookies Live Resin 1g",
-        "Royal Cookies 3.5g",
-        "Tangerine Cookies 3.5g",
-        "Mac Cookies Flower 3.5g",
-        "Golden Cookies 3.5g",
-        "Frosted Cookies 3.5g",
-        "Peach Cookies 3.5g",
-        "Papaya Cookies 1g",
-        "Mochi Cookies 3.5g",
-        "Diesel Cookies Flower 3.5g",
-        "Gorilla Cookies 3.5g",
-        "Dosi Cookies 3.5g",
-        "Wedding Cookies 3.5g",
-        "GMO Cookies 3.5g",
-        "Cream Cookies 3.5g",
-        "Funky Cookies 3.5g",
-        "Snow Cookies 3.5g",
-        "Moon Cookies 3.5g",
-        "Dirty Cookies 3.5g",
-        "Sour Cookies 3.5g",
-        "Butter Cookies 3.5g",
-        "Honey Cookies 3.5g",
-        "Rainbow Cookies 3.5g",
-        "Red Velvet Cookies 3.5g",
-        "Ice Cream Cookies 3.5g",
-        "Exotic Cookies 3.5g",
-        "Cosmic Cookies 3.5g",
-    ])
-    def test_cookie_cross_strains_not_cookies_brand(self, logic, text):
-        """Common GSC-cross strains must NOT be detected as Cookies brand."""
-        assert logic.detect_brand(text) is None
-
-    def test_cookies_and_cream_strain_not_brand(self, logic):
-        """'Cookies and Cream' is a strain (Starfighter x GSC), not Cookies brand."""
-        assert logic.detect_brand("Cookies and Cream 3.5g") is None
-
-    def test_cookies_n_cream_strain_not_brand(self, logic):
-        """'Cookies N Cream' variant spelling is also a strain."""
-        assert logic.detect_brand("Cookies N Cream 3.5g") is None
-
     def test_brand_with_another_brand_in_strain(self, logic):
         """When a real brand is present alongside a strain-embedded brand word,
         the real brand should win. E.g., '&shine Ghost Train Haze' → not Haze."""
@@ -663,12 +607,12 @@ class TestCleanProductText:
 class TestCleanProductName:
 
     def test_removes_brand_prefix(self, logic):
-        result = logic.clean_product_name("Cookies Gary Payton", brand="Cookies")
-        assert result.startswith("Gary Payton")
+        result = logic.clean_product_name("Connected Gelonade", brand="Connected")
+        assert result.startswith("Gelonade")
 
     def test_removes_brand_with_dash(self, logic):
-        result = logic.clean_product_name("Cookies - Gary Payton", brand="Cookies")
-        assert "Cookies" not in result
+        result = logic.clean_product_name("Connected - Gelonade", brand="Connected")
+        assert "Connected" not in result
 
     def test_truncates_over_60_chars(self, logic):
         long_name = "A" * 70
@@ -726,7 +670,7 @@ class TestCheckForWyldBrand:
         assert logic.check_for_wyld_brand([{"brand": "wyld"}]) is True
 
     def test_no_wyld(self, logic):
-        assert logic.check_for_wyld_brand([{"brand": "Cookies"}]) is False
+        assert logic.check_for_wyld_brand([{"brand": "Connected"}]) is False
 
     def test_empty_list(self, logic):
         assert logic.check_for_wyld_brand([]) is False
@@ -740,11 +684,11 @@ class TestCheckForWyldBrand:
 class TestParseProduct:
 
     def test_full_flower_product(self, logic):
-        text = "Cookies Gary Payton 3.5g $45 $15 THC: 30%"
+        text = "Connected Gelonade 3.5g $45 $15 THC: 30%"
         p = logic.parse_product(text, "Planet13")
         assert p is not None
         assert p["category"] == "flower"
-        assert p["brand"] == "Cookies"
+        assert p["brand"] == "Connected"
         assert p["weight"] == "3.5g"
         assert p["deal_price"] == 15.0
         assert p["original_price"] == 45.0

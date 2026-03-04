@@ -46,7 +46,7 @@ def make_product():
     def _make(**kwargs):
         defaults = {
             "name": "Test Product 3.5g",
-            "brand": "Cookies",
+            "brand": "Connected",
             "category": "flower",
             "sale_price": 15.0,
             "original_price": 30.0,
@@ -576,8 +576,8 @@ class TestScoringDistribution:
     def test_steal_threshold(self, make_product):
         """Score >= 85 should qualify as a 'steal'."""
         product = make_product(
-            name="Cookies GSC 3.5g",
-            brand="Cookies",
+            name="Connected Gelonade 3.5g",
+            brand="Connected",
             category="flower",
             sale_price=15.0,
             original_price=50.0,
@@ -746,11 +746,10 @@ class TestSkipCategories:
 class TestBrandDetectionEdgeCases:
     """Edge cases from real scrape data."""
 
-    def test_cookies_brand_not_girl_scout_cookies_strain(self, logic):
-        """'Girl Scout Cookies' is a strain, not Cookies brand."""
-        # This relies on the strain-brand blockers
+    def test_girl_scout_cookies_is_not_a_brand(self, logic):
+        """'Girl Scout Cookies' is a strain, not a brand."""
         result = logic.detect_brand("Girl Scout Cookies 3.5g Flower")
-        assert result != "Cookies" or result is None
+        assert result is None
 
     def test_cake_brand_not_wedding_cake_strain(self, logic):
         """'Wedding Cake' is a strain, not Cake brand."""

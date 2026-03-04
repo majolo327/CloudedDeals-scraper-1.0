@@ -12,7 +12,7 @@ def test_collect_basic_metrics(make_product):
     deals = [
         make_product(brand="STIIIZY", category="vape", deal_score=90,
                      dispensary_id="planet13"),
-        make_product(brand="Cookies", category="flower", deal_score=80,
+        make_product(brand="Connected", category="flower", deal_score=80,
                      dispensary_id="medizin"),
         make_product(brand="Wyld", category="edible", deal_score=60,
                      dispensary_id="reef"),

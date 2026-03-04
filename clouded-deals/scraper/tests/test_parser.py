@@ -309,13 +309,10 @@ class TestDetectBrand:
         assert detect_brand("STIIIZY Premium Pod 1g") == "STIIIZY"
 
     def test_case_insensitive(self):
-        assert detect_brand("cookies gary payton") == "Cookies"
+        assert detect_brand("connected gelonade") == "Connected"
 
     def test_variation_stiiizy_misspelling(self):
         assert detect_brand("STIIZY Pod") == "STIIIZY"
-
-    def test_variation_cookies_sf(self):
-        assert detect_brand("Cookies SF Runtz") == "Cookies"
 
     def test_variation_melting_point(self):
         assert detect_brand("Melting Point Extracts Wax") == "MPX"
@@ -406,12 +403,12 @@ class TestParseProduct:
 
     def test_full_product_all_fields(self):
         raw = {
-            "name": "Cookies Gary Payton Flower 3.5g",
+            "name": "Connected Gelonade Flower 3.5g",
             "raw_text": "was $45.00 now $22.00 THC: 30.5%",
             "price": "",
         }
         p = parse_product(raw)
-        assert p["brand"] == "Cookies"
+        assert p["brand"] == "Connected"
         # Category detection is handled by CloudedLogic, not parser.
         assert p["category"] is None
         assert p["weight_value"] == 3.5

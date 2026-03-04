@@ -211,7 +211,7 @@ class TestVapeDisposableDetection:
 class TestNoFlags:
 
     def test_regular_flower(self):
-        r = classify_product("Blue Dream 3.5g", brand="Cookies", category="flower")
+        r = classify_product("Blue Dream 3.5g", brand="Connected", category="flower")
         assert r["is_infused"] is False
         assert r["product_subtype"] is None
         assert r["corrected_category"] is None

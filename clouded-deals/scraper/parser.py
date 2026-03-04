@@ -374,7 +374,6 @@ def extract_weight(text: str) -> dict[str, Any]:
 
 KNOWN_BRANDS: list[str] = [
     # -- Premium Tier --
-    "Cookies",
     "Runtz",
     "Connected",
     "Alien Labs",
@@ -556,7 +555,6 @@ KNOWN_BRANDS: list[str] = [
 BRAND_VARIATIONS: dict[str, list[str]] = {
     "MPX": ["M.P.X", "Melting Point Extracts", "Melting Point"],
     "Kynd": ["K.Y.N.D", "KYND Cannabis", "KYND"],
-    "Cookies": ["Cookies SF", "Cookies Fam"],
     "Runtz": ["Runtz Brand", "Runtz OG"],
     "STIIIZY": ["Stiiizy", "STIIZY", "STIZY", "Stiizy"],
     "Airo": ["AiroPro", "Airo Pro", "Airo Brands"],
