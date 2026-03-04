@@ -9,15 +9,14 @@ import type { Deal } from '@/types';
 import { AgeGate, Footer } from '@/components/layout';
 import dynamic from 'next/dynamic';
 import { DealsPage } from '@/components/DealsPage';
+import { DealCardSkeleton } from '@/components/Skeleton';
 
 // Tab loading skeleton — shown while lazy tabs hydrate
 function TabSkeleton() {
-  // Import is hoisted so DealCardSkeleton is available
-  const { DealCardSkeleton: Skel } = require('@/components/Skeleton');
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-        {Array.from({ length: 6 }).map((_, i) => <Skel key={i} />)}
+        {Array.from({ length: 6 }).map((_, i) => <DealCardSkeleton key={i} />)}
       </div>
     </div>
   );
