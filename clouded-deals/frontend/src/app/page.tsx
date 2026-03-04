@@ -224,8 +224,15 @@ export default function Home() {
 
   // Fetch deals, expired deals, and dispensaries in parallel.
   // Expired deals always load so they can be shown in a "Past Deals" section.
+  // Auto-retries up to 2 times when deals are stale (from cache or yesterday).
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 2;
+  const RETRY_DELAY_MS = 5000;
+
   useEffect(() => {
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
     async function load() {
       const fetches: [Promise<FetchDealsResult>, Promise<FetchDispensariesResult>] = [
         fetchDeals(),
@@ -234,8 +241,27 @@ export default function Home() {
       const [dealsResult, dispResult] = await Promise.all(fetches);
       if (cancelled) return;
       setDeals(dealsResult.deals);
-      setError(dealsResult.error);
+      // Only surface the error to the UI when we have NO deals at all.
+      // When cached deals are available, suppress the error banner and
+      // let the auto-retry silently refresh in the background.
+      setError(dealsResult.deals.length === 0 ? dealsResult.error : null);
       setBrowseDispensaries(dispResult.dispensaries);
+
+      // Auto-retry when deals came from localStorage cache or are from yesterday.
+      // Clears stale cache before retrying so the next attempt hits Supabase directly.
+      const shouldRetry =
+        retryCountRef.current < MAX_RETRIES &&
+        dealsResult.deals.length > 0 &&
+        (dealsResult.fromCache || isDealsFromYesterday(dealsResult.deals));
+
+      if (shouldRetry) {
+        retryTimer = setTimeout(() => {
+          if (cancelled) return;
+          retryCountRef.current++;
+          try { localStorage.removeItem('clouded_deals_cache'); } catch { /* ignore */ }
+          load();
+        }, RETRY_DELAY_MS);
+      }
 
       // Always fetch expired deals — shown as "Past Deals" section below active deals,
       // or as the main feed when no active deals exist (early morning fallback).
@@ -262,6 +288,7 @@ export default function Home() {
     load();
     return () => {
       cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
     };
   }, []);
 
@@ -461,7 +488,7 @@ export default function Home() {
 
           {/* Mobile: deal count + last update time */}
           <div className="sm:hidden flex items-center gap-2 text-xs text-slate-500 min-w-0">
-            <span className="truncate">{todaysDeals.length} {isShowingExpired || isDealsFromYesterday(todaysDeals) ? "yesterday's" : ''} deals</span>
+            <span className="truncate">{todaysDeals.length} deals</span>
             {todaysDeals.length > 0 && (
               <span className={isDealsFromYesterday(todaysDeals) ? 'text-amber-400/60' : 'text-slate-600'}>{formatUpdateTime(todaysDeals)}</span>
             )}
@@ -492,7 +519,7 @@ export default function Home() {
                 </div>
               </div>
             </>
-          ) : error && !isShowingExpired ? (
+          ) : error && deals.length === 0 && !isShowingExpired ? (
             <div className="flex flex-col items-center justify-center py-20 text-center max-w-6xl mx-auto px-4">
               <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mb-4">
                 <AlertCircle className="w-8 h-8 text-red-400" />

@@ -237,6 +237,7 @@ function normalizeDeal(row: ProductRow): Deal {
 export interface FetchDealsResult {
   deals: Deal[];
   error: string | null;
+  fromCache?: boolean;
 }
 
 export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
@@ -337,10 +338,11 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
     const message = err instanceof Error ? err.message : 'Failed to fetch deals';
     trackEvent('error', undefined, { type: 'deals_fetch_failed', message });
 
-    // Fall back to cached deals
+    // Fall back to cached deals — preserve the error so the UI knows
+    // the fetch failed and can auto-retry instead of silently showing stale data.
     const cached = getCachedDeals();
     if (cached) {
-      return { deals: cached, error: null };
+      return { deals: cached, error: message, fromCache: true };
     }
 
     return { deals: [], error: message };
