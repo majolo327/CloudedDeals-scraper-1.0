@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, useCallback } from 'react';
+import { memo, useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { Heart, MapPin, X, Share, ExternalLink, Navigation } from 'lucide-react';
 import type { Deal } from '@/types';
 import { getDistanceMiles, getDisplayName, getPricePerUnit, getMapsUrl } from '@/utils';
@@ -31,7 +31,7 @@ const categoryLabels: Record<string, string> = {
   preroll: 'Pre-Roll',
 };
 
-export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onSave, onDismiss, onClick, distanceLabel, recommendationLabel, seenBefore = false }: DealCardProps) {
+export const DealCard = memo(function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onSave, onDismiss, onClick, distanceLabel, recommendationLabel, seenBefore = false }: DealCardProps) {
   // Long-press quick actions
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -61,6 +61,18 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
       longPressTimer.current = null;
     }
   }, []);
+
+  // Quick actions: Escape to close + auto-focus first button
+  const firstActionRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!quickActionsOpen) return;
+    firstActionRef.current?.focus();
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.stopPropagation(); setQuickActionsOpen(false); }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [quickActionsOpen]);
 
   const distance = useMemo(() => {
     const userCoords = getUserCoords();
@@ -97,13 +109,17 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
       {/* Long-press quick actions overlay */}
       {quickActionsOpen && (
         <>
-          <div className="fixed inset-0 z-[90]" onClick={(e) => { e.stopPropagation(); setQuickActionsOpen(false); }} />
+          <div className="fixed inset-0 z-[90]" aria-hidden="true" onClick={(e) => { e.stopPropagation(); setQuickActionsOpen(false); }} />
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Quick actions"
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[91] flex gap-2 p-2 rounded-2xl animate-in fade-in zoom-in-95 duration-150"
             style={{ backgroundColor: 'rgba(12, 14, 28, 0.95)', border: '1px solid rgba(120, 100, 200, 0.15)', backdropFilter: 'blur(20px)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <button
+              ref={firstActionRef}
               onClick={(e) => { e.stopPropagation(); onSave(); setQuickActionsOpen(false); }}
               className="flex flex-col items-center gap-1 p-3 min-w-[60px] rounded-xl hover:bg-white/5 transition-colors"
               aria-label={isSaved ? 'Unsave' : 'Save'}
@@ -116,9 +132,15 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
                 e.stopPropagation();
                 const url = `${window.location.origin}/deal/${deal.id}`;
                 if (navigator.share) {
-                  navigator.share({ title: deal.product_name, url }).catch(() => {});
+                  navigator.share({ title: deal.product_name, url }).catch(() => {
+                    navigator.clipboard.writeText(url).then(() => {
+                      window.dispatchEvent(new CustomEvent('clouded:toast', { detail: { message: 'Link copied!', type: 'success' } }));
+                    });
+                  });
                 } else {
-                  navigator.clipboard.writeText(url).catch(() => {});
+                  navigator.clipboard.writeText(url).then(() => {
+                    window.dispatchEvent(new CustomEvent('clouded:toast', { detail: { message: 'Link copied!', type: 'success' } }));
+                  });
                 }
                 setQuickActionsOpen(false);
               }}
@@ -255,4 +277,12 @@ export function DealCard({ deal, isSaved, isUsed = false, isExpired = false, onS
       <p className="text-[8px] sm:text-[9px] text-slate-600 text-right mt-1 sm:mt-2 select-none">found on cloudeddeals.com</p>
     </div>
   );
-}
+}, (prev, next) => (
+  prev.deal.id === next.deal.id &&
+  prev.isSaved === next.isSaved &&
+  prev.isUsed === next.isUsed &&
+  prev.isExpired === next.isExpired &&
+  prev.seenBefore === next.seenBefore &&
+  prev.distanceLabel === next.distanceLabel &&
+  prev.recommendationLabel === next.recommendationLabel
+));

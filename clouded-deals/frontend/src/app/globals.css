@@ -189,6 +189,12 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Bottom-sheet modal entry — slides up from bottom on mobile, fades in on desktop */
+@keyframes bottomSheetSlideUp {
+  from { opacity: 0.5; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ===== FOCUS & ACCESSIBILITY ===== */
 
 *:focus-visible {
@@ -260,6 +266,10 @@ body {
     pointer-events: none;
     border-radius: inherit;
     z-index: 10;
+  }
+  .animate-modal-enter { animation: bottomSheetSlideUp 350ms var(--ease-spring) forwards; }
+  @media (min-width: 640px) {
+    .animate-modal-enter { animation: softReveal 250ms var(--ease-spring) forwards; }
   }
   .animate-in { animation: animateIn 0.3s var(--ease-smooth) forwards; }
   .animate-confetti { animation: confetti 2s ease-out forwards; }

@@ -7,13 +7,16 @@ import { fetchDeals, fetchExpiredDeals, fetchDispensaries } from '@/lib/api';
 import type { BrowseDispensary, FetchDealsResult, FetchDispensariesResult } from '@/lib/api';
 import type { Deal } from '@/types';
 import { AgeGate, Footer } from '@/components/layout';
+import dynamic from 'next/dynamic';
 import { DealsPage } from '@/components/DealsPage';
-import { SearchPage } from '@/components/SearchPage';
-import { BrowsePage } from '@/components/BrowsePage';
-import { SavedPage } from '@/components/SavedPage';
-import { AboutPage } from '@/components/AboutPage';
-import { TermsPage } from '@/components/TermsPage';
-import { PrivacyPage } from '@/components/PrivacyPage';
+
+// Lazy-load secondary tabs — defers JS until user switches tab
+const SearchPage = dynamic(() => import('@/components/SearchPage').then(m => ({ default: m.SearchPage })), { ssr: false });
+const BrowsePage = dynamic(() => import('@/components/BrowsePage').then(m => ({ default: m.BrowsePage })), { ssr: false });
+const SavedPage = dynamic(() => import('@/components/SavedPage').then(m => ({ default: m.SavedPage })), { ssr: false });
+const AboutPage = dynamic(() => import('@/components/AboutPage').then(m => ({ default: m.AboutPage })), { ssr: false });
+const TermsPage = dynamic(() => import('@/components/TermsPage').then(m => ({ default: m.TermsPage })), { ssr: false });
+const PrivacyPage = dynamic(() => import('@/components/PrivacyPage').then(m => ({ default: m.PrivacyPage })), { ssr: false });
 import { SmsWaitlist } from '@/components/SmsWaitlist';
 import { FeedbackWidget } from '@/components/FeedbackWidget';
 import { LocationSelector } from '@/components/LocationSelector';
@@ -111,7 +114,17 @@ export default function Home() {
     }
   }, [addToast]);
 
-  // Track page views when navigating between tabs
+  // Scroll-to-top + page view tracking on tab switch
+  const handleTabChange = useCallback((tab: AppPage) => {
+    if (tab === activePage) {
+      // Re-tap same tab → smooth scroll to top (iOS convention)
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    setActivePage(tab);
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  }, [activePage]);
+
   const prevPageRef = useRef(activePage);
   useEffect(() => {
     if (isAgeVerified && activePage !== prevPageRef.current) {
@@ -132,6 +145,16 @@ export default function Home() {
     window.addEventListener('navigate', handleNav);
     return () => window.removeEventListener('navigate', handleNav);
   }, []);
+
+  // Global toast event bus — lets deep components trigger toasts without prop drilling
+  useEffect(() => {
+    function handleToast(e: Event) {
+      const { message, type } = (e as CustomEvent).detail;
+      addToast(message, type);
+    }
+    window.addEventListener('clouded:toast', handleToast);
+    return () => window.removeEventListener('clouded:toast', handleToast);
+  }, [addToast]);
 
   // Track referral clicks from share links
   useEffect(() => {
@@ -358,7 +381,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 header-border-glow" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderBottom: '1px solid rgba(120, 100, 200, 0.08)', WebkitBackdropFilter: 'blur(40px) saturate(1.3)', backdropFilter: 'blur(40px) saturate(1.3)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div className="max-w-6xl mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={() => setActivePage('home')} className="focus:outline-none" aria-label="Go to deals home">
+            <button onClick={() => handleTabChange('home')} className="focus:outline-none" aria-label="Go to deals home">
               <h1 className="text-lg sm:text-xl font-bold tracking-tight flex items-center gap-1.5">
                 Clouded<span className="text-purple-400">Deals</span>
                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/20 leading-none tracking-wide">
@@ -377,7 +400,7 @@ export default function Home() {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActivePage(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`px-3 py-2 text-sm font-medium transition-colors rounded-lg ${
                   activePage === tab.id
                     ? 'text-white'
@@ -388,7 +411,7 @@ export default function Home() {
               </button>
             ))}
             <button
-              onClick={() => setActivePage('search')}
+              onClick={() => handleTabChange('search')}
               className={`p-2.5 rounded-lg transition-colors ${
                 activePage === 'search' ? 'text-white' : 'text-slate-400 hover:text-white'
               }`}
@@ -397,7 +420,7 @@ export default function Home() {
               <Search className="w-5 h-5" />
             </button>
             <button
-              onClick={() => setActivePage('saved')}
+              onClick={() => handleTabChange('saved')}
               className={`relative p-2.5 rounded-lg transition-colors ${
                 activePage === 'saved' || highlightSaved ? 'text-purple-400' : 'text-slate-400 hover:text-white'
               }`}
@@ -607,7 +630,7 @@ export default function Home() {
               role="tab"
               aria-selected={activePage === tab.id}
               aria-label={tab.label}
-              onClick={() => setActivePage(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className={`flex flex-col items-center gap-0.5 px-3 py-2 min-w-[56px] min-h-[48px] text-[11px] font-medium transition-all duration-200 ${
                 activePage === tab.id
                   ? 'text-purple-400 nav-glow-active scale-105'

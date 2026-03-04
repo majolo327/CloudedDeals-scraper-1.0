@@ -37,6 +37,15 @@ export function DealModal({
   onAccuracyFeedback,
   onDealReported,
 }: DealModalProps) {
+  // Badge-matched CTA: color reflects deal quality
+  const badgeTier = deal.deal_score >= 85 ? 'steal' : deal.deal_score >= 70 ? 'fire' : 'solid';
+  const ctaColors = {
+    steal: { gradient: 'from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500', shadow: 'rgba(16, 185, 129, 0.25)' },
+    fire: { gradient: 'from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500', shadow: 'rgba(245, 158, 11, 0.25)' },
+    solid: { gradient: 'from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500', shadow: 'rgba(139, 92, 246, 0.25)' },
+  };
+  const cta = ctaColors[badgeTier];
+
   const savings = (deal.original_price || deal.deal_price) - deal.deal_price;
   const savingsPercent = deal.original_price ? Math.round((savings / deal.original_price) * 100) : 0;
   const [showShareModal, setShowShareModal] = useState(false);
@@ -109,7 +118,7 @@ export function DealModal({
     >
       <div className="absolute inset-0 bg-black/60 animate-soft-reveal" style={{ WebkitBackdropFilter: 'blur(8px) saturate(1.2)', backdropFilter: 'blur(8px) saturate(1.2)' }} />
       <div
-        className="relative w-full sm:max-w-lg glass-strong frost rounded-t-3xl sm:rounded-3xl max-h-[85vh] flex flex-col animate-soft-reveal"
+        className="relative w-full sm:max-w-lg glass-strong frost rounded-t-3xl sm:rounded-3xl max-h-[85vh] flex flex-col animate-modal-enter"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Mobile drag handle */}
@@ -267,8 +276,8 @@ export function DealModal({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackGetDealClick(deal.id, deal.dispensary?.name || '', deal.product_url || deal.dispensary?.menu_url || '')}
-            className="w-full py-3.5 sm:py-4 min-h-[48px] bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white font-semibold rounded-2xl transition-all shadow-lg shadow-purple-500/25 flex items-center justify-center gap-2"
-            style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12), 0 4px 16px rgba(139, 92, 246, 0.25)' }}
+            className={`w-full py-3.5 sm:py-4 min-h-[48px] bg-gradient-to-r ${cta.gradient} text-white font-semibold rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2`}
+            style={{ boxShadow: `inset 0 1px 0 rgba(255,255,255,0.12), 0 4px 16px ${cta.shadow}` }}
           >
             <span className="text-sm sm:text-base">Get This Deal</span>
             <ExternalLink className="w-4 h-4" />
