@@ -467,7 +467,7 @@ CATEGORY_TARGETS: dict[str, int] = {
 CATEGORY_MINIMUMS: dict[str, int] = {
     "flower": 12,
     "vape": 6,           # reduced from 10 (smaller pool without disposables)
-    "disposable": 6,     # NEW — ensure at least 6 disposables in the feed
+    "disposable": 15,    # ensure at least 15 genuine disposables in the feed
     "edible": 8,
     "concentrate": 6,
     "preroll": 6,
@@ -526,6 +526,7 @@ _NON_CANNABIS_KEYWORDS = {
     "rolling paper", "pipe", "bong", "stash", "bag", "backpack",
     "lanyard", "keychain", "pin", "sticker", "poster",
     "gift card", "gift certificate",
+    "vape battery", "pen battery",
 }
 
 

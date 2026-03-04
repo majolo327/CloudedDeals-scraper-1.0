@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 from collections import Counter, defaultdict
 
@@ -29,46 +30,59 @@ from product_classifier import classify_product
 # =====================================================================
 
 _OFFLINE_SAMPLES: list[dict] = [
-    # STIIIZY products (should all be disposable except 510/cartridge)
-    {"name": "Blue Dream 0.5g", "brand": "STIIIZY", "category": "vape"},
-    {"name": "OG Kush 1g", "brand": "STIIIZY", "category": "vape"},
-    {"name": "Strawnana Live Resin 0.5g", "brand": "STIIIZY", "category": "vape"},
+    # STIIIZY (LIIIL/AIO = disposable, pods/generic = pod, 510 = cartridge)
     {"name": "LIIIL Indica 0.5g", "brand": "STIIIZY", "category": "vape"},
-    {"name": "Birthday Cake Pod", "brand": "STIIIZY", "category": "vape"},
-    {"name": "Blue Dream 510 Cartridge", "brand": "STIIIZY", "category": "vape"},
     {"name": "Strawberry Milkshake All In One Live Resin", "brand": "STIIIZY", "category": "vape"},
-    {"name": "CDT Pod SFV OG 1g", "brand": "STIIIZY", "category": "vape"},
-    {"name": "Biscotti 0.5g", "brand": "STIIIZY", "category": "vape"},
-    {"name": "Skywalker OG Live Resin", "brand": "STIIIZY", "category": "vape"},
-    # Select products
+    {"name": "Blue Dream 0.5g", "brand": "STIIIZY", "category": "vape"},
+    {"name": "Birthday Cake Pod", "brand": "STIIIZY", "category": "vape"},
+    {"name": "OG Kush 1g", "brand": "STIIIZY", "category": "vape"},
+    {"name": "Blue Dream 510 Cartridge", "brand": "STIIIZY", "category": "vape"},
+    # AiroPro (Airo Go/Disposable = disposable, generic = pod)
+    {"name": "Airo Go Blue Dream 0.5g", "brand": "AiroPro", "category": "vape"},
+    {"name": "Disposable Midnight Moon 0.5g", "brand": "AiroPro", "category": "vape"},
+    {"name": "Blue Dream 0.5g", "brand": "AiroPro", "category": "vape"},
+    # Plug Play (Expo = disposable, generic = pod)
+    {"name": "Expo Blue Dream 0.5g", "brand": "Plug Play", "category": "vape"},
+    {"name": "Blue Dream 0.5g", "brand": "Plug Play", "category": "vape"},
+    # Select (Bite/Cliq/Squeeze = disposable, generic = cartridge)
     {"name": "Bite Blueberry 0.5g", "brand": "Select", "category": "vape"},
     {"name": "Cliq Blue Dream", "brand": "Select", "category": "vape"},
+    {"name": "Squeeze Watermelon 0.5g", "brand": "Select", "category": "vape"},
     {"name": "Elite Live Resin 0.5g", "brand": "Select", "category": "vape"},
-    {"name": "Essentials Cartridge 1g", "brand": "Select", "category": "vape"},
-    # Rove products
+    {"name": "Essentials 0.5g", "brand": "Select", "category": "vape"},
+    # Rove (Ready/Found = disposable, generic = cartridge)
     {"name": "Ready Live Resin 0.5g", "brand": "Rove", "category": "vape"},
+    {"name": "Found Mango Haze 0.5g", "brand": "Rove", "category": "vape"},
     {"name": "Featured Farms 0.5g", "brand": "Rove", "category": "vape"},
     {"name": "Pro Pack 3pk", "brand": "Rove", "category": "vape"},
-    # AiroPro products
-    {"name": "Blue Dream 0.5g", "brand": "AiroPro", "category": "vape"},
-    {"name": "Midnight Moon Live Flower", "brand": "AiroPro", "category": "vape"},
-    # Provisions products
+    # Jeeter (Juice = disposable)
+    {"name": "Juice Liquid Diamonds Blue Dream", "brand": "Jeeter", "category": "vape"},
+    {"name": "Cartridge OG Kush 0.5g", "brand": "Jeeter", "category": "vape"},
+    # All-disposable brands (catch-all)
+    {"name": "Live Resin OG Kush 0.5g", "brand": "Sundaze", "category": "vape"},
+    {"name": "BDT Distillate Blue Dream 0.5g", "brand": "&Shine", "category": "vape"},
+    {"name": "Pineapple Watermelon 0.35g", "brand": "AMA", "category": "vape"},
+    {"name": "Grape Fizz 0.5g", "brand": "The 55", "category": "vape"},
+    # NV-specific brands
+    {"name": "Ripper Live Resin 0.5g", "brand": "Matrix", "category": "vape"},
+    {"name": "2 Hottie Biscotti Live Resin", "brand": "TRENDI", "category": "vape"},
+    {"name": "Disposable 3.0 Rosin 0.5g", "brand": "CAMP", "category": "vape"},
+    # Provisions
     {"name": "AIO Strawberry Lemonade 0.5g", "brand": "Provisions", "category": "vape"},
     {"name": "Disposable Pen Blue Dream 0.3g", "brand": "Provisions", "category": "vape"},
     # Generic disposable indicators
     {"name": "All In One Live Resin Pen 0.5g", "brand": None, "category": "vape"},
     {"name": "RTU Vape 0.5g", "brand": None, "category": "vape"},
     {"name": "Disposable Vape 0.3g", "brand": None, "category": "vape"},
-    {"name": "Draw Activated Pen 0.5g", "brand": None, "category": "vape"},
     # Standard carts/pods — should NOT be disposable
     {"name": "Blue Dream Cartridge 0.5g", "brand": None, "category": "vape"},
     {"name": "OG Kush 510 0.5g", "brand": None, "category": "vape"},
     {"name": "Blue Dream Pod 0.5g", "brand": None, "category": "vape"},
-    {"name": "Replacement Pod 0.5g", "brand": None, "category": "vape"},
     {"name": "Pen Battery Starter Kit", "brand": None, "category": "vape"},
-    # PAX / Kingpen brand fallback
+    # PAX / Kingpen / Raw Garden brand fallback
     {"name": "Blue Dream 0.5g", "brand": "PAX", "category": "vape"},
     {"name": "Gelato 0.5g", "brand": "Kingpen", "category": "vape"},
+    {"name": "Live Resin 0.5g", "brand": "Raw Garden", "category": "vape"},
     # Wrong category — should correct to vape
     {"name": "All In One Live Resin 0.5g", "brand": None, "category": "flower"},
     {"name": "AIO Pen 0.5g", "brand": None, "category": "concentrate"},
@@ -144,7 +158,6 @@ def _run_database():
         .execute()
     )
     # Filter to ones with vape indicators in name
-    import re
     vape_kw = re.compile(
         r"\b(?:disposable|all[- ]?in[- ]?one|aio|cart|cartridge|pod|vape|pen)\b",
         re.IGNORECASE,
@@ -158,7 +171,7 @@ def _run_database():
     print(f"  Potentially miscategorized vapes: {len(miscat_vapes)}")
     print()
 
-    # Re-classify each vape product
+    # Re-classify each vape product, simulating the main.py raw_text fallback
     results = []
     for p in vape_products:
         r = classify_product(
@@ -166,6 +179,22 @@ def _run_database():
             brand=p.get("brand"),
             category=p.get("category") or "vape",
         )
+        # Simulate main.py raw_text fallback: if vape with no subtype,
+        # check raw_text for disposable/cart/pod keywords that were
+        # stripped from the cleaned display name.
+        if r.get("product_subtype") is None and (p.get("category") or "vape") == "vape":
+            raw_check = f"{p.get('name', '')} {p.get('raw_text', '')}".lower()
+            if re.search(
+                r"\b(?:disposable|all[- ]?in[- ]?one|aio|rtu|"
+                r"ready[- ]?to[- ]?use|draw[- ]?activated|"
+                r"built[- ]?in[- ]?battery)\b",
+                raw_check,
+            ):
+                r["product_subtype"] = "disposable"
+            elif re.search(r"\bcartridges?\b|\bcarts?\b|\b510\b", raw_check):
+                r["product_subtype"] = "cartridge"
+            elif re.search(r"\bpods?\b", raw_check):
+                r["product_subtype"] = "pod"
         results.append({
             "name": p.get("name", "???"),
             "brand": p.get("brand"),
