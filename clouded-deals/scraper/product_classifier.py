@@ -1,5 +1,20 @@
 """
-Product classification: subtypes for prerolls and vapes.
+Product classification: post-detection subtype enrichment and safety nets.
+
+ARCHITECTURE NOTE:
+    Primary category detection is handled by CloudedLogic.detect_category()
+    in clouded_logic.py (10-step hierarchical detection).  This module runs
+    AFTER primary detection and provides:
+
+    1. **Subtype enrichment** — infused prerolls, packs, vape subtypes
+       (disposable/cartridge/pod), concentrate subtypes, edible subtypes
+    2. **Category correction safety nets** — catches edge cases where the
+       primary detector got the category wrong (e.g. "All-In-One 0.5g"
+       classified as concentrate instead of vape)
+    3. **1g flower → preroll recategorization** — 1g flower doesn't exist
+       in retail; it's always a preroll
+
+    This is complementary to clouded_logic, NOT a competing system.
 
 Preroll subtypes:
   - infused_preroll: excluded from Top 100 but searchable
@@ -11,6 +26,13 @@ Vape subtypes (displayed on deal cards):
   - cartridge: threaded 510 cart, requires battery (0.5-1g)
   - pod: proprietary pod system (STIIIZY, PAX, Plug Play)
   - (fallback: None if subtype can't be determined)
+
+Concentrate subtypes (Phase D' enrichment):
+  - live_resin, cured_resin, budder, badder, shatter, diamonds,
+    sauce, rosin, hash_rosin, live_rosin, crumble, wax, sugar, rso, fsho
+
+Edible subtypes (Phase D' enrichment):
+  - gummy, chocolate, beverage, tincture, capsule, lozenge, baked_good, chew
 """
 
 from __future__ import annotations
@@ -54,18 +76,167 @@ _INFUSED_BRAND_LINES: dict[str, list[re.Pattern]] = {
 }
 
 # =====================================================================
-# Vape subtype detection
+# Vape subtype detection — multi-layer strategy
 # =====================================================================
+#
+# Layer 1 (keywords): Explicit disposable/AIO indicators in product name.
+# Layer 2 (brand lines): Brand-specific product lines that are always
+#   disposable (e.g. STIIIZY LIIIL, Select Bite/Cliq).
+# Layer 3 (exclusions): NOT-disposable signals to prevent false positives
+#   (510 thread, cartridge-only, replacement/refill, battery device).
+# Layer 4 (fallback): Generic pod/cart keywords and brand-based fallback.
+#
+# Detection order: disposable keywords → brand disposable lines →
+#   pod/cart keywords → brand pod/cart fallback → "pen" heuristic.
 
 _VAPE_DISPOSABLE_INDICATORS = [
     re.compile(r"\bdisposable\b", re.IGNORECASE),
     re.compile(r"\ball[- ]?in[- ]?one\b", re.IGNORECASE),
     re.compile(r"\baio\b", re.IGNORECASE),
     re.compile(r"\bready[- ]?to[- ]?use\b", re.IGNORECASE),
+    re.compile(r"\brtu\b", re.IGNORECASE),
+    re.compile(r"\bripper\b", re.IGNORECASE),
+    re.compile(r"\bdraw[- ]?activated\b", re.IGNORECASE),
+    re.compile(r"\bbuilt[- ]?in[- ]?battery\b", re.IGNORECASE),
+    re.compile(r"\bnon[- ]?rechargeable\b", re.IGNORECASE),
+    re.compile(r"\brechargeable[- ]?disposable\b", re.IGNORECASE),
+    re.compile(r"\bdisp\b", re.IGNORECASE),
+    re.compile(r"\brechargeable[- ]?all[- ]?in[- ]?one\b", re.IGNORECASE),
+]
+
+# Brand-specific product lines that are ALWAYS disposable/AIO.
+# Only needed when the product name does NOT contain a universal disposable
+# keyword (Layer 1 already catches those).  These catch products where only
+# the sub-brand name signals it's a disposable.
+#
+# Brands with BOTH cart AND disposable lines appear here AND in _CART_BRANDS;
+# Step 2 (disposable brand lines) fires before Step 4 (cart brand fallback).
+_DISPOSABLE_BRAND_LINES: dict[str, list[re.Pattern]] = {
+    # --- Tier 1: High-volume NV / multi-state brands ---
+    "stiiizy": [
+        re.compile(r"\bliiil\b", re.IGNORECASE),         # STIIIZY LIIIL = disposable line
+    ],
+    "heavy hitters": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+        re.compile(r"\ball[- ]?in[- ]?one\b", re.IGNORECASE),
+    ],
+    "jeeter": [
+        re.compile(r"\bjuice\b", re.IGNORECASE),         # Jeeter Juice = disposable line
+    ],
+    "raw garden": [
+        re.compile(r"\bready[- ]?to[- ]?use\b", re.IGNORECASE),
+        re.compile(r"\brtu\b", re.IGNORECASE),
+    ],
+    "sundaze": [
+        re.compile(r".", re.IGNORECASE),                  # ALL Sundaze = disposable (Wyld sub-brand)
+    ],
+    "friendly farms": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+        re.compile(r"\ball[- ]?in[- ]?one\b", re.IGNORECASE),
+    ],
+    # --- Major national / NV-present brands ---
+    "packwoods": [
+        re.compile(r"\bpackspod\b", re.IGNORECASE),
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "plug play": [
+        re.compile(r"\bexpo\b", re.IGNORECASE),          # Plug Play Expo = disposable
+    ],
+    "select": [
+        re.compile(r"\bbite\b", re.IGNORECASE),          # Select Bite
+        re.compile(r"\bcliq\b", re.IGNORECASE),           # Select Cliq
+        re.compile(r"\bsqueeze\b", re.IGNORECASE),        # Select Squeeze
+    ],
+    "rove": [
+        re.compile(r"\bready\b", re.IGNORECASE),          # Rove Ready-to-Use
+        re.compile(r"\bfound\b", re.IGNORECASE),           # Rove Found
+        re.compile(r"\bdiamond\s+disposable\b", re.IGNORECASE),
+        re.compile(r"\bpremier.*disposable\b", re.IGNORECASE),
+    ],
+    "airopro": [
+        re.compile(r"\bairo\s*go\b", re.IGNORECASE),     # AiroPro Airo Go = disposable
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "airo": [
+        re.compile(r"\bairo\s*go\b", re.IGNORECASE),
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "bloom farms": [
+        re.compile(r"\bhighlighter\b", re.IGNORECASE),   # Bloom Farms Highlighter
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "wana": [
+        re.compile(r"\bquick\b", re.IGNORECASE),          # Wana Quick
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "cresco": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "kanha": [
+        re.compile(r"\bnano\b", re.IGNORECASE),           # Kanha Nano
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "plus": [
+        re.compile(r"\buplift\b", re.IGNORECASE),         # PLUS Uplift
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "binske": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    # --- Nevada-specific / common in LV market ---
+    "matrix": [
+        re.compile(r"\bripper\b", re.IGNORECASE),         # Matrix NV Ripper
+    ],
+    "matrix nv": [
+        re.compile(r"\bripper\b", re.IGNORECASE),
+    ],
+    "trendi": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+        re.compile(r"\b2\s*hottie\b", re.IGNORECASE),    # TRENDI 2 Hottie
+    ],
+    "camp": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+        re.compile(r"\b3\.0\b", re.IGNORECASE),           # CAMP Disposable 3.0
+    ],
+    "&shine": [
+        re.compile(r".", re.IGNORECASE),                   # ALL &Shine vapes = disposable
+    ],
+    "dime industries": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "dime": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "ama": [
+        re.compile(r".", re.IGNORECASE),                   # ALL AMA = disposable (all-in-one)
+    ],
+    "the 55": [
+        re.compile(r".", re.IGNORECASE),                   # ALL The 55 = disposable
+    ],
+    "dabwoods": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "high heads": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+    "viola": [
+        re.compile(r"\bdisposable\b", re.IGNORECASE),
+    ],
+}
+
+# NOT-disposable signals — prevent false positives when only brand/heuristic
+# matches are present (explicit disposable keywords still override these).
+_NOT_DISPOSABLE_INDICATORS = [
+    re.compile(r"\b510\b"),                          # standard cart thread
+    re.compile(r"\bcartridges?\b", re.IGNORECASE),   # standard cart
+    re.compile(r"\breplacement\b", re.IGNORECASE),
+    re.compile(r"\brefill\b", re.IGNORECASE),
+    re.compile(r"\brefillable\b", re.IGNORECASE),
+    re.compile(r"\bbattery\b", re.IGNORECASE),       # just the battery device
 ]
 
 _VAPE_CARTRIDGE_INDICATORS = [
-    re.compile(r"\bcart(?:ridge)?\b", re.IGNORECASE),
+    re.compile(r"\bcart(?:ridge)?s?\b", re.IGNORECASE),
     re.compile(r"\b510\b"),
 ]
 
@@ -73,33 +244,53 @@ _VAPE_POD_INDICATORS = [
     re.compile(r"\bpod\b", re.IGNORECASE),
 ]
 
-# Brands whose vapes are ALWAYS pods (proprietary systems)
-_POD_BRANDS = {"stiiizy", "pax", "plug play"}
+# Brands whose vapes default to pod (proprietary systems).
+# Disposable brand lines (Step 2) take priority over this fallback (Step 4).
+_POD_BRANDS = {"pax", "plug play", "stiiizy", "airopro", "airo"}
 
-# Brands whose vapes are ALWAYS cartridges (510 thread)
-_CART_BRANDS = {"rove", "select", "kingpen", "brass knuckles", "raw garden"}
+# Brands whose vapes default to cartridge (510 thread).
+# Disposable brand lines (Step 2) take priority over this fallback (Step 4).
+_CART_BRANDS = {"kingpen", "brass knuckles", "raw garden", "rove", "select"}
 
 
 def _classify_vape_subtype(name_lower: str, brand_lower: str) -> str | None:
-    """Determine vape subtype from product name and brand."""
-    # Explicit keyword matches take priority
-    if any(p.search(name_lower) for p in _VAPE_POD_INDICATORS):
-        return "pod"
+    """Determine vape subtype from product name and brand.
+
+    Detection priority:
+      1. Explicit disposable keywords (highest confidence — overrides everything)
+      2. Brand-specific disposable product lines (with NOT-disposable guard)
+      3. Explicit pod/cartridge keywords in product name
+      4. Brand-based pod/cart fallback (only for brands not in disposable lines)
+      5. "pen" heuristic → disposable (with NOT-disposable guard)
+    """
+    has_not_disposable = any(p.search(name_lower) for p in _NOT_DISPOSABLE_INDICATORS)
+
+    # 1. Explicit disposable keywords override everything (even NOT-disposable)
     if any(p.search(name_lower) for p in _VAPE_DISPOSABLE_INDICATORS):
         return "disposable"
+
+    # 2. Brand-specific disposable product lines
+    if brand_lower in _DISPOSABLE_BRAND_LINES:
+        if any(p.search(name_lower) for p in _DISPOSABLE_BRAND_LINES[brand_lower]):
+            if not has_not_disposable:
+                return "disposable"
+
+    # 3. Explicit pod/cartridge keywords in product name
+    if any(p.search(name_lower) for p in _VAPE_POD_INDICATORS):
+        return "pod"
     if any(p.search(name_lower) for p in _VAPE_CARTRIDGE_INDICATORS):
         return "cartridge"
 
-    # Brand-based fallback
+    # 4. Brand-based fallback (only if not in disposable brand lines)
     if brand_lower in _POD_BRANDS:
         return "pod"
     if brand_lower in _CART_BRANDS:
         return "cartridge"
 
-    # Keyword heuristics in product name
-    # "pen" without other indicators usually means disposable
+    # 5. "pen" heuristic — vape pens are typically disposable/AIO
     if re.search(r"\bpen\b", name_lower):
-        return "disposable"
+        if not has_not_disposable:
+            return "disposable"
 
     return None
 
@@ -121,17 +312,82 @@ _PACK_INDICATORS = [
 _PACK_BRANDS = {"dogwalkers"}
 
 
+# =====================================================================
+# Concentrate subtype detection
+# =====================================================================
+
+# Order matters — check more specific patterns first (e.g. "hash rosin"
+# before "rosin", "live resin" before generic "resin").
+_CONCENTRATE_SUBTYPE_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\bhash[- ]?rosin\b", re.IGNORECASE), "hash_rosin"),
+    (re.compile(r"\blive[- ]?rosin\b", re.IGNORECASE), "live_rosin"),
+    (re.compile(r"\brosin\b", re.IGNORECASE), "rosin"),
+    (re.compile(r"\blive[- ]?resin\b", re.IGNORECASE), "live_resin"),
+    (re.compile(r"\bcured[- ]?resin\b", re.IGNORECASE), "cured_resin"),
+    (re.compile(r"\bdiamonds?\b", re.IGNORECASE), "diamonds"),
+    (re.compile(r"\bsauce\b", re.IGNORECASE), "sauce"),
+    (re.compile(r"\bbadder\b", re.IGNORECASE), "badder"),
+    (re.compile(r"\bbudder\b", re.IGNORECASE), "budder"),
+    (re.compile(r"\bshatter\b", re.IGNORECASE), "shatter"),
+    (re.compile(r"\bcrumble\b", re.IGNORECASE), "crumble"),
+    (re.compile(r"\bwax\b", re.IGNORECASE), "wax"),
+    (re.compile(r"\bsugar\b", re.IGNORECASE), "sugar"),
+    (re.compile(r"\b(?:rso|rick\s+simpson)\b", re.IGNORECASE), "rso"),
+    (re.compile(r"\bfsho\b", re.IGNORECASE), "fsho"),
+]
+
+
+def _classify_concentrate_subtype(name_lower: str) -> str | None:
+    """Determine concentrate subtype from product name."""
+    for pattern, subtype in _CONCENTRATE_SUBTYPE_PATTERNS:
+        if pattern.search(name_lower):
+            return subtype
+    return None
+
+
+# =====================================================================
+# Edible subtype detection
+# =====================================================================
+
+_EDIBLE_SUBTYPE_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\bgumm(?:y|ies)\b", re.IGNORECASE), "gummy"),
+    (re.compile(r"\bchocolate\b", re.IGNORECASE), "chocolate"),
+    (re.compile(r"\bbeverage|drink|soda|lemonade|tea\b", re.IGNORECASE), "beverage"),
+    (re.compile(r"\btincture\b", re.IGNORECASE), "tincture"),
+    (re.compile(r"\bcapsule|softgel|tablet\b", re.IGNORECASE), "capsule"),
+    (re.compile(r"\blozenge|mint|hard\s+candy\b", re.IGNORECASE), "lozenge"),
+    (re.compile(r"\bbrownie|cookie|bar\b", re.IGNORECASE), "baked_good"),
+    (re.compile(r"\bcaramel|chew|taffy\b", re.IGNORECASE), "chew"),
+]
+
+
+def _classify_edible_subtype(name_lower: str) -> str | None:
+    """Determine edible subtype from product name."""
+    for pattern, subtype in _EDIBLE_SUBTYPE_PATTERNS:
+        if pattern.search(name_lower):
+            return subtype
+    return None
+
+
 def classify_product(
     name: str,
     brand: str | None,
     category: str | None,
+    weight_value: float | str | None = None,
 ) -> dict:
-    """Classify a product for infused/pack status.
+    """Classify a product for infused/pack/subtype status.
 
     Returns:
         {
             "is_infused": bool,
-            "product_subtype": str | None,  # 'infused_preroll', 'preroll_pack', or None
+            "product_subtype": str | None,
+                # Preroll: 'infused_preroll', 'preroll_pack'
+                # Vape: 'disposable', 'cartridge', 'pod'
+                # Concentrate: 'live_resin', 'cured_resin', 'budder', 'badder',
+                #   'shatter', 'diamonds', 'sauce', 'rosin', 'hash_rosin',
+                #   'live_rosin', 'crumble', 'wax', 'sugar', 'rso', 'fsho'
+                # Edible: 'gummy', 'chocolate', 'beverage', 'tincture',
+                #   'capsule', 'lozenge', 'baked_good', 'chew'
             "corrected_category": str | None,  # only set if category should change
         }
     """
@@ -209,11 +465,38 @@ def classify_product(
                     "[CLASSIFY] %r recategorized → preroll (pack)", name[:60],
                 )
 
+    # --- 1g flower → preroll reclassification ---
+    # A "1g flower" product does not exist in cannabis retail — 1g is always
+    # a preroll or infused preroll.  Some dispensaries (notably STIIIZY)
+    # miscategorize prerolls as flower.  Correct the category here so the
+    # deal card shows "Pre-Roll" instead of "Flower 1g".
+    if cat == "flower" and weight_value is not None:
+        try:
+            wv = float(weight_value)
+        except (ValueError, TypeError):
+            wv = None
+        if wv is not None and 0.5 <= wv <= 1.5:
+            corrected_category = "preroll"
+            if is_infused:
+                subtype = "infused_preroll"
+            logger.info(
+                "[CLASSIFY] %r recategorized: flower %.1fg → preroll (no 1g flower exists)",
+                (name or "")[:60], wv,
+            )
+
     # --- Vape subtype detection ---
     if cat == "vape" and subtype is None:
         vape_sub = _classify_vape_subtype(name_lower, brand_lower)
         if vape_sub:
             subtype = vape_sub
+
+    # --- Concentrate subtype detection ---
+    if cat == "concentrate" and subtype is None:
+        subtype = _classify_concentrate_subtype(name_lower)
+
+    # --- Edible subtype detection ---
+    if cat == "edible" and subtype is None:
+        subtype = _classify_edible_subtype(name_lower)
 
     # --- Safety net: disposable vape indicators override wrong category ---
     # Products with "all in one", "AIO", "disposable", "ready to use" in the
@@ -225,6 +508,26 @@ def classify_product(
             subtype = "disposable"
             logger.info(
                 "[CLASSIFY] %r recategorized: %s → vape (disposable indicator)",
+                name[:60], cat,
+            )
+
+    # --- Safety net: cartridge/cart/pod keywords override wrong category ---
+    # Products with "cartridge", "cart", or "pod" in the name are vapes,
+    # not flower.  E.g. "3 for $50 Trendi Cartridges" miscategorized as
+    # flower because "3" matched flower weight patterns.
+    if cat not in ("vape",) and subtype is None and corrected_category != "vape":
+        if any(p.search(name_lower) for p in _VAPE_CARTRIDGE_INDICATORS):
+            corrected_category = "vape"
+            subtype = "cartridge"
+            logger.info(
+                "[CLASSIFY] %r recategorized: %s → vape (cartridge indicator)",
+                name[:60], cat,
+            )
+        elif any(p.search(name_lower) for p in _VAPE_POD_INDICATORS):
+            corrected_category = "vape"
+            subtype = "pod"
+            logger.info(
+                "[CLASSIFY] %r recategorized: %s → vape (pod indicator)",
                 name[:60], cat,
             )
 

@@ -12,6 +12,8 @@ import random
 
 from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
 
+from .age_verification import force_remove_age_gate
+
 logger = logging.getLogger(__name__)
 
 # JavaScript to dismiss overlays that block pagination clicks on Curaleaf.
@@ -95,7 +97,7 @@ async def _click_with_fallback(
     return False
 
 
-_DUTCHIE_NAV_MAX_RETRIES = 2
+_DUTCHIE_NAV_MAX_RETRIES = 3  # Increased from 2 for expansion state reliability
 
 
 async def navigate_dutchie_page(
@@ -104,62 +106,75 @@ async def navigate_dutchie_page(
 ) -> bool:
     """Navigate to a specific page on a Dutchie-powered menu.
 
-    Tries multiple selector strategies with multi-click fallback
-    (normal → force → JS click) and up to 2 retries per page:
-      1. ``button[aria-label="go to page N"]`` (standard Dutchie iframe)
-      2. ``a[aria-label="go to page N"]`` (some sites use links)
-      3. Case-insensitive ``Go to page N`` variants
-      4. Generic ``[aria-label]`` catch-all
+    Uses the proven pattern: instant ``query_selector`` checks (no 5s
+    timeouts per selector), ``is_visible()`` + ``is_enabled()`` gates,
+    simple click with brief settle.  Falls back to "Next" button.
 
-    Parameters
-    ----------
-    target:
-        The ``Page`` or ``Frame`` containing the Dutchie menu.
-    page_number:
-        1-indexed page number to navigate to.
-
-    Returns
-    -------
-    bool
-        ``True`` if navigation succeeded, ``False`` if the target page
-        does not exist or the button is disabled (end of results).
+    Returns ``True`` if navigation succeeded, ``False`` if the target
+    page does not exist or the button is disabled (end of results).
     """
-    selectors = [
+    # Page-number selectors (instant query_selector — no timeout wait)
+    page_selectors = [
         f'button[aria-label="go to page {page_number}"]',
-        f'a[aria-label="go to page {page_number}"]',
         f'button[aria-label="Go to page {page_number}"]',
+        f'a[aria-label="go to page {page_number}"]',
         f'a[aria-label="Go to page {page_number}"]',
-        f'[aria-label="go to page {page_number}"]',
-        f'[aria-label="Go to page {page_number}"]',
-        # Fallback: "Next" / arrow buttons (some Dutchie embeds use these)
-        'button[aria-label="Next"]',
-        'button[aria-label="next"]',
+        f'button:has-text("{page_number}")',
+        f'[data-page="{page_number}"]',
+    ]
+
+    # "Next" fallback selectors
+    next_selectors = [
+        'button[aria-label="Go to next page"]',
+        'button[aria-label="go to next page"]',
         'button[aria-label="Next page"]',
-        'a[aria-label="Next"]',
+        'button[aria-label="Next"]',
         'button:has-text("Next")',
-        '[aria-label="next page"]',
+        'a[aria-label="Next"]',
+        'a:has-text("Next")',
     ]
 
     for attempt in range(1, _DUTCHIE_NAV_MAX_RETRIES + 1):
-        for selector in selectors:
+        # --- Try page-number buttons first (instant checks) ---------------
+        for selector in page_selectors:
             try:
-                locator = target.locator(selector).first
-                await locator.wait_for(state="attached", timeout=5_000)
-            except PlaywrightTimeout:
+                btn = await target.query_selector(selector)
+                if btn and await btn.is_visible():
+                    # CRITICAL: disabled button = pagination complete
+                    if not await btn.is_enabled():
+                        logger.info(
+                            "Dutchie page %d button is disabled — pagination complete",
+                            page_number,
+                        )
+                        return False
+                    await btn.click()
+                    logger.info("Navigated to Dutchie page %d via %s", page_number, selector)
+                    await asyncio.sleep(_settle_delay(5))
+                    return True
+            except Exception as exc:
+                if 'element is not enabled' in str(exc).lower():
+                    return False
                 continue
 
-            # CRITICAL: a disabled button means pagination is COMPLETE.
-            if not await locator.is_enabled():
-                logger.info(
-                    "Dutchie page %d button is disabled — pagination complete",
-                    page_number,
-                )
-                return False
-
-            label = f"Navigated to Dutchie page {page_number}"
-            if await _click_with_fallback(target, locator, selector, label):
-                await asyncio.sleep(_settle_delay(5))
-                return True
+        # --- Try "Next" button fallback -----------------------------------
+        for selector in next_selectors:
+            try:
+                btn = await target.query_selector(selector)
+                if btn and await btn.is_visible():
+                    if not await btn.is_enabled():
+                        logger.info(
+                            "Dutchie page %d 'Next' button is disabled — pagination complete",
+                            page_number,
+                        )
+                        return False
+                    await btn.click()
+                    logger.info("Navigated to Dutchie page %d via %s", page_number, selector)
+                    await asyncio.sleep(_settle_delay(5))
+                    return True
+            except Exception as exc:
+                if 'element is not enabled' in str(exc).lower():
+                    return False
+                continue
 
         if attempt < _DUTCHIE_NAV_MAX_RETRIES:
             logger.info(
@@ -252,9 +267,38 @@ async def navigate_curaleaf_page(
 # Jane sites
 # ------------------------------------------------------------------
 
-_JANE_MAX_LOAD_MORE = 30
+# Production NV default: 10 clicks (proven pattern; 30 caused Thrive timeouts).
+# Expansion states get higher limits via the max_attempts parameter.
+_JANE_MAX_LOAD_MORE = 10
+_JANE_MAX_LOAD_MORE_EXPANSION = 30  # Expansion states: up to 30 clicks
 _JANE_LOAD_MORE_SETTLE_BASE = 2.0  # Settle time after each View More click
 _JANE_VIEW_MORE_TIMEOUT_MS = 12_000  # 12 s — Jane pages render slowly
+
+# JS to dismiss ReactModal overlays (age gate) that intercept pointer events
+# on the "View More" button.  Jane sites (e.g. bloom-oh-lockbourne) sometimes
+# show an age gate ReactModal AFTER initial page load that blocks pagination.
+_JS_DISMISS_JANE_OVERLAYS = """
+() => {
+    let dismissed = 0;
+    // ReactModal overlays (e.g. "I'm over 21" age gate)
+    const portals = document.querySelectorAll('.ReactModalPortal');
+    for (const p of portals) {
+        if (p.children.length > 0) {
+            p.innerHTML = '';
+            dismissed++;
+        }
+    }
+    // Also remove any generic modal backdrops/overlays
+    const overlays = document.querySelectorAll(
+        '.ReactModal__Overlay, [class*="modal-overlay"], [class*="ModalOverlay"]'
+    );
+    for (const o of overlays) { o.remove(); dismissed++; }
+    // Re-enable scrolling
+    document.body.style.overflow = 'auto';
+    document.documentElement.style.overflow = 'auto';
+    return dismissed;
+}
+"""
 
 # JS to scroll to the bottom of the page / frame to expose the
 # "View More" button.  Uses human-like scroll patterns: variable
@@ -337,6 +381,20 @@ async def handle_jane_view_more(
     clicks = 0
 
     for attempt in range(1, max_attempts + 1):
+        # Dismiss any age gate / ReactModal overlays that may intercept
+        # pointer events on the "View More" button (e.g. bloom-oh-lockbourne
+        # shows an "I'm over 21" ReactModal after initial page load).
+        try:
+            removed = await target.evaluate(_JS_DISMISS_JANE_OVERLAYS)
+            if removed:
+                logger.info(
+                    "Jane: dismissed %d overlay(s) before View More attempt %d",
+                    removed, attempt,
+                )
+                await asyncio.sleep(0.5)
+        except Exception:
+            pass
+
         # Scroll to bottom to expose the View More button.  Jane sites
         # sometimes require vertical (and occasionally horizontal)
         # scrolling before the button becomes visible.
@@ -370,7 +428,17 @@ async def handle_jane_view_more(
             except Exception:
                 pass  # best-effort
 
-            await locator.click()
+            try:
+                await locator.click(timeout=10_000)
+            except Exception:
+                # Click intercepted (likely by overlay) — dismiss overlays
+                # and retry with force click as fallback.
+                try:
+                    await target.evaluate(_JS_DISMISS_JANE_OVERLAYS)
+                    await asyncio.sleep(0.3)
+                    await locator.click(force=True, timeout=5_000)
+                except Exception:
+                    continue  # move to next selector
             clicks += 1
             clicked = True
             logger.info(

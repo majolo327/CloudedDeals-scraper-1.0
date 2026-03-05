@@ -9,7 +9,6 @@ from parser import (
     validate_prices,
     extract_weight,
     detect_brand,
-    detect_category,
     extract_cannabinoids,
     parse_product,
 )
@@ -272,6 +271,32 @@ class TestExtractWeight:
         assert r["weight_value"] == 28.0
         assert r["weight_unit"] == "g"
 
+    # -- Beverage volume: oz is liquid volume, not weight ─────────────
+
+    def test_beverage_oz_skipped_for_mg(self):
+        """Beverage with 8oz volume and 100mg THC → prefer mg."""
+        r = extract_weight("Uncle Arnie's Iced Tea 8oz 100mg")
+        assert r["weight_value"] == 100.0
+        assert r["weight_unit"] == "mg"
+
+    def test_beverage_oz_only_returns_empty(self):
+        """Beverage with oz but no mg → no weight (oz is volume)."""
+        r = extract_weight("Cannabis Drink 8oz")
+        assert r["weight_value"] is None
+        assert r["weight_unit"] is None
+
+    def test_beverage_lemonade_oz_skipped(self):
+        """'Lemonade 12oz 100mg' → 100mg, not 336g."""
+        r = extract_weight("Infused Lemonade 12oz 100mg THC")
+        assert r["weight_value"] == 100.0
+        assert r["weight_unit"] == "mg"
+
+    def test_non_beverage_oz_still_converts(self):
+        """'Full 1oz' flower should still convert to 28g."""
+        r = extract_weight("Premium Flower Full 1oz")
+        assert r["weight_value"] == 28.0
+        assert r["weight_unit"] == "g"
+
 
 # =====================================================================
 # detect_brand
@@ -284,13 +309,10 @@ class TestDetectBrand:
         assert detect_brand("STIIIZY Premium Pod 1g") == "STIIIZY"
 
     def test_case_insensitive(self):
-        assert detect_brand("cookies gary payton") == "Cookies"
+        assert detect_brand("connected gelonade") == "Connected"
 
     def test_variation_stiiizy_misspelling(self):
         assert detect_brand("STIIZY Pod") == "STIIIZY"
-
-    def test_variation_cookies_sf(self):
-        assert detect_brand("Cookies SF Runtz") == "Cookies"
 
     def test_variation_melting_point(self):
         assert detect_brand("Melting Point Extracts Wax") == "MPX"
@@ -307,6 +329,15 @@ class TestDetectBrand:
     def test_and_shine_variation_space(self):
         assert detect_brand("& Shine Live Resin 1g") == "&Shine"
 
+    def test_variation_alternative_medicine_association(self):
+        assert detect_brand("Alternative Medicine Association Cured Resin") == "AMA"
+
+    def test_variation_alternative_medical_association(self):
+        assert detect_brand("Alternative Medical Association Runtz") == "AMA"
+
+    def test_variation_high_sierra_holistics(self):
+        assert detect_brand("High Sierra Holistics Grape Zkittlez") == "HSH"
+
     def test_no_brand(self):
         assert detect_brand("Random Unknown Product") is None
 
@@ -315,29 +346,13 @@ class TestDetectBrand:
 
 
 # =====================================================================
-# detect_category
+# detect_category — REMOVED
 # =====================================================================
-
-
-class TestDetectCategory:
-
-    def test_flower(self):
-        assert detect_category("Blue Dream Flower 3.5g") == "flower"
-
-    def test_preroll(self):
-        assert detect_category("Pre-Roll Joint 1g") == "preroll"
-
-    def test_vape_cart(self):
-        assert detect_category("Rove Cart 0.5g") == "vape"
-
-    def test_edible_gummy(self):
-        assert detect_category("Wyld Gummies 100mg") == "edible"
-
-    def test_concentrate(self):
-        assert detect_category("Live Resin Batter 1g") == "concentrate"
-
-    def test_no_category(self):
-        assert detect_category("Unknown Product") is None
+# Category detection tests live in test_clouded_logic.py, which covers
+# the canonical CloudedLogic.detect_category() system (10-step hierarchy).
+# The deprecated parser.detect_category() was deleted in the
+# category-detection-consolidation PR.
+# =====================================================================
 
 
 # =====================================================================
@@ -388,13 +403,14 @@ class TestParseProduct:
 
     def test_full_product_all_fields(self):
         raw = {
-            "name": "Cookies Gary Payton Flower 3.5g",
+            "name": "Connected Gelonade Flower 3.5g",
             "raw_text": "was $45.00 now $22.00 THC: 30.5%",
             "price": "",
         }
         p = parse_product(raw)
-        assert p["brand"] == "Cookies"
-        assert p["category"] == "flower"
+        assert p["brand"] == "Connected"
+        # Category detection is handled by CloudedLogic, not parser.
+        assert p["category"] is None
         assert p["weight_value"] == 3.5
         assert p["original_price"] == 45.0
         assert p["sale_price"] == 22.0

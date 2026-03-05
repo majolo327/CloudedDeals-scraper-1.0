@@ -16,9 +16,13 @@ Environment variables (for CI):
     PLATFORM_GROUP=stable     # scrape stable platforms (dutchie/curaleaf/jane/carrot/aiq/rise)
     PLATFORM_GROUP=all        # scrape everything (default)
     REGION=southern-nv        # scrape only one region/state
+    REGION=northern-nv        # scrape only Northern Nevada (Reno/Sparks/Carson City)
     REGION=michigan           # scrape only Michigan dispensaries
     REGION=illinois           # scrape only Illinois dispensaries
     REGION=arizona            # scrape only Arizona dispensaries
+    REGION=missouri           # scrape only Missouri dispensaries
+    REGION=new-jersey         # scrape only New Jersey dispensaries
+    REGION=ohio               # scrape only Ohio dispensaries
     REGION=all                # scrape all regions (default)
 """
 
@@ -36,6 +40,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse as _urlparse
 
+import sentry_sdk
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
@@ -44,14 +49,16 @@ from playwright.async_api import async_playwright
 from config.dispensaries import (
     DISPENSARIES, SITE_TIMEOUT_SEC,
     get_platforms_for_group, get_dispensaries_by_group,
-    get_dispensaries_by_region,
+    get_dispensaries_by_region, is_expansion_region,
 )
 from clouded_logic import CloudedLogic, BRANDS_LOWER
 from deal_detector import detect_deals, get_last_report_data
 from metrics_collector import collect_daily_metrics
 from product_classifier import classify_product
-from platforms import AIQScraper, CarrotScraper, CuraleafScraper, DutchieScraper, JaneScraper, RiseScraper
-from platforms.base import launch_stealth_browser
+from platforms import (
+    AIQScraper, CarrotScraper, CuraleafScraper, DutchieScraper,
+    JaneScraper, RiseScraper, launch_stealth_browser,
+)
 
 # Concurrency limit for parallel scraping.
 # SCRAPE_CONCURRENCY controls total browser contexts at once (default 6).
@@ -74,6 +81,20 @@ _PLATFORM_CONCURRENCY = {
 }
 
 load_dotenv()
+
+# ---------------------------------------------------------------------------
+# Sentry error monitoring — catches unhandled exceptions, timeout patterns,
+# parse errors, and new site layout breakages.  DSN is set as a GitHub
+# Actions secret (SENTRY_DSN).  If not set, Sentry silently does nothing.
+# ---------------------------------------------------------------------------
+_SENTRY_DSN = os.getenv("SENTRY_DSN", "")
+if _SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=_SENTRY_DSN,
+        traces_sample_rate=0.1,  # 10% of transactions — keeps within free tier
+        environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+        release=f"scraper@{datetime.now(timezone.utc).strftime('%Y-%m-%d')}",
+    )
 
 logging.basicConfig(
     level=logging.INFO,
@@ -105,15 +126,16 @@ REGION = os.getenv("REGION", "all").lower()
 # Regions that are split across multiple cron jobs via round-robin sharding.
 # Key = base region name, value = total number of shards.
 REGION_SHARDS: dict[str, int] = {
-    "michigan": 4,
+    "michigan": 6,          # expanded from 4 → 6 (300 → ~450 dispensaries)
     "illinois": 3,
     "colorado": 3,
     "massachusetts": 2,
-    "new-jersey": 2,
+    "new-jersey": 4,        # expanded from 2 → 4 (~106 → ~232 dispensaries)
     "arizona": 2,
-    "missouri": 2,
-    "ohio": 2,
+    "missouri": 4,          # expanded from 2 → 4 (~121 → ~261 dispensaries)
+    "ohio": 4,              # expanded from 2 → 4 (~133 → ~248 dispensaries)
     "new-york": 2,
+    "northern-nv": 1,       # new region (~40 dispensaries — no sharding needed)
 }
 
 if not SUPABASE_URL or not SUPABASE_KEY:
@@ -203,12 +225,18 @@ def _seed_dispensaries() -> None:
     logger.info("Seeded %d dispensaries into DB", len(rows))
 
 
+_DEACTIVATE_CHUNK_SIZE = 30  # dispensary slugs per batch to avoid statement timeout
+
+
 def _deactivate_old_deals(group_slugs: list[str] | None = None) -> None:
     """Deactivate previous day's deals so only fresh data is shown.
 
     When *group_slugs* is provided, only products belonging to those
     dispensaries are deactivated.  This prevents a "stable" run from
     wiping yesterday's "new" products (and vice-versa).
+
+    Batches the UPDATE by dispensary slug chunks to avoid Supabase
+    statement timeouts on large regions.
     """
     if DRY_RUN:
         logger.info("[DRY RUN] Would deactivate old deals (group=%s)", PLATFORM_GROUP)
@@ -218,19 +246,39 @@ def _deactivate_old_deals(group_slugs: list[str] | None = None) -> None:
         .replace(hour=0, minute=0, second=0, microsecond=0)
         .isoformat()
     )
-    query = (
-        db.table("products")
-        .update({"is_active": False})
-        .lt("scraped_at", today_start)
-        .eq("is_active", True)
-    )
+
+    total_deactivated = 0
     if group_slugs:
-        query = query.in_("dispensary_id", group_slugs)
-    result = query.execute()
-    count = len(result.data) if result.data else 0
-    if count > 0:
+        # Batch by slug chunks to keep each UPDATE under statement timeout
+        for i in range(0, len(group_slugs), _DEACTIVATE_CHUNK_SIZE):
+            chunk = group_slugs[i : i + _DEACTIVATE_CHUNK_SIZE]
+            result = (
+                db.table("products")
+                .update({"is_active": False})
+                .lt("scraped_at", today_start)
+                .eq("is_active", True)
+                .in_("dispensary_id", chunk)
+                .execute()
+            )
+            total_deactivated += len(result.data) if result.data else 0
+    else:
+        # No group filter — batch using all active dispensary slugs
+        all_slugs = [d["slug"] for d in DISPENSARIES if d.get("is_active", True)]
+        for i in range(0, len(all_slugs), _DEACTIVATE_CHUNK_SIZE):
+            chunk = all_slugs[i : i + _DEACTIVATE_CHUNK_SIZE]
+            result = (
+                db.table("products")
+                .update({"is_active": False})
+                .lt("scraped_at", today_start)
+                .eq("is_active", True)
+                .in_("dispensary_id", chunk)
+                .execute()
+            )
+            total_deactivated += len(result.data) if result.data else 0
+
+    if total_deactivated > 0:
         scope = f"group={PLATFORM_GROUP}" if group_slugs else "all"
-        logger.info("Deactivated %d old products (%s)", count, scope)
+        logger.info("Deactivated %d old products (%s)", total_deactivated, scope)
 
     # Also deactivate stale products from INACTIVE dispensaries.
     # When a site is deactivated in config (is_active=False), its old
@@ -241,14 +289,17 @@ def _deactivate_old_deals(group_slugs: list[str] | None = None) -> None:
         if not d.get("is_active", True)
     ]
     if inactive_slugs:
-        inactive_result = (
-            db.table("products")
-            .update({"is_active": False, "deal_score": 0})
-            .eq("is_active", True)
-            .in_("dispensary_id", inactive_slugs)
-            .execute()
-        )
-        inactive_count = len(inactive_result.data) if inactive_result.data else 0
+        inactive_count = 0
+        for i in range(0, len(inactive_slugs), _DEACTIVATE_CHUNK_SIZE):
+            chunk = inactive_slugs[i : i + _DEACTIVATE_CHUNK_SIZE]
+            inactive_result = (
+                db.table("products")
+                .update({"is_active": False, "deal_score": 0})
+                .eq("is_active", True)
+                .in_("dispensary_id", chunk)
+                .execute()
+            )
+            inactive_count += len(inactive_result.data) if inactive_result.data else 0
         if inactive_count > 0:
             logger.info(
                 "Deactivated %d orphan products from %d inactive dispensaries",
@@ -300,6 +351,9 @@ _BRAND_ABBREVIATIONS: dict[str, list[str]] = {
     "Vlasic Labs": ["Vlasic"],
     "Tyson 2.0": ["Tyson"],
     "Tsunami Labs": ["Tsunami"],
+    # NV abbreviation brands — full names appear in product text
+    "AMA": ["Alternative Medicine Association", "Alternative Medical Association"],
+    "HSH": ["High Sierra Holistics"],
 }
 
 # Weight prefix patterns: "3.5g |", "1g |", ".5g |"
@@ -314,9 +368,13 @@ _RE_BUNDLE_QTY = re.compile(
 # Strain type anywhere in name (not just trailing)
 _RE_STRAIN_TYPE = re.compile(r"\b(?:Indica|Sativa|Hybrid)\b", re.IGNORECASE)
 
-# Redundant vape category words in display name
+# Redundant vape category words in display name.
+# NOTE: "Disposable" is intentionally excluded — it's the primary signal for
+# disposable subtype classification in product_classifier.py.  Stripping it
+# here destroyed the keyword before classify_product() could see it, causing
+# disposable vapes to fall into the generic "vape" bucket (2/30 target).
 _RE_VAPE_WORDS = re.compile(
-    r"\b(?:Cartridges?|Carts?|Distillate|Disposable|Pod|Vape)\b",
+    r"\b(?:Cartridges?|Carts?|Distillate|Pod|Vape)\b",
     re.IGNORECASE,
 )
 
@@ -394,6 +452,12 @@ _SALE_COPY_PATTERNS = [
     re.compile(r"^promo\b", re.IGNORECASE),
     re.compile(r"\|\s*\d+%\s*off", re.IGNORECASE),
     re.compile(r"off\s+(all|select|any)\s", re.IGNORECASE),
+    # Bundle pricing patterns — "3 for $50", "2/$40", "4 for $100"
+    # These are promotional bundles, not individual product deals.
+    re.compile(r"\b\d+\s+for\s+\$\d+", re.IGNORECASE),
+    re.compile(r"\b\d+\s*/\s*\$\d+"),                     # "2/$40"
+    # "Buy X Get Y" anywhere in name (not just start)
+    re.compile(r"\bbuy\s+\d+\s+get\b", re.IGNORECASE),
 ]
 
 
@@ -452,30 +516,89 @@ def _strip_offer_text(raw_text: str) -> str:
 # Product URLs often contain the brand slug (e.g. "/brands/rove/...",
 # "/rove-featured-farms-1g", "brand=rove").  This is a high-confidence
 # signal that avoids false positives from product name parsing.
+#
+# IMPORTANT: Only search in product-identifying URL segments to avoid
+# matching dispensary names in the store path.  For example, Curaleaf URLs
+# always contain "/curaleaf-las-vegas-western/" — without this guard,
+# every product at every Curaleaf location would be tagged as brand
+# "Curaleaf" regardless of the actual brand (AMA, Matrix, etc.).
 
 def _extract_brand_from_url(url: str) -> str | None:
-    """Return canonical brand name if found in the product URL."""
+    """Return canonical brand name if found in the product URL.
+
+    Only searches product-identifying URL segments:
+      - After /product/ or /products/ (the product slug)
+      - After /brands/ (brand directory pages)
+      - Query parameters (brand=rove)
+    """
     if not url:
         return None
-    # Normalize: lowercase, replace hyphens/underscores with spaces for matching
     url_lower = url.lower()
-    url_normalized = url_lower.replace("-", " ").replace("_", " ")
 
-    # Check each known brand against the URL (longest brands first to avoid
-    # partial matches — e.g. "raw garden" before "raw")
+    # Build the search text from product-identifying segments only.
+    # This prevents matching dispensary names in the store path
+    # (e.g. "/curaleaf-las-vegas-western/" → NOT brand "Curaleaf").
+    search_parts: list[str] = []
+
+    for marker in ("/product/", "/products/"):
+        idx = url_lower.find(marker)
+        if idx >= 0:
+            search_parts.append(url_lower[idx:])
+
+    brands_idx = url_lower.find("/brands/")
+    if brands_idx >= 0:
+        search_parts.append(url_lower[brands_idx:])
+
+    query_idx = url_lower.find("?")
+    if query_idx >= 0:
+        search_parts.append(url_lower[query_idx:])
+
+    if not search_parts:
+        return None
+
+    search_text = " ".join(search_parts)
+
+    # Check each known brand against the search text (longest brands first
+    # to avoid partial matches — e.g. "raw garden" before "raw")
     for brand_lower, canonical in sorted(
         BRANDS_LOWER.items(), key=lambda x: len(x[0]), reverse=True
     ):
         # Match brand as a path segment or query param value
         if (
-            f"/{brand_lower}/" in url_lower
-            or f"/{brand_lower}?" in url_lower
-            or f"brand={brand_lower}" in url_lower
-            or f"/{brand_lower.replace(' ', '-')}/" in url_lower
-            or f"/{brand_lower.replace(' ', '-')}-" in url_lower
-            or f"-{brand_lower.replace(' ', '-')}-" in url_lower
+            f"/{brand_lower}/" in search_text
+            or f"/{brand_lower}?" in search_text
+            or f"brand={brand_lower}" in search_text
+            or f"/{brand_lower.replace(' ', '-')}/" in search_text
+            or f"/{brand_lower.replace(' ', '-')}-" in search_text
+            or f"-{brand_lower.replace(' ', '-')}-" in search_text
         ):
             return canonical
+    return None
+
+
+def _detect_brand_from_raw_text_lines(
+    raw_text: str, current_brand: str | None, logic,
+) -> str | None:
+    """Check raw_text lines for a standalone brand label.
+
+    Returns a brand if found on its own line in raw_text AND it differs
+    from *current_brand*.  This catches DOM structures where the brand is
+    a separate element (e.g. ``<span>AMA</span>``) distinct from the
+    product name heading.  Only matches lines where the ENTIRE line
+    (after stripping punctuation) equals a known brand name.
+    """
+    if not raw_text:
+        return None
+    current_lower = current_brand.lower() if current_brand else ""
+    for line in raw_text.split("\n"):
+        candidate = line.strip().strip(".,;:-|")
+        if not candidate or len(candidate) > 30:
+            continue
+        if candidate.lower() == current_lower:
+            continue
+        detected = logic.detect_brand(candidate)
+        if detected and detected.lower() != current_lower and candidate.lower() == detected.lower():
+            return detected
     return None
 
 
@@ -687,7 +810,7 @@ def _upsert_products(
         # Classify product for infused/pack status
         brand = p.get("brand")
         category = p.get("category")
-        classification = classify_product(name, brand, category)
+        classification = classify_product(name, brand, category, weight_value=p.get("weight_value"))
         if classification["corrected_category"]:
             category = classification["corrected_category"]
 
@@ -968,24 +1091,29 @@ def _expire_stale_deal_history(group_slugs: list[str] | None = None) -> None:
 
     Called once per run after all sites are scraped.  Deals that were
     active yesterday but not re-observed today get is_active=False.
+
+    Batches by dispensary slug chunks to avoid statement timeouts.
     """
     if DRY_RUN:
         return
 
     today = datetime.now(timezone.utc).date().isoformat()
     try:
-        query = (
-            db.table("deal_history")
-            .update({"is_active": False})
-            .eq("is_active", True)
-            .lt("last_seen_date", today)
-        )
-        if group_slugs:
-            query = query.in_("dispensary_id", group_slugs)
-        result = query.execute()
-        count = len(result.data) if result.data else 0
-        if count > 0:
-            logger.info("Expired %d stale deal_history entries", count)
+        total_expired = 0
+        slugs = group_slugs or [d["slug"] for d in DISPENSARIES if d.get("is_active", True)]
+        for i in range(0, len(slugs), _DEACTIVATE_CHUNK_SIZE):
+            chunk = slugs[i : i + _DEACTIVATE_CHUNK_SIZE]
+            result = (
+                db.table("deal_history")
+                .update({"is_active": False})
+                .eq("is_active", True)
+                .lt("last_seen_date", today)
+                .in_("dispensary_id", chunk)
+                .execute()
+            )
+            total_expired += len(result.data) if result.data else 0
+        if total_expired > 0:
+            logger.info("Expired %d stale deal_history entries", total_expired)
     except Exception as exc:
         logger.warning("Failed to expire stale deal history: %s", exc)
 
@@ -995,8 +1123,9 @@ def _expire_stale_deal_history(group_slugs: list[str] | None = None) -> None:
 # ---------------------------------------------------------------------------
 
 
-_SITE_TIMEOUT_SEC = 300  # 5 min — if a site hasn't produced results by now, it won't.  Down from 600 s to detect failures faster.
-_RETRY_TIMEOUT_SEC = 180  # 3 min for retries — down from 300 s.  Saves ~7 min per broken site vs old 600+300 budget.
+_SITE_TIMEOUT_SEC = 480  # 8 min — Dutchie cascade (90s smart-wait + 105s detection + 30s card-wait + extraction) needs room.
+_SITE_TIMEOUT_SEC_EXPANSION = 480  # 8 min for expansion states (was 600s/10min — reduced to match NV; most sites finish in 2-4 min)
+_RETRY_TIMEOUT_SEC = 240  # 4 min for retries (was 300s — enough for warm retry with primed caches)
 _MAX_RETRIES = 2  # 2 attempts total — saves ~5 min per broken site vs 3
 _RETRY_DELAYS = [5, 15]  # Backoff between retries
 
@@ -1046,6 +1175,8 @@ async def _scrape_site_inner(
     # Parse all raw products using CloudedLogic (single source of truth)
     logic = CloudedLogic()
     parsed: list[dict[str, Any]] = []
+    brand_null_count = 0
+    unmatched_brand_names: list[str] = []
 
     for rp in raw_products:
         # Ensure source_platform is always set (Jane scraper sets it;
@@ -1068,7 +1199,7 @@ async def _scrape_site_inner(
         stripped_raw = _strip_offer_text(raw_text)
         clean_text = f"{raw_name} {stripped_raw}"
 
-        # Brand priority: scraped element > URL > product name > clean text
+        # Brand priority: scraped element > URL > raw_text label > product name > clean text
         # Some scrapers (Dutchie) extract brand from a dedicated card element
         # (e.g. "ROVE" label above the product title) — highest confidence.
         scraped_brand = rp.get("scraped_brand", "")
@@ -1077,9 +1208,39 @@ async def _scrape_site_inner(
             product_url = rp.get("product_url", "")
             brand = _extract_brand_from_url(product_url)
         if not brand:
+            # Check for a standalone brand label in raw_text lines FIRST.
+            # Many platforms (Carrot/ShowGrow) put the brand in a separate
+            # DOM element (<span>AMA</span>) — the full line equals the
+            # brand name.  This is higher-confidence than name-based
+            # detection because it avoids brand/strain confusion (e.g.
+            # "Runtz" is a strain in "AMA Runtz Cured Resin", not the
+            # Runtz brand).
+            label_brand = _detect_brand_from_raw_text_lines(raw_text, None, logic)
+            if label_brand:
+                brand = label_brand
+        if not brand:
             brand = logic.detect_brand(raw_name)
         if not brand:
             brand = logic.detect_brand(clean_text)
+        # Brand conflict resolution: if brand was detected from the product
+        # name and a DIFFERENT brand appears as a standalone label in the
+        # raw_text, prefer the raw_text brand.  This handles the case where
+        # the product name starts with a strain that's also a brand name
+        # (e.g. "Runtz Cured Resin" where Runtz is a strain sold by AMA).
+        if brand and not scraped_brand:
+            label_brand = _detect_brand_from_raw_text_lines(raw_text, brand, logic)
+            if label_brand:
+                brand = label_brand
+
+        # Track unmatched brands for data enrichment metrics
+        if not brand:
+            brand_null_count += 1
+            # Capture the raw name for frequency analysis — the first
+            # word(s) before a dash/pipe are often the brand name that
+            # our brand DB is missing.
+            candidate = re.split(r'\s*[-|–—]\s*', raw_name, maxsplit=1)[0].strip()
+            if candidate and len(candidate) > 2:
+                unmatched_brand_names.append(candidate)
 
         # Category: detect from clean text (no offer keyword pollution)
         category = logic.detect_category(clean_text)
@@ -1277,17 +1438,51 @@ async def _scrape_site_inner(
         # 12. Strip THC:CBD ratio text: "2:1", "[THC:CBN]"
         display_name = _RE_RATIO_BRACKET.sub("", display_name).strip()
 
+        # 13. Strip inline strain-type indicators: "I/H", "I/S", "S/H",
+        # "(I/H)", standalone "I", "S", "H" at end of name.  These are
+        # abbreviations for Indica/Sativa/Hybrid that leak from product
+        # card DOM elements (common on Carrot/ShowGrow menus).
+        display_name = re.sub(
+            r"\s*\(?\s*[ISH]\s*/\s*[ISH]\s*\)?\s*", " ",
+            display_name,
+        ).strip()
+
+        # 14. Strip empty parentheses "()" left after weight/content stripping
+        display_name = re.sub(r"\s*\(\s*\)\s*", " ", display_name).strip()
+
         display_name = re.sub(r"\s{2,}", " ", display_name).strip()
-        display_name = display_name.strip(" -–—|") or raw_name or "Unknown"
+        display_name = display_name.strip(" -–—|/") or raw_name or "Unknown"
 
         # Run product classifier early so category corrections (e.g.
         # "All-In-One" reclassified from concentrate → vape) are applied
         # BEFORE deal detection scoring.  Without this, the deal detector
         # uses the wrong category for price caps and scoring.
-        classification = classify_product(display_name, brand, effective_cat)
+        classification = classify_product(display_name, brand, effective_cat, weight_value=weight_value)
         if classification["corrected_category"]:
             category = classification["corrected_category"]
             effective_cat = category
+
+        # Disposable subtype fallback: if the product is "vape" but no subtype
+        # was detected from the cleaned display_name, check the original
+        # raw_name and raw_text for disposable signals.  This catches products
+        # listed under "Disposable" tabs whose cleaned names are generic
+        # (e.g. "Brand Strain 0.5g" from a Dutchie "Disposable" category).
+        if (
+            effective_cat == "vape"
+            and classification["product_subtype"] is None
+        ):
+            _raw_check = f"{raw_name} {raw_text}".lower()
+            if re.search(
+                r"\b(?:disposable|all[- ]?in[- ]?one|aio|rtu|"
+                r"ready[- ]?to[- ]?use|draw[- ]?activated|"
+                r"built[- ]?in[- ]?battery)\b",
+                _raw_check,
+            ):
+                classification["product_subtype"] = "disposable"
+            elif re.search(r"\bcartridges?\b|\bcarts?\b|\b510\b", _raw_check):
+                classification["product_subtype"] = "cartridge"
+            elif re.search(r"\bpods?\b", _raw_check):
+                classification["product_subtype"] = "pod"
 
         # Map CloudedLogic output to the DB schema expected by _upsert_products
         enriched: dict[str, Any] = {
@@ -1332,12 +1527,21 @@ async def _scrape_site_inner(
     logger.info(
         "[%s] %d products, %d deals", slug, len(parsed), deal_count
     )
+    # Compute top unmatched brand candidates by frequency
+    unmatched_freq: dict[str, int] = {}
+    for name in unmatched_brand_names:
+        key = name[:50]  # cap length
+        unmatched_freq[key] = unmatched_freq.get(key, 0) + 1
+    top_unmatched = sorted(unmatched_freq.keys(), key=lambda k: unmatched_freq[k], reverse=True)[:10]
+
     return {
         "slug": slug,
         "products": len(parsed),
         "deals": deal_count,
         "error": None,
         "_report_data": report_data,
+        "_brand_null_count": brand_null_count,
+        "_top_unmatched_brands": top_unmatched,
     }
 
 
@@ -1371,8 +1575,15 @@ async def scrape_site(
                 )
                 return {"slug": slug, "error": "Skipped — job deadline reached"}
 
-        # First attempt gets full timeout; retries get reduced timeout
-        timeout = _SITE_TIMEOUT_SEC if attempt == 1 else _RETRY_TIMEOUT_SEC
+        # First attempt gets full timeout; retries get reduced timeout.
+        # Expansion states get a longer timeout for category tab iteration.
+        region = dispensary.get("region", "southern-nv")
+        base_timeout = (
+            _SITE_TIMEOUT_SEC_EXPANSION
+            if is_expansion_region(region)
+            else _SITE_TIMEOUT_SEC
+        )
+        timeout = base_timeout if attempt == 1 else _RETRY_TIMEOUT_SEC
 
         # Cap timeout to remaining job budget (leave 15s for cleanup)
         if deadline:
@@ -1392,7 +1603,7 @@ async def scrape_site(
             # Success — return immediately
             return result
         except asyncio.TimeoutError:
-            logger.error("[%s] Timed out after %ds (attempt %d)", slug, timeout, attempt)
+            logger.warning("[%s] Timed out after %ds (attempt %d)", slug, timeout, attempt)
             if attempt < _MAX_RETRIES:
                 delay = _RETRY_DELAYS[min(attempt - 1, len(_RETRY_DELAYS) - 1)]
                 logger.info("[%s] Retrying in %ds...", slug, delay)
@@ -1481,13 +1692,24 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
         return active
 
     # Fetch active slugs from Supabase so the admin can disable sites.
-    result = (
-        db.table("dispensaries")
-        .select("id")
-        .eq("is_active", True)
-        .execute()
-    )
-    active_slugs = {row["id"] for row in result.data}
+    # NOTE: Supabase returns max 1000 rows by default.  We have ~2,100
+    # dispensaries, so we must paginate to avoid silently dropping sites.
+    active_slugs: set[str] = set()
+    page_size = 1000
+    offset = 0
+    while True:
+        result = (
+            db.table("dispensaries")
+            .select("id")
+            .eq("is_active", True)
+            .range(offset, offset + page_size - 1)
+            .execute()
+        )
+        for row in result.data:
+            active_slugs.add(row["id"])
+        if len(result.data) < page_size:
+            break
+        offset += page_size
 
     # If the DB has no dispensary rows yet, fall back to the config list.
     if not active_slugs:
@@ -1500,8 +1722,9 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
 def _already_scraped_today() -> bool:
     """Check if a completed scrape run already exists for today (UTC).
 
-    When running a specific platform group, only checks for completed
-    runs of that same group — a "stable" run doesn't block a "new" run.
+    Scoped by both *platform_group* and *region* so that a completed
+    New York run doesn't block a Nevada run (or vice-versa), and a
+    "stable" run doesn't block a "new" run.
     """
     if DRY_RUN:
         return False
@@ -1515,6 +1738,7 @@ def _already_scraped_today() -> bool:
         .select("id")
         .eq("status", "completed")
         .eq("platform_group", PLATFORM_GROUP)
+        .eq("region", REGION)
         .gte("started_at", today_start)
     )
     query = query.limit(1)
@@ -1606,6 +1830,9 @@ async def run(slug_filter: str | None = None) -> None:
     sites_failed: list[dict[str, str]] = []
     total_products = 0
     total_deals = 0
+    total_brand_null = 0
+    total_price_cap_rejects = 0
+    all_unmatched_brands: list[str] = []
     all_top_deals: list[dict[str, Any]] = []
     all_cut_deals: list[dict[str, Any]] = []
     site_reports: list[dict[str, Any]] = []
@@ -1639,10 +1866,11 @@ async def run(slug_filter: str | None = None) -> None:
         # (e.g. 111 Michigan sites on dutchie.com), insert a randomized
         # delay between requests to avoid triggering WAF / bot detection.
         # Each domain gets its own asyncio.Lock so only one request at a
-        # time negotiates the cooldown.  Range 3-7s mimics human browsing
-        # cadence and prevents predictable request patterns.
-        _DOMAIN_MIN_INTERVAL = float(os.getenv("DOMAIN_MIN_INTERVAL", "3.0"))
-        _DOMAIN_MAX_JITTER = float(os.getenv("DOMAIN_MAX_JITTER", "4.0"))
+        # time negotiates the cooldown.  Reduced from 3-7s to 1.5-3.5s
+        # to improve throughput on large expansion state shards (~75 sites)
+        # while still avoiding predictable request patterns.
+        _DOMAIN_MIN_INTERVAL = float(os.getenv("DOMAIN_MIN_INTERVAL", "1.5"))
+        _DOMAIN_MAX_JITTER = float(os.getenv("DOMAIN_MAX_JITTER", "2.0"))
         domain_locks: dict[str, asyncio.Lock] = {}
         domain_last_request: dict[str, float] = {}
 
@@ -1724,6 +1952,9 @@ async def run(slug_filter: str | None = None) -> None:
                 total_deals += result.get("deals", 0)
                 all_top_deals.extend(rd.get("top_deals", []))
                 all_cut_deals.extend(rd.get("cut_deals", []))
+                total_brand_null += result.get("_brand_null_count", 0)
+                all_unmatched_brands.extend(result.get("_top_unmatched_brands", []))
+                total_price_cap_rejects += rd.get("price_cap_rejects", 0)
             site_reports.append({
                 "slug": slug,
                 "name": disp["name"],
@@ -1805,6 +2036,48 @@ async def run(slug_filter: str | None = None) -> None:
             logger.info("  │  %-14s  %3d / %-3d      %s %-5s      │", plat, ok, tot, icon, bar)
         logger.info("  └─────────────────────────────────────────────┘")
 
+        # Per-region product breakdown (expansion state tracking)
+        region_products: Counter[str] = Counter()
+        region_sites: Counter[str] = Counter()
+        for sr in site_reports:
+            disp_region = "unknown"
+            for d in dispensaries:
+                if d["slug"] == sr["slug"]:
+                    disp_region = d.get("region", "unknown")
+                    break
+            region_products[disp_region] += sr.get("products", 0)
+            region_sites[disp_region] += 1
+
+        if len(region_products) > 1:
+            logger.info("")
+            logger.info("  Products per region:")
+            for reg in sorted(region_products.keys()):
+                avg = (
+                    round(region_products[reg] / region_sites[reg])
+                    if region_sites[reg] > 0 else 0
+                )
+                expansion_tag = " [EXPANSION]" if is_expansion_region(reg) else ""
+                logger.info(
+                    "    %-20s %4d products / %3d sites (avg %d)%s",
+                    reg, region_products[reg], region_sites[reg], avg,
+                    expansion_tag,
+                )
+
+        # Top 10 sites by product count (helps identify high-yield dispensaries)
+        sorted_sites = sorted(
+            [sr for sr in site_reports if sr.get("products", 0) > 0],
+            key=lambda x: x.get("products", 0),
+            reverse=True,
+        )[:10]
+        if sorted_sites:
+            logger.info("")
+            logger.info("  Top 10 sites by product count:")
+            for sr in sorted_sites:
+                logger.info(
+                    "    %-30s %4d products  (%s)",
+                    sr["slug"][:30], sr.get("products", 0), sr["platform"],
+                )
+
         if sites_failed:
             logger.info("")
             logger.info("  Failed sites:")
@@ -1815,18 +2088,74 @@ async def run(slug_filter: str | None = None) -> None:
         logger.info("")
         logger.info("=" * 64)
 
+        # Count deadline-skipped sites for visibility
+        deadline_skips = sum(
+            1 for f in sites_failed
+            if "deadline" in f.get("error", "").lower()
+            or "insufficient time" in f.get("error", "").lower()
+        )
+
         logger.info("=" * 60)
         logger.info("SCRAPE COMPLETE")
         logger.info("  Status:     %s", status)
         logger.info("  Products:   %d", total_products)
         logger.info("  Deals:      %d", total_deals)
         logger.info("  Sites OK:   %d/%d", len(sites_scraped), len(dispensaries))
+        if deadline_skips:
+            logger.info("  Deadline:   %d sites skipped (budget exhausted)", deadline_skips)
         logger.info("  Duration:   %.1f min", elapsed / 60)
         if sites_failed:
             logger.info("  Failed:")
             for f in sites_failed:
                 logger.info("    - %s: %s", f["slug"], f["error"])
         logger.info("=" * 60)
+
+        # ─── Shard coverage check ─────────────────────────────────────
+        # For sharded regions, check how many sibling shards completed today.
+        # This helps operators identify GHA cron reliability issues.
+        shard_match = re.match(r"^(.+)-(\d+)$", REGION)
+        if shard_match and shard_match.group(1) in REGION_SHARDS and not DRY_RUN:
+            base_region = shard_match.group(1)
+            expected_shards = REGION_SHARDS[base_region]
+            try:
+                today_start = (
+                    datetime.now(timezone.utc)
+                    .replace(hour=0, minute=0, second=0, microsecond=0)
+                    .isoformat()
+                )
+                shard_runs = (
+                    db.table("scrape_runs")
+                    .select("region")
+                    .like("region", f"{base_region}-%")
+                    .gte("started_at", today_start)
+                    .in_("status", ["completed", "completed_with_errors", "running"])
+                    .execute()
+                )
+                ran_shards = {row["region"] for row in shard_runs.data}
+                missing = [
+                    f"{base_region}-{i}"
+                    for i in range(1, expected_shards + 1)
+                    if f"{base_region}-{i}" not in ran_shards
+                ]
+                logger.info("")
+                logger.info("  Shard coverage for %s: %d/%d ran today",
+                            base_region, len(ran_shards), expected_shards)
+                if missing:
+                    logger.warning("  MISSING SHARDS: %s", ", ".join(missing))
+                else:
+                    logger.info("  All shards accounted for")
+            except Exception as exc:
+                logger.debug("Shard coverage check failed: %s", exc)
+
+        # ─── Aggregate unmatched brand candidates across all sites ────
+        _unmatched_freq: dict[str, int] = {}
+        for name in all_unmatched_brands:
+            _unmatched_freq[name] = _unmatched_freq.get(name, 0) + 1
+        top_unmatched = sorted(
+            _unmatched_freq.keys(),
+            key=lambda k: _unmatched_freq[k],
+            reverse=True,
+        )[:20]
 
         # ─── Daily Metrics (pipeline quality tracking) ───────────────
         try:
@@ -1840,6 +2169,9 @@ async def run(slug_filter: str | None = None) -> None:
                 sites_failed=len(sites_failed),
                 runtime_seconds=int(elapsed),
                 dry_run=DRY_RUN,
+                brand_null_count=total_brand_null,
+                price_cap_reject_count=total_price_cap_rejects,
+                top_unmatched_brands=top_unmatched,
             )
         except Exception as exc:
             logger.warning("Failed to collect daily metrics: %s", exc)
@@ -1891,9 +2223,12 @@ def _log_deal_report(
     by_cat: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for d in top_deals:
         cat = d.get("category", "other")
+        # Split vape into vape (carts/pods) and disposable for reporting
+        if cat == "vape" and d.get("product_subtype") == "disposable":
+            cat = "disposable"
         by_cat[cat].append(d)
 
-    cat_order = ["flower", "vape", "edible", "concentrate", "preroll", "other"]
+    cat_order = ["flower", "vape", "disposable", "edible", "concentrate", "preroll", "other"]
     for cat in cat_order:
         deals = by_cat.get(cat, [])
         if not deals:
@@ -2000,7 +2335,7 @@ def _log_scrape_summary(
         disp_id = d.get("dispensary_id") or "unknown"
         cut_by_disp[disp_id].append(d)
 
-    cat_order = ["flower", "vape", "edible", "concentrate", "preroll"]
+    cat_order = ["flower", "vape", "disposable", "edible", "concentrate", "preroll"]
 
     for sr in sorted(site_reports, key=lambda s: s["name"]):
         slug = sr["slug"]
@@ -2047,7 +2382,10 @@ def _log_scrape_summary(
         site_deals = deals_by_disp[slug]
         by_cat: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for d in site_deals:
-            by_cat[d.get("category", "other")].append(d)
+            c = d.get("category", "other")
+            if c == "vape" and d.get("product_subtype") == "disposable":
+                c = "disposable"
+            by_cat[c].append(d)
 
         for cat in cat_order:
             cat_deals = by_cat.get(cat)
@@ -2104,7 +2442,10 @@ def _log_scrape_summary(
     _w("-" * 80)
     cat_counter: Counter[str] = Counter()
     for d in all_top_deals:
-        cat_counter[d.get("category", "other")] += 1
+        c = d.get("category", "other")
+        if c == "vape" and d.get("product_subtype") == "disposable":
+            c = "disposable"
+        cat_counter[c] += 1
 
     for cat in cat_order:
         actual = cat_counter.get(cat, 0)
@@ -2117,6 +2458,27 @@ def _log_scrape_summary(
     if other:
         _w(f"  {'other':12s}: {other:3d}")
     _w()
+
+    # ── 4b. VAPE SUBTYPE BREAKDOWN ──────────────────────────────────────
+    # Diagnostic: show how vape products are classified by subtype so we can
+    # catch regressions in disposable detection early.
+    vape_deals = [d for d in all_top_deals if d.get("category") == "vape" or
+                  (d.get("category") == "vape" and d.get("product_subtype") == "disposable")]
+    disp_deals = [d for d in all_top_deals
+                  if d.get("category") == "vape" and d.get("product_subtype") == "disposable"]
+    if vape_deals or disp_deals:
+        _w("  VAPE SUBTYPE BREAKDOWN:")
+        vape_sub_counter: Counter[str] = Counter()
+        for d in all_top_deals:
+            if d.get("category") == "vape":
+                sub = d.get("product_subtype") or "unclassified"
+                vape_sub_counter[sub] += 1
+        for sub, cnt in vape_sub_counter.most_common():
+            _w(f"    {sub:20s}: {cnt:3d}")
+        # Also show how many disposable deals are in the actual selected set
+        selected_disposables = cat_counter.get("disposable", 0)
+        _w(f"    disposable (selected): {selected_disposables:3d} (target: {CATEGORY_TARGETS.get('disposable', 0)})")
+        _w()
 
     # ── 5. TOP CUT DEALS (almost made it) ─────────────────────────────
     if all_cut_deals:
@@ -2198,4 +2560,8 @@ def _explain_zero_deals(report_data: dict[str, Any], products: int) -> str:
 
 if __name__ == "__main__":
     slug_arg = sys.argv[1] if len(sys.argv) > 1 else None
-    asyncio.run(run(slug_arg))
+    try:
+        asyncio.run(run(slug_arg))
+    except Exception:
+        sentry_sdk.capture_exception()
+        raise

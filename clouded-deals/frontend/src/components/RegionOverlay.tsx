@@ -20,17 +20,17 @@ const REC_VARIANTS = [
   {
     headline: (s: string) => `We see you, ${s}.`,
     subtext: (s: string) =>
-      `Clouded Deals is live in Nevada right now \u2014 and we\u2019re working on bringing every deal from every dispensary in ${s} to one place too. We\u2019re aiming to launch in your state by late 2026.`,
+      `We\u2019re live in Vegas and expanding to ${s} by Summer 2026.`,
   },
   {
     headline: (s: string) => `${s}, you\u2019re on the list.`,
     subtext: () =>
-      `We\u2019re not there yet, but when we launch, you\u2019ll be the first to know. Right now we\u2019re live in Nevada with every deal from every dispensary.`,
+      `We\u2019re live in Vegas right now. Drop your info and we\u2019ll let you know when we launch near you.`,
   },
   {
     headline: (s: string) => `Good taste, ${s}.`,
     subtext: () =>
-      `Clouded Deals is headed your way. We\u2019re live in Vegas right now \u2014 want us to hit you up when we land in your state?`,
+      `We\u2019re headed your way. Want us to hit you up when we land in your state?`,
   },
 ];
 
@@ -38,7 +38,7 @@ const MED_VARIANTS = [
   {
     headline: (s: string) => `${s}, we\u2019re keeping an eye out.`,
     subtext: () =>
-      `Your state has medical cannabis but hasn\u2019t gone fully recreational yet. When it does \u2014 and when dispensaries start competing on deals \u2014 we\u2019ll be there. In the meantime, check out what we\u2019re doing in Nevada.`,
+      `Medical\u2019s live but rec hasn\u2019t landed yet. When it does, we\u2019ll be there. Browse Vegas deals in the meantime.`,
   },
   {
     headline: (s: string) => `Almost, ${s}. Almost.`,
@@ -51,25 +51,25 @@ const NO_LEGAL_VARIANTS = [
   {
     headline: (s: string) => `Yeah... ${s} isn\u2019t quite there yet.`,
     subtext: () =>
-      `Cannabis deals require, well, legal cannabis. But hey, Vegas is always accepting visitors.`,
-    cta: 'Browse Vegas deals (for your next trip)',
+      `Legal cannabis = legal deals. Vegas is always open though.`,
+    cta: 'Browse Vegas deals',
   },
   {
     headline: (s: string) => `${s}? We like the enthusiasm.`,
     subtext: () =>
-      `Your state hasn\u2019t gone rec yet, but when you\u2019re in Vegas, we\u2019ve got you covered.`,
-    cta: 'See what\u2019s available in Vegas',
+      `Not rec yet, but when you\u2019re in Vegas, we\u2019ve got you.`,
+    cta: 'See Vegas deals',
   },
   {
     headline: (s: string) => `We\u2019d love to help, ${s}.`,
     subtext: () =>
-      `But we\u2019re gonna need your state to make some calls first. Until then, plan a Vegas trip \u2014 we\u2019ll have the deals ready.`,
+      `Your state needs to make some calls first. Plan a Vegas trip \u2014 we\u2019ll have the deals ready.`,
     cta: 'Browse Vegas deals',
   },
   {
     headline: (s: string) => `Not yet, ${s}. Not yet.`,
     subtext: () =>
-      `Cannabis legislation is moving across the country. In the meantime, Vegas is always open \u2014 and the deals are waiting.`,
+      `Vegas is always open \u2014 and the deals are waiting.`,
     cta: 'Peek at Vegas deals',
   },
 ];

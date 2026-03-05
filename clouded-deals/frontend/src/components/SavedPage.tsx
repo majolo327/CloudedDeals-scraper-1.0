@@ -102,6 +102,25 @@ export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClear
     return sum + (deal.original_price - deal.deal_price);
   }, 0);
 
+  // Lifetime savings: sum of discounts from all history entries (purchased/expired)
+  // plus today's used deals. Creates identity attachment.
+  const lifetimeSavings = useMemo(() => {
+    let total = 0;
+    for (const entry of history) {
+      const orig = entry.deal.original_price;
+      if (orig && orig > entry.deal.deal_price) {
+        total += orig - entry.deal.deal_price;
+      }
+    }
+    // Add today's used deals too
+    for (const deal of usedDeals) {
+      if (deal.original_price && deal.original_price > deal.deal_price) {
+        total += deal.original_price - deal.deal_price;
+      }
+    }
+    return total;
+  }, [history, usedDeals]);
+
   // Show contact banner: 10+ saves, no contact captured, not dismissed within 7 days
   useEffect(() => {
     const captured = localStorage.getItem('clouded_contact_captured') === 'true';
@@ -223,14 +242,27 @@ export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClear
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {potentialSavings > 0 && (
+              {(potentialSavings > 0 || lifetimeSavings > 0) && (
                 <div className="flex items-center gap-2">
                   <DollarSign className="w-4 h-4 text-emerald-400" />
                   <div className="text-right">
-                    <p className="text-sm font-bold text-emerald-400">
-                      ${potentialSavings.toFixed(2)}
-                    </p>
-                    <p className="text-[10px] text-slate-500">potential savings</p>
+                    {potentialSavings > 0 ? (
+                      <>
+                        <p className="text-sm font-bold text-emerald-400">
+                          ${potentialSavings.toFixed(2)}
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          potential savings{lifetimeSavings > 0 && ` · $${lifetimeSavings.toFixed(0)} lifetime`}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-bold text-slate-300">
+                          ${lifetimeSavings.toFixed(0)}
+                        </p>
+                        <p className="text-[10px] text-slate-500">lifetime savings</p>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -424,6 +456,23 @@ export function SavedPage({ deals, onSelectDeal, addToast, history = [], onClear
   );
 }
 
+const _savedCategoryLabels: Record<string, string> = {
+  flower: 'Flower',
+  vape: 'Vape',
+  edible: 'Edible',
+  concentrate: 'Concentrate',
+  preroll: 'Pre-Roll',
+};
+
+function _getSavedCategoryLabel(deal: Deal): string {
+  if (deal.product_subtype === 'infused_preroll') return 'Infused Pre-Roll';
+  if (deal.product_subtype === 'preroll_pack') return 'Pre-Roll Pack';
+  if (deal.product_subtype === 'disposable') return 'Disposable';
+  if (deal.product_subtype === 'cartridge') return 'Cart';
+  if (deal.product_subtype === 'pod') return 'Pod';
+  return _savedCategoryLabels[deal.category] || deal.category.charAt(0).toUpperCase() + deal.category.slice(1);
+}
+
 function SavedDealCard({
   deal,
   isUsed = false,
@@ -440,6 +489,7 @@ function SavedDealCard({
   distanceMiles?: number | null;
 }) {
   const discount = getDiscountPercent(deal.original_price, deal.deal_price);
+  const categoryLabel = _getSavedCategoryLabel(deal);
 
   return (
     <div
@@ -447,19 +497,26 @@ function SavedDealCard({
       onClick={onClick}
     >
       <div className="min-w-0">
-        <p className="text-sm font-medium text-slate-200 truncate">{getDisplayName(deal.product_name, deal.brand?.name || '')}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-xs text-slate-500">{deal.dispensary.name}</span>
-          {deal.weight && (
-            <>
-              <span className="text-slate-700">&middot;</span>
-              <span className="text-xs text-slate-500">{deal.weight}</span>
-            </>
+        {/* Row 1: Brand + Category tag */}
+        <div className="flex items-center gap-2 mb-0.5">
+          {deal.brand?.name && (
+            <span className="text-[10px] text-purple-400 uppercase tracking-wide font-bold truncate">
+              {deal.brand.name}
+            </span>
           )}
+          <span className="text-[10px] text-slate-500 bg-slate-800/80 px-1.5 py-0.5 rounded font-medium shrink-0">
+            {categoryLabel}{deal.weight ? ` · ${deal.weight}` : ''}
+          </span>
+        </div>
+        {/* Row 2: Product name */}
+        <p className="text-sm font-medium text-slate-200 truncate">{getDisplayName(deal.product_name, deal.brand?.name || '')}</p>
+        {/* Row 3: Dispensary + distance */}
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-xs text-slate-500 truncate">{deal.dispensary.name}</span>
           {distanceMiles != null && (
             <>
               <span className="text-slate-700">&middot;</span>
-              <span className="text-xs text-slate-600">
+              <span className="text-xs text-slate-600 shrink-0">
                 {distanceMiles < 0.5 ? '<0.5 mi' : `${distanceMiles.toFixed(1)} mi`}
               </span>
             </>
@@ -502,21 +559,31 @@ function HistoryDealCard({ entry }: { entry: HistoryEntry }) {
   const { deal, expired_at, status } = entry;
   const expiredDate = new Date(expired_at);
   const dateLabel = expiredDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const catLabel = _savedCategoryLabels[deal.category] || deal.category?.charAt(0).toUpperCase() + deal.category?.slice(1);
 
   return (
     <div className="glass rounded-lg px-4 py-3 flex items-center justify-between gap-3 opacity-60">
       <div className="min-w-0">
-        <p className="text-sm font-medium text-slate-300 truncate">{deal.product_name}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-xs text-slate-500">{deal.dispensary_name}</span>
-          {deal.weight && (
-            <>
-              <span className="text-slate-700">&middot;</span>
-              <span className="text-xs text-slate-500">{deal.weight}</span>
-            </>
+        {/* Row 1: Brand + Category */}
+        <div className="flex items-center gap-2 mb-0.5">
+          {deal.brand_name && deal.brand_name !== 'Unknown' && (
+            <span className="text-[10px] text-purple-400/70 uppercase tracking-wide font-bold truncate">
+              {deal.brand_name}
+            </span>
           )}
+          {deal.category && (
+            <span className="text-[10px] text-slate-500/80 bg-slate-800/60 px-1.5 py-0.5 rounded font-medium shrink-0">
+              {catLabel}{deal.weight ? ` · ${deal.weight}` : ''}
+            </span>
+          )}
+        </div>
+        {/* Row 2: Product name */}
+        <p className="text-sm font-medium text-slate-300 truncate">{deal.product_name}</p>
+        {/* Row 3: Dispensary + date */}
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-xs text-slate-500 truncate">{deal.dispensary_name}</span>
           <span className="text-slate-700">&middot;</span>
-          <span className="text-xs text-slate-600">{dateLabel}</span>
+          <span className="text-xs text-slate-600 shrink-0">{dateLabel}</span>
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">

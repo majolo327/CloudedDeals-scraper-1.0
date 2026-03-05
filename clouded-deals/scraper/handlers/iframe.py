@@ -56,108 +56,94 @@ JS_EMBED_PRODUCT_PROBES = [
 
 _IFRAME_READY_TIMEOUT_MS = 60_000
 
-
-async def _resolve_frame(
-    page: Page,
-    selector: str,
-    timeout_ms: int,
-    post_wait_sec: float,
-) -> Frame | None:
-    """Try to find an iframe via *selector*, wait for it, and return
-    its content frame.  Returns ``None`` on any failure."""
-    try:
-        locator = page.locator(selector).first
-        await locator.wait_for(state="attached", timeout=timeout_ms)
-    except PlaywrightTimeout:
-        logger.debug("Iframe selector %r not found, trying next", selector)
-        return None
-
-    element = await locator.element_handle()
-    if element is None:
-        logger.debug("Iframe selector %r matched but element_handle is None", selector)
-        return None
-
-    frame = await element.content_frame()
-    if frame is None:
-        logger.debug("Iframe selector %r has no content frame yet", selector)
-        return None
-
-    try:
-        await frame.wait_for_load_state("domcontentloaded", timeout=timeout_ms)
-    except PlaywrightTimeout:
-        logger.warning(
-            "Iframe frame from %r did not reach domcontentloaded in %d ms",
-            selector,
-            timeout_ms,
-        )
-        # Return the frame anyway — partial content is better than nothing.
-
-    logger.info("Iframe found via %r — frame URL: %s", selector, frame.url)
-
-    if post_wait_sec > 0:
-        await asyncio.sleep(post_wait_sec)
-
-    return frame
+# Domains that are definitely NOT menu iframes — skip immediately.
+_TRACKING_DOMAINS = [
+    "crwdcntrl.net", "doubleclick", "google-analytics", "facebook",
+    "twitter", "recaptcha", "google.com/recaptcha", "strainbra.in",
+    "surfside.io", "pixel.php",
+]
 
 
 async def get_iframe(
     page: Page,
     *,
     timeout_ms: int = _IFRAME_READY_TIMEOUT_MS,
-    post_wait_sec: float = 5,
-) -> Frame | None:
+    post_wait_sec: float = 3,
+) -> tuple[Frame | None, list[str]]:
     """Locate and return the dispensary menu iframe on *page*.
 
-    Tries each selector in ``IFRAME_SELECTORS``.  If none match, falls
-    back to a **last-resort** strategy: if there is exactly one
-    ``<iframe>`` on the page whose ``src`` is not blank/about:blank,
-    assume it is the menu.
+    Uses the proven simple pattern: ``query_selector_all('iframe')``,
+    check ``src`` for Dutchie keywords, grab ``content_frame()``, brief
+    sleep, proceed.  No about:blank rejection — the product extraction
+    layer handles empty frames gracefully via the normal retry logic.
+
+    Returns ``(frame, about_blank_srcs)`` where *frame* is the content
+    frame if successfully resolved, or ``None``.  *about_blank_srcs* is
+    a list of iframe src URLs found but not yet loaded (usable as
+    fallback URLs for direct navigation).
     """
-    # --- Strategy 1: explicit selectors ----------------------------------
-    for selector in IFRAME_SELECTORS:
-        frame = await _resolve_frame(page, selector, timeout_ms, post_wait_sec)
-        if frame is not None:
-            return frame
+    about_blank_srcs: list[str] = []
 
-    # --- Strategy 2: last-resort single-iframe fallback ------------------
-    logger.info("No iframe matched explicit selectors — trying last-resort single-iframe fallback")
-    iframes = await page.query_selector_all("iframe")
+    # --- Quick check: any iframes on the page at all? --------------------
+    all_iframes = await page.query_selector_all("iframe")
+    if not all_iframes:
+        logger.info("No iframes on page — skipping iframe detection")
+        return None, []
 
-    # Log every iframe we see for debugging
-    for i, el in enumerate(iframes):
-        src = await el.get_attribute("src") or "(no src)"
-        logger.info("  iframe[%d] src=%s", i, src)
+    # --- Proven pattern: scan all iframes for Dutchie src ----------------
+    # Matches the simple loop from the production scraper that worked for
+    # months: iterate iframes, check src for 'dutchie', grab content_frame.
+    dutchie_keywords = ("dutchie", "embedded-menu", "goshango")
 
-    # Filter to iframes with a real src, excluding known tracking/analytics
-    _TRACKING_DOMAINS = [
-        "crwdcntrl.net", "doubleclick", "google-analytics", "facebook",
-        "twitter", "recaptcha", "google.com/recaptcha", "strainbra.in",
-    ]
-    real_iframes = []
-    for el in iframes:
+    for el in all_iframes:
         src = await el.get_attribute("src") or ""
-        if src and src != "about:blank":
-            if any(domain in src for domain in _TRACKING_DOMAINS):
-                logger.debug("  Skipping tracking iframe: %s", src[:100])
-                continue
-            real_iframes.append(el)
+        if not src:
+            continue
+        # Skip known tracking / analytics iframes
+        if any(domain in src for domain in _TRACKING_DOMAINS):
+            continue
+        # Check if this iframe has a Dutchie-related src
+        if not any(kw in src.lower() for kw in dutchie_keywords):
+            continue
 
-    if len(real_iframes) == 1:
-        frame = await real_iframes[0].content_frame()
-        if frame is not None:
-            try:
-                await frame.wait_for_load_state("domcontentloaded", timeout=timeout_ms)
-            except PlaywrightTimeout:
-                pass  # partial content is better than nothing
+        frame = await el.content_frame()
+        if frame is None:
+            continue
+
+        # If frame is still about:blank, record the src as a potential
+        # fallback URL but keep trying other iframes first.
+        if frame.url in ("about:blank", ""):
             logger.info(
-                "Last-resort: single iframe found — frame URL: %s", frame.url,
+                "Iframe with src=%s is about:blank — recording as fallback",
+                src[:120],
             )
-            if post_wait_sec > 0:
-                await asyncio.sleep(post_wait_sec)
-            return frame
+            if src and src != "about:blank" and src not in about_blank_srcs:
+                about_blank_srcs.append(src)
+            continue
 
-    logger.warning("No menu iframe found on page %s (%d iframes seen)", page.url, len(iframes))
-    return None
+        # Found a loaded Dutchie iframe — brief settle and return
+        logger.info("Iframe found via src match — frame URL: %s", frame.url)
+        if post_wait_sec > 0:
+            await asyncio.sleep(post_wait_sec)
+        return frame, about_blank_srcs
+
+    # --- No loaded Dutchie iframe found — log what we saw ----------------
+    if about_blank_srcs:
+        logger.info(
+            "Dutchie iframe(s) found but still about:blank — %d fallback URL(s) recorded",
+            len(about_blank_srcs),
+        )
+    else:
+        # Log all iframes for debugging
+        for i, el in enumerate(all_iframes):
+            src = await el.get_attribute("src") or "(no src)"
+            logger.info("  iframe[%d] src=%s", i, src)
+        logger.warning(
+            "No Dutchie iframe found on page %s (%d iframes seen)",
+            page.url, len(all_iframes),
+        )
+
+    return None, about_blank_srcs
 
 
 # ------------------------------------------------------------------
@@ -269,7 +255,8 @@ async def find_dutchie_content(
     iframe_timeout_ms: int = 30_000,
     js_embed_timeout_sec: float = 60,
     embed_type_hint: str | None = None,
-) -> tuple[Page | Frame | None, EmbedType | None]:
+    hint_only: bool = False,
+) -> tuple[Page | Frame | None, EmbedType | None, list[str]]:
     """Locate Dutchie menu content — iframe first, JS embed fallback.
 
     When *embed_type_hint* is provided (from the dispensary config),
@@ -277,50 +264,81 @@ async def find_dutchie_content(
     detection phases that won't match.  This saves ~45 s on JS-embed
     sites that would otherwise wait for iframe detection to time out.
 
+    When *hint_only* is ``True``, the function returns ``(None, None, [])``
+    immediately if the hinted embed type is not found, skipping the
+    full cascade.  Use this for dutchie.com direct URLs where iframe
+    and JS-embed detection are irrelevant and would waste ~105 s.
+
     Returns
     -------
-    (target, embed_type)
+    (target, embed_type, about_blank_srcs)
         *target* is a ``Frame`` (iframe) or ``Page`` (JS embed) to
         extract products from, or ``None`` if nothing was found.
-        *embed_type* is ``"iframe"`` or ``"js_embed"`` accordingly.
+        *embed_type* is ``"iframe"``, ``"js_embed"``, or ``"direct"``.
+        *about_blank_srcs* is a list of iframe src URLs that were found
+        but stuck at about:blank (usable as fallback URLs).
     """
+    about_blank_srcs: list[str] = []
+
     # When we have a hint, try the expected type first with generous
     # timeouts, then fall through to the full cascade if it fails.
     if embed_type_hint == "js_embed":
         logger.info("embed_type hint = js_embed — trying JS embed first")
         if await _probe_js_embed(page, timeout_sec=js_embed_timeout_sec):
             logger.info("JS embed confirmed via hint — using main page as scrape target")
-            return page, "js_embed"
+            return page, "js_embed", []
+        if hint_only:
+            logger.info("JS embed hint didn't match and hint_only=True — skipping cascade")
+            return None, None, []
         logger.info("JS embed hint didn't match — falling through to full cascade")
 
     if embed_type_hint == "direct":
         logger.info("embed_type hint = direct — trying direct page first")
         if await _probe_direct_page(page, timeout_sec=30):
             logger.info("Direct page confirmed via hint — using main page as scrape target")
-            return page, "direct"
-        logger.info("Direct hint didn't match — falling through to full cascade")
+            return page, "direct", []
+        # dutchie.com pages are React SPAs — they will never match iframe
+        # or JS embed selectors.  Bail immediately instead of burning
+        # 105+ seconds on a cascade that cannot succeed.
+        logger.warning("Direct page has no product cards — skipping iframe/JS cascade")
+        return None, None, []
 
     # --- Try iframe -------------------------------------------------------
     # Always try iframe in the cascade.  If a js_embed/direct hint failed
     # above, the site may have switched to iframe — don't skip it.
     logger.info("Looking for Dutchie iframe (max %d ms) …", iframe_timeout_ms)
-    frame = await get_iframe(page, timeout_ms=iframe_timeout_ms)
+    frame, iframe_blank_srcs = await get_iframe(page, timeout_ms=iframe_timeout_ms)
+    about_blank_srcs.extend(iframe_blank_srcs)
     if frame is not None:
-        return frame, "iframe"
+        return frame, "iframe", about_blank_srcs
+
+    # --- Optimization: when about:blank iframes found, try direct first --
+    # If we found dutchie.com iframes but they were about:blank, the embed
+    # may have rendered content directly on the page instead of inside the
+    # iframe.  Try direct detection BEFORE the expensive JS embed probe
+    # (saves ~60 s).
+    if about_blank_srcs:
+        logger.info(
+            "Found %d about:blank iframe(s) with Dutchie src — trying direct page detection first",
+            len(about_blank_srcs),
+        )
+        if await _probe_direct_page(page, timeout_sec=15):
+            logger.info("Direct page confirmed (after about:blank iframes) — using main page")
+            return page, "direct", about_blank_srcs
 
     # --- Fall back to JS embed detection (strict two-phase check) --------
     if embed_type_hint != "js_embed":  # already tried above if hint was js_embed
         logger.info("No iframe found — probing for Dutchie JS embed on main page")
         if await _probe_js_embed(page, timeout_sec=js_embed_timeout_sec):
             logger.info("JS embed confirmed — using main page as scrape target")
-            return page, "js_embed"
+            return page, "js_embed", about_blank_srcs
 
     # --- Fall back to direct page content (e.g., planet13.com) ----------
-    if embed_type_hint != "direct":  # already tried above if hint was direct
+    if embed_type_hint != "direct" and not about_blank_srcs:  # already tried above if about:blank
         logger.info("No JS embed container — probing for direct Dutchie product cards on page")
         if await _probe_direct_page(page, timeout_sec=30):
             logger.info("Direct page confirmed — using main page as scrape target")
-            return page, "direct"
+            return page, "direct", about_blank_srcs
 
     logger.warning("Neither iframe, JS embed, nor direct products found on %s", page.url)
-    return None, None
+    return None, None, about_blank_srcs

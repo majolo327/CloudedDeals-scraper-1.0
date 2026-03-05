@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { DISPENSARIES } from '@/data/dispensaries';
+import { BLOG_POSTS } from '@/data/blog-posts';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://cloudeddeals.com';
 
@@ -24,6 +25,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${SITE_URL}/strip-dispensary-deals`,
+      lastModified: now,
+      changeFrequency: 'daily',
+      priority: 0.8,
+    },
+    {
+      url: `${SITE_URL}/strip`,
       lastModified: now,
       changeFrequency: 'daily',
       priority: 0.8,
@@ -78,5 +85,37 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.7,
     }));
 
-  return [...staticPages, ...categoryPages, ...dispensaryPages];
+  // Zone landing pages
+  const zonePages: MetadataRoute.Sitemap = [
+    {
+      url: `${SITE_URL}/downtown-dispensary-deals`,
+      lastModified: now,
+      changeFrequency: 'daily' as const,
+      priority: 0.8,
+    },
+    {
+      url: `${SITE_URL}/local-dispensary-deals`,
+      lastModified: now,
+      changeFrequency: 'daily' as const,
+      priority: 0.8,
+    },
+  ];
+
+  // Blog pages
+  const blogPages: MetadataRoute.Sitemap = [
+    {
+      url: `${SITE_URL}/blog`,
+      lastModified: now,
+      changeFrequency: 'weekly' as const,
+      priority: 0.7,
+    },
+    ...BLOG_POSTS.map((post) => ({
+      url: `${SITE_URL}/blog/${post.slug}`,
+      lastModified: post.updatedAt,
+      changeFrequency: 'monthly' as const,
+      priority: 0.6,
+    })),
+  ];
+
+  return [...staticPages, ...zonePages, ...categoryPages, ...dispensaryPages, ...blogPages];
 }

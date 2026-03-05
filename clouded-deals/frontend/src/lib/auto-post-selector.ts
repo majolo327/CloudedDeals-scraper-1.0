@@ -1,13 +1,15 @@
 /**
  * Auto-post deal selection logic.
  *
- * Picks 1-4 deals per day for @CloudedDeals Twitter with diversity rules:
+ * Picks 1-8 deals per day for @CloudedDeals Twitter with diversity rules:
  *  - Southern NV region only (beta market)
- *  - Target categories: 1g disposable vapes, 3.5g/7g flower
- *  - Price cap: $30
+ *  - Target categories: 1g disposable vapes, 3.5g/7g flower,
+ *    100mg+ edibles, 1g live resin/rosin/badder concentrates,
+ *    single/2-pack prerolls
+ *  - Price cap: $35
  *  - No brand repeats within the same day
  *  - No brand+dispensary combo repeats within the same day
- *  - Minimum deal score threshold
+ *  - Minimum deal score: 50
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
@@ -38,9 +40,9 @@ export interface SelectionRules {
 }
 
 const DEFAULT_RULES: SelectionRules = {
-  maxPerDay: 4,
-  minScore: 55,
-  maxPrice: 30,
+  maxPerDay: 8,
+  minScore: 50,
+  maxPrice: 35,
   region: "southern-nv",
 };
 
@@ -48,6 +50,9 @@ const DEFAULT_RULES: SelectionRules = {
  * Check if a product matches our target categories:
  * - Vape: 1g disposable
  * - Flower: 3.5g or 7g
+ * - Edible: 100mg+ multi-dose (gummies, chocolates, etc.)
+ * - Concentrate: 1g live resin/rosin/badder
+ * - Preroll: single or 2-pack (no large multi-packs)
  */
 function matchesTargetCategory(candidate: AutoPostCandidate): boolean {
   const { category, weight_value, weight_unit, product_subtype, product_name } =
@@ -103,6 +108,46 @@ function matchesTargetCategory(candidate: AutoPostCandidate): boolean {
       nameLC.includes("eighth") ||
       nameLC.includes("quarter")
     );
+  }
+
+  if (category === "edible") {
+    // 100mg+ multi-dose edibles (gummies, chocolates, etc.)
+    if (unit === "mg" && weight >= 100) return true;
+    // Weight sometimes stored as grams for edibles — 100mg = 0.1g won't match,
+    // but some scrapers store the mg value in weight_value with unit "mg"
+    // Fallback: check product name
+    return (
+      nameLC.includes("100mg") ||
+      nameLC.includes("200mg") ||
+      nameLC.includes("250mg") ||
+      nameLC.includes("300mg") ||
+      nameLC.includes("500mg")
+    );
+  }
+
+  if (category === "concentrate") {
+    // 1g live resin, live rosin, or badder only (premium concentrates)
+    const isLive =
+      subtypeLC.includes("live") ||
+      subtypeLC.includes("rosin") ||
+      subtypeLC.includes("badder") ||
+      nameLC.includes("live resin") ||
+      nameLC.includes("live rosin") ||
+      nameLC.includes("badder");
+
+    const is1g =
+      (unit === "g" && weight >= 0.9 && weight <= 1.1) ||
+      nameLC.includes("1g") ||
+      nameLC.includes("1 g");
+
+    return isLive && is1g;
+  }
+
+  if (category === "preroll") {
+    // Single prerolls and 2-packs; exclude large multi-packs (5+)
+    const packMatch = nameLC.match(/(\d+)\s*(?:pk|pack|ct|count)/i);
+    const packSize = packMatch ? parseInt(packMatch[1], 10) : 1;
+    return packSize <= 2;
   }
 
   return false;
@@ -247,12 +292,18 @@ export async function selectDealsToPost(
   const usedBrands = new Set(today.brands);
   const usedCombos = new Set(today.combos);
 
-  // Separate into vape and flower buckets for balanced selection
+  // Separate into category buckets for balanced selection
   const vapeCandidates = targetDeals.filter((d) => d.category === "vape");
   const flowerCandidates = targetDeals.filter((d) => d.category === "flower");
+  const edibleCandidates = targetDeals.filter((d) => d.category === "edible");
+  const concentrateCandidates = targetDeals.filter((d) => d.category === "concentrate");
+  const prerollCandidates = targetDeals.filter((d) => d.category === "preroll");
 
   // Try to get a mix: alternate picking from each category
-  const buckets = [vapeCandidates, flowerCandidates];
+  const buckets = [
+    vapeCandidates, flowerCandidates, edibleCandidates,
+    concentrateCandidates, prerollCandidates,
+  ].filter((b) => b.length > 0);
   let bucketIdx = 0;
 
   while (selected.length < slotsRemaining) {

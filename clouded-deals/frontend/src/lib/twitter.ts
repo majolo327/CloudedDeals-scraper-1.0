@@ -135,6 +135,24 @@ function updateRateLimit(headers: Headers): void {
 }
 
 // ---------------------------------------------------------------------------
+// Credential validation
+// ---------------------------------------------------------------------------
+
+export function validateTwitterCredentials(): {
+  valid: boolean;
+  missing: string[];
+} {
+  const required = [
+    "TWITTER_API_KEY",
+    "TWITTER_API_SECRET",
+    "TWITTER_ACCESS_TOKEN",
+    "TWITTER_ACCESS_SECRET",
+  ];
+  const missing = required.filter((k) => !process.env[k]);
+  return { valid: missing.length === 0, missing };
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -144,33 +162,114 @@ export interface TweetResult {
   error: string | null;
 }
 
+const MAX_ATTEMPTS = 3;
+const RETRY_DELAYS = [2000, 4000]; // ms between retries — 2s then 4s (fits within 26s Netlify timeout)
+const RETRYABLE_STATUSES = new Set([500, 502, 503, 504]);
+
 export async function postTweet(text: string): Promise<TweetResult> {
   const config = getConfig();
   const url = `${TWITTER_API_BASE}/tweets`;
 
   await waitForRateLimit();
 
-  const authHeader = await buildAuthHeader("POST", url, config);
+  let lastError: string | null = null;
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: authHeader,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ text }),
-  });
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    // Must regenerate auth header each attempt (nonce + timestamp must be unique)
+    const authHeader = await buildAuthHeader("POST", url, config);
 
-  updateRateLimit(res.headers);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: authHeader,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
+      });
+    } catch (fetchError) {
+      // Network error (DNS, timeout, etc.)
+      lastError = `Network error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`;
+      console.error(
+        `[twitter] Attempt ${attempt}/${MAX_ATTEMPTS} — ${lastError}`
+      );
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt - 1]));
+        continue;
+      }
+      return { success: false, tweet_id: null, error: lastError };
+    }
 
-  if (!res.ok) {
+    updateRateLimit(res.headers);
+
+    if (res.ok) {
+      const data = await res.json();
+      const tweetId: string | null = data?.data?.id ?? null;
+      if (attempt > 1) {
+        console.log(
+          `[twitter] Tweet succeeded on attempt ${attempt}/${MAX_ATTEMPTS}`
+        );
+      }
+      return { success: true, tweet_id: tweetId, error: null };
+    }
+
+    // Non-OK response — log diagnostics
     const body = await res.text();
-    console.error(`[twitter] Tweet failed (${res.status}): ${body}`);
-    return { success: false, tweet_id: null, error: body };
+    lastError = body;
+
+    const rateLimitRemaining = res.headers.get("x-rate-limit-remaining");
+    const rateLimitReset = res.headers.get("x-rate-limit-reset");
+    console.error(
+      `[twitter] Attempt ${attempt}/${MAX_ATTEMPTS} failed (HTTP ${res.status}):`,
+      `body=${body}`,
+      `x-rate-limit-remaining=${rateLimitRemaining}`,
+      `x-rate-limit-reset=${rateLimitReset}`
+    );
+
+    // Only retry on transient server errors
+    if (!RETRYABLE_STATUSES.has(res.status) || attempt === MAX_ATTEMPTS) {
+      return { success: false, tweet_id: null, error: body };
+    }
+
+    await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt - 1]));
   }
 
-  const data = await res.json();
-  const tweetId: string | null = data?.data?.id ?? null;
+  return { success: false, tweet_id: null, error: lastError };
+}
 
-  return { success: true, tweet_id: tweetId, error: null };
+/**
+ * Lightweight credential check — calls GET /2/users/me which is read-only
+ * and doesn't consume the tweet-posting rate limit. Use this to verify that
+ * environment variables are correctly configured before attempting to post.
+ */
+export async function testTwitterConnection(): Promise<{
+  ok: boolean;
+  username?: string;
+  error?: string;
+  status_code?: number;
+}> {
+  try {
+    const config = getConfig();
+    const url = `${TWITTER_API_BASE}/users/me`;
+    const authHeader = await buildAuthHeader("GET", url, config);
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: authHeader },
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const username = data?.data?.username ?? "unknown";
+      return { ok: true, username, status_code: res.status };
+    }
+
+    const body = await res.text();
+    console.error(`[twitter] Connection test failed (${res.status}): ${body}`);
+    return { ok: false, error: body, status_code: res.status };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: msg };
+  }
 }

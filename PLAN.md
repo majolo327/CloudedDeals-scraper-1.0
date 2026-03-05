@@ -1,5 +1,14 @@
 # Plan: Fix Bundle Text Brand Contamination
 
+> ### STATUS: ✅ FULLY IMPLEMENTED (Feb 26, 2026)
+>
+> All three changes from this plan are shipped:
+> - `_strip_offer_text()` in `main.py:452-462`
+> - Name-first brand detection with priority hierarchy in `main.py:1118-1132`
+> - Dutchie offer-text separation at scrape time
+>
+> This plan document is retained for historical reference.
+
 ## The Problem
 
 When Dutchie (and sometimes other platforms) product cards are scraped, the

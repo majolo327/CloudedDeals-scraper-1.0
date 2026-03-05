@@ -44,7 +44,7 @@ DISPENSARIES = [
     "silver-sage",
 ]
 
-BRANDS_PREMIUM = ["STIIIZY", "Cookies", "Raw Garden", "Kiva", "Wyld", "Jeeter"]
+BRANDS_PREMIUM = ["STIIIZY", "Raw Garden", "Kiva", "Wyld", "Jeeter", "Connected"]
 BRANDS_POPULAR = ["Rove", "City Trees", "Kynd", "Matrix", "Select", "Old Pal"]
 BRANDS_OTHER = ["BudBros", "LeafCo", "GreenGold", "DesertHerb", "VegasKush"]
 
@@ -53,7 +53,7 @@ BRANDS_OTHER = ["BudBros", "LeafCo", "GreenGold", "DesertHerb", "VegasKush"]
 # Jeeter = prerolls, etc.).  With 10+ brands per category, the global
 # MAX_SAME_BRAND_TOTAL cap doesn't starve any category.
 FLOWER_BRANDS = [
-    "Cookies", "Connected", "Alien Labs", "Jungle Boys", "Old Pal",
+    "Connected", "Alien Labs", "Jungle Boys", "Old Pal", "Pacific Stone",
     "CAMP", "Kynd", "Fleur", "Virtue", "Tahoe Hydro",
     "Pacific Stone", "Stone Road",
 ]
@@ -71,7 +71,7 @@ CONCENTRATE_BRANDS = [
     "AMA", "Cannabiotix", "Trendi",
 ]
 PREROLL_BRANDS = [
-    "Jeeter", "Packwoods", "Cookies", "Old Pal", "Stone Road",
+    "Jeeter", "Packwoods", "Old Pal", "Stone Road",
     "Dogwalkers", "Lowell", "CAMP",
 ]
 

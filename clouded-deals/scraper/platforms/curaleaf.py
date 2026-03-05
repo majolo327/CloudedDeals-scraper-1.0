@@ -25,7 +25,7 @@ from urllib.parse import urlparse
 from playwright.async_api import TimeoutError as PlaywrightTimeout
 
 from clouded_logic import CONSECUTIVE_EMPTY_MAX
-from config.dispensaries import PLATFORM_DEFAULTS
+from config.dispensaries import PLATFORM_DEFAULTS, is_expansion_region
 from handlers import dismiss_age_gate, navigate_curaleaf_page
 from handlers.pagination import _JS_DISMISS_OVERLAYS
 from .base import BaseScraper
@@ -33,9 +33,10 @@ from .base import BaseScraper
 logger = logging.getLogger(__name__)
 
 _CURALEAF_CFG = PLATFORM_DEFAULTS["curaleaf"]
-# Reduced from 30s: product card detection follows this sleep and has
-# its own 8s timeout, so the full 30s is unnecessary.
-_POST_AGE_GATE_WAIT = 15  # seconds
+# Reduced from 15s: Curaleaf's /stores/ pages render product cards within
+# a few seconds, and _extract_products() has its own 8s wait_for timeout.
+# 5s is enough for the React SPA to hydrate after the age gate redirect.
+_POST_AGE_GATE_WAIT = 5  # seconds
 
 # Strain types that are NOT real product names — skip to next line.
 _STRAIN_ONLY = {"indica", "sativa", "hybrid", "cbd", "thc"}
@@ -73,10 +74,16 @@ _BY_BRAND = re.compile(
     re.IGNORECASE,
 )
 
-# Cap pagination at 25 pages.  Curaleaf sites have 500–700+ products across
-# 12-14 pages typically, but some stores are expanding.  25 pages × 51
-# products ≈ 1275, giving headroom for growth while staying within timeout.
+# Cap pagination at 25 pages for production NV.
+# Expansion states get 50 pages to capture full catalogs.
 _MAX_PAGES = 25
+_MAX_PAGES_EXPANSION = 50
+
+# Safety cap: stop pagination once we've collected this many products.
+# Production NV: 500 products is sufficient for deal detection.
+# Expansion states: 1500 products to capture full catalogs.
+_MAX_PRODUCTS = 500
+_MAX_PRODUCTS_EXPANSION = 1500
 
 # Curaleaf product card selectors (tried in order).
 _PRODUCT_SELECTORS = [
@@ -92,10 +99,44 @@ _PRODUCT_SELECTORS = [
     'div[class*="ProductItem"]',
     'div[class*="Item_"]',
     'li[class*="product"]',
+    # Zen Leaf / newer Curaleaf patterns
+    '[class*="menu-product"]',
+    '[class*="MenuProduct"]',
+    'div[class*="ProductGrid"] > div',
+    'div[class*="product-grid"] > div',
+    '[class*="StoreMenu"] [class*="card"]',
+    'a[href*="/shop/"][href*="/product"]',
     # Broad fallback: any card-like container with a "$" price inside
     '[class*="card"]',
     'article',
 ]
+
+# Smart-wait JS: polls the DOM for any sign of Curaleaf product content.
+# Returns true as soon as product cards or price elements appear.
+_WAIT_FOR_CURALEAF_PRODUCTS_JS = """
+() => {
+    // Check for product card selectors
+    const selectors = [
+        '[data-testid*="product"]',
+        '[data-testid*="Product"]',
+        '[class*="ProductCard"]',
+        '[class*="product-card"]',
+        'a[href*="/product/"]',
+        '[class*="menu-product"]',
+        '[class*="MenuProduct"]',
+        '[class*="ProductGrid"]',
+        '[class*="product-grid"]',
+    ];
+    for (const sel of selectors) {
+        if (document.querySelectorAll(sel).length >= 1) return true;
+    }
+    // Check for price elements (strong signal of product content)
+    const bodyText = document.body?.innerText || '';
+    const priceCount = (bodyText.match(/\\$\\d+/g) || []).length;
+    if (priceCount >= 3) return true;
+    return false;
+}
+"""
 
 
 # Map region slugs to full state names (for age gate dropdown) and abbreviations.
@@ -179,7 +220,8 @@ class CuraleafScraper(BaseScraper):
 
         logger.info("[%s] After age gate, URL is: %s", self.slug, self.page.url)
 
-        # Wait for React SPA to render products
+        # Wait for React SPA to render products.
+        # Phase 1: fixed wait for initial hydration + API calls
         logger.info("[%s] Waiting %ds for product cards to render…", self.slug, _POST_AGE_GATE_WAIT)
         await asyncio.sleep(_POST_AGE_GATE_WAIT)
 
@@ -191,18 +233,43 @@ class CuraleafScraper(BaseScraper):
         except Exception:
             pass
 
+        # Phase 2: smart-wait — poll DOM for product cards (up to 30s).
+        # Returns instantly if products already rendered during Phase 1.
+        try:
+            await self.page.wait_for_function(
+                _WAIT_FOR_CURALEAF_PRODUCTS_JS, timeout=30_000,
+            )
+            logger.info("[%s] Smart-wait: product content detected in DOM", self.slug)
+        except PlaywrightTimeout:
+            logger.warning("[%s] Smart-wait: no product content after 30s — trying extraction anyway", self.slug)
+
         # --- Paginate and collect products ------------------------------
+        # Expansion states get higher limits to capture full catalogs.
+        region = self.dispensary.get("region", "southern-nv")
+        is_expansion = is_expansion_region(region)
+        max_pages = _MAX_PAGES_EXPANSION if is_expansion else _MAX_PAGES
+        max_products = _MAX_PRODUCTS_EXPANSION if is_expansion else _MAX_PRODUCTS
+
         all_products: list[dict[str, Any]] = []
         page_num = 1
         consecutive_empty = 0
 
-        while page_num <= _MAX_PAGES:
+        while page_num <= max_pages:
             products = await self._extract_products()
             all_products.extend(products)
             logger.info(
                 "[%s] Page %d → %d products (total %d)",
                 self.slug, page_num, len(products), len(all_products),
             )
+
+            # Stop early if we've collected enough products.  Large sites
+            # (800-1100+ products) cause timeouts when paginating to the end.
+            if len(all_products) >= max_products:
+                logger.info(
+                    "[%s] Collected %d products (cap=%d) — stopping pagination early",
+                    self.slug, len(all_products), _MAX_PRODUCTS,
+                )
+                break
 
             # Track consecutive empty pages — bail after 3 in a row
             # instead of silently paginating through blank pages.
@@ -241,8 +308,8 @@ class CuraleafScraper(BaseScraper):
             if not _nav_ok:
                 break
 
-        if page_num > _MAX_PAGES:
-            logger.info("[%s] Reached max pages (%d) — stopping pagination", self.slug, _MAX_PAGES)
+        if page_num > max_pages:
+            logger.info("[%s] Reached max pages (%d) — stopping pagination", self.slug, max_pages)
 
         # --- Fallback: if /specials returned 0 products, try the base menu ---
         if not all_products and "/specials" in self.url:
@@ -257,13 +324,19 @@ class CuraleafScraper(BaseScraper):
             logger.info("[%s] Waiting %ds for product cards on base menu…", self.slug, _POST_AGE_GATE_WAIT)
             await asyncio.sleep(_POST_AGE_GATE_WAIT)
             page_num = 1
-            while page_num <= _MAX_PAGES:
+            while page_num <= max_pages:
                 products = await self._extract_products()
                 all_products.extend(products)
                 logger.info(
                     "[%s] Base menu page %d → %d products (total %d)",
                     self.slug, page_num, len(products), len(all_products),
                 )
+                if len(all_products) >= max_products:
+                    logger.info(
+                        "[%s] Reached product cap (%d) on base menu — stopping",
+                        self.slug, len(all_products),
+                    )
+                    break
                 page_num += 1
                 try:
                     if not await navigate_curaleaf_page(self.page, page_num):
@@ -392,26 +465,23 @@ class CuraleafScraper(BaseScraper):
                 continue
 
         # Wait for redirect back to store page.
-        # Curaleaf uses multiple URL patterns:
-        #   /stores/  (NV, AZ)
-        #   /shop/    (MI, IL)
+        # Curaleaf uses multiple URL patterns and may redirect between them:
+        #   /stores/  (NV, AZ, and now NY after age gate)
+        #   /shop/    (MI, IL, NY — original URL format)
         #   /dispensary/ (legacy format, some AZ/MI stores)
-        # Check which pattern matches the original URL and wait for that.
-        if "/shop/" in self.url:
-            redirect_pattern = "**/shop/**"
-        elif "/dispensary/" in self.url:
-            redirect_pattern = "**/dispensary/**"
-        else:
-            redirect_pattern = "**/stores/**"
+        # Accept ANY valid store pattern — Curaleaf now redirects /shop/ URLs
+        # to /stores/ after the age gate (observed Feb 2026).
         try:
-            await self.page.wait_for_url(redirect_pattern, timeout=15_000)
+            await self.page.wait_for_url(
+                lambda url: any(p in url for p in ("/shop/", "/stores/", "/dispensary/")),
+                timeout=15_000,
+            )
             logger.info("[%s] Redirected back to store: %s", self.slug, self.page.url)
         except PlaywrightTimeout:
             logger.warning(
-                "[%s] Did not redirect back to store after age gate (expected %s) — current URL: %s",
-                self.slug, redirect_pattern, self.page.url,
+                "[%s] Did not redirect back to store after age gate — current URL: %s",
+                self.slug, self.page.url,
             )
-            await self.save_debug_info("age_gate_stuck")
 
         # Dismiss cookie consent banner (OneTrust) immediately so it
         # doesn't block product extraction or pagination clicks.
@@ -433,7 +503,7 @@ class CuraleafScraper(BaseScraper):
         for selector in _PRODUCT_SELECTORS:
             try:
                 await self.page.locator(selector).first.wait_for(
-                    state="attached", timeout=8_000,
+                    state="attached", timeout=3_000,
                 )
             except PlaywrightTimeout:
                 continue

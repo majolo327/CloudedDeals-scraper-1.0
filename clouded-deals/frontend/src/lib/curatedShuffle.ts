@@ -164,30 +164,53 @@ const HERO_SLOTS: HeroSlotDef[] = [
 ];
 
 /**
- * Extract hero deals — the cheapest qualifying deal for each hero slot.
- * Returns an array of hero deals (may be shorter than HERO_SLOTS if some
- * slots have no qualifying deals), plus the remaining deals.
+ * Extract hero deals — the cheapest qualifying deal for each hero slot,
+ * with a dispensary-spread constraint so the first 7 cards aren't all
+ * from the same store.
+ *
+ * Rule: each dispensary may appear at most once in hero slots.  If the
+ * cheapest qualifying deal for a slot comes from a dispensary that
+ * already has a hero, pick the next-cheapest from a *different* store.
+ * This ensures the user's first impression shows variety across stores.
  */
 function extractHeroDeals(deals: Deal[]): {
   heroes: Deal[];
   remaining: Deal[];
 } {
   const usedIds = new Set<string>();
+  const usedDispensaries = new Set<string>();
   const heroes: Deal[] = [];
 
   for (const slot of HERO_SLOTS) {
-    // Find the cheapest qualifying deal not already used by a prior slot
-    let best: Deal | null = null;
+    // Collect all qualifying candidates sorted by price (cheapest first)
+    const candidates: Deal[] = [];
     for (const deal of deals) {
       if (usedIds.has(deal.id)) continue;
       if (!slot.match(deal)) continue;
-      if (!best || deal.deal_price < best.deal_price) {
-        best = deal;
+      candidates.push(deal);
+    }
+    candidates.sort((a, b) => a.deal_price - b.deal_price);
+
+    // Pick the cheapest from a dispensary we haven't used yet;
+    // fall back to the cheapest overall if every candidate's
+    // dispensary is already represented (variety > nothing).
+    let picked: Deal | null = null;
+    for (const deal of candidates) {
+      const dispId = deal.dispensary?.id ?? '';
+      if (!usedDispensaries.has(dispId)) {
+        picked = deal;
+        break;
       }
     }
-    if (best) {
-      heroes.push(best);
-      usedIds.add(best.id);
+    // Fallback: if every candidate dispensary is taken, use the cheapest
+    if (!picked && candidates.length > 0) {
+      picked = candidates[0];
+    }
+
+    if (picked) {
+      heroes.push(picked);
+      usedIds.add(picked.id);
+      usedDispensaries.add(picked.dispensary?.id ?? '');
     }
   }
 
@@ -364,6 +387,70 @@ function interleaveWithDiversity(
   return result;
 }
 
+// ── First-12 dispensary rebalance ────────────────────────────────────
+
+/** Max deals from the same dispensary allowed in the first 12 visible cards. */
+const MAX_SAME_DISP_IN_FIRST_12 = 2;
+
+/**
+ * Rebalance the first 12 positions so no single dispensary dominates.
+ *
+ * When the morning scraper finishes Greenlight/Curaleaf first, those
+ * stores can flood the top of the deck.  This post-processing pass
+ * swaps excess same-dispensary deals in positions 0-11 with diverse
+ * deals from deeper in the deck (positions 12+).
+ *
+ * Only positions 7-11 are eligible for swapping — hero slots (0-6)
+ * are preserved because they represent specific product-category
+ * anchors the user expects.
+ */
+function rebalanceFirst12(deck: Deal[]): Deal[] {
+  if (deck.length <= 12) return deck;
+
+  const result = [...deck];
+  const WINDOW = 12;
+  const HERO_COUNT = Math.min(HERO_SLOTS.length, WINDOW);
+
+  // Count dispensary occurrences in the first 12
+  function countDisps(): Map<string, number> {
+    const counts = new Map<string, number>();
+    for (let i = 0; i < WINDOW && i < result.length; i++) {
+      const dispId = result[i].dispensary?.id ?? '';
+      counts.set(dispId, (counts.get(dispId) ?? 0) + 1);
+    }
+    return counts;
+  }
+
+  // Iteratively fix over-represented dispensaries
+  // (max 3 passes to avoid infinite loops)
+  for (let pass = 0; pass < 3; pass++) {
+    const counts = countDisps();
+    let swapped = false;
+
+    for (let i = HERO_COUNT; i < WINDOW && i < result.length; i++) {
+      const dispId = result[i].dispensary?.id ?? '';
+      if ((counts.get(dispId) ?? 0) <= MAX_SAME_DISP_IN_FIRST_12) continue;
+
+      // This card's dispensary is over-represented — find a swap from 12+
+      for (let j = WINDOW; j < result.length; j++) {
+        const swapDispId = result[j].dispensary?.id ?? '';
+        // Don't swap in another over-represented dispensary
+        if ((counts.get(swapDispId) ?? 0) >= MAX_SAME_DISP_IN_FIRST_12) continue;
+        // Swap
+        [result[i], result[j]] = [result[j], result[i]];
+        counts.set(dispId, (counts.get(dispId) ?? 0) - 1);
+        counts.set(swapDispId, (counts.get(swapDispId) ?? 0) + 1);
+        swapped = true;
+        break;
+      }
+    }
+
+    if (!swapped) break;
+  }
+
+  return result;
+}
+
 // ── Public API ──────────────────────────────────────────────────────
 
 export interface CuratedShuffleOptions {
@@ -396,6 +483,7 @@ export function curatedShuffle(
   const rng = mulberry32(seed);
 
   // Step 1: Extract hero deals (cheapest per priority category)
+  // Hero extraction now enforces dispensary-spread (no 2 heroes from same store).
   const { heroes, remaining } = extractHeroDeals(deals);
 
   // Step 2: Shuffle remaining deals with existing tier-based logic
@@ -403,5 +491,10 @@ export function curatedShuffle(
   const shuffled = interleaveWithDiversity(tiers, rng);
 
   // Step 3: Pin heroes at the front, then append shuffled remainder
-  return [...heroes, ...shuffled];
+  const combined = [...heroes, ...shuffled];
+
+  // Step 4: Rebalance the first 12 cards so no single dispensary dominates.
+  // Swaps excess same-dispensary deals (positions 7-11) with diverse deals
+  // from deeper in the deck.  Hero slots (0-6) are preserved.
+  return rebalanceFirst12(combined);
 }

@@ -38,26 +38,111 @@ from playwright.async_api import (
 from config.dispensaries import (
     BROWSER_ARGS, BROWSER_CHANNEL, GOTO_TIMEOUT_MS, PLATFORM_DEFAULTS,
     STEALTH_INIT_SCRIPT, USER_AGENT, VIEWPORT, WAIT_UNTIL,
-    get_user_agent, get_viewport,
+    get_context_fingerprint, get_user_agent, get_viewport,
 )
 from handlers import dismiss_age_gate
-
-# Try to import playwright-stealth 2.0+ (preferred).
-# Falls back to legacy hand-rolled JS if not installed.
-try:
-    from playwright_stealth import Stealth
-    _STEALTH = Stealth()
-    _HAS_STEALTH_PKG = True
-except ImportError:
-    _HAS_STEALTH_PKG = False
 
 DEBUG_DIR = Path(os.getenv("DEBUG_DIR", "debug_screenshots"))
 
 logger = logging.getLogger(__name__)
 
-# Third-party analytics domains that commonly trigger bot detection in
-# headless browsers (fingerprinting scripts, tracking pixels).  Blocking
-# these speeds up page loads and removes detection surface area.
+# ---------------------------------------------------------------------------
+# playwright-stealth integration
+# ---------------------------------------------------------------------------
+try:
+    from playwright_stealth import Stealth          # playwright-stealth >=2.0
+    _STEALTH = Stealth()
+    logger.info("playwright-stealth loaded — full stealth patches available")
+except ImportError:
+    _STEALTH = None
+    logger.info("playwright-stealth not installed — falling back to JS-only stealth")
+
+# Expose for test_stealth_stack.py
+_HAS_STEALTH_PKG = _STEALTH is not None
+
+
+async def launch_stealth_browser(
+    pw: Playwright,
+    *,
+    extra_args: list[str] | None = None,
+) -> Browser:
+    """Launch a browser optimised for anti-bot evasion.
+
+    Strategy:
+    1. Try branded Chrome (``channel="chrome"``) — its TLS fingerprint and
+       navigator properties match what Cloudflare expects.
+    2. If Chrome is not installed, fall back to bundled Chromium.
+
+    The returned Browser should be passed to ``apply_stealth_context()``
+    when creating new contexts.
+    """
+    args = BROWSER_ARGS + (extra_args or [])
+    try:
+        browser = await pw.chromium.launch(
+            headless=True,
+            channel=BROWSER_CHANNEL,
+            args=args,
+        )
+        logger.info("Launched branded Chrome (channel=%s)", BROWSER_CHANNEL)
+    except Exception as exc:
+        logger.warning("Chrome channel unavailable (%s) — falling back to Chromium", exc)
+        browser = await pw.chromium.launch(
+            headless=True,
+            args=args,
+        )
+        logger.info("Launched bundled Chromium (no channel)")
+    return browser
+
+
+async def apply_stealth_context(context: BrowserContext) -> None:
+    """Apply playwright-stealth patches to a browser context.
+
+    Falls back to the legacy JS init script when the package is not
+    installed.
+    """
+    if _STEALTH is not None:
+        await _STEALTH.apply_stealth_async(context)
+        logger.debug("playwright-stealth patches applied to context")
+    else:
+        await context.add_init_script(STEALTH_INIT_SCRIPT)
+        logger.debug("Legacy JS stealth init script applied to context")
+
+# JS to override webdriver detection and mimic a real browser for all scrapers.
+# Previously only applied in Rise — now global so every platform benefits.
+_JS_STEALTH = """
+() => {
+    // Remove webdriver flag
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    // Fake Chrome runtime (headless lacks this)
+    if (!window.chrome) window.chrome = {};
+    if (!window.chrome.runtime) window.chrome.runtime = {};
+    // Fake plugins/languages to look like a real browser
+    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+    Object.defineProperty(navigator, 'plugins', {
+        get: () => {
+            const fakes = [
+                { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+                { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
+                { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
+            ];
+            const arr = Object.create(PluginArray.prototype);
+            fakes.forEach((p, i) => { arr[i] = p; });
+            Object.defineProperty(arr, 'length', { get: () => fakes.length });
+            return arr;
+        },
+    });
+    // Remove automation-related properties
+    delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
+    delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
+    delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
+}
+"""
+
+# Third-party analytics domains that break SPA hydration in headless
+# browsers.  Originally used by Rise scraper only — do NOT apply globally
+# because many dispensary sites (Dutchie, Curaleaf) use GTM to inject their
+# menu embeds.  Blocking GTM prevents the Dutchie iframe from ever loading.
+# Keep this list for reference; individual scrapers can opt in if needed.
 _BLOCKED_ANALYTICS_PATTERNS = [
     "*google-analytics.com*",
     "*googletagmanager.com*",
@@ -69,52 +154,6 @@ _BLOCKED_ANALYTICS_PATTERNS = [
     "*tiktok.com*",
     "*snap.com*",
 ]
-
-
-# ---------------------------------------------------------------------------
-# Browser launch helper — shared between standalone and main.py
-# ---------------------------------------------------------------------------
-
-async def launch_stealth_browser(
-    pw: Playwright,
-    *,
-    extra_args: list[str] | None = None,
-) -> Browser:
-    """Launch a browser with maximum stealth.
-
-    Tries real Chrome (``channel="chrome"``) first for a legitimate TLS
-    fingerprint.  Falls back to bundled Chromium if Chrome is not installed
-    (e.g. minimal CI images that haven't run ``playwright install chrome``).
-    """
-    args = BROWSER_ARGS + (extra_args or [])
-
-    # Attempt 1: real Chrome — correct TLS fingerprint
-    try:
-        browser = await pw.chromium.launch(
-            headless=True,
-            channel=BROWSER_CHANNEL,
-            args=args,
-        )
-        logger.info(
-            "Browser launched: channel=%s (real Chrome TLS fingerprint)",
-            BROWSER_CHANNEL,
-        )
-        return browser
-    except Exception as exc:
-        logger.warning(
-            "Chrome channel %r unavailable (%s) — falling back to "
-            "bundled Chromium.  Run 'playwright install chrome' for "
-            "best Cloudflare evasion.",
-            BROWSER_CHANNEL, exc,
-        )
-
-    # Attempt 2: bundled Chromium (weaker TLS fingerprint but functional)
-    browser = await pw.chromium.launch(
-        headless=True,
-        args=args,
-    )
-    logger.info("Browser launched: bundled Chromium (fallback)")
-    return browser
 
 
 class BaseScraper(abc.ABC):
@@ -162,63 +201,67 @@ class BaseScraper(abc.ABC):
             # Shared mode: reuse the pre-launched browser, create a fresh context
             self._browser = self._shared_browser
         else:
-            # Standalone mode: launch our own browser with stealth
+            # Standalone mode: launch our own browser via stealth helper
             self._pw = await async_playwright().start()
             self._browser = await launch_stealth_browser(self._pw)
 
+        # Build a unique fingerprint for this context — viewport, UA, locale,
+        # and timezone are all randomised per-session.  The timezone matches
+        # the dispensary's region so JS Date / Intl output looks realistic.
+        region = self.dispensary.get("region")
+        fp = get_context_fingerprint(region)
         self._context = await self._browser.new_context(
-            viewport=get_viewport(),
-            user_agent=get_user_agent(),
-            locale="en-US",
-            timezone_id="America/New_York",
+            viewport=fp["viewport"],
+            user_agent=fp["user_agent"],
+            locale=fp["locale"],
+            timezone_id=fp["timezone_id"],
         )
-
-        # --- Stealth layer ---
-        if _HAS_STEALTH_PKG:
-            # playwright-stealth 2.0: patches 30+ detection vectors via
-            # init scripts injected into the context.  Covers webdriver,
-            # chrome.runtime, plugins, languages, permissions, WebGL,
-            # canvas, AudioContext, CDP detection, and more.
-            await _STEALTH.apply_stealth_async(self._context)
-            stealth_mode = "playwright-stealth"
-        else:
-            # Legacy fallback: hand-rolled script covering ~5 vectors.
-            await self._context.add_init_script(STEALTH_INIT_SCRIPT)
-            stealth_mode = "legacy-js"
-
+        # Apply stealth patches (playwright-stealth if available, else JS shim)
+        await apply_stealth_context(self._context)
         self._page = await self._context.new_page()
 
-        # Block third-party analytics that trigger bot detection and slow
-        # down page loads across all platforms.
-        async def _block_route(route):
-            await route.abort()
+        # Apply legacy JS stealth overrides as a belt-and-suspenders layer.
+        # These are cheap no-ops if playwright-stealth already set the same
+        # properties, but they guarantee coverage on older installs.
+        await self._page.add_init_script(_JS_STEALTH)
 
-        for pattern in _BLOCKED_ANALYTICS_PATTERNS:
-            await self._page.route(pattern, _block_route)
+        # NOTE: Analytics blocking (_BLOCKED_ANALYTICS_PATTERNS) intentionally
+        # NOT applied here.  It was moved from Rise-only to BaseScraper in
+        # bc2010c but broke 16/18 Dutchie sites — many dispensaries use GTM
+        # to inject the Dutchie embed script.  Blocking GTM = no menu iframe.
+        # Individual scrapers (e.g. Rise) can opt in if needed.
 
         logger.info(
-            "[%s] Browser ready (shared=%s, stealth=%s)",
-            self.slug, bool(self._shared_browser), stealth_mode,
+            "[%s] Browser ready (shared=%s, tz=%s, locale=%s, viewport=%sx%s)",
+            self.slug, bool(self._shared_browser),
+            fp["timezone_id"], fp["locale"],
+            fp["viewport"]["width"], fp["viewport"]["height"],
         )
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        # Always close page and context (we own them)
+        # Always close page and context (we own them).
+        # Use BaseException to also catch CancelledError (a BaseException
+        # subclass in Python 3.9+) — asyncio.wait_for cancellation must
+        # not leak page/context handles in the shared browser.
         for obj in (self._page, self._context):
             if obj:
                 try:
                     await obj.close()
-                except Exception:
+                except BaseException:
                     pass
         # Only close browser + playwright if we own them (standalone mode)
         if not self._shared_browser:
             if self._browser:
                 try:
                     await self._browser.close()
-                except Exception:
+                except BaseException:
                     pass
             if self._pw:
-                await self._pw.stop()
+                try:
+                    await self._pw.stop()
+                except BaseException:
+                    pass
         logger.info("[%s] Cleanup done", self.slug)
 
     # ------------------------------------------------------------------

@@ -42,6 +42,14 @@ _RE_DISCOUNT_LABEL = re.compile(
     re.IGNORECASE,
 )
 
+# "from $X" / "starting at $X" — lowest-weight starting prices, not the actual sale price.
+# Curaleaf cards show "from $20.00" alongside the real prices ($24.00 / $40.00);
+# without filtering, Strategy 5 picks min($20, $24, $40) = $20 → wrong sale price.
+_RE_FROM_PRICE = re.compile(
+    r"(?:from|starting\s+at)\s+\$\s*[\d]+(?:\.[\d]{1,2})?",
+    re.IGNORECASE,
+)
+
 # Bundle deal with inline tier price: "2/$55 $35" (qty/bundle_total tier_price)
 _RE_BUNDLE_TIER = re.compile(
     r"(?P<qty>[2-9])\s*/\s*\$\s*(?P<total>[\d]+(?:\.[\d]{1,2})?)"
@@ -151,10 +159,15 @@ def extract_prices(text: str) -> dict[str, Any]:
 
     # Strategy 5 — multiple dollar amounts (first = original, last = sale).
     # CRITICAL: Filter out dollar amounts that are part of discount labels
-    # like "$8.00 off" — these are NOT prices.
+    # like "$8.00 off" or "from $X" starting-price indicators — these are NOT
+    # actual sale/original prices.
     discount_label_spans = [
         (m.start(), m.end()) for m in _RE_DISCOUNT_LABEL.finditer(text)
     ]
+    from_price_spans = [
+        (m.start(), m.end()) for m in _RE_FROM_PRICE.finditer(text)
+    ]
+    excluded_spans = discount_label_spans + from_price_spans
     # Capture discount amounts from labels (e.g. "$7 off" → 7.0)
     discount_label_amounts = [
         float(dm.group("amt"))
@@ -163,11 +176,11 @@ def extract_prices(text: str) -> dict[str, Any]:
     ]
     amounts = []
     for m in _RE_DOLLAR.finditer(text):
-        # Skip this dollar amount if it falls inside a discount label
-        in_discount = any(
-            start <= m.start() < end for start, end in discount_label_spans
+        # Skip this dollar amount if it falls inside a discount label or "from $X"
+        in_excluded = any(
+            start <= m.start() < end for start, end in excluded_spans
         )
-        if not in_discount:
+        if not in_excluded:
             amounts.append(float(m.group("amt")))
 
     if len(amounts) >= 2:
@@ -270,6 +283,14 @@ _FRAC_TO_GRAMS: dict[str, float] = {
     "1/2": 14.0,
 }
 
+# Beverage keywords — when present, "oz" is liquid volume (not weight).
+# Used to prefer mg over oz for drinks/beverages.
+_BEVERAGE_KEYWORDS_RE = re.compile(
+    r"\b(?:drink|shot|elixir|mocktail|beverage|seltzer|sparkling|tonic|soda"
+    r"|tea|lemonade|juice|punch|infused water)\b",
+    re.IGNORECASE,
+)
+
 
 def extract_weight(text: str) -> dict[str, Any]:
     """Return ``weight_value`` and ``weight_unit`` parsed from *text*.
@@ -300,6 +321,20 @@ def extract_weight(text: str) -> dict[str, Any]:
     if m:
         value = float(m.group("qty"))
         unit = m.group("unit").lower()
+
+        # Beverage fix: "oz" on a drink is liquid volume, NOT weight.
+        # E.g. "Uncle Arnie's Iced Tea 8oz 100mg" — "8oz" is the bottle
+        # size, "100mg" is the THC potency.  Skip the oz match and
+        # re-scan for mg when beverage keywords are present.
+        if unit == "oz" and _BEVERAGE_KEYWORDS_RE.search(text):
+            mg_match = re.search(
+                r"(?P<qty>\d*\.?\d+)\s*mg\b", text, re.IGNORECASE,
+            )
+            if mg_match:
+                result["weight_value"] = float(mg_match.group("qty"))
+                result["weight_unit"] = "mg"
+            # No mg found — return empty (oz volume is meaningless)
+            return result
 
         # Convert oz to grams (e.g. "1oz" → 28g)
         if unit == "oz":
@@ -339,7 +374,6 @@ def extract_weight(text: str) -> dict[str, Any]:
 
 KNOWN_BRANDS: list[str] = [
     # -- Premium Tier --
-    "Cookies",
     "Runtz",
     "Connected",
     "Alien Labs",
@@ -521,7 +555,6 @@ KNOWN_BRANDS: list[str] = [
 BRAND_VARIATIONS: dict[str, list[str]] = {
     "MPX": ["M.P.X", "Melting Point Extracts", "Melting Point"],
     "Kynd": ["K.Y.N.D", "KYND Cannabis", "KYND"],
-    "Cookies": ["Cookies SF", "Cookies Fam"],
     "Runtz": ["Runtz Brand", "Runtz OG"],
     "STIIIZY": ["Stiiizy", "STIIZY", "STIZY", "Stiizy"],
     "Airo": ["AiroPro", "Airo Pro", "Airo Brands"],
@@ -533,6 +566,8 @@ BRAND_VARIATIONS: dict[str, list[str]] = {
     "Tyson 2.0": ["Tyson", "Mike Tyson"],
     "Khalifa Kush": ["KK", "Wiz Khalifa"],
     "&Shine": ["& Shine", "And Shine"],
+    "AMA": ["Alternative Medicine Association", "Alternative Medical Association"],
+    "HSH": ["High Sierra Holistics"],
 }
 
 # Pre-compile a single pattern for speed (case-insensitive) with word boundaries
@@ -565,115 +600,55 @@ _RE_VARIATION = re.compile(
 
 
 def detect_brand(text: str) -> str | None:
-    """Return the first known brand found in *text*, or ``None``.
+    """Return the best known brand found in *text*, or ``None``.
 
-    Checks exact brand names first, then falls back to known
-    brand-name variations (fuzzy matching).  Matches against
-    ``NOT_BRANDS`` are silently discarded to prevent generic words
-    (colours, product types, promo terms) from being treated as brands.
+    Checks both exact brand names and brand-name variations, and
+    returns the longest match (which is most specific).  This ensures
+    that "Alternative Medical Association" (→ AMA) wins over "Runtz"
+    when both appear in the same text.
 
     >>> detect_brand("STIIIZY Premium Pod 1g")
     'STIIIZY'
     >>> detect_brand("no brand here")
     """
+    best_brand: str | None = None
+    best_len = 0
+
     # Strategy 1: exact match against canonical brand names.
     m = _RE_BRAND.search(text)
     if m:
-        # Strip leading whitespace from (?:^|\s) groups used by
-        # non-word-char brands like "&Shine".
         matched = m.group(0).strip()
         for brand in KNOWN_BRANDS:
             if brand.lower() == matched.lower():
-                return brand
-        return matched
+                best_brand = brand
+                best_len = len(matched)
+                break
+        if best_brand is None:
+            best_brand = matched
+            best_len = len(matched)
 
-    # Strategy 2: check brand variations.
+    # Strategy 2: check brand variations — compete with exact match.
     if _RE_VARIATION is not None:
         m = _RE_VARIATION.search(text)
         if m:
-            return _VARIATION_TO_CANONICAL[m.group(0).strip().lower()]
+            var_text = m.group(0).strip()
+            if len(var_text) > best_len:
+                best_brand = _VARIATION_TO_CANONICAL[var_text.lower()]
 
-    return None
+    return best_brand
 
 
 # =====================================================================
-# 4. Category detection
+# 4. Category detection — REMOVED
 # =====================================================================
-# DEPRECATED: These functions are NOT used in production.
 # The canonical category detection system is CloudedLogic.detect_category()
 # in clouded_logic.py (10-step hierarchical detection with vape/concentrate
 # disambiguation and weight-based inference).
 #
-# These simpler keyword-based functions remain only for test_parser.py
-# backwards compatibility.  Do NOT use them in new code.
+# The deprecated keyword-based functions that lived here were deleted in
+# the category-detection-consolidation PR (Feb 2026).  Category detection
+# is NOT parser.py's responsibility.
 # =====================================================================
-
-CATEGORY_KEYWORDS: dict[str, list[str]] = {
-    "skip":        ["rso", "tincture", "topical", "capsule", "cbd only",
-                    "merch", "balm", "salve", "ointment", "lotion",
-                    "transdermal", "patch", "roll-on", "suppository"],
-    "flower":      ["flower", "bud", "buds", "eighth", "quarter", "half oz",
-                    "nug", "smalls", "shake", "popcorn"],
-    "preroll":     ["pre-roll", "pre roll", "preroll", "joint", "blunt",
-                    "infused roll", "pr's", "prs"],
-    "concentrate": ["wax", "shatter", "live resin", "live rosin", "rosin",
-                    "badder", "batter", "budder", "crumble", "sauce",
-                    "diamond", "sugar", "concentrate", "dab", "hash",
-                    "kief"],
-    "vape":        ["cart", "cartridge", "pod", "disposable", "vape",
-                    "510", "pen"],
-    "edible":      ["gummy", "gummies", "chocolate", "beverage", "drink",
-                    "edible", "chew", "lozenge", "mint", "cookie",
-                    "brownie", "candy"],
-}
-
-# Build one compiled pattern per category using word boundaries to prevent
-# false positives (e.g., "mint" matching inside "minting").
-_CATEGORY_PATTERNS: dict[str, re.Pattern[str]] = {
-    cat: re.compile(
-        "|".join(r'\b' + re.escape(kw) + r'\b' for kw in kws),
-        re.IGNORECASE,
-    )
-    for cat, kws in CATEGORY_KEYWORDS.items()
-}
-
-
-def detect_category(text: str) -> str | None:
-    """Return the product category, or ``None`` if unrecognised.
-
-    >>> detect_category("Blue Dream Flower 3.5g")
-    'flower'
-    >>> detect_category("Live Resin Batter 1g")
-    'concentrate'
-    """
-    for category, pattern in _CATEGORY_PATTERNS.items():
-        if pattern.search(text):
-            return category
-    return None
-
-
-def infer_category_from_weight(
-    weight_value: float | None,
-    weight_unit: str | None,
-) -> str | None:
-    """Fallback category inference when no keyword match is found.
-
-    Uses the weight value and unit as a heuristic:
-      - mg → edible (100mg gummies, etc.)
-      - g ≥ 3.5 → flower (eighths and up)
-      - g < 3.5 → concentrate (0.5g–1g dabs/wax)
-      - no weight → vape (carts often omit weight in text)
-
-    Returns ``None`` when there is insufficient data to guess.
-    """
-    if weight_unit == "mg":
-        return "edible"
-    if weight_unit == "g" and weight_value is not None:
-        return "flower" if weight_value >= 3.5 else "concentrate"
-    # No weight info at all — most likely a vape cart / pod
-    if weight_value is None and weight_unit is None:
-        return "vape"
-    return None
 
 
 # =====================================================================
@@ -737,13 +712,9 @@ def parse_product(raw: dict[str, Any]) -> dict[str, Any]:
     parsed.update(extract_cannabinoids(text))
     parsed["brand"] = detect_brand(text)
 
-    # Category: keyword match first, weight-based fallback if no match.
-    category = detect_category(text)
-    if category is None:
-        category = infer_category_from_weight(
-            parsed.get("weight_value"),
-            parsed.get("weight_unit"),
-        )
-    parsed["category"] = category
+    # Category detection is handled by CloudedLogic.detect_category()
+    # in the main pipeline.  parser.py only extracts prices, weights,
+    # brands, and cannabinoids.
+    parsed["category"] = None
 
     return parsed
