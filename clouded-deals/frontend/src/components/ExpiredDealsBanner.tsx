@@ -152,10 +152,14 @@ export function ExpiredDealsBanner({ expiredCount, onDismiss }: ExpiredDealsBann
           </div>
           <div>
             <h3 className="text-base font-semibold text-white">
-              {getGreeting()}, early bird!
+              {new Date().getHours() < 12
+                ? `${getGreeting()}, early bird!`
+                : `${getGreeting()}!`}
             </h3>
             <p className="text-xs text-slate-400">
-              You&apos;re here before the new deals
+              {new Date().getHours() < 12
+                ? "You're here before the new deals"
+                : "Today's deals aren't available right now"}
             </p>
           </div>
         </div>

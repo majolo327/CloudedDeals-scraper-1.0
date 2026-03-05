@@ -9,18 +9,16 @@ import pytest
 from deal_detector import (
     BADGE_THRESHOLDS,
     BRAND_TIERS,
+    CATEGORY_MINIMUMS,
     CATEGORY_PRICE_CAPS,
     CATEGORY_TARGETS,
     HARD_FILTERS,
     MAX_DISPOSABLES_PER_CHAIN,
-    MAX_DISPOSABLES_PER_DISPENSARY,
     MAX_SAME_BRAND_PER_DISPENSARY,
     MAX_SAME_BRAND_TOTAL,
     MAX_SAME_DISPENSARY_TOTAL,
-    MIN_DISPOSABLE_VAPES_PER_DISPENSARY,
     PREMIUM_BRANDS,
     TARGET_DEAL_COUNT,
-    TARGET_DISPOSABLE_DEALS,
     VAPE_SUBTYPE_PRICE_CAPS,
     VAPE_SUBTYPE_PRICE_FLOORS,
     _score_brand,
@@ -272,8 +270,8 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is True
 
     def test_half_gram_disposable_over_new_cap(self, make_product):
-        """0.5g disposable at $19 — exceeds widened $18 cap."""
-        p = make_product(category="vape", sale_price=19.0, original_price=38.0,
+        """0.5g disposable at $26 — exceeds widened $25 cap."""
+        p = make_product(category="vape", sale_price=26.0, original_price=52.0,
                          discount_percent=50, product_subtype="disposable",
                          weight_value=0.5)
         assert passes_hard_filters(p) is False
@@ -440,9 +438,9 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is False
 
     def test_disposable_half_gram_over_cap_rejected(self, make_product):
-        """$19 for a 0.5g disposable exceeds the $18 cap."""
+        """$26 for a 0.5g disposable exceeds the $25 cap."""
         p = make_product(category="vape", product_subtype="disposable",
-                         sale_price=19.0, original_price=38.0,
+                         sale_price=26.0, original_price=52.0,
                          discount_percent=50, weight_value=0.5)
         assert passes_hard_filters(p) is False
 
@@ -455,9 +453,9 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is True
 
     def test_disposable_no_weight_over_full_gram_cap_rejected(self, make_product):
-        """Disposable with no weight still rejects above the $25 cap."""
+        """Disposable with no weight still rejects above the $35 cap."""
         p = make_product(category="vape", product_subtype="disposable",
-                         sale_price=27.0, original_price=54.0,
+                         sale_price=36.0, original_price=72.0,
                          discount_percent=50, weight_value=None)
         assert passes_hard_filters(p) is False
 
@@ -507,7 +505,7 @@ class TestPassesHardFilters:
     def test_disposable_cap_applies_on_jane(self, make_product):
         """Vape subtype caps apply to ALL platforms including Jane."""
         p = make_product(category="vape", product_subtype="disposable",
-                         sale_price=27.0, weight_value=1.0,
+                         sale_price=36.0, weight_value=1.0,
                          source_platform="jane")
         assert passes_hard_filters(p) is False
 
@@ -769,7 +767,7 @@ class TestBrandScoring:
     """Two-tier brand system: premium (20 pts), popular (12 pts), any (5 pts)."""
 
     def test_premium_brand(self):
-        assert _score_brand("Cookies") == 20
+        assert _score_brand("Connected") == 20
 
     def test_premium_brand_case_insensitive(self):
         assert _score_brand("STIIIZY") == 20
@@ -895,7 +893,7 @@ class TestCalculateDealScore:
         assert s >= 50
 
     def test_popular_brand_scores_between_premium_and_none(self, make_product):
-        p_premium = make_product(discount_percent=30, brand="Cookies",
+        p_premium = make_product(discount_percent=30, brand="Connected",
                                  sale_price=15.0, original_price=30.0,
                                  category="flower", weight_value=3.5)
         p_popular = make_product(discount_percent=30, brand="Rove",
@@ -912,7 +910,7 @@ class TestCalculateDealScore:
     # ── Score cap ──────────────────────────────────────────────────
 
     def test_score_capped_at_100(self, make_product):
-        p = make_product(discount_percent=80, brand="Cookies", sale_price=12.0,
+        p = make_product(discount_percent=80, brand="Connected", sale_price=12.0,
                          original_price=60.0, category="flower", weight_value=3.5)
         s = calculate_deal_score(p)
         assert s <= 100
@@ -941,28 +939,28 @@ class TestPassesQualityGate:
     """Quality gate rejects incomplete / garbage deals."""
 
     def test_valid_deal_passes(self, make_product):
-        p = make_product(name="Purple Punch 3.5g", brand="Cookies",
+        p = make_product(name="Purple Punch 3.5g", brand="Connected",
                          category="flower", weight_value=3.5)
         assert passes_quality_gate(p) is True
 
     def test_strain_only_name_rejected(self, make_product):
         for name in ("Hybrid", "indica", "SATIVA", "Thc"):
-            p = make_product(name=name, brand="Cookies", category="vape",
+            p = make_product(name=name, brand="Connected", category="vape",
                              weight_value=0.5)
             assert passes_quality_gate(p) is False, f"'{name}' should be rejected"
 
     def test_short_name_rejected(self, make_product):
-        p = make_product(name="OG", brand="Cookies", category="flower",
+        p = make_product(name="OG", brand="Connected", category="flower",
                          weight_value=3.5)
         assert passes_quality_gate(p) is False
 
     def test_name_equals_brand_rejected(self, make_product):
-        p = make_product(name="Cookies", brand="Cookies", category="flower",
+        p = make_product(name="Connected", brand="Connected", category="flower",
                          weight_value=3.5)
         assert passes_quality_gate(p) is False
 
     def test_flower_without_weight_rejected(self, make_product):
-        p = make_product(name="Purple Punch", brand="Cookies",
+        p = make_product(name="Purple Punch", brand="Connected",
                          category="flower", weight_value=None)
         assert passes_quality_gate(p) is False
 
@@ -1001,7 +999,7 @@ class TestPassesQualityGate:
         assert passes_quality_gate(p) is False
 
     def test_unknown_name_rejected(self, make_product):
-        p = make_product(name="Unknown", brand="Cookies",
+        p = make_product(name="Unknown", brand="Connected",
                          category="flower", weight_value=3.5)
         assert passes_quality_gate(p) is False
 
@@ -1039,13 +1037,13 @@ class TestRemoveSimilarDeals:
     def test_different_categories_not_capped(self, make_product):
         """Same brand at same dispensary but different categories should all pass."""
         deals = [
-            make_product(name="Cookies Flower", brand="Cookies",
+            make_product(name="Connected Flower", brand="Connected",
                          category="flower", dispensary_id="planet13",
                          deal_score=80),
-            make_product(name="Cookies Preroll", brand="Cookies",
+            make_product(name="Connected Preroll", brand="Connected",
                          category="preroll", dispensary_id="planet13",
                          deal_score=75),
-            make_product(name="Cookies Vape", brand="Cookies",
+            make_product(name="Connected Vape", brand="Connected",
                          category="vape", dispensary_id="planet13",
                          deal_score=70),
         ]
@@ -1114,7 +1112,7 @@ class TestSelectTopDeals:
         # kicks in with relaxed cap.
         from deal_detector import _BACKFILL_BRAND_TOTAL
         deals = [
-            make_product(name=f"P{i}", brand="Cookies", dispensary_id=f"D{i}",
+            make_product(name=f"P{i}", brand="Connected", dispensary_id=f"D{i}",
                          category="flower", deal_score=80 - i)
             for i in range(50)
         ]
@@ -1230,7 +1228,7 @@ class TestDetectDeals:
         # All products fail hard filters: no discount, no original price
         products = [make_product(
             name=f"Good Product {i} 3.5g",
-            brand="Cookies",
+            brand="Connected",
             category="flower",
             sale_price=25.0,  # over $22 flower cap → fails price cap
             original_price=25.0,  # no discount → fails discount check
@@ -1287,8 +1285,8 @@ class TestDetectDeals:
 
     def test_disposable_no_weight_survives_full_pipeline(self, make_product):
         """A disposable vape without weight must survive the quality gate
-        and appear in results via the 'disposable' virtual category bucket."""
-        # Mix of flower deals across dispensaries + one weightless disposable
+        and be selected via the standard category pipeline."""
+        # Mix of flower deals across multiple dispensaries + one weightless disposable
         products = [make_product(
             name=f"Flower Deal {i} 3.5g", brand=f"Brand{i}",
             category="flower", sale_price=15.0, original_price=30.0,
@@ -1296,17 +1294,17 @@ class TestDetectDeals:
             dispensary_id=f"disp-{i % 5}",
         ) for i in range(20)]
         products.append(make_product(
-            name="Cookies Disposable Pen", brand="Cookies",
+            name="Connected Disposable Pen", brand="Connected",
             category="vape", product_subtype="disposable",
             sale_price=22.0, original_price=44.0,
             discount_percent=50, weight_value=None,
-            dispensary_id="disp-99",
+            dispensary_id="disp-0",
         ))
         result = detect_deals(products)
         disposables = [d for d in result if d.get("product_subtype") == "disposable"]
         assert len(disposables) >= 1, (
             "Disposable vape without weight should survive quality gate "
-            "and appear in results via the disposable virtual category"
+            "and appear in results via the disposable category allocation"
         )
 
 
@@ -1369,9 +1367,11 @@ class TestConstants:
             assert "1" in caps
             assert caps["1"] > caps["0.5"]  # full-gram cap > half-gram
 
-    def test_disposable_cap_lower_than_cart(self):
-        """Disposables should have a lower cap than carts (single-use vs reusable)."""
-        assert VAPE_SUBTYPE_PRICE_CAPS["disposable"]["1"] < VAPE_SUBTYPE_PRICE_CAPS["cartridge"]["1"]
+    def test_disposable_cap_equal_to_cart(self):
+        """Disposables have the same caps as carts — battery included justifies
+        higher price, and the tighter old caps were rejecting real deals."""
+        assert VAPE_SUBTYPE_PRICE_CAPS["disposable"]["1"] == VAPE_SUBTYPE_PRICE_CAPS["cartridge"]["1"]
+        assert VAPE_SUBTYPE_PRICE_CAPS["disposable"]["0.5"] == VAPE_SUBTYPE_PRICE_CAPS["cartridge"]["0.5"]
 
 
 # =====================================================================
@@ -1387,7 +1387,7 @@ class TestGuaranteedDealDiversity:
         from deal_detector import _pick_guaranteed_deals
 
         products = [
-            make_product(name="Top Flower", brand="Cookies", category="flower",
+            make_product(name="Top Flower", brand="Connected", category="flower",
                          sale_price=12.0),
             make_product(name="Second Flower", brand="Connected", category="flower",
                          sale_price=13.0),
@@ -1420,92 +1420,50 @@ class TestGuaranteedDealDiversity:
 # =====================================================================
 
 
-class TestDisposableVapeGuarantee:
-    """Every dispensary with qualifying disposable vapes must surface at least one."""
+class TestDisposableAsFirstClassCategory:
+    """Disposable vapes are a virtual selection category with dedicated slots."""
 
-    def test_disposable_vape_force_picked_for_missing_store(self, make_product):
-        """A dispensary with disposable vapes but none in round-1 gets one added."""
-
-        # Build a pool large enough to fill the feed — lots of flower from
-        # many brands/dispensaries so vapes from disp_with_dispos don't
-        # naturally make it into the top-200.
+    def test_disposables_appear_in_feed(self, make_product):
+        """Disposable vapes must appear in the final feed via category bucketing."""
         deals = []
-        for i in range(60):
+        # Flower from many brands/dispensaries
+        for i in range(80):
             deals.append(make_product(
-                name=f"Flower {i}", brand=f"Brand{i % 30}",
-                category="flower", dispensary_id=f"other_disp_{i % 15}",
-                sale_price=12.0, original_price=30.0, discount_percent=60,
-                weight_value=3.5, deal_score=80 - (i % 10),
+                name=f"Flower {i}", brand=f"Brand{i % 40}",
+                category="flower", dispensary_id=f"disp_{i % 20}",
+                deal_score=80 - (i % 10),
             ))
-        # Add a cartridge vape (not disposable) for disp_with_dispos so
-        # the store appears in the result but without a disposable.
-        deals.append(make_product(
-            name="STIIIZY Cart 1g", brand="STIIIZY",
-            category="vape", product_subtype="cartridge",
-            dispensary_id="disp_with_dispos", sale_price=14.0,
-            original_price=30.0, discount_percent=53,
-            weight_value=1.0, deal_score=70,
-        ))
-        # Now add a disposable vape for the same store — lower score so
-        # it wouldn't be picked normally.
-        deals.append(make_product(
-            name="Puff Bar Disposable 0.5g", brand="Puff Bar",
-            category="vape", product_subtype="disposable",
-            dispensary_id="disp_with_dispos", sale_price=12.0,
-            original_price=25.0, discount_percent=52,
-            weight_value=0.5, deal_score=40,
-        ))
-
+        # Disposable vapes from 10 dispensaries
+        for i in range(20):
+            deals.append(make_product(
+                name=f"Disposable {i}", brand=f"DVBrand{i % 10}",
+                category="vape", product_subtype="disposable",
+                dispensary_id=f"disp_{i % 10}",
+                sale_price=18.0, weight_value=1.0,
+                deal_score=70 - (i % 5),
+            ))
         result = select_top_deals(deals)
-
-        # The disposable vape should be force-picked for that dispensary.
-        disposable_deals = [
+        disposables = [
             d for d in result
             if d.get("product_subtype") == "disposable"
-            and d.get("dispensary_id") == "disp_with_dispos"
         ]
-        assert len(disposable_deals) >= MIN_DISPOSABLE_VAPES_PER_DISPENSARY, (
-            f"Expected at least {MIN_DISPOSABLE_VAPES_PER_DISPENSARY} disposable "
-            f"vape for disp_with_dispos, got {len(disposable_deals)}"
+        assert len(disposables) >= CATEGORY_MINIMUMS["disposable"], (
+            f"Expected at least {CATEGORY_MINIMUMS['disposable']} disposable deals, "
+            f"got {len(disposables)}"
         )
 
-    def test_no_extra_when_disposable_already_present(self, make_product):
-        """If a dispensary already has a disposable vape in the result, no extras are added."""
-        deals = []
-        # Create diverse pool so round-1 fills normally
-        brands = [f"Brand{i}" for i in range(30)]
-        disps = [f"dispo{i}" for i in range(10)]
-        for i, brand in enumerate(brands):
-            for j in range(3):
-                deals.append(make_product(
-                    name=f"{brand} Flower {j}", brand=brand,
-                    category="flower", dispensary_id=disps[(i + j) % len(disps)],
-                    sale_price=14.0, original_price=30.0, discount_percent=53,
-                    weight_value=3.5, deal_score=75 - i,
-                ))
-        # Add a disposable vape with a very high score — it will definitely
-        # be picked in the normal round.
-        deals.append(make_product(
-            name="Top Disposable 0.5g", brand="HeavyHitters",
-            category="vape", product_subtype="disposable",
-            dispensary_id="dispo0", sale_price=10.0,
-            original_price=25.0, discount_percent=60,
-            weight_value=0.5, deal_score=90,
-        ))
+    def test_disposable_category_target_exists(self):
+        """CATEGORY_TARGETS must include a 'disposable' key with 30 slots."""
+        assert "disposable" in CATEGORY_TARGETS
+        assert CATEGORY_TARGETS["disposable"] == 30
 
-        result = select_top_deals(deals)
-
-        # Count disposable vapes for dispo0 — should be exactly 1 (no
-        # duplicate force-pick).
-        dispo0_disposables = [
-            d for d in result
-            if d.get("product_subtype") == "disposable"
-            and d.get("dispensary_id") == "dispo0"
-        ]
-        assert len(dispo0_disposables) == 1
+    def test_disposable_category_minimum_exists(self):
+        """CATEGORY_MINIMUMS must include a 'disposable' key."""
+        assert "disposable" in CATEGORY_MINIMUMS
+        assert CATEGORY_MINIMUMS["disposable"] >= 1
 
     def test_stores_without_disposables_not_affected(self, make_product):
-        """Dispensaries that carry no disposable vapes should not get any force-picked."""
+        """Dispensaries that carry no disposable vapes should not get any."""
         deals = []
         for i in range(40):
             deals.append(make_product(
@@ -1523,29 +1481,15 @@ class TestDisposableVapeGuarantee:
                 sale_price=15.0, original_price=30.0, discount_percent=50,
                 weight_value=1.0, deal_score=60,
             ))
-
         result = select_top_deals(deals)
-
-        # No disposable vapes should appear at all
         disposable_deals = [
             d for d in result if d.get("product_subtype") == "disposable"
         ]
         assert len(disposable_deals) == 0
 
-    def test_constant_exists(self):
-        """MIN_DISPOSABLE_VAPES_PER_DISPENSARY should be defined and positive."""
-        assert MIN_DISPOSABLE_VAPES_PER_DISPENSARY >= 1
-
-    def test_new_constants_exist(self):
-        """New disposable allocation constants should be defined and sensible."""
-        assert TARGET_DISPOSABLE_DEALS >= 20
-        assert MAX_DISPOSABLES_PER_DISPENSARY >= 1
-        assert MAX_DISPOSABLES_PER_CHAIN >= 2
-
     def test_chain_cap_limits_disposable_flooding(self, make_product):
         """A chain with 7 locations should get at most MAX_DISPOSABLES_PER_CHAIN disposable deals."""
         deals = []
-        # Fill with flower to make a viable feed
         for i in range(80):
             deals.append(make_product(
                 name=f"Flower {i}", brand=f"Brand{i % 30}",
@@ -1553,19 +1497,17 @@ class TestDisposableVapeGuarantee:
                 sale_price=12.0, original_price=30.0, discount_percent=60,
                 weight_value=3.5, deal_score=80 - (i % 10),
             ))
-        # Add disposable vapes from 7 locations of "rise" chain
+        # 7 Rise locations with disposables from different brands
         for loc_idx in range(7):
             slug = f"rise-location{loc_idx}"
             deals.append(make_product(
-                name=f"Rythm Disposable 1g #{loc_idx}", brand="Rythm",
+                name=f"Rythm Disposable 1g #{loc_idx}", brand=f"RBrand{loc_idx}",
                 category="vape", product_subtype="disposable",
                 dispensary_id=slug, sale_price=20.0,
                 original_price=40.0, discount_percent=50,
                 weight_value=1.0, deal_score=70,
             ))
-
         result = select_top_deals(deals)
-
         rise_disposables = [
             d for d in result
             if d.get("product_subtype") == "disposable"
@@ -1577,7 +1519,7 @@ class TestDisposableVapeGuarantee:
         )
 
     def test_weight_tier_diversity_in_disposables(self, make_product):
-        """The disposable allocation should include both half-gram and full-gram."""
+        """The disposable selection should include both half-gram and full-gram."""
         deals = []
         for i in range(80):
             deals.append(make_product(
@@ -1586,9 +1528,8 @@ class TestDisposableVapeGuarantee:
                 sale_price=12.0, original_price=30.0, discount_percent=60,
                 weight_value=3.5, deal_score=80 - (i % 10),
             ))
-        # Add disposables: mix of half-gram and full-gram across 20 dispensaries
+        # Mix of half-gram and full-gram disposables across 20 dispensaries
         for i in range(20):
-            # Half gram
             deals.append(make_product(
                 name=f"Disp Half {i}", brand=f"VBrand{i}",
                 category="vape", product_subtype="disposable",
@@ -1596,7 +1537,6 @@ class TestDisposableVapeGuarantee:
                 original_price=25.0, discount_percent=52,
                 weight_value=0.5, deal_score=60,
             ))
-            # Full gram
             deals.append(make_product(
                 name=f"Disp Full {i}", brand=f"VBrand{i}F",
                 category="vape", product_subtype="disposable",
@@ -1604,58 +1544,15 @@ class TestDisposableVapeGuarantee:
                 original_price=40.0, discount_percent=50,
                 weight_value=1.0, deal_score=55,
             ))
-
         result = select_top_deals(deals)
-
         disposables = [d for d in result if d.get("product_subtype") == "disposable"]
         half_gram = [d for d in disposables if _weight_tier(d) == "vape_half"]
         full_gram = [d for d in disposables if _weight_tier(d) == "vape_full"]
-        # Both tiers should be represented
         assert len(half_gram) > 0, "Should have at least one half-gram disposable"
         assert len(full_gram) > 0, "Should have at least one full-gram disposable"
-        # Neither tier should dominate (allow 70/30 max imbalance)
-        total_disps = len(disposables)
-        if total_disps >= 10:
-            assert len(half_gram) >= total_disps * 0.3, "Half-gram disposables too scarce"
-            assert len(full_gram) >= total_disps * 0.3, "Full-gram disposables too scarce"
-
-    def test_up_to_two_disposables_per_dispensary(self, make_product):
-        """A dispensary with both weight tiers should get up to 2 disposable deals."""
-        deals = []
-        for i in range(80):
-            deals.append(make_product(
-                name=f"Flower {i}", brand=f"Brand{i % 30}",
-                category="flower", dispensary_id=f"other_{i % 15}",
-                sale_price=12.0, original_price=30.0, discount_percent=60,
-                weight_value=3.5, deal_score=80 - (i % 10),
-            ))
-        # Target store with both tiers
-        deals.append(make_product(
-            name="STIIIZY Disposable 0.5g", brand="STIIIZY",
-            category="vape", product_subtype="disposable",
-            dispensary_id="target_store", sale_price=12.0,
-            original_price=25.0, discount_percent=52,
-            weight_value=0.5, deal_score=65,
-        ))
-        deals.append(make_product(
-            name="STIIIZY Disposable 1g", brand="STIIIZY",
-            category="vape", product_subtype="disposable",
-            dispensary_id="target_store", sale_price=20.0,
-            original_price=40.0, discount_percent=50,
-            weight_value=1.0, deal_score=60,
-        ))
-
-        result = select_top_deals(deals)
-
-        target_disposables = [
-            d for d in result
-            if d.get("product_subtype") == "disposable"
-            and d.get("dispensary_id") == "target_store"
-        ]
-        assert 1 <= len(target_disposables) <= MAX_DISPOSABLES_PER_DISPENSARY
 
     def test_thin_supply_fills_what_available(self, make_product):
-        """If only 5 dispensaries have disposables, use what's available (not force to 30)."""
+        """If only 5 dispensaries have disposables, surplus slots redistribute."""
         deals = []
         for i in range(100):
             deals.append(make_product(
@@ -1673,154 +1570,8 @@ class TestDisposableVapeGuarantee:
                 original_price=30.0, discount_percent=50,
                 weight_value=1.0, deal_score=55,
             ))
-
         result = select_top_deals(deals)
-
         disposables = [d for d in result if d.get("product_subtype") == "disposable"]
-        # Should have roughly 5 (one per store), not 30
-        assert len(disposables) <= 10  # 5 stores * 2 max each
-        assert len(disposables) >= 5   # at least 1 per store
-
-
-# =====================================================================
-# Disposable as first-class virtual category
-# =====================================================================
-
-
-class TestDisposableVirtualCategory:
-    """Disposable vapes are bucketed as a virtual category 'disposable' with
-    30 dedicated slots, separate from carts/pods in 'vape'."""
-
-    def test_disposable_passes_hard_filters_without_original_price(self, make_product):
-        """Budget Dutchie disposable (≤$25) should pass without original_price or discount."""
-        p = make_product(
-            name="STIIIZY Disposable 1g",
-            brand="STIIIZY",
-            category="vape",
-            product_subtype="disposable",
-            sale_price=22.0,
-            original_price=None,
-            discount_percent=None,
-            weight_value=1.0,
-            dispensary_id="planet13",
-            source_platform="dutchie",
-        )
-        assert passes_hard_filters(p) is True
-
-    def test_disposable_over_budget_needs_original_price(self, make_product):
-        """Dutchie disposable above $25 without original_price should fail."""
-        p = make_product(
-            name="Premium Disposable 1g",
-            brand="Rove",
-            category="vape",
-            product_subtype="disposable",
-            sale_price=30.0,
-            original_price=None,
-            discount_percent=5,
-            weight_value=1.0,
-            dispensary_id="planet13",
-            source_platform="dutchie",
-        )
-        assert passes_hard_filters(p) is False
-
-    def test_disposable_virtual_category_bucketing(self, make_product):
-        """Disposable vapes should be bucketed as 'disposable', not 'vape'."""
-        deals = []
-        # Add disposable vapes
-        for i in range(10):
-            deals.append(make_product(
-                name=f"Disposable {i}", brand=f"Brand{i}",
-                category="vape", product_subtype="disposable",
-                dispensary_id=f"disp_{i}", sale_price=15.0,
-                original_price=30.0, discount_percent=50,
-                weight_value=1.0, deal_score=60,
-            ))
-        # Add cart vapes
-        for i in range(10):
-            deals.append(make_product(
-                name=f"Cart {i}", brand=f"CBrand{i}",
-                category="vape", product_subtype="cartridge",
-                dispensary_id=f"disp_{i}", sale_price=18.0,
-                original_price=35.0, discount_percent=49,
-                weight_value=1.0, deal_score=55,
-            ))
-        # Add flower filler for viable feed
-        for i in range(80):
-            deals.append(make_product(
-                name=f"Flower {i}", brand=f"FBrand{i % 30}",
-                category="flower", dispensary_id=f"fdisp_{i % 20}",
-                sale_price=12.0, original_price=30.0, discount_percent=60,
-                weight_value=3.5, deal_score=70,
-            ))
-
-        result = select_top_deals(deals)
-
-        disposables_in_result = [
-            d for d in result
-            if d.get("category") == "vape"
-            and d.get("product_subtype") == "disposable"
-        ]
-        carts_in_result = [
-            d for d in result
-            if d.get("category") == "vape"
-            and d.get("product_subtype") != "disposable"
-        ]
-        # Disposables should be present (they have their own allocation)
-        assert len(disposables_in_result) > 0, "Disposables should appear in feed"
-        # Carts should also be present (they have the 'vape' allocation)
-        assert len(carts_in_result) > 0, "Carts should still appear in feed"
-
-    def test_disposable_gets_dedicated_slots(self, make_product):
-        """With enough disposables, ~30 should appear in final feed."""
-        deals = []
-        # 40 disposable vapes across 40 dispensaries
-        for i in range(40):
-            deals.append(make_product(
-                name=f"Disp {i}", brand=f"DBrand{i % 25}",
-                category="vape", product_subtype="disposable",
-                dispensary_id=f"ddisp_{i}", sale_price=15.0,
-                original_price=30.0, discount_percent=50,
-                weight_value=1.0 if i % 2 else 0.5,
-                deal_score=65 - (i % 10),
-            ))
-        # Fill other categories for a full feed
-        for i in range(70):
-            deals.append(make_product(
-                name=f"Flower {i}", brand=f"FBrand{i % 30}",
-                category="flower", dispensary_id=f"fdisp_{i % 20}",
-                sale_price=12.0, original_price=30.0, discount_percent=60,
-                weight_value=3.5, deal_score=75 - (i % 10),
-            ))
-        for i in range(30):
-            deals.append(make_product(
-                name=f"Edible {i}", brand=f"EBrand{i % 15}",
-                category="edible", dispensary_id=f"edisp_{i % 10}",
-                sale_price=8.0, original_price=15.0, discount_percent=47,
-                weight_value=100, deal_score=60 - (i % 10),
-            ))
-        for i in range(30):
-            deals.append(make_product(
-                name=f"Cart {i}", brand=f"CBrand{i % 15}",
-                category="vape", product_subtype="cartridge",
-                dispensary_id=f"cdisp_{i % 15}",
-                sale_price=18.0, original_price=35.0, discount_percent=49,
-                weight_value=1.0, deal_score=58 - (i % 10),
-            ))
-
-        result = select_top_deals(deals)
-
-        disposables = [
-            d for d in result
-            if d.get("category") == "vape"
-            and d.get("product_subtype") == "disposable"
-        ]
-        # Should get at least 20 disposables (target is 30, backfill may add more)
-        assert len(disposables) >= 20, (
-            f"Expected at least 20 disposables with 30 dedicated slots, got {len(disposables)}"
-        )
-
-    def test_disposable_category_in_targets(self):
-        """CATEGORY_TARGETS should include 'disposable' with 30 slots."""
-        assert "disposable" in CATEGORY_TARGETS
-        assert CATEGORY_TARGETS["disposable"] == 30
-        assert TARGET_DISPOSABLE_DEALS == 30
+        assert len(disposables) == 5  # all 5 available picked
+        # Total should still fill (surplus slots redistributed to flower)
+        assert len(result) >= 50

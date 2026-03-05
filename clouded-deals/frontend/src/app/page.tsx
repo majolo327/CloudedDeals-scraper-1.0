@@ -7,13 +7,27 @@ import { fetchDeals, fetchExpiredDeals, fetchDispensaries } from '@/lib/api';
 import type { BrowseDispensary, FetchDealsResult, FetchDispensariesResult } from '@/lib/api';
 import type { Deal } from '@/types';
 import { AgeGate, Footer } from '@/components/layout';
+import dynamic from 'next/dynamic';
 import { DealsPage } from '@/components/DealsPage';
-import { SearchPage } from '@/components/SearchPage';
-import { BrowsePage } from '@/components/BrowsePage';
-import { SavedPage } from '@/components/SavedPage';
-import { AboutPage } from '@/components/AboutPage';
-import { TermsPage } from '@/components/TermsPage';
-import { PrivacyPage } from '@/components/PrivacyPage';
+
+// Tab loading skeleton — shown while lazy tabs hydrate
+function TabSkeleton() {
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+        {Array.from({ length: 6 }).map((_, i) => <DealCardSkeleton key={i} />)}
+      </div>
+    </div>
+  );
+}
+
+// Lazy-load secondary tabs — defers JS until user switches tab
+const SearchPage = dynamic(() => import('@/components/SearchPage').then(m => ({ default: m.SearchPage })), { ssr: false, loading: TabSkeleton });
+const BrowsePage = dynamic(() => import('@/components/BrowsePage').then(m => ({ default: m.BrowsePage })), { ssr: false, loading: TabSkeleton });
+const SavedPage = dynamic(() => import('@/components/SavedPage').then(m => ({ default: m.SavedPage })), { ssr: false, loading: TabSkeleton });
+const AboutPage = dynamic(() => import('@/components/AboutPage').then(m => ({ default: m.AboutPage })), { ssr: false });
+const TermsPage = dynamic(() => import('@/components/TermsPage').then(m => ({ default: m.TermsPage })), { ssr: false });
+const PrivacyPage = dynamic(() => import('@/components/PrivacyPage').then(m => ({ default: m.PrivacyPage })), { ssr: false });
 import { SmsWaitlist } from '@/components/SmsWaitlist';
 import { FeedbackWidget } from '@/components/FeedbackWidget';
 import { LocationSelector } from '@/components/LocationSelector';
@@ -28,7 +42,8 @@ import { FTUEFlow, isFTUECompleted } from '@/components/ftue';
 import type { UserCoords } from '@/components/ftue';
 import { CookieConsent } from '@/components/CookieConsent';
 import { createShareLink } from '@/lib/share';
-import { formatUpdateTime, isDealsFromYesterday } from '@/utils';
+import { isDealsFromYesterday } from '@/utils';
+import { hapticLight, hapticMedium } from '@/lib/haptics';
 
 type AppPage = 'home' | 'search' | 'browse' | 'saved' | 'about' | 'terms' | 'privacy';
 
@@ -53,6 +68,19 @@ export default function Home() {
   const { savedDeals, usedDeals, toggleSavedDeal, removeSavedDeals, markDealUsed, isDealUsed, savedCount } =
     useSavedDeals();
   const dealHistory = useDealHistory();
+
+  // Save counter pulse — brief animation when savedCount increases
+  const [savePulse, setSavePulse] = useState(false);
+  const prevSavedRef = useRef(savedCount);
+  useEffect(() => {
+    if (savedCount > prevSavedRef.current) {
+      setSavePulse(true);
+      const t = setTimeout(() => setSavePulse(false), 300);
+      prevSavedRef.current = savedCount;
+      return () => clearTimeout(t);
+    }
+    prevSavedRef.current = savedCount;
+  }, [savedCount]);
 
   // Age verification & anonymous tracking
   useEffect(() => {
@@ -110,7 +138,17 @@ export default function Home() {
     }
   }, [addToast]);
 
-  // Track page views when navigating between tabs
+  // Scroll-to-top + page view tracking on tab switch
+  const handleTabChange = useCallback((tab: AppPage) => {
+    if (tab === activePage) {
+      // Re-tap same tab → smooth scroll to top (iOS convention)
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    setActivePage(tab);
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  }, [activePage]);
+
   const prevPageRef = useRef(activePage);
   useEffect(() => {
     if (isAgeVerified && activePage !== prevPageRef.current) {
@@ -131,6 +169,16 @@ export default function Home() {
     window.addEventListener('navigate', handleNav);
     return () => window.removeEventListener('navigate', handleNav);
   }, []);
+
+  // Global toast event bus — lets deep components trigger toasts without prop drilling
+  useEffect(() => {
+    function handleToast(e: Event) {
+      const { message, type } = (e as CustomEvent).detail;
+      addToast(message, type);
+    }
+    window.addEventListener('clouded:toast', handleToast);
+    return () => window.removeEventListener('clouded:toast', handleToast);
+  }, [addToast]);
 
   // Track referral clicks from share links
   useEffect(() => {
@@ -176,8 +224,15 @@ export default function Home() {
 
   // Fetch deals, expired deals, and dispensaries in parallel.
   // Expired deals always load so they can be shown in a "Past Deals" section.
+  // Auto-retries up to 2 times when deals are stale (from cache or yesterday).
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 2;
+  const RETRY_DELAY_MS = 5000;
+
   useEffect(() => {
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
     async function load() {
       const fetches: [Promise<FetchDealsResult>, Promise<FetchDispensariesResult>] = [
         fetchDeals(),
@@ -186,8 +241,31 @@ export default function Home() {
       const [dealsResult, dispResult] = await Promise.all(fetches);
       if (cancelled) return;
       setDeals(dealsResult.deals);
-      setError(dealsResult.error);
+      // Reset expired state — it will be set back to true below if still needed.
+      // Without this, a retry that loads fresh deals would leave isShowingExpired
+      // stuck on true from a prior load that found 0 active deals.
+      setIsShowingExpired(false);
+      // Only surface the error to the UI when we have NO deals at all.
+      // When cached deals are available, suppress the error banner and
+      // let the auto-retry silently refresh in the background.
+      setError(dealsResult.deals.length === 0 ? dealsResult.error : null);
       setBrowseDispensaries(dispResult.dispensaries);
+
+      // Auto-retry when deals came from localStorage cache or are from yesterday.
+      // Clears stale cache before retrying so the next attempt hits Supabase directly.
+      const shouldRetry =
+        retryCountRef.current < MAX_RETRIES &&
+        dealsResult.deals.length > 0 &&
+        (dealsResult.fromCache || isDealsFromYesterday(dealsResult.deals));
+
+      if (shouldRetry) {
+        retryTimer = setTimeout(() => {
+          if (cancelled) return;
+          retryCountRef.current++;
+          try { localStorage.removeItem('clouded_deals_cache'); } catch { /* ignore */ }
+          load();
+        }, RETRY_DELAY_MS);
+      }
 
       // Always fetch expired deals — shown as "Past Deals" section below active deals,
       // or as the main feed when no active deals exist (early morning fallback).
@@ -199,8 +277,11 @@ export default function Home() {
           const activeIds = new Set(dealsResult.deals.map(d => d.id));
           const uniqueExpired = expiredResult.deals.filter(d => !activeIds.has(d.id));
           setExpiredDeals(uniqueExpired);
-          // Only flag as "showing expired" when there are NO active deals
-          if (dealsResult.deals.length === 0) {
+          // Only flag as "showing expired" when there are NO active deals AND
+          // the fetch itself didn't error. If fetchDeals errored (timeout, network),
+          // we want the error UI with a retry button — not a misleading "yesterday's
+          // deals" fallback that hides a transient failure.
+          if (dealsResult.deals.length === 0 && !dealsResult.error) {
             setIsShowingExpired(true);
           }
         }
@@ -211,6 +292,7 @@ export default function Home() {
     load();
     return () => {
       cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
     };
   }, []);
 
@@ -256,9 +338,7 @@ export default function Home() {
       toggleSavedDeal(dealId);
 
       // Haptic feedback on mobile
-      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        navigator.vibrate(wasSaved ? 10 : 30);
-      }
+      if (wasSaved) hapticLight(); else hapticMedium();
 
       if (!wasSaved) {
         const deal = deals.find((d) => d.id === dealId);
@@ -271,6 +351,16 @@ export default function Home() {
     },
     [savedDeals, toggleSavedDeal, deals, dealHistory]
   );
+
+  // Pull-to-refresh handler — clears cache and re-fetches deals
+  const handleRefresh = useCallback(async () => {
+    try {
+      localStorage.removeItem('clouded_deals_cache');
+    } catch { /* ignore */ }
+    const result = await fetchDeals();
+    setDeals(result.deals);
+    setError(result.error);
+  }, []);
 
   // Share saves handler — used by swipe overlay's "Share today's favorites" CTA
   const handleShareSaves = useCallback(async () => {
@@ -344,9 +434,9 @@ export default function Home() {
 
       {/* Header */}
       <header className="sticky top-0 z-50 header-border-glow" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderBottom: '1px solid rgba(120, 100, 200, 0.08)', WebkitBackdropFilter: 'blur(40px) saturate(1.3)', backdropFilter: 'blur(40px) saturate(1.3)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
-        <div className="max-w-6xl mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 h-12 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={() => setActivePage('home')} className="focus:outline-none" aria-label="Go to deals home">
+            <button onClick={() => handleTabChange('home')} className="focus:outline-none" aria-label="Go to deals home">
               <h1 className="text-lg sm:text-xl font-bold tracking-tight flex items-center gap-1.5">
                 Clouded<span className="text-purple-400">Deals</span>
                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/20 leading-none tracking-wide">
@@ -365,7 +455,7 @@ export default function Home() {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActivePage(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`px-3 py-2 text-sm font-medium transition-colors rounded-lg ${
                   activePage === tab.id
                     ? 'text-white'
@@ -376,7 +466,7 @@ export default function Home() {
               </button>
             ))}
             <button
-              onClick={() => setActivePage('search')}
+              onClick={() => handleTabChange('search')}
               className={`p-2.5 rounded-lg transition-colors ${
                 activePage === 'search' ? 'text-white' : 'text-slate-400 hover:text-white'
               }`}
@@ -385,7 +475,7 @@ export default function Home() {
               <Search className="w-5 h-5" />
             </button>
             <button
-              onClick={() => setActivePage('saved')}
+              onClick={() => handleTabChange('saved')}
               className={`relative p-2.5 rounded-lg transition-colors ${
                 activePage === 'saved' || highlightSaved ? 'text-purple-400' : 'text-slate-400 hover:text-white'
               }`}
@@ -393,19 +483,26 @@ export default function Home() {
             >
               <Heart className={`w-5 h-5 ${savedCount > 0 ? 'fill-current' : ''}`} />
               {savedCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full bg-purple-500 text-[10px] font-bold text-white">
+                <span className={`absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full bg-purple-500 text-[10px] font-bold text-white ${savePulse ? 'animate-heart-pulse' : ''}`}>
                   {savedCount > 9 ? '9+' : savedCount}
                 </span>
               )}
             </button>
           </div>
 
-          {/* Mobile: deal count + last update time */}
-          <div className="sm:hidden flex items-center gap-2 text-xs text-slate-500 min-w-0">
-            <span className="truncate">{todaysDeals.length} {isShowingExpired || isDealsFromYesterday(todaysDeals) ? "yesterday's" : ''} deals</span>
+          {/* Mobile: status dot + deal count */}
+          <div className="sm:hidden flex items-center gap-1.5 text-xs text-slate-400 min-w-0">
             {todaysDeals.length > 0 && (
-              <span className={isDealsFromYesterday(todaysDeals) ? 'text-amber-400/60' : 'text-slate-600'}>{formatUpdateTime(todaysDeals)}</span>
+              <span className={isDealsFromYesterday(todaysDeals) ? 'text-purple-400/60' : 'text-slate-600'}>
+                {isDealsFromYesterday(todaysDeals) ? 'Refreshing...' : formatUpdateTime(todaysDeals)}
+              </span>
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                isDealsFromYesterday(todaysDeals)
+                  ? 'bg-amber-400/60'
+                  : 'bg-emerald-500/60 animate-pulse'
+              }`} />
             )}
+            <span className="truncate">{todaysDeals.length} deals</span>
           </div>
         </div>
       </header>
@@ -418,7 +515,7 @@ export default function Home() {
             <>
               {/* Category bar skeleton */}
               <div className="sticky z-40 border-b safe-top-sticky" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderColor: 'rgba(120, 100, 200, 0.06)' }}>
-                <div className="max-w-6xl mx-auto px-4 h-11 flex items-center gap-2">
+                <div className="max-w-6xl mx-auto px-4 h-10 flex items-center gap-2">
                   {Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="h-6 rounded-full animate-pulse" style={{ width: `${40 + i * 5}px`, background: 'rgba(45,50,80,0.3)' }} />
                   ))}
@@ -433,7 +530,7 @@ export default function Home() {
                 </div>
               </div>
             </>
-          ) : error && !isShowingExpired ? (
+          ) : error && deals.length === 0 && !isShowingExpired ? (
             <div className="flex flex-col items-center justify-center py-20 text-center max-w-6xl mx-auto px-4">
               <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mb-4">
                 <AlertCircle className="w-8 h-8 text-red-400" />
@@ -473,6 +570,7 @@ export default function Home() {
               onShareSaves={handleShareSaves}
               swipeOpen={swipeOpen}
               onSwipeOpenChange={setSwipeOpen}
+              onRefresh={handleRefresh}
             />
           )
         )}
@@ -594,7 +692,7 @@ export default function Home() {
               role="tab"
               aria-selected={activePage === tab.id}
               aria-label={tab.label}
-              onClick={() => setActivePage(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className={`flex flex-col items-center gap-0.5 px-3 py-2 min-w-[56px] min-h-[48px] text-[11px] font-medium transition-all duration-200 ${
                 activePage === tab.id
                   ? 'text-purple-400 nav-glow-active scale-105'

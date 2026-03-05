@@ -369,9 +369,13 @@ _RE_BUNDLE_QTY = re.compile(
 # Strain type anywhere in name (not just trailing)
 _RE_STRAIN_TYPE = re.compile(r"\b(?:Indica|Sativa|Hybrid)\b", re.IGNORECASE)
 
-# Redundant vape category words in display name
+# Redundant vape category words in display name.
+# NOTE: "Disposable" is intentionally excluded — it's the primary signal for
+# disposable subtype classification in product_classifier.py.  Stripping it
+# here destroyed the keyword before classify_product() could see it, causing
+# disposable vapes to fall into the generic "vape" bucket (2/30 target).
 _RE_VAPE_WORDS = re.compile(
-    r"\b(?:Cartridges?|Carts?|Distillate|Disposable|Pod|Vape)\b",
+    r"\b(?:Cartridges?|Carts?|Distillate|Pod|Vape)\b",
     re.IGNORECASE,
 )
 
@@ -1121,8 +1125,8 @@ def _expire_stale_deal_history(group_slugs: list[str] | None = None) -> None:
 
 
 _SITE_TIMEOUT_SEC = 480  # 8 min — Dutchie cascade (90s smart-wait + 105s detection + 30s card-wait + extraction) needs room.
-_SITE_TIMEOUT_SEC_EXPANSION = 600  # 10 min for expansion states — category tab iteration + deeper pagination needs more time.
-_RETRY_TIMEOUT_SEC = 300  # 5 min for retries — enough for a full detection pass on slow sites.
+_SITE_TIMEOUT_SEC_EXPANSION = 480  # 8 min for expansion states (was 600s/10min — reduced to match NV; most sites finish in 2-4 min)
+_RETRY_TIMEOUT_SEC = 240  # 4 min for retries (was 300s — enough for warm retry with primed caches)
 _MAX_RETRIES = 2  # 2 attempts total — saves ~5 min per broken site vs 3
 _RETRY_DELAYS = [5, 15]  # Backoff between retries
 
@@ -1459,6 +1463,28 @@ async def _scrape_site_inner(
             category = classification["corrected_category"]
             effective_cat = category
 
+        # Disposable subtype fallback: if the product is "vape" but no subtype
+        # was detected from the cleaned display_name, check the original
+        # raw_name and raw_text for disposable signals.  This catches products
+        # listed under "Disposable" tabs whose cleaned names are generic
+        # (e.g. "Brand Strain 0.5g" from a Dutchie "Disposable" category).
+        if (
+            effective_cat == "vape"
+            and classification["product_subtype"] is None
+        ):
+            _raw_check = f"{raw_name} {raw_text}".lower()
+            if re.search(
+                r"\b(?:disposable|all[- ]?in[- ]?one|aio|rtu|"
+                r"ready[- ]?to[- ]?use|draw[- ]?activated|"
+                r"built[- ]?in[- ]?battery)\b",
+                _raw_check,
+            ):
+                classification["product_subtype"] = "disposable"
+            elif re.search(r"\bcartridges?\b|\bcarts?\b|\b510\b", _raw_check):
+                classification["product_subtype"] = "cartridge"
+            elif re.search(r"\bpods?\b", _raw_check):
+                classification["product_subtype"] = "pod"
+
         # Map CloudedLogic output to the DB schema expected by _upsert_products
         enriched: dict[str, Any] = {
             **rp,
@@ -1667,13 +1693,24 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
         return active
 
     # Fetch active slugs from Supabase so the admin can disable sites.
-    result = (
-        db.table("dispensaries")
-        .select("id")
-        .eq("is_active", True)
-        .execute()
-    )
-    active_slugs = {row["id"] for row in result.data}
+    # NOTE: Supabase returns max 1000 rows by default.  We have ~2,100
+    # dispensaries, so we must paginate to avoid silently dropping sites.
+    active_slugs: set[str] = set()
+    page_size = 1000
+    offset = 0
+    while True:
+        result = (
+            db.table("dispensaries")
+            .select("id")
+            .eq("is_active", True)
+            .range(offset, offset + page_size - 1)
+            .execute()
+        )
+        for row in result.data:
+            active_slugs.add(row["id"])
+        if len(result.data) < page_size:
+            break
+        offset += page_size
 
     # If the DB has no dispensary rows yet, fall back to the config list.
     if not active_slugs:
@@ -1828,10 +1865,11 @@ async def run(slug_filter: str | None = None) -> None:
         # (e.g. 111 Michigan sites on dutchie.com), insert a randomized
         # delay between requests to avoid triggering WAF / bot detection.
         # Each domain gets its own asyncio.Lock so only one request at a
-        # time negotiates the cooldown.  Range 3-7s mimics human browsing
-        # cadence and prevents predictable request patterns.
-        _DOMAIN_MIN_INTERVAL = float(os.getenv("DOMAIN_MIN_INTERVAL", "3.0"))
-        _DOMAIN_MAX_JITTER = float(os.getenv("DOMAIN_MAX_JITTER", "4.0"))
+        # time negotiates the cooldown.  Reduced from 3-7s to 1.5-3.5s
+        # to improve throughput on large expansion state shards (~75 sites)
+        # while still avoiding predictable request patterns.
+        _DOMAIN_MIN_INTERVAL = float(os.getenv("DOMAIN_MIN_INTERVAL", "1.5"))
+        _DOMAIN_MAX_JITTER = float(os.getenv("DOMAIN_MAX_JITTER", "2.0"))
         domain_locks: dict[str, asyncio.Lock] = {}
         domain_last_request: dict[str, float] = {}
 
@@ -2049,18 +2087,64 @@ async def run(slug_filter: str | None = None) -> None:
         logger.info("")
         logger.info("=" * 64)
 
+        # Count deadline-skipped sites for visibility
+        deadline_skips = sum(
+            1 for f in sites_failed
+            if "deadline" in f.get("error", "").lower()
+            or "insufficient time" in f.get("error", "").lower()
+        )
+
         logger.info("=" * 60)
         logger.info("SCRAPE COMPLETE")
         logger.info("  Status:     %s", status)
         logger.info("  Products:   %d", total_products)
         logger.info("  Deals:      %d", total_deals)
         logger.info("  Sites OK:   %d/%d", len(sites_scraped), len(dispensaries))
+        if deadline_skips:
+            logger.info("  Deadline:   %d sites skipped (budget exhausted)", deadline_skips)
         logger.info("  Duration:   %.1f min", elapsed / 60)
         if sites_failed:
             logger.info("  Failed:")
             for f in sites_failed:
                 logger.info("    - %s: %s", f["slug"], f["error"])
         logger.info("=" * 60)
+
+        # ─── Shard coverage check ─────────────────────────────────────
+        # For sharded regions, check how many sibling shards completed today.
+        # This helps operators identify GHA cron reliability issues.
+        shard_match = re.match(r"^(.+)-(\d+)$", REGION)
+        if shard_match and shard_match.group(1) in REGION_SHARDS and not DRY_RUN:
+            base_region = shard_match.group(1)
+            expected_shards = REGION_SHARDS[base_region]
+            try:
+                today_start = (
+                    datetime.now(timezone.utc)
+                    .replace(hour=0, minute=0, second=0, microsecond=0)
+                    .isoformat()
+                )
+                shard_runs = (
+                    db.table("scrape_runs")
+                    .select("region")
+                    .like("region", f"{base_region}-%")
+                    .gte("started_at", today_start)
+                    .in_("status", ["completed", "completed_with_errors", "running"])
+                    .execute()
+                )
+                ran_shards = {row["region"] for row in shard_runs.data}
+                missing = [
+                    f"{base_region}-{i}"
+                    for i in range(1, expected_shards + 1)
+                    if f"{base_region}-{i}" not in ran_shards
+                ]
+                logger.info("")
+                logger.info("  Shard coverage for %s: %d/%d ran today",
+                            base_region, len(ran_shards), expected_shards)
+                if missing:
+                    logger.warning("  MISSING SHARDS: %s", ", ".join(missing))
+                else:
+                    logger.info("  All shards accounted for")
+            except Exception as exc:
+                logger.debug("Shard coverage check failed: %s", exc)
 
         # ─── Aggregate unmatched brand candidates across all sites ────
         _unmatched_freq: dict[str, int] = {}
@@ -2138,6 +2222,7 @@ def _log_deal_report(
     by_cat: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for d in top_deals:
         cat = d.get("category", "other")
+        # Split vape into vape (carts/pods) and disposable for reporting
         if cat == "vape" and d.get("product_subtype") == "disposable":
             cat = "disposable"
         by_cat[cat].append(d)
@@ -2296,7 +2381,10 @@ def _log_scrape_summary(
         site_deals = deals_by_disp[slug]
         by_cat: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for d in site_deals:
-            by_cat[d.get("category", "other")].append(d)
+            c = d.get("category", "other")
+            if c == "vape" and d.get("product_subtype") == "disposable":
+                c = "disposable"
+            by_cat[c].append(d)
 
         for cat in cat_order:
             cat_deals = by_cat.get(cat)
@@ -2353,7 +2441,10 @@ def _log_scrape_summary(
     _w("-" * 80)
     cat_counter: Counter[str] = Counter()
     for d in all_top_deals:
-        cat_counter[d.get("category", "other")] += 1
+        c = d.get("category", "other")
+        if c == "vape" and d.get("product_subtype") == "disposable":
+            c = "disposable"
+        cat_counter[c] += 1
 
     for cat in cat_order:
         actual = cat_counter.get(cat, 0)
@@ -2366,6 +2457,27 @@ def _log_scrape_summary(
     if other:
         _w(f"  {'other':12s}: {other:3d}")
     _w()
+
+    # ── 4b. VAPE SUBTYPE BREAKDOWN ──────────────────────────────────────
+    # Diagnostic: show how vape products are classified by subtype so we can
+    # catch regressions in disposable detection early.
+    vape_deals = [d for d in all_top_deals if d.get("category") == "vape" or
+                  (d.get("category") == "vape" and d.get("product_subtype") == "disposable")]
+    disp_deals = [d for d in all_top_deals
+                  if d.get("category") == "vape" and d.get("product_subtype") == "disposable"]
+    if vape_deals or disp_deals:
+        _w("  VAPE SUBTYPE BREAKDOWN:")
+        vape_sub_counter: Counter[str] = Counter()
+        for d in all_top_deals:
+            if d.get("category") == "vape":
+                sub = d.get("product_subtype") or "unclassified"
+                vape_sub_counter[sub] += 1
+        for sub, cnt in vape_sub_counter.most_common():
+            _w(f"    {sub:20s}: {cnt:3d}")
+        # Also show how many disposable deals are in the actual selected set
+        selected_disposables = cat_counter.get("disposable", 0)
+        _w(f"    disposable (selected): {selected_disposables:3d} (target: {CATEGORY_TARGETS.get('disposable', 0)})")
+        _w()
 
     # ── 5. TOP CUT DEALS (almost made it) ─────────────────────────────
     if all_cut_deals:

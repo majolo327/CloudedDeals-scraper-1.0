@@ -5,6 +5,9 @@
 :root {
   --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-gentle: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);       /* Apple-style spring for opens */
+  --ease-dismiss: cubic-bezier(0.4, 0, 1, 1);           /* Fast exit for dismissals */
+  --duration-instant: 100ms;
   --duration-fast: 200ms;
   --duration-normal: 350ms;
   --duration-slow: 500ms;
@@ -186,7 +189,20 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Bottom-sheet modal entry — slides up from bottom on mobile, fades in on desktop */
+@keyframes bottomSheetSlideUp {
+  from { opacity: 0.5; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ===== FOCUS & ACCESSIBILITY ===== */
+
+/* Universal button press — tactile scale feedback on all interactive elements */
+button:active:not(:disabled),
+[role="button"]:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform 100ms ease;
+}
 
 *:focus-visible {
   outline: 2px solid rgba(168, 85, 247, 0.7);
@@ -196,6 +212,13 @@ body {
 
 *:focus:not(:focus-visible) {
   outline: none;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -212,13 +235,15 @@ body {
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
 
-  .animate-soft-reveal { animation: softReveal var(--duration-normal) var(--ease-smooth) forwards; }
-  .animate-soft-dismiss { animation: softDismiss var(--duration-fast) var(--ease-gentle) forwards; }
+  .animate-soft-reveal { animation: softReveal 250ms var(--ease-spring) forwards; }
+  .animate-soft-dismiss { animation: softDismiss var(--duration-instant) var(--ease-dismiss) forwards; }
   .animate-gentle-glow { animation: gentleGlow 3s var(--ease-gentle) infinite; }
   .animate-sparkle { animation: sparkleIn 2s var(--ease-gentle) forwards; }
   .animate-heart-pulse { animation: heartPulse 300ms var(--ease-smooth); }
@@ -250,6 +275,10 @@ body {
     pointer-events: none;
     border-radius: inherit;
     z-index: 10;
+  }
+  .animate-modal-enter { animation: bottomSheetSlideUp 350ms var(--ease-spring) forwards; }
+  @media (min-width: 640px) {
+    .animate-modal-enter { animation: softReveal 250ms var(--ease-spring) forwards; }
   }
   .animate-in { animation: animateIn 0.3s var(--ease-smooth) forwards; }
   .animate-confetti { animation: confetti 2s ease-out forwards; }
@@ -421,7 +450,7 @@ body {
 
   /* Sticky elements below the header: accounts for header height + safe area top */
   .safe-top-sticky {
-    top: calc(3.5rem + env(safe-area-inset-top, 0px));
+    top: calc(3rem + env(safe-area-inset-top, 0px));
   }
   @media (min-width: 640px) {
     .safe-top-sticky {

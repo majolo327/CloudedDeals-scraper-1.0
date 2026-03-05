@@ -138,13 +138,13 @@ class TestPriceCapRejection:
         products = [
             # This one passes hard filters
             make_product(
-                name="Good Deal 3.5g", brand="Cookies", category="flower",
+                name="Good Deal 3.5g", brand="Connected", category="flower",
                 sale_price=15.0, original_price=30.0, discount_percent=50,
                 weight_value=3.5, weight_unit="g",
             ),
             # This one fails by price cap (flower $40/3.5g > $25 cap)
             make_product(
-                name="Overpriced Eighth 3.5g", brand="Cookies", category="flower",
+                name="Overpriced Eighth 3.5g", brand="Connected", category="flower",
                 sale_price=40.0, original_price=60.0, discount_percent=33,
                 weight_value=3.5, weight_unit="g",
             ),

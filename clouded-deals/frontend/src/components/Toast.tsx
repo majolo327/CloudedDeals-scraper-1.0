@@ -55,6 +55,7 @@ export function Toast({ toast, onDismiss }: ToastProps) {
 
   return (
     <div
+      role="status"
       className={`flex items-center gap-2 px-4 py-3 rounded-2xl border backdrop-blur-2xl transition-all duration-300 animate-toast-in ${colors[toast.type]} ${
         isLeaving ? 'translate-y-2 opacity-0' : ''
       }`}
@@ -72,10 +73,8 @@ interface ToastContainerProps {
 }
 
 export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
-  if (toasts.length === 0) return null;
-
   return (
-    <div className="fixed left-1/2 -translate-x-1/2 z-[106] flex flex-col gap-2 pointer-events-none md:bottom-6" style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
+    <div role="status" aria-live="polite" aria-atomic="false" className="fixed left-1/2 -translate-x-1/2 z-[106] flex flex-col gap-2 pointer-events-none md:bottom-6" style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
       {toasts.map(toast => (
         <Toast key={toast.id} toast={toast} onDismiss={onDismiss} />
       ))}
