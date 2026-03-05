@@ -48,6 +48,14 @@ _TD_SLUGS = {"td-gibson", "td-eastern", "td-decatur"}
 _SMART_WAIT_MS = 120_000         # 120 s — gives heavy pages enough time
 _SMART_WAIT_RETRY_MS = 90_000    # 90 s on retry attempts (up from 60 s)
 
+# Safety cap: stop pagination once we've collected this many products.
+# Large Dutchie sites (Herbalwai: 283+, some NV sites: 200+) can have
+# 10+ pages.  Each page takes ~20s (scroll + extract + navigate), so
+# paginating through all pages can exceed the per-site timeout (480s).
+# 250 products is sufficient for deal detection — the deal_detector
+# scoring step typically selects 20-40 top deals from the full set.
+_MAX_PRODUCTS = 250
+
 # Planet 13 / Medizin share planet13.com — a store selector in the header
 # must be confirmed so the Dutchie embed loads the correct dispensary menu.
 _P13_STORE_MAP: dict[str, str] = {
@@ -542,6 +550,14 @@ class DutchieScraper(BaseScraper):
                 self.slug, page_num, len(products), len(all_products),
             )
 
+            # Stop early if we've collected enough products.
+            if len(all_products) >= _MAX_PRODUCTS:
+                logger.info(
+                    "[%s] Collected %d products (cap=%d) — stopping pagination early",
+                    self.slug, len(all_products), _MAX_PRODUCTS,
+                )
+                break
+
             # Track consecutive pages that returned 0 products.
             # Do NOT break on the first empty page — the DOM may still
             # be rendering.  Only bail after CONSECUTIVE_EMPTY_MAX (3)
@@ -768,6 +784,12 @@ class DutchieScraper(BaseScraper):
                 "[%s] Fallback page %d → %d products (total %d)",
                 self.slug, page_num, len(products), len(all_products),
             )
+            if len(all_products) >= _MAX_PRODUCTS:
+                logger.info(
+                    "[%s] Fallback collected %d products (cap=%d) — stopping pagination early",
+                    self.slug, len(all_products), _MAX_PRODUCTS,
+                )
+                break
             if len(products) == 0:
                 consecutive_empty += 1
                 if consecutive_empty >= CONSECUTIVE_EMPTY_MAX:
