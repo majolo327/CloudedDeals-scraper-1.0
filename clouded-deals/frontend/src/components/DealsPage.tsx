@@ -104,7 +104,8 @@ export function DealsPage({
 
   useEffect(() => {
     if (deals.length > 0) {
-      setTimeout(() => setIsLoading(false), 300);
+      const t = setTimeout(() => setIsLoading(false), 300);
+      return () => clearTimeout(t);
     }
   }, [deals]);
 
@@ -257,6 +258,58 @@ export function DealsPage({
               </div>
             );
           })()}
+
+          {/* Header row — clean and minimal */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-sm font-medium text-slate-300">
+                Today&apos;s deals{deals.length > 0 ? ` (${deals.length})` : ''}
+              </h2>
+              {!isExpired && deals.length > 0 && (() => {
+                const updateText = formatUpdateTime(deals);
+                const fromYesterday = isDealsFromYesterday(deals);
+                const latestMs = deals.reduce((max, d) => {
+                  const t = typeof d.created_at === 'string' ? new Date(d.created_at).getTime() : d.created_at.getTime();
+                  return t > max ? t : max;
+                }, 0);
+                const hoursOld = (Date.now() - latestMs) / (1000 * 60 * 60);
+                const isStale = fromYesterday || hoursOld > 14;
+                return isStale ? (
+                  <span className="flex items-center gap-1 text-[10px] text-purple-400/80">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Refreshing
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[10px] text-emerald-500/70">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/60 animate-pulse" />
+                    {updateText || 'Live'}
+                  </span>
+                );
+              })()}
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {!isExpired && filteredDeals.length > 0 && (
+                <button
+                  onClick={() => setSwipeOpen(true)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-medium hover:bg-purple-500/20 transition-colors"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  Swipe Mode
+                </button>
+              )}
+              {isExpired && (
+                <span className="text-xs text-amber-400/80">prices may have changed</span>
+              )}
+              {hasActiveFilters && (
+                <button
+                  onClick={() => { resetFilters(); window.dispatchEvent(new CustomEvent('clouded:toast', { detail: { message: 'Filters cleared', type: 'success' } })); }}
+                  className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          </div>
 
           {/* Deal content — always grid mode */}
           {isLoading ? (

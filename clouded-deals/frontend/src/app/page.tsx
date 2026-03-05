@@ -241,6 +241,10 @@ export default function Home() {
       const [dealsResult, dispResult] = await Promise.all(fetches);
       if (cancelled) return;
       setDeals(dealsResult.deals);
+      // Reset expired state — it will be set back to true below if still needed.
+      // Without this, a retry that loads fresh deals would leave isShowingExpired
+      // stuck on true from a prior load that found 0 active deals.
+      setIsShowingExpired(false);
       // Only surface the error to the UI when we have NO deals at all.
       // When cached deals are available, suppress the error banner and
       // let the auto-retry silently refresh in the background.
@@ -489,6 +493,9 @@ export default function Home() {
           {/* Mobile: status dot + deal count */}
           <div className="sm:hidden flex items-center gap-1.5 text-xs text-slate-400 min-w-0">
             {todaysDeals.length > 0 && (
+              <span className={isDealsFromYesterday(todaysDeals) ? 'text-purple-400/60' : 'text-slate-600'}>
+                {isDealsFromYesterday(todaysDeals) ? 'Refreshing...' : formatUpdateTime(todaysDeals)}
+              </span>
               <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
                 isDealsFromYesterday(todaysDeals)
                   ? 'bg-amber-400/60'
