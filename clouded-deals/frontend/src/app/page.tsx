@@ -42,7 +42,7 @@ import { FTUEFlow, isFTUECompleted } from '@/components/ftue';
 import type { UserCoords } from '@/components/ftue';
 import { CookieConsent } from '@/components/CookieConsent';
 import { createShareLink } from '@/lib/share';
-import { formatUpdateTime, isDealsFromYesterday } from '@/utils';
+import { isDealsFromYesterday } from '@/utils';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 
 type AppPage = 'home' | 'search' | 'browse' | 'saved' | 'about' | 'terms' | 'privacy';
@@ -430,7 +430,7 @@ export default function Home() {
 
       {/* Header */}
       <header className="sticky top-0 z-50 header-border-glow" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderBottom: '1px solid rgba(120, 100, 200, 0.08)', WebkitBackdropFilter: 'blur(40px) saturate(1.3)', backdropFilter: 'blur(40px) saturate(1.3)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
-        <div className="max-w-6xl mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 h-12 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button onClick={() => handleTabChange('home')} className="focus:outline-none" aria-label="Go to deals home">
               <h1 className="text-lg sm:text-xl font-bold tracking-tight flex items-center gap-1.5">
@@ -486,12 +486,16 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Mobile: deal count + last update time */}
-          <div className="sm:hidden flex items-center gap-2 text-xs text-slate-500 min-w-0">
-            <span className="truncate">{todaysDeals.length} deals</span>
+          {/* Mobile: status dot + deal count */}
+          <div className="sm:hidden flex items-center gap-1.5 text-xs text-slate-400 min-w-0">
             {todaysDeals.length > 0 && (
-              <span className={isDealsFromYesterday(todaysDeals) ? 'text-amber-400/60' : 'text-slate-600'}>{formatUpdateTime(todaysDeals)}</span>
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                isDealsFromYesterday(todaysDeals)
+                  ? 'bg-amber-400/60'
+                  : 'bg-emerald-500/60 animate-pulse'
+              }`} />
             )}
+            <span className="truncate">{todaysDeals.length} deals</span>
           </div>
         </div>
       </header>
@@ -504,7 +508,7 @@ export default function Home() {
             <>
               {/* Category bar skeleton */}
               <div className="sticky z-40 border-b safe-top-sticky" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderColor: 'rgba(120, 100, 200, 0.06)' }}>
-                <div className="max-w-6xl mx-auto px-4 h-11 flex items-center gap-2">
+                <div className="max-w-6xl mx-auto px-4 h-10 flex items-center gap-2">
                   {Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="h-6 rounded-full animate-pulse" style={{ width: `${40 + i * 5}px`, background: 'rgba(45,50,80,0.3)' }} />
                   ))}
