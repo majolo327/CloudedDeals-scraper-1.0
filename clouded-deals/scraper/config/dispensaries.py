@@ -2122,8 +2122,8 @@ DISPENSARIES = [
     {"name": "Amplify Columbus OH", "slug": "amplify-oh-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/amplify-columbus", "is_active": True, "region": "ohio"},
     {"name": "Amplify Coventry OH", "slug": "amplify-oh-coventry", "platform": "dutchie", "url": "https://dutchie.com/dispensary/amplify-coventry", "is_active": True, "region": "ohio"},
     {"name": "Amplify Eastlake OH", "slug": "amplify-oh-eastlake", "platform": "dutchie", "url": "https://dutchie.com/dispensary/amplify-eastlake-llc-dba-amplify", "is_active": True, "region": "ohio"},
-    {"name": "Certified Cleveland OH", "slug": "certified-oh-cleveland", "platform": "dutchie", "url": "https://dutchie.com/dispensary/certified-cleveland", "is_active": True, "region": "ohio"},
-    {"name": "Certified Columbus OH", "slug": "certified-oh-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/certified-columbus", "is_active": True, "region": "ohio"},
+    {"name": "Certified Cleveland OH", "slug": "certified-oh-cleveland", "platform": "dutchie", "url": "https://dutchie.com/dispensary/certified-cleveland", "is_active": False, "region": "ohio"},  # 404 — left Dutchie
+    {"name": "Certified Columbus OH", "slug": "certified-oh-columbus", "platform": "dutchie", "url": "https://dutchie.com/dispensary/certified-columbus", "is_active": False, "region": "ohio"},  # 404 — left Dutchie
     {"name": "Certified Springfield OH", "slug": "certified-oh-springfield", "platform": "dutchie", "url": "https://dutchie.com/dispensary/certified-springfield", "is_active": True, "region": "ohio"},
     {"name": "Queen City Cannabis Harrison OH", "slug": "queen-city-oh-harrison", "platform": "dutchie", "url": "https://dutchie.com/dispensary/canoe-hill-dispensary-harrison", "is_active": True, "region": "ohio"},
     {"name": "Queen City Cannabis Norwood OH", "slug": "queen-city-oh-norwood", "platform": "dutchie", "url": "https://dutchie.com/dispensary/canoe-hill-dispensary-norwood", "is_active": True, "region": "ohio"},

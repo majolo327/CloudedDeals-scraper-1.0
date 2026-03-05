@@ -378,6 +378,26 @@ class DutchieScraper(BaseScraper):
         # Randomized 2-5s to avoid predictable timing fingerprint
         await asyncio.sleep(2 + random.uniform(0, 3))
 
+        # --- Direct page SPA hydration --------------------------------
+        # dutchie.com React SPA needs network requests to complete before
+        # product cards render.  Wait for networkidle + API response.
+        if embed_hint == "direct":
+            try:
+                await self.page.wait_for_load_state("networkidle", timeout=30_000)
+                logger.info("[%s] networkidle reached for direct page", self.slug)
+            except PlaywrightTimeout:
+                logger.warning("[%s] networkidle timeout (30s) — proceeding", self.slug)
+            # Wait for Dutchie GraphQL API response (product data fetch)
+            try:
+                await self.page.wait_for_response(
+                    lambda r: "api.dutchie.com" in r.url and r.status == 200,
+                    timeout=30_000,
+                )
+                logger.info("[%s] Dutchie API response received", self.slug)
+                await asyncio.sleep(3)  # Let React process the response
+            except PlaywrightTimeout:
+                logger.warning("[%s] No Dutchie API response after 30s", self.slug)
+
         # --- Cloudflare detection (bail early to save ~300s) --------------
         # If the primary site is Cloudflare-blocked, the full detection
         # cascade will burn 300+ seconds timing out on selectors that

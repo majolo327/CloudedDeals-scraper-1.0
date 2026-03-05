@@ -1491,6 +1491,7 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
         db.table("dispensaries")
         .select("id")
         .eq("is_active", True)
+        .limit(10000)
         .execute()
     )
     active_slugs = {row["id"] for row in result.data}
