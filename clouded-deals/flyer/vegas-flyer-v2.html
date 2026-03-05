@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CloudedDeals Vegas Flyer v2</title>
+<style>
+  /* Print-ready: 4.25in x 5.5in quarter sheet */
+  @page {
+    size: 4.25in 5.5in;
+    margin: 0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 4.25in;
+    height: 5.5in;
+    background: #0a0b14;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  .flyer {
+    width: 4.25in;
+    height: 5.5in;
+    background: linear-gradient(180deg, #1a0e2e 0%, #0a0b14 35%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.35in 0.3in 0.25in;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Subtle top glow */
+  .flyer::before {
+    content: '';
+    position: absolute;
+    top: -1in;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3in;
+    height: 2in;
+    background: radial-gradient(ellipse, rgba(167, 139, 250, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .headline {
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .headline h1 {
+    font-size: 28pt;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.5px;
+    color: #f5f5f5;
+    text-transform: uppercase;
+  }
+
+  .headline h1 span {
+    color: #a78bfa;
+  }
+
+  .divider {
+    width: 2.2in;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #34d399, transparent);
+    margin: 0.12in auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  .subhead {
+    text-align: center;
+    font-size: 10.5pt;
+    color: #d1d5db;
+    line-height: 1.4;
+    font-weight: 400;
+    position: relative;
+    z-index: 1;
+  }
+
+  .subhead strong {
+    color: #f5f5f5;
+    font-weight: 700;
+  }
+
+  .qr-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .qr-box {
+    width: 1.6in;
+    height: 1.6in;
+    background: #ffffff;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px rgba(167, 139, 250, 0.2);
+  }
+
+  .qr-placeholder {
+    width: 1.4in;
+    height: 1.4in;
+    background: #f0f0f0;
+    border: 2px dashed #999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 7pt;
+    color: #666;
+    text-align: center;
+    line-height: 1.3;
+    border-radius: 4px;
+  }
+
+  .qr-url {
+    margin-top: 0.08in;
+    font-size: 12pt;
+    font-weight: 700;
+    color: #a78bfa;
+    letter-spacing: 0.5px;
+  }
+
+  .trust-badges {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9pt;
+    color: #d1d5db;
+  }
+
+  .badge .check {
+    color: #34d399;
+    font-weight: 700;
+    font-size: 10pt;
+  }
+
+  .brand {
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .brand-name {
+    font-size: 13pt;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #f5f5f5;
+  }
+
+  .brand-name .deals {
+    color: #a78bfa;
+  }
+
+  .brand-tagline {
+    font-size: 7.5pt;
+    color: #9ca3af;
+    margin-top: 2px;
+    letter-spacing: 0.3px;
+  }
+
+  .brand-bar {
+    width: 2.5in;
+    height: 2px;
+    background: linear-gradient(90deg, #7c3aed, #a78bfa, #34d399);
+    margin: 0.06in auto 0;
+    border-radius: 1px;
+  }
+
+  /* Screen preview helpers — hidden in print */
+  @media screen {
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      width: 100%;
+      height: auto;
+      background: #333;
+    }
+    .flyer {
+      box-shadow: 0 4px 40px rgba(0,0,0,0.5);
+    }
+  }
+
+  @media print {
+    body { width: 4.25in; height: 5.5in; }
+    .flyer { box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<div class="flyer">
+
+  <div class="headline">
+    <h1>Stop Overpaying<br>for <span>Weed.</span></h1>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="subhead">
+    Compare deals from <strong>75 Vegas dispensaries</strong><br>
+    before you buy.
+  </div>
+
+  <div class="qr-section">
+    <div class="qr-box">
+      <!--
+        REPLACE THIS with your actual QR code image:
+        1. Generate at qrcode-monkey.com
+        2. URL: https://cloudeddeals.com?utm_source=flyer&utm_medium=qr&utm_campaign=vegas_v3_counter
+        3. Download as PNG (2000x2000px)
+        4. Replace the .qr-placeholder div below with:
+           <img src="your-qr-code.png" style="width:1.4in;height:1.4in;" alt="QR">
+      -->
+      <div class="qr-placeholder">
+        REPLACE WITH<br>QR CODE PNG<br><br>
+        <small>cloudeddeals.com<br>?utm_source=flyer<br>&utm_medium=qr<br>&utm_campaign=vegas_v3_counter</small>
+      </div>
+    </div>
+    <div class="qr-url">cloudeddeals.com</div>
+  </div>
+
+  <div class="trust-badges">
+    <div class="badge"><span class="check">&#10003;</span> Updated every morning</div>
+    <div class="badge"><span class="check">&#10003;</span> 100% free</div>
+    <div class="badge"><span class="check">&#10003;</span> No app needed</div>
+  </div>
+
+  <div class="brand">
+    <div class="brand-name">Clouded <span class="deals">Deals</span></div>
+    <div class="brand-tagline">Every deal. Every dispensary.</div>
+    <div class="brand-bar"></div>
+  </div>
+
+</div>
+</body>
+</html>
