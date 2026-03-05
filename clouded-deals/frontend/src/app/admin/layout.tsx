@@ -7,9 +7,8 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { AdminPinGate, isAdminVerified, clearAdminVerification } from "@/components/admin/AdminPinGate";
 
 const NAV_ITEMS = [
-  { href: "/admin", label: "Dashboard", sub: "Stats, flags, runs", icon: "grid" },
-  { href: "/admin/scraper", label: "Scraper", sub: "Trigger, regions, logs", icon: "terminal" },
-  { href: "/admin/analytics", label: "Analytics", sub: "Traffic, contacts", icon: "chart" },
+  { href: "/admin", label: "Dashboard", sub: "Metrics & retention", icon: "grid" },
+  { href: "/admin/scraper", label: "Scraper", sub: "Runs, flags, regions", icon: "terminal" },
   { href: "/admin/settings", label: "Settings", sub: "Config", icon: "sliders" },
 ] as const;
 
