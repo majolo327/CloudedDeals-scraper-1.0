@@ -1,18 +1,18 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { MapPin, Clock, ExternalLink } from 'lucide-react';
-import { fetchAllActiveDeals } from '@/lib/seo-data';
+import { fetchDealsForDispensaryIds } from '@/lib/seo-data';
 import {
   BreadcrumbJsonLd,
-  ProductListJsonLd,
+  SeoProductListJsonLd,
   getCategoryLabel,
+  categoryToSlug,
   Breadcrumb,
   SeoDealsTable,
   SeoPageHeader,
   SeoFooter,
 } from '@/components/seo';
 import { DISPENSARIES } from '@/data/dispensaries';
-import type { Deal, Dispensary as DispensaryType } from '@/types';
 
 // ---------------------------------------------------------------------------
 // ISR: revalidate every hour
@@ -86,39 +86,20 @@ export const metadata: Metadata = {
 // Page component
 // ---------------------------------------------------------------------------
 export default async function StripPage() {
-  const allDeals = await fetchAllActiveDeals();
-
-  // Filter to curated dispensary list only
-  const stripDeals = allDeals.filter((d) => STRIP_PAGE_DISPENSARY_IDS.has(d.dispensary_id));
+  const stripDeals = await fetchDealsForDispensaryIds(Array.from(STRIP_PAGE_DISPENSARY_IDS));
 
   // Get static dispensary info for the directory cards
   const stripDispensaries = DISPENSARIES.filter(
     (d) => d.scraped && STRIP_PAGE_DISPENSARY_IDS.has(d.id)
   );
 
-  // Category breakdown
+  // Pre-compute deal counts per dispensary and per category in one pass
+  const dealCountByDispensary = new Map<string, number>();
   const categoryCounts: Record<string, number> = {};
   for (const deal of stripDeals) {
+    dealCountByDispensary.set(deal.dispensary_id, (dealCountByDispensary.get(deal.dispensary_id) || 0) + 1);
     categoryCounts[deal.category] = (categoryCounts[deal.category] || 0) + 1;
   }
-
-  // Build Deal objects for JSON-LD
-  const jsonLdDeals: Deal[] = stripDeals.slice(0, 10).map((d) => {
-    const staticDisp = DISPENSARIES.find((disp) => disp.id === d.dispensary_id);
-    return {
-      id: d.id,
-      product_name: d.name,
-      category: d.category,
-      weight: d.weight_value ? `${d.weight_value}${d.weight_unit || 'g'}` : '',
-      original_price: d.original_price,
-      deal_price: d.sale_price,
-      dispensary: (staticDisp || { id: d.dispensary_id, name: d.dispensary_name, slug: d.dispensary_id, tier: 'standard', address: '', menu_url: '', platform: 'dutchie', is_active: true }) as DispensaryType,
-      brand: { id: d.brand.toLowerCase().replace(/\s+/g, '-'), name: d.brand, slug: d.brand.toLowerCase().replace(/\s+/g, '-'), tier: 'local' as const, categories: [] },
-      deal_score: d.deal_score,
-      is_verified: d.deal_score >= 70,
-      created_at: new Date(),
-    };
-  });
 
   return (
     <div className="min-h-screen text-white" style={{ backgroundColor: 'var(--surface-0)' }}>
@@ -129,7 +110,7 @@ export default async function StripPage() {
           { name: 'Strip & Downtown Deals', href: '/strip' },
         ]}
       />
-      <ProductListJsonLd deals={jsonLdDeals} />
+      <SeoProductListJsonLd deals={stripDeals} />
 
       <SeoPageHeader />
 
@@ -162,7 +143,7 @@ export default async function StripPage() {
               {Object.entries(categoryCounts).map(([cat, count]) => (
                 <Link
                   key={cat}
-                  href={`/deals/${cat === 'vape' ? 'vapes' : cat === 'edible' ? 'edibles' : cat === 'concentrate' ? 'concentrates' : cat === 'preroll' ? 'prerolls' : cat}`}
+                  href={`/deals/${categoryToSlug(cat)}`}
                   className="px-3 py-1.5 rounded-lg bg-white/5 text-xs text-slate-300 hover:bg-purple-500/15 hover:text-purple-400 transition-colors"
                 >
                   {getCategoryLabel(cat)} ({count})
@@ -179,9 +160,7 @@ export default async function StripPage() {
           </h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {stripDispensaries.map((disp) => {
-              const dealCount = stripDeals.filter(
-                (deal) => deal.dispensary_id === disp.id
-              ).length;
+              const dealCount = dealCountByDispensary.get(disp.id) || 0;
               const zoneLabel = disp.zone === 'strip' ? 'Strip' : disp.zone === 'downtown' ? 'Downtown' : 'Nearby';
               const zoneBg = disp.zone === 'strip' ? 'bg-amber-500/10 text-amber-400' : disp.zone === 'downtown' ? 'bg-cyan-500/10 text-cyan-400' : 'bg-slate-500/10 text-slate-400';
               return (
@@ -249,6 +228,12 @@ export default async function StripPage() {
         <section className="mt-12 pt-8 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
           <h2 className="text-lg font-semibold mb-4">More Las Vegas Cannabis Deals</h2>
           <div className="flex flex-wrap gap-3">
+            <Link
+              href="/strip-dispensary-deals"
+              className="px-4 py-2 rounded-lg bg-white/5 text-sm text-slate-300 hover:bg-purple-500/15 hover:text-purple-400 transition-colors"
+            >
+              Strip Dispensary Guide &amp; FAQs
+            </Link>
             <Link
               href="/las-vegas-dispensary-deals"
               className="px-4 py-2 rounded-lg bg-white/5 text-sm text-slate-300 hover:bg-purple-500/15 hover:text-purple-400 transition-colors"

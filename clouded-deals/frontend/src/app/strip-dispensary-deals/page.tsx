@@ -1,19 +1,18 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { MapPin, Clock, ExternalLink } from 'lucide-react';
-import { fetchAllActiveDeals, getDispensariesByZone } from '@/lib/seo-data';
+import { fetchDealsForDispensaryIds, getDispensariesByZone } from '@/lib/seo-data';
 import {
   BreadcrumbJsonLd,
   FaqJsonLd,
-  ProductListJsonLd,
+  SeoProductListJsonLd,
   getCategoryLabel,
+  categoryToSlug,
   Breadcrumb,
   SeoDealsTable,
   SeoPageHeader,
   SeoFooter,
 } from '@/components/seo';
-import { DISPENSARIES } from '@/data/dispensaries';
-import type { Deal, Dispensary as DispensaryType } from '@/types';
 
 // ---------------------------------------------------------------------------
 // ISR: revalidate every hour
@@ -26,9 +25,9 @@ export const revalidate = 3600;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://cloudeddeals.com';
 
 export const metadata: Metadata = {
-  title: 'Dispensary Deals Near the Las Vegas Strip — Today\'s Best Prices',
+  title: 'Las Vegas Strip Dispensaries — Compare Cannabis Prices Today',
   description:
-    'Find the best cannabis deals near the Las Vegas Strip. Compare prices from Planet 13, Curaleaf, Oasis, The Grove & more — updated daily at 8 AM PT.',
+    'Compare cannabis prices at dispensaries on the Las Vegas Strip. Planet 13, Curaleaf, Oasis, The Grove & more — deals, FAQs, and tips for visitors.',
   keywords: [
     'dispensary near the strip',
     'vegas strip weed deals',
@@ -38,7 +37,7 @@ export const metadata: Metadata = {
     'weed near the strip',
   ],
   alternates: {
-    canonical: `${SITE_URL}/strip-dispensary-deals`,
+    canonical: `${SITE_URL}/strip`,
   },
   openGraph: {
     title: 'Dispensary Deals Near the Las Vegas Strip | CloudedDeals',
@@ -87,36 +86,19 @@ const FAQS = [
 // Page component
 // ---------------------------------------------------------------------------
 export default async function StripDealsPage() {
-  const allDeals = await fetchAllActiveDeals();
   const stripDispensaries = getDispensariesByZone('strip');
-  const stripDispIds = new Set(stripDispensaries.map((d) => d.id));
+  const stripDispIds = stripDispensaries.map((d) => d.id);
 
-  // Filter to strip dispensary deals only
-  const stripDeals = allDeals.filter((d) => stripDispIds.has(d.dispensary_id));
+  // Fetch only deals for strip-zone dispensaries
+  const stripDeals = await fetchDealsForDispensaryIds(stripDispIds);
 
-  // Category breakdown
+  // Pre-compute deal counts per dispensary and per category in one pass
+  const dealCountByDispensary = new Map<string, number>();
   const categoryCounts: Record<string, number> = {};
   for (const deal of stripDeals) {
+    dealCountByDispensary.set(deal.dispensary_id, (dealCountByDispensary.get(deal.dispensary_id) || 0) + 1);
     categoryCounts[deal.category] = (categoryCounts[deal.category] || 0) + 1;
   }
-
-  // Build Deal objects for JSON-LD
-  const jsonLdDeals: Deal[] = stripDeals.slice(0, 10).map((d) => {
-    const staticDisp = DISPENSARIES.find((disp) => disp.id === d.dispensary_id);
-    return {
-      id: d.id,
-      product_name: d.name,
-      category: d.category,
-      weight: d.weight_value ? `${d.weight_value}${d.weight_unit || 'g'}` : '',
-      original_price: d.original_price,
-      deal_price: d.sale_price,
-      dispensary: (staticDisp || { id: d.dispensary_id, name: d.dispensary_name, slug: d.dispensary_id, tier: 'standard', address: '', menu_url: '', platform: 'dutchie', is_active: true }) as DispensaryType,
-      brand: { id: d.brand.toLowerCase().replace(/\s+/g, '-'), name: d.brand, slug: d.brand.toLowerCase().replace(/\s+/g, '-'), tier: 'local' as const, categories: [] },
-      deal_score: d.deal_score,
-      is_verified: d.deal_score >= 70,
-      created_at: new Date(),
-    };
-  });
 
   return (
     <div className="min-h-screen text-white" style={{ backgroundColor: 'var(--surface-0)' }}>
@@ -128,7 +110,7 @@ export default async function StripDealsPage() {
         ]}
       />
       <FaqJsonLd faqs={FAQS} />
-      <ProductListJsonLd deals={jsonLdDeals} />
+      <SeoProductListJsonLd deals={stripDeals} />
 
       <SeoPageHeader />
 
@@ -143,7 +125,7 @@ export default async function StripDealsPage() {
         {/* Hero */}
         <div className="mb-10">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-3">
-            Dispensary Deals Near the Las Vegas Strip
+            Las Vegas Strip Dispensaries &amp; Cannabis Prices
           </h1>
           <p className="text-slate-400 text-sm sm:text-base max-w-2xl mb-6">
             {stripDeals.length} deals from {stripDispensaries.length} dispensaries near
@@ -157,7 +139,7 @@ export default async function StripDealsPage() {
               {Object.entries(categoryCounts).map(([cat, count]) => (
                 <Link
                   key={cat}
-                  href={`/deals/${cat === 'vape' ? 'vapes' : cat === 'edible' ? 'edibles' : cat === 'concentrate' ? 'concentrates' : cat === 'preroll' ? 'prerolls' : cat}`}
+                  href={`/deals/${categoryToSlug(cat)}`}
                   className="px-3 py-1.5 rounded-lg bg-white/5 text-xs text-slate-300 hover:bg-purple-500/15 hover:text-purple-400 transition-colors"
                 >
                   {getCategoryLabel(cat)} ({count})
@@ -174,9 +156,7 @@ export default async function StripDealsPage() {
           </h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {stripDispensaries.map((d) => {
-              const dealCount = stripDeals.filter(
-                (deal) => deal.dispensary_id === d.id
-              ).length;
+              const dealCount = dealCountByDispensary.get(d.id) || 0;
               return (
                 <Link
                   key={d.id}
@@ -264,6 +244,12 @@ export default async function StripDealsPage() {
         <section className="mt-12 pt-8 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
           <h2 className="text-lg font-semibold mb-4">More Las Vegas Cannabis Deals</h2>
           <div className="flex flex-wrap gap-3">
+            <Link
+              href="/strip"
+              className="px-4 py-2 rounded-lg bg-white/5 text-sm text-slate-300 hover:bg-purple-500/15 hover:text-purple-400 transition-colors"
+            >
+              Strip &amp; Downtown Deals
+            </Link>
             <Link
               href="/las-vegas-dispensary-deals"
               className="px-4 py-2 rounded-lg bg-white/5 text-sm text-slate-300 hover:bg-purple-500/15 hover:text-purple-400 transition-colors"

@@ -167,6 +167,59 @@ export async function fetchDealsForCategory(category: Category, region = 'southe
 }
 
 // ---------------------------------------------------------------------------
+// Fetch active deals for a specific set of dispensary IDs
+// ---------------------------------------------------------------------------
+
+export async function fetchDealsForDispensaryIds(dispensaryIds: string[]): Promise<SeoDeal[]> {
+  if (dispensaryIds.length === 0) return [];
+  const supabase = getServerSupabase();
+  if (!supabase) return [];
+
+  try {
+    const ids = dispensaryIds.filter((id) => !isBlockedDispensary(id));
+    if (ids.length === 0) return [];
+
+    const { data, error } = await supabase
+      .from('products')
+      .select(
+        `id, name, brand, category, sale_price, original_price, discount_percent,
+         deal_score, weight_value, weight_unit, product_url, strain_type,
+         dispensary_id`
+      )
+      .eq('is_active', true)
+      .in('dispensary_id', ids)
+      .gt('deal_score', 0)
+      .gt('sale_price', 0)
+      .order('deal_score', { ascending: false })
+      .limit(200);
+
+    if (error || !data) return [];
+
+    return data.map((row) => {
+      const staticDisp = DISPENSARIES.find((d) => d.id === row.dispensary_id);
+      return {
+        id: row.id,
+        name: row.name,
+        brand: row.brand || 'Unknown',
+        category: row.category || 'flower',
+        sale_price: row.sale_price,
+        original_price: row.original_price,
+        discount_percent: row.discount_percent,
+        deal_score: row.deal_score,
+        weight_value: row.weight_value,
+        weight_unit: row.weight_unit,
+        product_url: row.product_url,
+        strain_type: row.strain_type,
+        dispensary_id: row.dispensary_id,
+        dispensary_name: staticDisp?.name || row.dispensary_id,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Fetch all active deals (for hub pages)
 // ---------------------------------------------------------------------------
 

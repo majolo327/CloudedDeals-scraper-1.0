@@ -6,6 +6,7 @@
  */
 
 import type { Deal, Dispensary, Category } from '@/types';
+import type { SeoDeal } from '@/lib/seo-data';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://cloudeddeals.com';
 
@@ -158,6 +159,61 @@ export function ProductListJsonLd({ deals }: ProductJsonLdProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Lightweight Product + Offer schema — accepts SeoDeal[] directly
+// (avoids fabricating full Deal/Brand/Dispensary objects)
+// ---------------------------------------------------------------------------
+
+interface SeoProductJsonLdProps {
+  deals: SeoDeal[];
+}
+
+export function SeoProductListJsonLd({ deals }: SeoProductJsonLdProps) {
+  if (deals.length === 0) return null;
+
+  const data = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    itemListElement: deals.slice(0, 10).map((deal, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      item: {
+        '@type': 'Product',
+        name: deal.name,
+        brand: {
+          '@type': 'Brand',
+          name: deal.brand,
+        },
+        offers: {
+          '@type': 'Offer',
+          price: deal.sale_price.toFixed(2),
+          priceCurrency: 'USD',
+          availability: 'https://schema.org/InStock',
+          seller: {
+            '@type': 'LocalBusiness',
+            name: deal.dispensary_name,
+          },
+          ...(deal.original_price && deal.original_price > deal.sale_price
+            ? {
+                priceValidUntil: new Date(
+                  Date.now() + 24 * 60 * 60 * 1000
+                ).toISOString().split('T')[0],
+              }
+            : {}),
+        },
+        url: `${SITE_URL}/deal/${deal.id}`,
+      },
+    })),
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
 // BreadcrumbList schema
 // ---------------------------------------------------------------------------
 
@@ -243,6 +299,17 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export function getCategoryLabel(cat: string): string {
   return CATEGORY_LABELS[cat] || cat.charAt(0).toUpperCase() + cat.slice(1);
+}
+
+/** Map DB category value to URL slug */
+export function categoryToSlug(cat: string): string {
+  const map: Record<string, string> = {
+    vape: 'vapes',
+    edible: 'edibles',
+    concentrate: 'concentrates',
+    preroll: 'prerolls',
+  };
+  return map[cat] || cat;
 }
 
 /** Map URL slug to DB category value */
