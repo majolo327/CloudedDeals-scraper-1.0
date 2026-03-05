@@ -308,5 +308,14 @@ CREATE INDEX IF NOT EXISTS idx_products_active ON products (is_active) WHERE is_
 
 
 -- ===========================================================================
--- Done! All tables, indexes, RLS policies, and views are set up.
+-- 043: Dashboard RPC functions (fix array_length → jsonb_array_length)
+-- ===========================================================================
+
+-- See clouded-deals/supabase/migrations/043_fix_dashboard_array_length.sql
+-- for full function bodies. Inline here for fresh installs.
+
+\i ../supabase/migrations/043_fix_dashboard_array_length.sql
+
+-- ===========================================================================
+-- Done! All tables, indexes, RLS policies, views, and functions are set up.
 -- ===========================================================================
