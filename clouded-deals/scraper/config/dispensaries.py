@@ -1,24 +1,4 @@
 """
-Dispensary configuration across 11 regions and 5 active platforms.
-
-Regions (1143 active):
-  - michigan:      196 dispensaries (Dutchie-dominant)
-  - illinois:      165 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
-  - colorado:      133 dispensaries (Dutchie + Jane)
-  - massachusetts: 111 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
-  - new-jersey:    102 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
-  - arizona:        99 dispensaries (Dutchie + Curaleaf/Zen Leaf + Jane)
-  - missouri:       89 dispensaries (Dutchie-only)
-  - ohio:           78 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
-  - new-york:       74 dispensaries (Dutchie + Jane + Curaleaf)
-  - southern-nv:    53 dispensaries (Dutchie/Jane/Carrot/Curaleaf/Zen Leaf/AIQ)
-  - pennsylvania:   43 dispensaries (Curaleaf/Zen Leaf + Dutchie)
-
-Platforms (1143 active / 1192 total):
-  - dutchie: ~846 — iframe-based menus (Dutchie/TD sites)
-  - jane:    ~181 — hybrid iframe/direct with "View More" pagination
-  - curaleaf: ~109 — direct page loads (Curaleaf + Zen Leaf)
-  - rise:        3 — canary sites testing stealth v2 (34 still deactivated)
 Dispensary configuration across 12 regions and 5 active platforms.
 
 Regions (~2072 active / ~2121 total):
@@ -60,17 +40,7 @@ The ``REGION`` env var in main.py controls which state is scraped.
 # Browser / Playwright defaults — stealth configuration
 # ---------------------------------------------------------------------------
 
-import logging as _logging
 import random as _random
-
-_log = _logging.getLogger(__name__)
-
-# Use real Chrome (not bundled Chromium) for a legitimate TLS fingerprint.
-# Bundled Chromium has a distinct JA3/JA4 TLS hash that Cloudflare flags
-# instantly — before any JS stealth patches even run.
-# Install with: playwright install chrome
-# Falls back to bundled Chromium if Chrome is unavailable (see base.py).
-BROWSER_CHANNEL = "chrome"
 
 BROWSER_ARGS = [
     "--no-sandbox",
@@ -80,23 +50,6 @@ BROWSER_ARGS = [
     "--disable-features=AutomationControlled",
 ]
 
-# Pool of realistic Chrome User-Agents — MUST track the actual Chrome
-# version installed by `playwright install chrome`.  Mismatched UA vs
-# real binary version is a Cloudflare detection signal.
-# Current: Chrome 133 (Feb 2026).
-_USER_AGENT_POOL = [
-    # Chrome 133 — Windows
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-    # Chrome 133 — macOS
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-    # Chrome 133 — Linux
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-    # Chrome 132 — Windows (still common)
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
-    # Chrome 132 — macOS
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
-    # Chrome 133 — Windows 11
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 Edg/133.0.0.0",
 # Prefer real Chrome over bundled Chromium.  playwright-stealth patches work
 # best on the branded Chrome channel because its TLS fingerprint, navigator
 # properties, and codec support match what Cloudflare expects.  The launcher
@@ -147,15 +100,6 @@ def get_viewport() -> dict[str, int]:
     }
 
 
-# ---------------------------------------------------------------------------
-# Stealth — handled by playwright-stealth 2.0+
-#
-# The playwright-stealth package patches 30+ detection vectors automatically
-# (webdriver, plugins, languages, chrome.runtime, permissions API, WebGL,
-# canvas, AudioContext, CDP leak, navigator.connection, screen dimensions,
-# etc.).  Our previous hand-rolled STEALTH_INIT_SCRIPT only covered ~5.
-#
-# Kept as a legacy fallback in case playwright-stealth is unavailable.
 # ---------------------------------------------------------------------------
 # Region-aware timezone / locale mapping
 # ---------------------------------------------------------------------------
