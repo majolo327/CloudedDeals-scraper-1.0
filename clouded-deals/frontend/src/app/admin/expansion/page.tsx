@@ -208,6 +208,10 @@ export default function ExpansionDashboard() {
             successRate7: 0,
             avgRuntime7: 0,
             activeSites: 0,
+            todaySitesOk: 0,
+            todaySitesFailed: 0,
+            todayTotalProducts: 0,
+            todayShardsCompleted: 0,
           }))
         );
       }
