@@ -177,7 +177,7 @@ export default function ExpansionDashboard() {
             todayProducts += run.total_products || 0;
           }
           // Remove sites that succeeded in one shard but failed in another
-          for (const slug of allScraped) allFailedMap.delete(slug);
+          for (const slug of Array.from(allScraped)) allFailedMap.delete(slug);
 
           return {
             region: r.id,
