@@ -239,12 +239,12 @@ class TestPassesHardFilters:
                          weight_value=1.0)
         assert passes_hard_filters(p) is True
 
-    def test_disposable_zero_discount_rejected(self, make_product):
-        """$20 disposable with 0% discount still rejected — need *some* markdown."""
+    def test_disposable_zero_discount_passes_budget(self, make_product):
+        """$20 disposable with 0% discount passes — budget ceiling is the gate."""
         p = make_product(category="vape", sale_price=20.0, original_price=20.0,
                          discount_percent=0, product_subtype="disposable",
                          weight_value=1.0)
-        assert passes_hard_filters(p) is False
+        assert passes_hard_filters(p) is True
 
     def test_non_budget_vape_cart_needs_15pct(self, make_product):
         """$20 cartridge at 10% — bypass is disposable-only, carts still need 15%."""

@@ -697,16 +697,25 @@ def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> b
     # --- Standard filters (non-Jane platforms) ---
     # Budget bypass: certain product types at accessible price points are
     # genuine deals where the absolute price IS the value proposition.
-    # A $9 edible from $10 is 10%, a $20 disposable from $22 is 9% —
-    # both below the normal 12-15% floors but clearly good deals.
-    # We only require *any* discount (>0%) instead of the full minimum.
-    is_budget_deal = (
-        (category in ("edible", "preroll") and sale_price <= 10)
-        or (category == "vape"
-            and subtype == "disposable"
-            and sale_price <= 25)
+    is_budget_edible_preroll = (
+        category in ("edible", "preroll") and sale_price <= 10
     )
-    if is_budget_deal:
+    is_budget_disposable = (
+        category == "vape"
+        and subtype == "disposable"
+        and sale_price <= 25
+    )
+
+    # Budget disposables (≤$25) skip discount AND original_price checks.
+    # Most Dutchie disposables only show a retail price without a was-price
+    # or meaningful discount.  The $25 price ceiling is a sufficient quality
+    # gate — the absolute price IS the value proposition.
+    if is_budget_disposable:
+        return _passes_price_cap(sale_price, category, weight_value, region)
+
+    # Budget edibles/prerolls still require *any* discount (>0%) but bypass
+    # the full minimum discount floors.
+    if is_budget_edible_preroll:
         min_disc = 1
     else:
         min_disc = CATEGORY_MIN_DISCOUNT.get(category, HARD_FILTERS["min_discount_percent"])
@@ -714,6 +723,7 @@ def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> b
         return False
     if discount > HARD_FILTERS["max_discount_percent"]:
         return False  # fake discount / data error
+
     if HARD_FILTERS["require_original_price"]:
         if not original_price or original_price <= sale_price:
             return False
