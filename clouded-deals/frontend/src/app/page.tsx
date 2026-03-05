@@ -42,7 +42,7 @@ import { FTUEFlow, isFTUECompleted } from '@/components/ftue';
 import type { UserCoords } from '@/components/ftue';
 import { CookieConsent } from '@/components/CookieConsent';
 import { createShareLink } from '@/lib/share';
-import { isDealsFromYesterday } from '@/utils';
+import { isDealsFromYesterday, formatUpdateTime } from '@/utils';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 
 type AppPage = 'home' | 'search' | 'browse' | 'saved' | 'about' | 'terms' | 'privacy';
@@ -493,14 +493,16 @@ export default function Home() {
           {/* Mobile: status dot + deal count */}
           <div className="sm:hidden flex items-center gap-1.5 text-xs text-slate-400 min-w-0">
             {todaysDeals.length > 0 && (
-              <span className={isDealsFromYesterday(todaysDeals) ? 'text-purple-400/60' : 'text-slate-600'}>
-                {isDealsFromYesterday(todaysDeals) ? 'Refreshing...' : formatUpdateTime(todaysDeals)}
-              </span>
-              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                isDealsFromYesterday(todaysDeals)
-                  ? 'bg-amber-400/60'
-                  : 'bg-emerald-500/60 animate-pulse'
-              }`} />
+              <>
+                <span className={isDealsFromYesterday(todaysDeals) ? 'text-purple-400/60' : 'text-slate-600'}>
+                  {isDealsFromYesterday(todaysDeals) ? 'Refreshing...' : formatUpdateTime(todaysDeals)}
+                </span>
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                  isDealsFromYesterday(todaysDeals)
+                    ? 'bg-amber-400/60'
+                    : 'bg-emerald-500/60 animate-pulse'
+                }`} />
+              </>
             )}
             <span className="truncate">{todaysDeals.length} deals</span>
           </div>
