@@ -67,7 +67,6 @@ export function BrowsePage({ deals = [], onSelectBrand, onSelectDispensary }: Br
               }`}
             >
               Dispensaries
-              <span className="ml-1.5 text-[11px] text-slate-400 font-normal">{DISPENSARIES.length}</span>
               {activeTab === 'dispensaries' && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500 rounded-full" />
               )}
@@ -291,7 +290,7 @@ function DispensariesTab({
       {/* Summary bar */}
       <div className="flex items-center justify-between px-1">
         <p className="text-sm text-slate-400">
-          <span className="text-white font-semibold">{DISPENSARIES.length}</span> dispensaries in Southern NV
+          Dispensaries in Southern NV
         </p>
         <p className="text-xs text-purple-400">
           {scrapedCount} tracked · {withDealsCount} with live deals

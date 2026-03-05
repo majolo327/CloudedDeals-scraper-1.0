@@ -47,6 +47,39 @@ function persistDismissedIds(ids: Set<string>): void {
   localStorage.setItem(DISMISSED_KEY, JSON.stringify(data));
 }
 
+// ── "Seen before" tracking (cross-session) ──────────────────────────
+
+const SEEN_KEY = 'clouded_seen_deals_v1';
+
+interface SeenData {
+  date: string;
+  ids: string[];
+}
+
+function loadPreviouslySeenIds(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const raw = localStorage.getItem(SEEN_KEY);
+    if (!raw) return new Set();
+    const data: SeenData = JSON.parse(raw);
+    // Only return as "previously seen" if the data is from a prior day
+    if (data.date !== getTodayDate()) {
+      return new Set(data.ids);
+    }
+  } catch { /* ignore */ }
+  return new Set();
+}
+
+function persistSeenIds(dealIds: string[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(SEEN_KEY, JSON.stringify({
+      date: getTodayDate(),
+      ids: dealIds,
+    }));
+  } catch { /* storage full */ }
+}
+
 // ── Deck state ──────────────────────────────────────────────────────
 
 /** How many cards to show at once in the grid */
@@ -78,6 +111,8 @@ export interface DeckState {
   dismissDeal: (dealId: string) => void;
   /** Immediately add to dismissed set (no animation, for stack/swipe mode) */
   dismissImmediate: (dealId: string) => void;
+  /** Reset all dismissed deals so the user can browse again */
+  resetDismissed: () => void;
 }
 
 export interface DeckOptions {
@@ -85,8 +120,10 @@ export interface DeckOptions {
   shuffle?: boolean;
 }
 
-export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState {
+export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState & { previouslySeenIds: Set<string> } {
   const { shuffle = true } = options;
+
+  const [previouslySeenIds] = useState(() => loadPreviouslySeenIds());
 
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() =>
     loadDismissedIds()
@@ -134,6 +171,13 @@ export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState {
   useEffect(() => {
     persistDismissedIds(dismissedIds);
   }, [dismissedIds]);
+
+  // Persist current session's seen deal IDs (for "seen before" indicator next session)
+  useEffect(() => {
+    if (shuffledDeck.length > 0) {
+      persistSeenIds(shuffledDeck.map(d => d.id));
+    }
+  }, [shuffledDeck]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -242,6 +286,11 @@ export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState {
     shuffledDeck.length
   );
 
+  const resetDismissed = useCallback(() => {
+    setDismissedIds(new Set());
+    localStorage.removeItem(DISMISSED_KEY);
+  }, []);
+
   return {
     visible: slots,
     remaining,
@@ -254,5 +303,7 @@ export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState {
     replacementDealScore,
     dismissDeal,
     dismissImmediate,
+    resetDismissed,
+    previouslySeenIds,
   };
 }

@@ -35,21 +35,23 @@ logger = logging.getLogger("deal_detector")
 
 CATEGORY_PRICE_CAPS: dict[str, dict[str, float] | float] = {
     "flower": {
-        "3.5": 25,    # eighth — relaxed from $19
+        "3.5": 22,    # eighth — tightened from $25 ($22 is upper bound for deal-worthy eighths)
         "7": 40,      # quarter — tightened from $45
         "14": 55,     # half oz — tightened from $65 ($55 half oz is upper bound)
         "28": 100,    # full oz — relaxed from $79
     },
-    "vape": 28,           # carts/pods — tightened from $35 ($24 .5g cart is already borderline)
-    "edible": 15,         # gummies/chocolates — tightened from $20 ($20 edible is a bad deal)
-    "concentrate": {      # weight-based: live rosin can be pricier
-        "0.5": 25,        # half gram
-        "1": 45,          # gram — raised from flat $35
-        "2": 75,          # 2g buckets
+    "vape": 25,           # carts/pods fallback — tightened from $28 (subtype-specific caps below)
+    # Edible cap: $15 for 100mg standard (tightened from $18, settled after $14 trial).
+    # CO=$14, MI/NNV=$12 (competitive), NJ/OH/IL/MA=$18-20 (high-tax).
+    "edible": 15,
+    "concentrate": {      # weight-based — tightened significantly
+        "0.5": 18,        # half gram — tightened from $25
+        "1": 25,          # gram — tightened from $45 ($30 concentrates aren't deals)
+        "2": 50,          # 2g buckets — tightened from $75
     },
-    "preroll": 9,         # regular flower prerolls — tightened from $10 (should be $5-9)
+    "preroll": 9,         # regular flower prerolls — unchanged
     "infused_preroll": 15, # infused prerolls are premium products
-    "preroll_pack": 25,   # preroll multi-packs — relaxed from $20
+    "preroll_pack": 20,   # preroll multi-packs — tightened from $25
 }
 
 # Global hard-filter thresholds (apply to ALL categories)
@@ -59,6 +61,60 @@ HARD_FILTERS = {
     "max_price_absolute": 100,    # raised from $80 for oz flower + concentrates
     "max_discount_percent": 85,   # above 85% = fake/data error
     "require_original_price": True,
+}
+
+# Loose qualification cap multiplier — Jane/Carrot/AIQ platforms display
+# retail prices (not sale prices), so the deal-calibrated caps are too
+# tight.  A 1.3x multiplier turns a $22 eighth cap into $28.60, letting
+# competitive-but-not-discounted house-brand products through (e.g. Deep
+# Roots Harvest) while still filtering out truly overpriced items ($35+).
+_LOOSE_QUAL_CAP_MULTIPLIER = 1.3
+
+# Vape subtype price floors — minimum believable SALE price per subtype
+# and weight tier.  Prices below these are almost certainly listing errors
+# on the dispensary menu (e.g. $10 for a 1g disposable when the real market
+# floor is $20-22).  Keyed by product_subtype → weight threshold → min price.
+#
+# Weight matching: ≤0.6g uses the "0.5" floor, >0.6g uses the "1" floor.
+# Products without a detected weight use the conservative "0.5" floor.
+VAPE_SUBTYPE_PRICE_FLOORS: dict[str, dict[str, float]] = {
+    "disposable": {
+        "0.5": 8,     # half-gram disposable min
+        "1": 17,      # full-gram disposable min (real market floor $20-22)
+    },
+    "cartridge": {
+        "0.5": 7,     # half-gram cart min
+        "1": 14,      # full-gram cart min (real market floor ~$17)
+    },
+    "pod": {
+        "0.5": 7,     # half-gram pod min
+        "1": 14,      # full-gram pod min
+    },
+}
+
+# Vape subtype price CAPS — maximum acceptable SALE price per subtype
+# and weight tier.  Disposable vapes should be cheaper than carts/pods
+# because they're single-use.  Products without a detected subtype fall
+# back to the generic "vape" cap in CATEGORY_PRICE_CAPS ($25).
+#
+# Weight matching: ≤0.6g uses the "0.5" cap, >0.6g uses the "1" cap.
+# Products without a detected weight use the conservative "0.5" cap.
+VAPE_SUBTYPE_PRICE_CAPS: dict[str, dict[str, float]] = {
+    "disposable": {
+        "0.5": 25,    # half-gram disposable cap (widened from $18 — battery included
+                       # makes disposables legitimately pricier than carts; premium
+                       # brands like Rove Diamond, STIIIZY LIIIL are $18-22 on sale)
+        "1": 35,      # full-gram disposable cap (widened from $25 — 1g disposables
+                       # like Jeeter Juice retail $40-50, sale at $30-35 is genuine)
+    },
+    "cartridge": {
+        "0.5": 25,    # half-gram cart cap
+        "1": 35,      # full-gram cart cap
+    },
+    "pod": {
+        "0.5": 25,    # half-gram pod cap
+        "1": 35,      # full-gram pod cap
+    },
 }
 
 # Category-specific discount minimums — edibles and prerolls have real deals
@@ -79,6 +135,195 @@ ORIGINAL_PRICE_CEILINGS: dict[str, float] = {
     "edible": 50,       # raised — multi-dose edibles can be $40+
     "concentrate": 100,  # raised — live rosin can retail $80+
     "preroll": 30,       # raised — infused prerolls can retail $25
+}
+
+# =====================================================================
+# State-specific price cap overrides
+# =====================================================================
+# The base CATEGORY_PRICE_CAPS are calibrated for Nevada (southern-nv).
+# Other states have very different market dynamics:
+#
+#   Michigan   — ultra-competitive market, flower eighths retail $10-15
+#                regularly.  A $10 eighth is normal, NOT a deal.  Lower
+#                caps prevent everyday prices from flooding the deal feed.
+#   New Jersey — high-tax, limited-license market.  Regular eighths are
+#                $40-55.  A $28 eighth on sale is a genuine deal.  Higher
+#                caps let real deals through.
+#   Ohio       — newer rec market, prices still elevated.  Similar to NJ
+#                but slightly cheaper.
+#   Missouri   — rapidly maturing market, prices between MI and NV.
+#                Slightly higher caps than NV.
+#
+# Overrides are merged on top of CATEGORY_PRICE_CAPS.  Only categories
+# that differ from NV need entries — unlisted categories fall back to
+# the base caps.  The helper ``_get_state_region`` normalises sharded
+# region names like "michigan-2" → "michigan".
+STATE_PRICE_CAP_OVERRIDES: dict[str, dict[str, dict[str, float] | float]] = {
+    "michigan": {
+        "flower": {
+            "3.5": 15,    # MI eighth deals should be $8-12, not $15-22
+            "7": 28,      # MI quarter deals — $20-25 is good
+            "14": 45,     # MI half oz — $35-40 is a deal
+            "28": 80,     # MI oz — $60-70 is a deal
+        },
+        "vape": 22,       # MI carts are cheap — $15-18 is deal territory
+        "edible": 12,     # MI edibles are cheap — $8-10 is deal territory
+        "concentrate": {
+            "0.5": 20,
+            "1": 35,      # MI live resin is $25-30 on sale
+            "2": 60,
+        },
+        "preroll": 7,     # MI prerolls are $3-6 on sale
+        "infused_preroll": 12,
+        "preroll_pack": 20,
+    },
+    "new-jersey": {
+        "flower": {
+            "3.5": 35,    # NJ eighths on sale at $28-32 are genuine deals
+            "7": 60,      # NJ quarter deals — $45-55
+            "14": 90,     # NJ half oz — $70-85
+            "28": 160,    # NJ oz — $120-150
+        },
+        "vape": 40,       # NJ carts are pricey — $30-35 is a deal
+        "edible": 20,     # NJ edibles — $15-18 is a deal
+        "concentrate": {
+            "0.5": 35,
+            "1": 60,      # NJ live resin — $45-55 on sale
+            "2": 100,
+        },
+        "preroll": 12,
+        "infused_preroll": 20,
+        "preroll_pack": 35,
+    },
+    "ohio": {
+        "flower": {
+            "3.5": 30,    # OH eighths — newer rec market, still elevated
+            "7": 55,
+            "14": 80,
+            "28": 140,
+        },
+        "vape": 35,
+        "edible": 18,
+        "concentrate": {
+            "0.5": 30,
+            "1": 55,
+            "2": 90,
+        },
+        "preroll": 11,
+        "infused_preroll": 18,
+        "preroll_pack": 30,
+    },
+    "missouri": {
+        "flower": {
+            "3.5": 25,    # MO — maturing market, between MI and NV
+            "7": 45,
+            "14": 65,
+            "28": 110,
+        },
+        "vape": 30,
+        "edible": 16,
+        "concentrate": {
+            "0.5": 28,
+            "1": 48,
+            "2": 80,
+        },
+        "preroll": 10,
+        "infused_preroll": 16,
+        "preroll_pack": 28,
+    },
+    "illinois": {
+        "flower": {
+            "3.5": 30,    # IL — high-tax market similar to NJ
+            "7": 55,
+            "14": 80,
+            "28": 140,
+        },
+        "vape": 35,
+        "edible": 18,
+        "concentrate": {
+            "0.5": 30,
+            "1": 55,
+            "2": 90,
+        },
+        "preroll": 11,
+        "infused_preroll": 18,
+        "preroll_pack": 30,
+    },
+    "arizona": {
+        "flower": {
+            "3.5": 25,    # AZ — competitive but not as cheap as MI
+            "7": 45,
+            "14": 65,
+            "28": 110,
+        },
+        "vape": 30,
+        "edible": 16,
+        "concentrate": {
+            "0.5": 28,
+            "1": 48,
+            "2": 80,
+        },
+        "preroll": 10,
+        "infused_preroll": 16,
+        "preroll_pack": 28,
+    },
+    "colorado": {
+        "flower": {
+            "3.5": 18,    # CO — mature competitive market, close to MI
+            "7": 32,
+            "14": 50,
+            "28": 90,
+        },
+        "vape": 25,
+        "edible": 14,
+        "concentrate": {
+            "0.5": 22,
+            "1": 40,
+            "2": 65,
+        },
+        "preroll": 8,
+        "infused_preroll": 14,
+        "preroll_pack": 22,
+    },
+    "massachusetts": {
+        "flower": {
+            "3.5": 32,    # MA — high-tax like NJ/IL
+            "7": 58,
+            "14": 85,
+            "28": 150,
+        },
+        "vape": 38,
+        "edible": 18,
+        "concentrate": {
+            "0.5": 32,
+            "1": 58,
+            "2": 95,
+        },
+        "preroll": 12,
+        "infused_preroll": 18,
+        "preroll_pack": 32,
+    },
+    "northern-nv": {
+        # Northern NV (Reno/Sparks/Carson City) has slightly lower prices
+        # than Las Vegas due to less tourism, but same state tax structure.
+        # Concentrate/edible/vape caps tightened proportionally with base NV.
+        "flower": {
+            "3.5": 20,
+            "7": 38,
+            "14": 52,
+            "28": 95,
+        },
+        "vape": 23,             # tightened from $26 (proportional to base NV $28→$25)
+        "edible": 12,           # tightened from $14 (proportional to base NV $18→$15)
+        "concentrate": {
+            "0.5": 17,          # tightened from $24 (proportional to base NV $25→$18)
+            "1": 23,            # tightened from $42 (proportional to base NV $45→$25)
+            "2": 47,            # tightened from $72 (proportional to base NV $75→$50)
+        },
+        "preroll": 9,
+        "infused_preroll": 14,
+        "preroll_pack": 19,     # tightened from $24 (proportional to base NV $25→$20)
+    },
 }
 
 # =====================================================================
@@ -143,6 +388,29 @@ BRAND_TIERS: dict[str, dict[str, Any]] = {
             # NJ expansion — Feb 2026
             "breakwater", "garden state canna", "the heirloom collective",
             "harmony", "apothecarium", "purple leaf", "bloc nj",
+            # Ohio-native popular brands
+            "klutch", "klutch cannabis", "buckeye relief", "firelands scientific",
+            "standard wellness", "galenas", "ancient roots",
+            "ohio clean leaf", "pure ohio wellness", "the botanist oh",
+            "body and mind", "terrasana", "about wellness",
+            "bloom oh", "amplify", "ohio provisions",
+            # Ohio expansion — Feb 2026
+            "butterfly effect", "grow ohio", "columbia care oh",
+            "have a heart", "the forest",
+            # Colorado-native popular brands
+            "green dot labs", "olio", "lazercat", "viola co",
+            "native roots", "the green solution", "livwell",
+            "standing akimbo", "terrapin care station", "l'eagle",
+            "silver stem", "medicine man", "lightshade",
+            "the dab", "bonsai cultivation",
+            # Massachusetts-native popular brands
+            "theory wellness", "commcan", "neta", "curaleaf ma",
+            "good chemistry", "mayflower", "berkshire roots",
+            "happy valley", "fernway", "harbor house collective",
+            "panacea", "bask", "temescal wellness",
+            # Northern NV popular brands (Reno/Sparks/Carson City)
+            "sierra well", "mynt cannabis", "kanna",
+            "blüm", "blum", "greenleaf wellness",
             # Nevada dispensary house brands (boost when detected)
             "deep roots", "deep roots harvest",
             "state flower", "cultivation labs",
@@ -154,7 +422,7 @@ BRAND_TIERS: dict[str, dict[str, Any]] = {
 
 # Backwards-compat: flat set of all known brands (used by tests/imports)
 PREMIUM_BRANDS: set[str] = {
-    "STIIIZY", "Cookies", "Raw Garden", "Kiva", "Wyld",
+    "STIIIZY", "Raw Garden", "Kiva", "Wyld",
     "Select", "Trendi", "CAMP", "Old Pal", "Pacific Stone",
     "Fleur", "Virtue", "Rove", "Heavy Hitters",
     "Runtz", "Connected", "Alien Labs", "Jungle Boys",
@@ -177,13 +445,23 @@ CATEGORY_BOOST: dict[str, int] = {
 
 TARGET_DEAL_COUNT = 200
 
+# Guaranteed-exposure: every scraped dispensary that yields 0 deals through
+# the normal pipeline will have its best product force-picked so it always
+# gets some representation.  Lowered from 10 → 1 because small stores
+# (e.g. 5 products) were silently dropping to 0 deals when all products
+# failed hard filters.  The _pick_guaranteed_deals() function already
+# rejects true garbage (price < $3, name < 5 chars, non-cannabis keywords).
+MIN_PRODUCTS_FOR_GUARANTEE = 1
+GUARANTEED_DEAL_SCORE_CAP = 25  # modest score so guarantees don't outrank real deals
+
 CATEGORY_TARGETS: dict[str, int] = {
-    "flower": 60,
-    "vape": 45,
-    "edible": 30,
-    "concentrate": 30,
-    "preroll": 25,
-    "other": 10,
+    "flower": 58,        # -2 (from 60)
+    "vape": 21,          # -24 (from 45 — disposables carved out into own category)
+    "disposable": 30,    # NEW — dedicated disposable vape slots
+    "edible": 29,        # -1 (from 30)
+    "concentrate": 29,   # -1 (from 30)
+    "preroll": 24,       # -1 (from 25)
+    "other": 9,          # -1 (from 10)
 }
 
 # Minimum category floors — each category must fill at least this many
@@ -191,7 +469,8 @@ CATEGORY_TARGETS: dict[str, int] = {
 # dominated by a single category (e.g. all prerolls, no flower).
 CATEGORY_MINIMUMS: dict[str, int] = {
     "flower": 12,
-    "vape": 10,
+    "vape": 6,           # reduced from 10 (smaller pool without disposables)
+    "disposable": 15,    # ensure at least 15 genuine disposables in the feed
     "edible": 8,
     "concentrate": 6,
     "preroll": 6,
@@ -220,6 +499,11 @@ _BACKFILL_THRESHOLD = 0.85  # trigger backfill when round 1 fills < 85% of targe
 # shops get visibility alongside high-volume dispensaries.
 MIN_DEALS_PER_DISPENSARY = 1
 
+# Per-chain disposable cap — prevents Rise (7 locations), Thrive (5), or
+# Curaleaf (4) from flooding the disposable feed with the same deal from
+# each storefront.  Applied as post-processing after the main selection.
+MAX_DISPOSABLES_PER_CHAIN = 4
+
 # =====================================================================
 # Phase 4: Badge thresholds
 # =====================================================================
@@ -245,21 +529,51 @@ _NON_CANNABIS_KEYWORDS = {
     "rolling paper", "pipe", "bong", "stash", "bag", "backpack",
     "lanyard", "keychain", "pin", "sticker", "poster",
     "gift card", "gift certificate",
+    "vape battery", "pen battery",
 }
+
+
+def _get_state_region(region: str | None) -> str | None:
+    """Normalise sharded region names (e.g. 'michigan-2' → 'michigan')."""
+    if not region:
+        return None
+    if region[-1:].isdigit():
+        base = region.rsplit("-", 1)[0]
+        return base
+    return region
+
+
+def _get_caps_for_region(category: str, region: str | None) -> dict[str, float] | float | None:
+    """Return the price cap config for *category* in *region*.
+
+    Uses state-specific overrides when available, falling back to the
+    base NV-calibrated ``CATEGORY_PRICE_CAPS``.
+    """
+    state = _get_state_region(region)
+    if state and state in STATE_PRICE_CAP_OVERRIDES:
+        overrides = STATE_PRICE_CAP_OVERRIDES[state]
+        if category in overrides:
+            return overrides[category]
+    return CATEGORY_PRICE_CAPS.get(category)
 
 
 def _passes_price_cap(
     sale_price: float,
     category: str,
     weight_value: float | None,
+    region: str | None = None,
+    cap_multiplier: float = 1.0,
 ) -> bool:
     """Check whether *sale_price* is within the category price cap.
 
     Extracted so it can be reused by both the full and loose filter paths.
+    When *region* is provided, state-specific cap overrides are applied.
+    When *cap_multiplier* > 1.0, all caps are scaled up (used for
+    Jane/Carrot/AIQ platforms where displayed prices are retail, not sale).
     """
-    caps = CATEGORY_PRICE_CAPS.get(category)
+    caps = _get_caps_for_region(category, region)
     if caps is None:
-        return sale_price <= 50
+        return sale_price <= 50 * cap_multiplier
 
     if isinstance(caps, dict):
         sorted_keys = sorted(caps.keys(), key=lambda k: float(k))
@@ -269,24 +583,27 @@ def _passes_price_cap(
                 weight_str = str(int(float(weight_value)))
             cap = caps.get(weight_str)
             if cap is not None:
-                return sale_price <= cap
+                return sale_price <= cap * cap_multiplier
             wv = float(weight_value)
             best_cap = caps[sorted_keys[0]]
             for k in sorted_keys:
                 if float(k) <= wv:
                     best_cap = caps[k]
-            return sale_price <= best_cap
+            return sale_price <= best_cap * cap_multiplier
         else:
-            return sale_price <= caps[sorted_keys[0]]
+            return sale_price <= caps[sorted_keys[0]] * cap_multiplier
     else:
-        return sale_price <= caps
+        return sale_price <= caps * cap_multiplier
 
 
-def passes_hard_filters(product: dict[str, Any]) -> bool:
+def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> bool:
     """Return ``False`` if the product should be completely excluded.
 
     Checks global price bounds, minimum discount, original price
     presence, category-specific price caps, and non-cannabis keywords.
+
+    When *region* is provided, state-specific price cap overrides are
+    used instead of the NV-calibrated defaults.
 
     **Jane platform exception**: Jane sites do not display original
     prices — only the current/deal price is available.  For Jane
@@ -294,12 +611,9 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     only, skipping discount and original-price checks.
 
     Infused pre-rolls are now ALLOWED (they're popular products).
-    Only preroll multi-packs remain excluded from curation.
+    Preroll multi-packs are now ALLOWED with a $20 price cap.
     """
-    # Exclude pre-roll packs from curation (they remain searchable).
     subtype = product.get("product_subtype")
-    if subtype == "preroll_pack":
-        return False
 
     # Exclude non-cannabis products (apparel, accessories, merch, etc.)
     name_lower = (product.get("name") or "").lower()
@@ -315,27 +629,87 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     weight_value = product.get("weight_value")
     source_platform = product.get("source_platform", "")
 
+    # Use region from product if not passed explicitly (supports both
+    # per-product region tagging and caller-supplied region).
+    if not region:
+        region = product.get("region")
+
     # --- Global price floor / ceiling (applies to ALL platforms) ---
     if not sale_price or sale_price < HARD_FILTERS["min_price"]:
         return False
     if sale_price > HARD_FILTERS["max_price_absolute"]:
         return False
 
+    # --- Vape subtype price floors (catches listing errors) ---
+    # A $10 1g disposable is almost certainly a mislisted price when the
+    # real market floor is $20-22.  Reject vapes priced below believable
+    # minimums for their subtype and weight.  Applies to ALL platforms.
+    if category == "vape" and subtype in VAPE_SUBTYPE_PRICE_FLOORS:
+        floors = VAPE_SUBTYPE_PRICE_FLOORS[subtype]
+        try:
+            wv = float(weight_value) if weight_value else 0
+        except (ValueError, TypeError):
+            wv = 0
+        # ≤0.6g → half-gram floor; >0.6g → full-gram floor
+        floor = floors.get("1", 0) if wv > 0.6 else floors.get("0.5", 0)
+        if sale_price < floor:
+            return False
+
+    # --- Vape subtype price CAPS (catches non-deals by subtype) ---
+    # Disposable vapes should be cheaper than carts/pods.  Half-gram
+    # disposables cap at $15; full-gram (0.8g-1g) cap at $25.  Applies to ALL platforms.
+    if category == "vape" and subtype in VAPE_SUBTYPE_PRICE_CAPS:
+        caps = VAPE_SUBTYPE_PRICE_CAPS[subtype]
+        try:
+            wv = float(weight_value) if weight_value else 0
+        except (ValueError, TypeError):
+            wv = 0
+        # ≤0.6g → half-gram cap; >0.6g → full-gram cap.
+        # For disposables with unknown weight (wv=0), use the more permissive
+        # full-gram cap — the $15 half-gram cap is too tight as a fallback
+        # and silently kills most disposable vapes without weight in the name.
+        if wv > 0.6:
+            cap = caps.get("1", 0)
+        elif wv == 0 and subtype == "disposable":
+            cap = caps.get("1", 0)
+        else:
+            cap = caps.get("0.5", 0)
+        if cap and sale_price > cap:
+            return False
+
     # ------------------------------------------------------------------
     # LOOSE QUALIFICATION — platforms without original price data
     # Jane, Carrot, and AIQ do NOT display original prices — only the
     # current/deal price.  We cannot calculate discount_percent, so we
     # skip the discount and original-price checks.  Qualification is
-    # price cap only.  Brand is NOT required here — many of these sites
-    # have unreliable brand extraction.  Products with recognized brands
-    # score higher in Phase 2; brandless products get a lower score but
-    # aren't excluded.
+    # price cap only (with a 1.3x multiplier since the displayed price
+    # is the retail price, not a sale price).  Brand is NOT required
+    # here — many of these sites have unreliable brand extraction.
+    # Products with recognized brands score higher in Phase 2; brandless
+    # products get a lower score but aren't excluded.
     # ------------------------------------------------------------------
     if source_platform in ("jane", "carrot", "aiq"):
-        return _passes_price_cap(sale_price, category, weight_value)
+        return _passes_price_cap(
+            sale_price, category, weight_value, region,
+            cap_multiplier=_LOOSE_QUAL_CAP_MULTIPLIER,
+        )
 
     # --- Standard filters (non-Jane platforms) ---
-    min_disc = CATEGORY_MIN_DISCOUNT.get(category, HARD_FILTERS["min_discount_percent"])
+    # Budget bypass: certain product types at accessible price points are
+    # genuine deals where the absolute price IS the value proposition.
+    # A $9 edible from $10 is 10%, a $20 disposable from $22 is 9% —
+    # both below the normal 12-15% floors but clearly good deals.
+    # We only require *any* discount (>0%) instead of the full minimum.
+    is_budget_deal = (
+        (category in ("edible", "preroll") and sale_price <= 10)
+        or (category == "vape"
+            and subtype == "disposable"
+            and sale_price <= 25)
+    )
+    if is_budget_deal:
+        min_disc = 1
+    else:
+        min_disc = CATEGORY_MIN_DISCOUNT.get(category, HARD_FILTERS["min_discount_percent"])
     if discount is None or discount < min_disc:
         return False
     if discount > HARD_FILTERS["max_discount_percent"]:
@@ -346,7 +720,11 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
 
     # Reject products with unreasonably high original prices — almost always
     # a parsing artifact from bundle/promo text leaking into the price parser.
-    orig_ceiling = ORIGINAL_PRICE_CEILINGS.get(category)
+    # Preroll packs use a higher ceiling ($50) than single prerolls ($30).
+    if category == "preroll" and subtype == "preroll_pack":
+        orig_ceiling = 50
+    else:
+        orig_ceiling = ORIGINAL_PRICE_CEILINGS.get(category)
     if orig_ceiling and original_price > orig_ceiling:
         return False
 
@@ -355,9 +733,49 @@ def passes_hard_filters(product: dict[str, Any]) -> bool:
     # prerolls.  Regular 1g flower prerolls should be $5-9 (never $10-12),
     # but infused prerolls are premium products and legitimately cost more.
     if category == "preroll" and subtype == "infused_preroll":
+        infused_cap = _get_caps_for_region("infused_preroll", region)
+        if isinstance(infused_cap, (int, float)):
+            return sale_price <= infused_cap
         return sale_price <= CATEGORY_PRICE_CAPS.get("infused_preroll", 15)
 
-    return _passes_price_cap(sale_price, category, weight_value)
+    # Preroll packs use their own cap ($20) instead of the regular preroll cap ($9).
+    if category == "preroll" and subtype == "preroll_pack":
+        pack_cap = _get_caps_for_region("preroll_pack", region)
+        if isinstance(pack_cap, (int, float)):
+            return sale_price <= pack_cap
+        return sale_price <= CATEGORY_PRICE_CAPS.get("preroll_pack", 20)
+
+    return _passes_price_cap(sale_price, category, weight_value, region)
+
+
+def failed_by_price_cap(product: dict[str, Any], region: str | None = None) -> bool:
+    """Return ``True`` if the product would fail hard filters *specifically*
+    due to the category price cap (not discount, not global bounds).
+
+    Used for data enrichment metrics — tells us how many products per state
+    are being rejected by price caps, which signals when state-specific
+    caps need tuning.
+    """
+    sale_price = product.get("sale_price") or product.get("current_price") or 0
+    category = product.get("category", "other")
+    weight_value = product.get("weight_value")
+    subtype = product.get("product_subtype")
+
+    if not region:
+        region = product.get("region")
+
+    if not sale_price or sale_price < HARD_FILTERS["min_price"]:
+        return False  # rejected by global floor, not price cap
+    if sale_price > HARD_FILTERS["max_price_absolute"]:
+        return False  # rejected by global ceiling, not price cap
+
+    if category == "preroll" and subtype == "infused_preroll":
+        infused_cap = _get_caps_for_region("infused_preroll", region)
+        if isinstance(infused_cap, (int, float)):
+            return sale_price > infused_cap
+        return sale_price > CATEGORY_PRICE_CAPS.get("infused_preroll", 15)
+
+    return not _passes_price_cap(sale_price, category, weight_value, region)
 
 
 # =====================================================================
@@ -373,6 +791,19 @@ _STRAIN_ONLY_NAMES = {
 
 # Categories that should always have a detected weight
 _WEIGHT_REQUIRED_CATEGORIES = {"flower", "concentrate", "vape"}
+
+# Promotional / bundle text patterns — deals with these in the product
+# name are not individual products with verifiable quality.  Catches
+# items like "3 for $50 Trendi Cartridges" or "2/$40 Power Pack".
+_PROMO_TEXT_RE = re.compile(
+    r"\b\d+\s+for\s+\$\d+"           # "3 for $50"
+    r"|\b\d+\s*/\s*\$\d+"            # "2/$40"
+    r"|\bbuy\s+\d+\s+get\b"          # "buy 2 get 1"
+    r"|\bbogo\b"                      # "BOGO"
+    r"|\bmix\s*(?:and|&|n)\s*match\b" # "mix and match"
+    r"|\bbundle\b",                   # "bundle"
+    re.IGNORECASE,
+)
 
 
 def passes_quality_gate(product: dict[str, Any]) -> bool:
@@ -412,9 +843,21 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
     if len(name_words) == 2 and name_words[0] == name_words[1]:
         return False
 
-    # Reject products with no weight in categories that need it
-    if category in _WEIGHT_REQUIRED_CATEGORIES and not weight_value:
+    # Reject bundle/promo text that slipped through scraper filters —
+    # "3 for $50 Trendi Cartridges", "2/$40 Power Pack", etc.
+    # These are not individual product deals with verifiable quality.
+    if _PROMO_TEXT_RE.search(name):
         return False
+
+    # Reject products with no weight in categories that need it.
+    # Disposable vapes are exempted — they're commonly listed without weight
+    # ("Rove All-In-One", "Cookies Disposable Pen") and requiring weight
+    # would silently drop them before the per-dispensary disposable guarantee
+    # (Step 4b in select_top_deals) can rescue them.
+    if category in _WEIGHT_REQUIRED_CATEGORIES and not weight_value:
+        subtype = product.get("product_subtype")
+        if subtype != "disposable":
+            return False
 
     # Reject edibles with tiny THC content — 9.5mg, 10mg single-dose items
     # are not real deals.  Standard dispensary edibles are 100mg+.
@@ -558,15 +1001,105 @@ def _score_brand(brand: str) -> int:
     for tier_data in BRAND_TIERS.values():
         if brand_lower in tier_data["brands"]:
             return tier_data["points"]
-        # Word-boundary match for compound names (e.g. "Alien Labs Cannabis")
-        if any(
-            re.search(r"\b" + re.escape(b) + r"\b", brand_lower)
-            for b in tier_data["brands"]
-            if len(b) > 3
-        ):
-            return tier_data["points"]
+        # Prefix match for compound brand names (e.g. "Alien Labs Cannabis Co"
+        # matching "alien labs").  The tier brand must appear at the START of the
+        # detected brand — this prevents strain names from matching tier brands
+        # that appear later in the string (e.g. "Wedding Cake" matching "cake",
+        # "Purple Haze" matching "haze").
+        for b in tier_data["brands"]:
+            if len(b) > 3 and brand_lower.startswith(b):
+                # Ensure the match ends at a word boundary — "campaign" must NOT
+                # match tier brand "camp".
+                if len(brand_lower) == len(b) or not brand_lower[len(b)].isalnum():
+                    return tier_data["points"]
 
     return 5  # any brand > no brand
+
+
+# =====================================================================
+# Guaranteed-exposure fallback
+# =====================================================================
+
+
+def _pick_guaranteed_deals(
+    products: list[dict[str, Any]],
+    max_picks: int = 1,
+) -> list[dict[str, Any]]:
+    """Pick the best available product(s) when the normal pipeline yields 0.
+
+    Uses relaxed criteria: valid price + reasonable name length.  Brand is
+    preferred but NOT required — this is the safety net for dispensaries
+    whose products don't match the brand detection database.
+
+    Returns up to *max_picks* products with a capped ``deal_score``.
+    """
+    candidates: list[tuple[int, dict[str, Any]]] = []
+
+    for p in products:
+        sale_price = p.get("sale_price") or p.get("current_price") or 0
+        if not sale_price or sale_price < HARD_FILTERS["min_price"]:
+            continue
+        if sale_price > HARD_FILTERS["max_price_absolute"]:
+            continue
+
+        name = p.get("name") or ""
+        if len(name.strip()) < 5:
+            continue
+
+        # Exclude non-cannabis items
+        name_lower = name.lower()
+        raw_lower = (p.get("raw_text") or "").lower()
+        if any(kw in name_lower or kw in raw_lower for kw in _NON_CANNABIS_KEYWORDS):
+            continue
+
+        # Simplified scoring: brand + price attractiveness + category
+        score = 0
+        brand = p.get("brand") or ""
+        score += _score_brand(brand)
+
+        if 8 <= sale_price <= 15:
+            score += 12
+        elif 15 < sale_price <= 25:
+            score += 10
+        elif 5 <= sale_price < 8:
+            score += 8
+        elif 25 < sale_price <= 40:
+            score += 6
+
+        category = p.get("category", "other")
+        score += CATEGORY_BOOST.get(category, 3)
+
+        score = max(score, 15)
+        candidates.append((score, p))
+
+    candidates.sort(key=lambda x: x[0], reverse=True)
+
+    # Category-aware selection: prefer picks from distinct categories
+    # so a dispensary getting 2-3 guaranteed deals gets diversity
+    # (e.g. 1 flower + 1 vape) instead of all flower.
+    result: list[dict[str, Any]] = []
+    seen_categories: set[str] = set()
+
+    # First pass: one per category (highest-scored)
+    for raw_score, p in candidates:
+        if len(result) >= max_picks:
+            break
+        cat = p.get("category", "other")
+        if cat not in seen_categories:
+            capped = min(raw_score, GUARANTEED_DEAL_SCORE_CAP)
+            result.append({**p, "deal_score": capped, "_guaranteed": True})
+            seen_categories.add(cat)
+
+    # Second pass: fill remaining slots by score
+    for raw_score, p in candidates:
+        if len(result) >= max_picks:
+            break
+        deal_key = (p.get("name", ""), p.get("sale_price"))
+        if deal_key not in {(r.get("name", ""), r.get("sale_price")) for r in result}:
+            capped = min(raw_score, GUARANTEED_DEAL_SCORE_CAP)
+            result.append({**p, "deal_score": capped, "_guaranteed": True})
+
+    return result
 
 
 def calculate_deal_score(product: dict[str, Any]) -> int:
@@ -653,6 +1186,14 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
     # in the feed instead of being outscored by higher-priced categories.
     if category in ("preroll", "edible") and sale_price <= 11:
         score += 5
+
+    # 8. DISPOSABLE BOOST (up to 12 points)
+    # Disposables are underrepresented because the raw inventory pool is
+    # dominated by 510 carts.  A 12pt boost helps disposables compete
+    # without making a mediocre disposable beat a great cart deal.
+    # 25% of users are exclusively disposable vape users — P0 retention.
+    if category == "vape" and product.get("product_subtype") == "disposable":
+        score += 12
 
     return min(100, score)
 
@@ -953,7 +1494,11 @@ def select_top_deals(
     buckets: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for deal in scored_deals:
         cat = deal.get("category", "other")
-        if cat not in CATEGORY_TARGETS:
+        # Virtual category: disposable vapes get their own selection bucket
+        # so they receive dedicated slots instead of competing with carts/pods.
+        if cat == "vape" and deal.get("product_subtype") == "disposable":
+            cat = "disposable"
+        elif cat not in CATEGORY_TARGETS:
             cat = "other"
         buckets[cat].append(deal)
 
@@ -1023,8 +1568,24 @@ def select_top_deals(
                     break
 
     # ------------------------------------------------------------------
-    # Step 2a: Round 1 — tight diversity caps
+    # Step 2a: Round 1 — diversity caps (dynamic based on supply)
     # ------------------------------------------------------------------
+    # When supply is thin (< 1.5x target), relax brand caps so the feed
+    # can fill without starving thin categories (edibles, concentrates).
+    # When supply is abundant, use tight caps for maximum variety.
+    supply_ratio = total_available / target if target > 0 else 1.0
+    if supply_ratio < 1.5:
+        effective_brand_cap = min(10, MAX_SAME_BRAND_TOTAL + 3)
+        effective_brand_cat_cap = min(5, MAX_SAME_BRAND_PER_CATEGORY + 1)
+        logger.info(
+            "Low supply (%.1fx target): relaxed brand caps %d→%d, cat caps %d→%d",
+            supply_ratio, MAX_SAME_BRAND_TOTAL, effective_brand_cap,
+            MAX_SAME_BRAND_PER_CATEGORY, effective_brand_cat_cap,
+        )
+    else:
+        effective_brand_cap = MAX_SAME_BRAND_TOTAL
+        effective_brand_cat_cap = MAX_SAME_BRAND_PER_CATEGORY
+
     brand_counts: dict[str, int] = defaultdict(int)
     brand_cat_counts: dict[str, int] = defaultdict(int)
     dispensary_counts: dict[str, int] = defaultdict(int)
@@ -1032,8 +1593,8 @@ def select_top_deals(
 
     category_picks = _pick_from_pools(
         buckets, category_slots,
-        brand_cap=MAX_SAME_BRAND_TOTAL,
-        brand_cat_cap=MAX_SAME_BRAND_PER_CATEGORY,
+        brand_cap=effective_brand_cap,
+        brand_cat_cap=effective_brand_cat_cap,
         dispensary_cap=MAX_SAME_DISPENSARY_TOTAL,
         unknown_cap=MAX_UNKNOWN_BRAND_TOTAL,
         already_picked=already_picked,
@@ -1183,23 +1744,58 @@ def select_top_deals(
         for disp_id in missing_disps:
             pool = all_disp_pools[disp_id]
             pool.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
-            count = 0
+
+            # --- Category-aware backfill ---
+            # Pick the best deal from each distinct category first to
+            # maximise category diversity for this dispensary.  Then
+            # fill any remaining floor slots by overall score.
+            by_cat: dict[str, list[dict[str, Any]]] = defaultdict(list)
             for deal in pool:
+                cat = deal.get("category", "other")
+                by_cat[cat].append(deal)
+
+            count = 0
+            added_keys_this_disp: set[tuple[str, float | None]] = set()
+
+            # First pass: one deal per category (highest-scored)
+            for cat in ("flower", "vape", "edible", "concentrate", "preroll", "other"):
                 if count >= MIN_DEALS_PER_DISPENSARY:
                     break
-                deal_key = (deal.get("name", ""), deal.get("sale_price"))
-                brand_lower = (deal.get("brand") or "").lower()
-                # Only add if it has a brand and doesn't exceed brand cap
-                if (
-                    deal_key not in result_keys
-                    and deal.get("brand")
-                    and disp_min_brand_counts[brand_lower] < _BACKFILL_BRAND_TOTAL
-                ):
-                    result.append(deal)
-                    result_keys.add(deal_key)
-                    disp_min_brand_counts[brand_lower] += 1
-                    count += 1
-                    added += 1
+                for deal in by_cat.get(cat, []):
+                    deal_key = (deal.get("name", ""), deal.get("sale_price"))
+                    brand_lower = (deal.get("brand") or "").lower()
+                    if (
+                        deal_key not in result_keys
+                        and deal.get("brand")
+                        and disp_min_brand_counts[brand_lower] < _BACKFILL_BRAND_TOTAL
+                    ):
+                        result.append(deal)
+                        result_keys.add(deal_key)
+                        added_keys_this_disp.add(deal_key)
+                        disp_min_brand_counts[brand_lower] += 1
+                        count += 1
+                        added += 1
+                        break  # one per category
+
+            # Second pass: fill remaining floor slots by score
+            if count < MIN_DEALS_PER_DISPENSARY:
+                for deal in pool:
+                    if count >= MIN_DEALS_PER_DISPENSARY:
+                        break
+                    deal_key = (deal.get("name", ""), deal.get("sale_price"))
+                    if deal_key in added_keys_this_disp:
+                        continue
+                    brand_lower = (deal.get("brand") or "").lower()
+                    if (
+                        deal_key not in result_keys
+                        and deal.get("brand")
+                        and disp_min_brand_counts[brand_lower] < _BACKFILL_BRAND_TOTAL
+                    ):
+                        result.append(deal)
+                        result_keys.add(deal_key)
+                        disp_min_brand_counts[brand_lower] += 1
+                        count += 1
+                        added += 1
         if added > 0:
             logger.info(
                 "Dispensary minimum: added %d deals from %d under-represented dispensaries",
@@ -1234,6 +1830,34 @@ def select_top_deals(
             remove_indices = {idx for idx, _ in disp_deals[:excess]}
             result = [d for i, d in enumerate(result) if i not in remove_indices]
 
+    # ------------------------------------------------------------------
+    # Step 5b: Disposable vape chain cap enforcement
+    # ------------------------------------------------------------------
+    # Prevent large chains (Rise, Thrive, Curaleaf) from flooding the
+    # disposable slots with the same deal from multiple locations.
+    chain_dv_groups: dict[str, list[tuple[int, dict[str, Any]]]] = defaultdict(list)
+    for i, deal in enumerate(result):
+        if (
+            deal.get("category") == "vape"
+            and deal.get("product_subtype") == "disposable"
+        ):
+            chain = _chain_prefix(deal.get("dispensary_id") or "")
+            if chain:
+                chain_dv_groups[chain].append((i, deal))
+
+    trim_indices: set[int] = set()
+    for chain, entries in chain_dv_groups.items():
+        if len(entries) > MAX_DISPOSABLES_PER_CHAIN:
+            entries.sort(key=lambda x: x[1].get("deal_score", 0), reverse=True)
+            for idx, _ in entries[MAX_DISPOSABLES_PER_CHAIN:]:
+                trim_indices.add(idx)
+    if trim_indices:
+        result = [d for i, d in enumerate(result) if i not in trim_indices]
+        logger.info(
+            "Disposable chain cap: trimmed %d excess disposable deals",
+            len(trim_indices),
+        )
+
     return result[:TARGET_DEAL_COUNT]
 
 
@@ -1255,14 +1879,33 @@ def detect_deals(
     """
     global _last_report_data
 
+    # Step 0: Correct 1g flower → preroll (no 1g flower exists in retail;
+    # it's always a preroll or infused preroll that was miscategorized).
+    for product in products:
+        if (
+            product.get("category") == "flower"
+            and product.get("weight_value")
+        ):
+            try:
+                wv = float(product["weight_value"])
+            except (ValueError, TypeError):
+                wv = None
+            if wv is not None and 0.5 <= wv <= 1.5:
+                product["category"] = "preroll"
+
+    # Step 1: Hard filter (with price-cap rejection counting)
     # Step 1: Hard filter
     qualifying: list[dict[str, Any]] = []
+    price_cap_rejects = 0
     for product in products:
         if passes_hard_filters(product):
             qualifying.append(product)
+        elif failed_by_price_cap(product):
+            price_cap_rejects += 1
 
     logger.info(
-        "Hard filter: %d/%d products passed", len(qualifying), len(products)
+        "Hard filter: %d/%d products passed (%d rejected by price cap)",
+        len(qualifying), len(products), price_cap_rejects,
     )
 
     # Step 2: Score qualifying deals
@@ -1353,6 +1996,21 @@ def detect_deals(
     top_deals = select_top_deals(scored)
     logger.info("Selected %d top deals for display", len(top_deals))
 
+    # Step 6: Guaranteed minimum exposure
+    # If the dispensary was scraped but the normal pipeline found 0 deals,
+    # force-pick the best available product so every store shows something.
+    # Even stores with just a few products deserve representation.
+    guaranteed_count = 0
+    if len(products) >= MIN_PRODUCTS_FOR_GUARANTEE and not top_deals:
+        guaranteed = _pick_guaranteed_deals(products, max_picks=2)
+        if guaranteed:
+            top_deals.extend(guaranteed)
+            guaranteed_count = len(guaranteed)
+            logger.info(
+                "Guaranteed exposure: forced %d deal(s) from %d products",
+                guaranteed_count, len(products),
+            )
+
     # Store reporting data for the scrape summary
     selected_keys = {
         (d.get("name", ""), d.get("sale_price")) for d in top_deals
@@ -1366,8 +2024,10 @@ def detect_deals(
         "passed_hard_filter": len(qualifying),
         "scored": len(scored),
         "selected": len(top_deals),
+        "guaranteed": guaranteed_count,
         "top_deals": top_deals,
         "cut_deals": cut_deals,
+        "price_cap_rejects": price_cap_rejects,
     }
 
     return top_deals

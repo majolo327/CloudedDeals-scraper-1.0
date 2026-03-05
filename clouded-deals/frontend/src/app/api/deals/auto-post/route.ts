@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
-import { postTweet } from "@/lib/twitter";
+import { postTweet, validateTwitterCredentials, testTwitterConnection } from "@/lib/twitter";
 import { formatCandidateTweet } from "@/lib/tweet-formatter";
 import { selectDealsToPost } from "@/lib/auto-post-selector";
 
@@ -8,17 +8,20 @@ import { selectDealsToPost } from "@/lib/auto-post-selector";
  * POST /api/deals/auto-post
  *
  * Called by a scheduled cron (GitHub Actions). Each invocation selects and
- * posts ONE deal to @CloudedDeals. The cron runs up to 4 times/day, spaced
- * out so we tweet 1-4 deals across the day.
+ * posts ONE deal to @CloudedDeals. The cron runs up to 8 times/day, spaced
+ * out so we tweet 4-8 deals across the day.
  *
  * The selection logic in auto-post-selector.ts enforces:
  *  - Southern NV region only
- *  - 1g disposable vapes + 3.5g/7g flower under $30
+ *  - 1g disposable vapes, 3.5g/7g flower, 100mg+ edibles,
+ *    1g live resin/rosin concentrates, single/2-pack prerolls
  *  - No brand repeats within the same day
  *  - No brand+dispensary combo repeats
- *  - Max 4 posts per day
+ *  - Max 8 posts per day
  *
- * Body (optional): { dry_run?: boolean }
+ * Body (optional):
+ *   { dry_run?: boolean }           — select deal but don't tweet
+ *   { test_connection?: boolean }   — verify Twitter credentials only
  */
 export async function POST(req: NextRequest) {
   // Auth check
@@ -29,21 +32,43 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Pre-validate Twitter credentials before doing any work
+  const credCheck = validateTwitterCredentials();
+  if (!credCheck.valid) {
+    console.error(
+      `[auto-post] Missing Twitter credentials: ${credCheck.missing.join(", ")}`
+    );
+    return NextResponse.json(
+      { error: "Twitter credentials not configured", missing: credCheck.missing },
+      { status: 503 }
+    );
+  }
+
   let dryRun = false;
+  let testConnection = false;
   try {
     const body = await req.json();
     dryRun = body?.dry_run === true;
+    testConnection = body?.test_connection === true;
   } catch {
     // No body is fine — default to live mode
+  }
+
+  // Test-connection mode: verify Twitter credentials without posting.
+  // Calls GET /2/users/me to confirm the OAuth tokens are valid and
+  // have the right permissions.
+  if (testConnection) {
+    const result = await testTwitterConnection();
+    return NextResponse.json(result, { status: result.ok ? 200 : 502 });
   }
 
   const supabase = createServiceClient();
 
   // Select the best deal to post right now
   const candidates = await selectDealsToPost(supabase, {
-    maxPerDay: 4,
-    minScore: 55,
-    maxPrice: 30,
+    maxPerDay: 8,
+    minScore: 50,
+    maxPrice: 35,
     region: "southern-nv",
   });
 
@@ -125,6 +150,7 @@ export async function POST(req: NextRequest) {
     tweet_id: result.tweet_id,
     deal: {
       deal_id: deal.deal_id,
+      product_id: deal.product_id,
       product: deal.product_name,
       brand: deal.brand,
       category: deal.category,

@@ -4,7 +4,17 @@
   ignore = "exit 1"
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "22"
+
+# Extend serverless function timeout from default 10s to 26s.
+# The auto-post route needs time for: Supabase query (~3s) + Twitter API
+# with up to 3 retries (~10s worst case) + overhead.
+[functions]
+  external_node_modules = ["@netlify/plugin-nextjs"]
+  node_bundler = "esbuild"
+
+[functions."*"]
+  timeout = 26
 
 # Next.js requires the Netlify Next.js runtime plugin.
 # Install @netlify/plugin-nextjs as a dev dependency or add it here.
@@ -21,4 +31,4 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=(self)"
     Strict-Transport-Security = "max-age=31536000; includeSubDomains"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://www.google-analytics.com https://*.google-analytics.com https://*.googletagmanager.com; frame-ancestors 'none'"

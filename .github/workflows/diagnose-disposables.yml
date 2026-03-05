@@ -1,0 +1,42 @@
+name: Diagnose Disposable Classification
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Run mode"
+        required: true
+        default: "database"
+        type: choice
+        options:
+          - database
+          - offline
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install supabase python-dotenv
+
+      - name: Run disposable diagnostic
+        working-directory: clouded-deals/scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          if [ "${{ inputs.mode }}" = "offline" ]; then
+            python diagnose_disposables.py --offline
+          else
+            python diagnose_disposables.py
+          fi

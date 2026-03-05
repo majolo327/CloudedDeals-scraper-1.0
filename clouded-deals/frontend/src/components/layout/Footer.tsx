@@ -42,9 +42,9 @@ export function Footer({ onNavigateToForBusiness, onNavigate, onNavigateToAbout,
           {showHowItWorks && (
             <div className="mt-4 max-w-md mx-auto p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
               <p className="text-xs text-slate-400 leading-relaxed text-center">
-                We check every dispensary in Las Vegas every single morning and bring every deal into one place.
+                Every morning we scan every dispensary in Las Vegas and surface only the deals actually worth your money.
                 Tap any deal to go straight to the dispensary. Save with{' '}
-                <span className="text-purple-400">&hearts;</span> &mdash; deals refresh at midnight.
+                <span className="text-purple-400">&hearts;</span> &mdash; new drops at midnight.
               </p>
               {/* Replay guided tour toggle */}
               <button
@@ -71,7 +71,7 @@ export function Footer({ onNavigateToForBusiness, onNavigate, onNavigateToAbout,
         )}
         {/* Trust commitment */}
         <p className="text-center text-xs text-slate-500 leading-relaxed mb-4">
-          Every deal is ranked on merit. No sponsored placements. No ads. Ever.
+          If a deal is here, it earned its spot. No sponsored placements.
         </p>
 
         {onNavigateToAbout && (

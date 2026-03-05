@@ -60,6 +60,7 @@ export interface RetentionCohort {
   day3: number;
   day7: number;
   day14: number;
+  day30: number;
 }
 
 export interface ViralMetrics {
@@ -74,6 +75,127 @@ export interface ViralMetrics {
   shareViewRate: number;
   /** Referral clicks that converted to a save action */
   clickToConversionRate: number;
+  /** Users ranked by conversions they drove */
+  topReferrers: TopReferrer[];
+}
+
+export interface TopReferrer {
+  anonId: string;
+  conversions: number;
+  clicks: number;
+}
+
+export interface GrowthMetrics {
+  /** WoW change in unique visitors (%) */
+  visitorsWoW: number;
+  /** WoW change in saves (%) */
+  savesWoW: number;
+  /** WoW change in deal clicks (%) */
+  clicksWoW: number;
+  /** WoW change in shares (%) */
+  sharesWoW: number;
+  /** Weekly Active Users (distinct users with events in last 7d) */
+  wau: number;
+  /** Monthly Active Users (distinct users with events in last 30d) */
+  mau: number;
+  /** DAU/MAU stickiness ratio (%) — investors' favorite metric */
+  stickiness: number;
+  /** Activation rate: % of visitors who saved or clicked (%) */
+  activationRate: number;
+  /** Avg events per user in range (engagement depth) */
+  eventsPerUser: number;
+  /** Churn rate: % of prior-week users not seen this week */
+  churnRate: number;
+  /** Compound weekly growth rate over last 4 weeks (%) */
+  growthVelocity: number;
+  /** % of activated users (saved a deal) who returned within 7 days */
+  activationToRetention: number;
+}
+
+export interface DispensaryMetric {
+  dispensary: string;
+  clicks: number;
+  saves: number;
+}
+
+export interface AcquisitionChannel {
+  source: string;
+  visitors: number;
+  saves: number;
+  clicks: number;
+}
+
+export interface AttributionBreakdown {
+  /** Channel label (e.g., "QR Scan", "Direct Type-in", "Twitter/X") */
+  label: string;
+  /** Acquisition source key */
+  source: string;
+  visitors: number;
+  saves: number;
+  clicks: number;
+}
+
+/**
+ * Core KPI metrics — single source of truth for the hero dashboard.
+ * Industry-standard definitions:
+ *   DAU = unique users with any event today (calendar day UTC)
+ *   WAU = unique users with any event in last 7 days
+ *   MAU = unique users with any event in last 30 days
+ *   Total = cumulative unique users since launch (all time)
+ */
+export interface CoreKPIs {
+  dau: number;
+  dauChange: number;          // % vs yesterday
+  wau: number;
+  wauChange: number;          // % vs previous 7-day window
+  mau: number;
+  mauChange: number | null;   // % vs previous 30-day window (null if unavailable)
+  totalUniqueUsers: number;   // all-time cumulative (PMF goal denominator)
+}
+
+export interface CampaignSegment {
+  /** Campaign identifier (e.g., "vegas_strip_beta") */
+  campaignName: string;
+  /** UTM source (e.g., "flyer") */
+  source: string;
+
+  // ---- Headline KPIs ----
+  uniqueVisitors: number;
+  totalEvents: number;
+  saves: number;
+  dealClicks: number;
+  shares: number;
+
+  // ---- Engagement ----
+  eventsPerUser: number;
+  /** % of campaign visitors who saved or clicked */
+  activationRate: number;
+  /** % of visitors with only 1 event (single pageload, no engagement) */
+  bounceRate: number;
+
+  // ---- Funnel (campaign users only) ----
+  funnel: FunnelStep[];
+
+  // ---- Time-based ----
+  dailyVisitors: DailyVisitors[];
+  hourlyActivity: HourlyActivity[];
+
+  // ---- What they engaged with ----
+  topDeals: { dealId: string; dealName?: string; brand?: string; saves: number }[];
+  topDispensaries: { name: string; clicks: number }[];
+
+  // ---- Device split ----
+  devices: DeviceBreakdown[];
+
+  // ---- Attribution breakdown (how did users find us?) ----
+  attribution: AttributionBreakdown[];
+
+  // ---- Organic comparison (everyone NOT in this campaign) ----
+  organicVisitors: number;
+  organicSaves: number;
+  organicClicks: number;
+  organicActivationRate: number;
+  organicEventsPerUser: number;
 }
 
 export interface AnalyticsData {
@@ -90,6 +212,13 @@ export interface AnalyticsData {
   retentionCohorts: RetentionCohort[];
   totalEventsInRange: number;
   viral: ViralMetrics;
+  growth: GrowthMetrics;
+  dispensaryMetrics: DispensaryMetric[];
+  acquisitionChannels: AcquisitionChannel[];
+  /** Per-campaign deep-dive segments (e.g., flyer campaign isolated from organic) */
+  campaignSegments: CampaignSegment[];
+  /** Core KPIs — the hero numbers at the top of the dashboard */
+  kpis: CoreKPIs;
 }
 
 export interface EventRow {
@@ -139,8 +268,17 @@ export function useAnalytics(range: DateRange = '7d') {
         viral: {
           sharesToday: 0, sharesInRange: 0, sharedPageViews: 0,
           referralClicks: 0, referralConversions: 0, viralCoefficient: 0,
-          shareViewRate: 0, clickToConversionRate: 0,
+          shareViewRate: 0, clickToConversionRate: 0, topReferrers: [],
         },
+        acquisitionChannels: [],
+        growth: {
+          visitorsWoW: 0, savesWoW: 0, clicksWoW: 0, sharesWoW: 0,
+          wau: 0, mau: 0, stickiness: 0, activationRate: 0, eventsPerUser: 0,
+          churnRate: 0, growthVelocity: 0, activationToRetention: 0,
+        },
+        dispensaryMetrics: [],
+        campaignSegments: [],
+        kpis: { dau: 0, dauChange: 0, wau: 0, wauChange: 0, mau: 0, mauChange: null, totalUniqueUsers: 0 },
       });
       setLoading(false);
       return;
@@ -155,23 +293,41 @@ export function useAnalytics(range: DateRange = '7d') {
       const todayStart = new Date(now);
       todayStart.setHours(0, 0, 0, 0);
       const todayStr = todayStart.toISOString().slice(0, 10);
-      const mauStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const mauStart = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
       // Fetch all data in parallel
+      // Try server-side KPIs via RPC (graceful null if migration 038 not yet applied)
+      type RpcKpis = {
+        dau: number; dau_yesterday: number;
+        wau: number; wau_prev: number;
+        mau: number; mau_prev: number;
+        total_unique_users: number;
+        today_saves: number; today_clicks: number;
+      };
+      const rpcPromise: Promise<RpcKpis | null> = Promise.resolve().then(async () => {
+        try {
+          const { data, error } = await supabase.rpc('get_kpi_summary');
+          if (error || !data) return null;
+          return data as RpcKpis;
+        } catch { return null; }
+      });
+
       const [
         eventsRes,
         recentEventsRes,
         topDealsRes,
         allTimeSessionsRes,
         mauEventsRes,
+        rpcKpis,
       ] = await Promise.all([
-        // All events in selected range
+        // All events in selected range (override Supabase default 1000-row limit)
         supabase
           .from('analytics_events')
           .select('anon_id, event_name, properties, created_at')
           .gte('created_at', rangeStart)
-          .order('created_at', { ascending: true }),
+          .order('created_at', { ascending: true })
+          .limit(50000),
         // Recent events for live stream
         supabase
           .from('analytics_events')
@@ -184,16 +340,19 @@ export function useAnalytics(range: DateRange = '7d') {
           .select('deal_id, save_count')
           .order('save_count', { ascending: false })
           .limit(10),
-        // All-time unique visitors
+        // All-time unique visitors (from user_sessions)
         supabase
           .from('user_sessions')
           .select('user_id', { count: 'exact', head: true }),
-        // 30-day events for return rate + retention cohorts
+        // 90-day events for return rate + retention cohorts (wider window for day30)
         supabase
           .from('analytics_events')
           .select('anon_id, event_name, created_at')
           .gte('created_at', mauStart)
-          .order('created_at', { ascending: true }),
+          .order('created_at', { ascending: true })
+          .limit(50000),
+        // Server-side KPIs (fires in parallel, returns null if unavailable)
+        rpcPromise,
       ]);
 
       type EventRecord = { anon_id: string; event_name: string; properties: Record<string, unknown> | null; created_at: string };
@@ -229,6 +388,21 @@ export function useAnalytics(range: DateRange = '7d') {
       let referralClicks = 0;                      // referral_click events
       let referralConversions = 0;                 // referral_conversion events
       const referralConverters = new Set<string>();// unique users who converted
+
+      // Growth / B2B accumulators
+      const dispensaryClicks: Record<string, { clicks: number; saves: number }> = {};
+      const referrerConversions: Record<string, { conversions: number; clicks: number }> = {};
+      // Weekly buckets for WoW comparison (current week vs prior week)
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
+      const thisWeekVisitors = new Set<string>(), lastWeekVisitors = new Set<string>();
+      let thisWeekSaves = 0, lastWeekSaves = 0;
+      let thisWeekClicks = 0, lastWeekClicks = 0;
+      let thisWeekShares = 0, lastWeekShares = 0;
+
+      // Acquisition channel tracking (from UTM params on app_loaded events)
+      const userAcqSource: Record<string, string> = {}; // anon_id → source (first seen)
+      const acqChannelData: Record<string, { visitors: Set<string>; saves: number; clicks: number }> = {};
 
       for (const event of events) {
         const dateKey = event.created_at.slice(0, 10);
@@ -276,6 +450,45 @@ export function useAnalytics(range: DateRange = '7d') {
         if (event.event_name === 'referral_conversion') {
           referralConversions++;
           referralConverters.add(event.anon_id);
+          // Track which referrer drove this conversion
+          const refProps = event.properties as Record<string, unknown> | null;
+          const refId = refProps?.referrer;
+          if (typeof refId === 'string') {
+            if (!referrerConversions[refId]) referrerConversions[refId] = { conversions: 0, clicks: 0 };
+            referrerConversions[refId].conversions++;
+          }
+        }
+        if (event.event_name === 'referral_click') {
+          const refProps = event.properties as Record<string, unknown> | null;
+          const refId = refProps?.referrer;
+          if (typeof refId === 'string') {
+            if (!referrerConversions[refId]) referrerConversions[refId] = { conversions: 0, clicks: 0 };
+            referrerConversions[refId].clicks++;
+          }
+        }
+
+        // B2B: dispensary-level outbound clicks (the primary B2B metric).
+        // Note: deal_saved events don't include dispensary in properties,
+        // so saves-per-dispensary isn't tracked here. Clicks are the real
+        // B2B value signal ("we drove X qualified clicks to your website").
+        if (event.event_name === 'get_deal_click') {
+          const p = event.properties as Record<string, unknown> | null;
+          const disp = (p?.dispensary as string) || 'Unknown';
+          if (!dispensaryClicks[disp]) dispensaryClicks[disp] = { clicks: 0, saves: 0 };
+          dispensaryClicks[disp].clicks++;
+        }
+
+        // WoW buckets
+        if (event.created_at >= weekAgo) {
+          thisWeekVisitors.add(event.anon_id);
+          if (['deal_saved', 'deal_save'].includes(event.event_name)) thisWeekSaves++;
+          if (event.event_name === 'get_deal_click') thisWeekClicks++;
+          if (['deal_shared', 'share_saves'].includes(event.event_name)) thisWeekShares++;
+        } else if (event.created_at >= twoWeeksAgo) {
+          lastWeekVisitors.add(event.anon_id);
+          if (['deal_saved', 'deal_save'].includes(event.event_name)) lastWeekSaves++;
+          if (event.event_name === 'get_deal_click') lastWeekClicks++;
+          if (['deal_shared', 'share_saves'].includes(event.event_name)) lastWeekShares++;
         }
 
         // Device type
@@ -300,6 +513,28 @@ export function useAnalytics(range: DateRange = '7d') {
               referrerCounts['direct'] = (referrerCounts['direct'] || 0) + 1;
             }
           }
+
+          // Acquisition source from UTM params (first-touch per user)
+          if (event.event_name === 'app_loaded') {
+            const utmSource = (props as Record<string, unknown>).utm_source ??
+                              (props as Record<string, unknown>).acquisition_source;
+            if (typeof utmSource === 'string' && utmSource && !userAcqSource[event.anon_id]) {
+              userAcqSource[event.anon_id] = utmSource;
+            }
+          }
+        }
+
+        // Accumulate per-channel metrics using first-touch source
+        const source = userAcqSource[event.anon_id] || 'organic';
+        if (!acqChannelData[source]) {
+          acqChannelData[source] = { visitors: new Set(), saves: 0, clicks: 0 };
+        }
+        acqChannelData[source].visitors.add(event.anon_id);
+        if (['deal_saved', 'deal_save'].includes(event.event_name)) {
+          acqChannelData[source].saves++;
+        }
+        if (event.event_name === 'get_deal_click') {
+          acqChannelData[source].clicks++;
         }
       }
 
@@ -369,7 +604,7 @@ export function useAnalytics(range: DateRange = '7d') {
         .sort((a, b) => b.count - a.count)
         .slice(0, 10);
 
-      // ----- Retention Cohorts (Day 1 / Day 3 / Day 7 / Day 14) -----
+      // ----- Retention Cohorts (Day 1 / Day 3 / Day 7 / Day 14 / Day 30) -----
       const userFirstDay: Record<string, string> = {};
       const userAllDays: Record<string, Set<string>> = {};
       for (const e of mauEvents) {
@@ -395,14 +630,14 @@ export function useAnalytics(range: DateRange = '7d') {
 
       const retentionCohorts: RetentionCohort[] = Object.entries(cohortMap)
         .sort(([a], [b]) => a.localeCompare(b))
-        .slice(-6)
+        .slice(-12)
         .map(([cohortDate, { users }]) => {
           const cohortStart = new Date(cohortDate);
-          let day1 = 0, day3 = 0, day7 = 0, day14 = 0;
+          let day1 = 0, day3 = 0, day7 = 0, day14 = 0, day30 = 0;
           for (const uid of users) {
             const days = userAllDays[uid];
             if (!days) continue;
-            let d1 = false, d3 = false, d7 = false, d14 = false;
+            let d1 = false, d3 = false, d7 = false, d14 = false, d30 = false;
             for (const d of Array.from(days)) {
               const diff = Math.floor(
                 (new Date(d).getTime() - cohortStart.getTime()) / (24 * 60 * 60 * 1000)
@@ -411,11 +646,13 @@ export function useAnalytics(range: DateRange = '7d') {
               if (diff >= 1 && diff <= 3) d3 = true;
               if (diff >= 1 && diff <= 7) d7 = true;
               if (diff >= 1 && diff <= 14) d14 = true;
+              if (diff >= 1 && diff <= 30) d30 = true;
             }
             if (d1) day1++;
             if (d3) day3++;
             if (d7) day7++;
             if (d14) day14++;
+            if (d30) day30++;
           }
           const n = users.length;
           return {
@@ -425,6 +662,7 @@ export function useAnalytics(range: DateRange = '7d') {
             day3: n > 0 ? Math.round((day3 / n) * 100) : 0,
             day7: n > 0 ? Math.round((day7 / n) * 100) : 0,
             day14: n > 0 ? Math.round((day14 / n) * 100) : 0,
+            day30: n > 0 ? Math.round((day30 / n) * 100) : 0,
           };
         });
 
@@ -459,9 +697,6 @@ export function useAnalytics(range: DateRange = '7d') {
       }
 
       // ----- Viral coefficient -----
-      // K = (shares per user) * (conversion rate per share impression)
-      // shares per active user = sharesInRange / funnelActivated.size
-      // conversion rate = referralConversions / max(referralClicks, sharedPageViews)
       const activeUsers = funnelActivated.size || funnelVisitors.size || 1;
       const avgSharesPerUser = sharesInRange / activeUsers;
       const shareImpressions = Math.max(referralClicks, sharedPageViews, 1);
@@ -473,6 +708,12 @@ export function useAnalytics(range: DateRange = '7d') {
       const clickToConversionRate = referralClicks > 0
         ? Math.round((referralConversions / referralClicks) * 100) : 0;
 
+      // Top referrers (users who drove the most conversions)
+      const topReferrers: TopReferrer[] = Object.entries(referrerConversions)
+        .map(([anonId, data]) => ({ anonId, conversions: data.conversions, clicks: data.clicks }))
+        .sort((a, b) => b.conversions - a.conversions || b.clicks - a.clicks)
+        .slice(0, 10);
+
       const viral: ViralMetrics = {
         sharesToday,
         sharesInRange,
@@ -482,7 +723,369 @@ export function useAnalytics(range: DateRange = '7d') {
         viralCoefficient,
         shareViewRate,
         clickToConversionRate,
+        topReferrers,
       };
+
+      // ----- Growth metrics -----
+      const wowPct = (curr: number, prev: number) =>
+        prev > 0 ? Math.round(((curr - prev) / prev) * 100) : (curr > 0 ? 100 : 0);
+
+      // WAU/MAU from 30-day event window
+      const wauUsers = new Set<string>();
+      const mauUsers = new Set<string>();
+      // Track daily unique users for average DAU calculation
+      const mauDailyUsers: Record<string, Set<string>> = {};
+      for (const e of mauEvents) {
+        mauUsers.add(e.anon_id);
+        if (e.created_at >= sevenDaysAgo) {
+          wauUsers.add(e.anon_id);
+          // Accumulate per-day users for avg DAU
+          const dayKey = e.created_at.slice(0, 10);
+          if (!mauDailyUsers[dayKey]) mauDailyUsers[dayKey] = new Set();
+          mauDailyUsers[dayKey].add(e.anon_id);
+        }
+      }
+      const mauSize = mauUsers.size || 1;
+
+      // Average DAU over last 7 days (standard stickiness formula)
+      const dailySizes = Object.values(mauDailyUsers).map(s => s.size);
+      const avgDau = dailySizes.length > 0
+        ? dailySizes.reduce((a, b) => a + b, 0) / dailySizes.length
+        : todayVisitors.size;
+
+      const activationRate = funnelVisitors.size > 0
+        ? Math.round((funnelActivated.size / funnelVisitors.size) * 100) : 0;
+      const eventsPerUser = funnelVisitors.size > 0
+        ? parseFloat((events.length / funnelVisitors.size).toFixed(1)) : 0;
+
+      // ----- Churn rate: % of last-week users NOT seen this week -----
+      let churnedCount = 0;
+      lastWeekVisitors.forEach((uid) => {
+        if (!thisWeekVisitors.has(uid)) churnedCount++;
+      });
+      const churnRate = lastWeekVisitors.size > 0
+        ? Math.round((churnedCount / lastWeekVisitors.size) * 100) : 0;
+
+      // ----- Growth velocity: compound weekly growth over last 4 weeks -----
+      const weeklyBuckets: Set<string>[] = [new Set(), new Set(), new Set(), new Set()];
+      for (const e of mauEvents) {
+        const ageMs = now.getTime() - new Date(e.created_at).getTime();
+        const weekIdx = Math.floor(ageMs / (7 * 24 * 60 * 60 * 1000));
+        if (weekIdx >= 0 && weekIdx < 4) weeklyBuckets[weekIdx].add(e.anon_id);
+      }
+      // weeklyBuckets[0] = most recent week, [3] = 4 weeks ago
+      const nonZeroWeeks = weeklyBuckets.filter(s => s.size > 0);
+      let growthVelocity = 0;
+      if (nonZeroWeeks.length >= 2) {
+        const oldest = weeklyBuckets[weeklyBuckets.length - 1].size || weeklyBuckets[weeklyBuckets.length - 2].size;
+        const newest = weeklyBuckets[0].size;
+        if (oldest > 0 && newest > 0) {
+          growthVelocity = Math.round(((newest / oldest) ** (1 / (nonZeroWeeks.length - 1)) - 1) * 100);
+        }
+      }
+
+      // ----- Activation-to-retention: % of activated users who returned within 7d -----
+      let activatedAndReturned = 0;
+      funnelActivated.forEach((uid) => {
+        const days = userAllDays[uid];
+        if (days && days.size >= 2) activatedAndReturned++;
+      });
+      const activationToRetention = funnelActivated.size > 0
+        ? Math.round((activatedAndReturned / funnelActivated.size) * 100) : 0;
+
+      const growth: GrowthMetrics = {
+        visitorsWoW: wowPct(thisWeekVisitors.size, lastWeekVisitors.size),
+        savesWoW: wowPct(thisWeekSaves, lastWeekSaves),
+        clicksWoW: wowPct(thisWeekClicks, lastWeekClicks),
+        sharesWoW: wowPct(thisWeekShares, lastWeekShares),
+        wau: wauUsers.size,
+        mau: mauUsers.size,
+        stickiness: Math.round((avgDau / mauSize) * 100),
+        activationRate,
+        eventsPerUser,
+        churnRate,
+        growthVelocity,
+        activationToRetention,
+      };
+
+      // ----- B2B dispensary metrics -----
+      const dispensaryMetrics: DispensaryMetric[] = Object.entries(dispensaryClicks)
+        .map(([dispensary, data]) => ({ dispensary, clicks: data.clicks, saves: data.saves }))
+        .sort((a, b) => b.clicks - a.clicks)
+        .slice(0, 15);
+
+      // ----- Acquisition channel breakdown -----
+      const acquisitionChannels: AcquisitionChannel[] = Object.entries(acqChannelData)
+        .map(([source, data]) => ({
+          source,
+          visitors: data.visitors.size,
+          saves: data.saves,
+          clicks: data.clicks,
+        }))
+        .sort((a, b) => b.visitors - a.visitors);
+
+      // ----- Campaign Segments (deep-dive with full attribution) -----
+      // Build a single campaign segment that includes ALL non-stale users,
+      // with an attribution breakdown showing how each user found us.
+      //
+      // Attribution labels for the UI:
+      const SOURCE_LABELS: Record<string, string> = {
+        flyer: 'QR Scan (flyer)',
+        direct: 'Direct Type-in',
+        twitter: 'Twitter / X',
+        google: 'Google Search',
+        facebook: 'Facebook / Meta',
+        reddit: 'Reddit',
+        share: 'Share Link',
+        organic: 'Organic (unknown)',
+      };
+
+      // Identify "pre-campaign" users: anyone active BEFORE the flyer campaign started.
+      // These are your stale test users (you, wife, devices, Twitter clicks from before).
+      // We detect this by finding the earliest flyer scan date.
+      let campaignStartDate = todayStr; // default to today
+      for (const e of events) {
+        if (e.event_name === 'app_loaded' && e.properties) {
+          const p = e.properties as Record<string, unknown>;
+          if (p.utm_source === 'flyer' || p.acquisition_source === 'flyer') {
+            const d = e.created_at.slice(0, 10);
+            if (d < campaignStartDate) campaignStartDate = d;
+          }
+        }
+      }
+
+      // Split users: "new" (first seen on or after campaign start) vs "pre-existing"
+      const newUserIds = new Set<string>();
+      const preExistingIds = new Set<string>();
+      for (const [uid, days] of Object.entries(userDays)) {
+        const firstDay = Array.from(days).sort()[0];
+        if (firstDay >= campaignStartDate) {
+          newUserIds.add(uid);
+        } else {
+          preExistingIds.add(uid);
+        }
+      }
+
+      // Build attribution per-source for ALL users (including pre-existing for comparison)
+      const attrData: Record<string, { visitors: Set<string>; saves: number; clicks: number }> = {};
+      for (const e of events) {
+        const src = userAcqSource[e.anon_id] || 'organic';
+        if (!attrData[src]) attrData[src] = { visitors: new Set(), saves: 0, clicks: 0 };
+        attrData[src].visitors.add(e.anon_id);
+        if (['deal_saved', 'deal_save'].includes(e.event_name)) attrData[src].saves++;
+        if (e.event_name === 'get_deal_click') attrData[src].clicks++;
+      }
+
+      const attribution: AttributionBreakdown[] = Object.entries(attrData)
+        .map(([src, d]) => ({
+          label: SOURCE_LABELS[src] || src,
+          source: src,
+          visitors: d.visitors.size,
+          saves: d.saves,
+          clicks: d.clicks,
+        }))
+        .sort((a, b) => b.visitors - a.visitors);
+
+      // Now build the campaign segment using ONLY new users (post-campaign-start)
+      const campaignAllUsers = newUserIds;
+      const campaignSegments: CampaignSegment[] = [];
+
+      if (campaignAllUsers.size > 0) {
+        const cEvents = events.filter(e => campaignAllUsers.has(e.anon_id));
+
+        let cSaves = 0, cClicks = 0, cShares = 0;
+        const cFunnelVisitors = new Set<string>();
+        const cFunnelEngaged = new Set<string>();
+        const cFunnelActivated = new Set<string>();
+        const cUserDays: Record<string, Set<string>> = {};
+        const cHourlyCounts: Record<number, number> = {};
+        const cDailyMap: Record<string, Set<string>> = {};
+        const cDeviceSeen = new Set<string>();
+        const cDeviceCounts: Record<string, number> = {};
+        const cDealSaves: Record<string, number> = {};
+        const cDispClicks: Record<string, number> = {};
+        const cUserEventCounts: Record<string, number> = {};
+
+        for (const e of cEvents) {
+          const dateKey = e.created_at.slice(0, 10);
+          const hour = new Date(e.created_at).getHours();
+
+          cFunnelVisitors.add(e.anon_id);
+          cUserEventCounts[e.anon_id] = (cUserEventCounts[e.anon_id] || 0) + 1;
+
+          if (!cUserDays[e.anon_id]) cUserDays[e.anon_id] = new Set();
+          cUserDays[e.anon_id].add(dateKey);
+
+          cHourlyCounts[hour] = (cHourlyCounts[hour] || 0) + 1;
+
+          if (!cDailyMap[dateKey]) cDailyMap[dateKey] = new Set();
+          cDailyMap[dateKey].add(e.anon_id);
+
+          if (['deal_view', 'deal_viewed', 'deal_modal_open', 'deal_click'].includes(e.event_name)) {
+            cFunnelEngaged.add(e.anon_id);
+          }
+          if (['deal_saved', 'deal_save'].includes(e.event_name)) {
+            cSaves++;
+            cFunnelActivated.add(e.anon_id);
+            const p = e.properties as Record<string, unknown> | null;
+            const did = (p?.deal_id as string) || '';
+            if (did) cDealSaves[did] = (cDealSaves[did] || 0) + 1;
+          }
+          if (e.event_name === 'get_deal_click') {
+            cClicks++;
+            cFunnelActivated.add(e.anon_id);
+            const p = e.properties as Record<string, unknown> | null;
+            const disp = (p?.dispensary as string) || '';
+            if (disp) cDispClicks[disp] = (cDispClicks[disp] || 0) + 1;
+          }
+          if (['deal_shared', 'share_saves'].includes(e.event_name)) {
+            cShares++;
+          }
+
+          const props = e.properties;
+          if (props && typeof props === 'object') {
+            const dt = (props as Record<string, unknown>).device_type;
+            if (dt && typeof dt === 'string') {
+              const dk = `${e.anon_id}:${dt}`;
+              if (!cDeviceSeen.has(dk)) {
+                cDeviceSeen.add(dk);
+                cDeviceCounts[dt] = (cDeviceCounts[dt] || 0) + 1;
+              }
+            }
+          }
+        }
+
+        const cVisitors = cFunnelVisitors.size;
+        const cPowerUsers = Object.values(cUserDays).filter(d => d.size >= 3).length;
+        const bouncedUsers = Object.values(cUserEventCounts).filter(c => c <= 1).length;
+        const bounceRate = cVisitors > 0 ? Math.round((bouncedUsers / cVisitors) * 100) : 0;
+
+        // Pre-existing/organic comparison
+        const orgEvents = events.filter(e => preExistingIds.has(e.anon_id));
+        const orgVisitors = new Set<string>();
+        const orgActivated = new Set<string>();
+        let orgSaves = 0, orgClicks = 0;
+        for (const e of orgEvents) {
+          orgVisitors.add(e.anon_id);
+          if (['deal_saved', 'deal_save'].includes(e.event_name)) { orgSaves++; orgActivated.add(e.anon_id); }
+          if (e.event_name === 'get_deal_click') { orgClicks++; orgActivated.add(e.anon_id); }
+        }
+
+        // Determine campaign name
+        let campaignName = 'vegas_strip_beta';
+        for (const e of cEvents) {
+          if (e.event_name === 'app_loaded' && e.properties) {
+            const c = (e.properties as Record<string, unknown>).utm_campaign ??
+                      (e.properties as Record<string, unknown>).acquisition_campaign;
+            if (typeof c === 'string' && c) { campaignName = c; break; }
+          }
+        }
+
+        // Enrich top deals
+        const cTopDeals = Object.entries(cDealSaves)
+          .map(([dealId, saves]) => ({ dealId, saves }))
+          .sort((a, b) => b.saves - a.saves)
+          .slice(0, 10);
+
+        const enrichedTopDeals = cTopDeals.map(d => {
+          const match = topDeals.find(td => td.deal_id === d.dealId);
+          return {
+            dealId: d.dealId,
+            dealName: match?.product_name,
+            brand: match?.brand_name,
+            saves: d.saves,
+          };
+        });
+
+        // Attribution filtered to new users only
+        const newUserAttribution: AttributionBreakdown[] = attribution.map(a => {
+          const newInChannel = Array.from(attrData[a.source]?.visitors ?? []).filter(uid => newUserIds.has(uid));
+          const newEvents = cEvents.filter(e => newInChannel.includes(e.anon_id));
+          let s = 0, c = 0;
+          for (const e of newEvents) {
+            if (['deal_saved', 'deal_save'].includes(e.event_name)) s++;
+            if (e.event_name === 'get_deal_click') c++;
+          }
+          return { ...a, visitors: newInChannel.length, saves: s, clicks: c };
+        }).filter(a => a.visitors > 0);
+
+        campaignSegments.push({
+          campaignName,
+          source: 'all_new',
+          uniqueVisitors: cVisitors,
+          totalEvents: cEvents.length,
+          saves: cSaves,
+          dealClicks: cClicks,
+          shares: cShares,
+          eventsPerUser: cVisitors > 0 ? parseFloat((cEvents.length / cVisitors).toFixed(1)) : 0,
+          activationRate: cVisitors > 0 ? Math.round((cFunnelActivated.size / cVisitors) * 100) : 0,
+          bounceRate,
+          funnel: [
+            { label: 'Landed', count: cVisitors },
+            { label: 'Engaged', count: cFunnelEngaged.size },
+            { label: 'Activated', count: cFunnelActivated.size },
+            { label: 'Power User', count: cPowerUsers },
+          ],
+          dailyVisitors: Object.entries(cDailyMap)
+            .map(([date, s]) => ({ date, visitors: s.size, events: 0 }))
+            .sort((a, b) => a.date.localeCompare(b.date)),
+          hourlyActivity: Array.from({ length: 24 }, (_, hour) => ({
+            hour, count: cHourlyCounts[hour] || 0,
+          })),
+          topDeals: enrichedTopDeals,
+          topDispensaries: Object.entries(cDispClicks)
+            .map(([name, clicks]) => ({ name, clicks }))
+            .sort((a, b) => b.clicks - a.clicks)
+            .slice(0, 10),
+          devices: Object.entries(cDeviceCounts)
+            .map(([device_type, count]) => ({ device_type, count }))
+            .sort((a, b) => b.count - a.count),
+          attribution: newUserAttribution,
+          organicVisitors: orgVisitors.size,
+          organicSaves: orgSaves,
+          organicClicks: orgClicks,
+          organicActivationRate: orgVisitors.size > 0 ? Math.round((orgActivated.size / orgVisitors.size) * 100) : 0,
+          organicEventsPerUser: orgVisitors.size > 0 ? parseFloat((orgEvents.length / orgVisitors.size).toFixed(1)) : 0,
+        });
+      }
+
+      // ----- Core KPIs (single source of truth for hero metrics) -----
+      // Priority: server-side RPC (most accurate) → client-side fallback
+      const pctChange = (curr: number, prev: number) =>
+        prev > 0 ? Math.round(((curr - prev) / prev) * 100) : (curr > 0 ? 100 : 0);
+
+      let kpis: CoreKPIs;
+      if (rpcKpis) {
+        // Server-side KPIs available (migration 038 applied) — most reliable
+        kpis = {
+          dau: rpcKpis.dau,
+          dauChange: pctChange(rpcKpis.dau, rpcKpis.dau_yesterday),
+          wau: rpcKpis.wau,
+          wauChange: pctChange(rpcKpis.wau, rpcKpis.wau_prev),
+          mau: rpcKpis.mau,
+          mauChange: pctChange(rpcKpis.mau, rpcKpis.mau_prev),
+          totalUniqueUsers: rpcKpis.total_unique_users,
+        };
+      } else {
+        // Client-side fallback: compute from already-fetched events
+        const yesterdayDate = new Date(now.getTime() - 86400000).toISOString().slice(0, 10);
+        const dauYesterday = dailyMap[yesterdayDate]?.visitors.size ?? 0;
+
+        // Total unique users: prefer user_sessions count, then count from events
+        const sessionsCount = allTimeSessionsRes.count ?? 0;
+        const eventsUniqueCount = Object.keys(userDays).length;
+        const totalUnique = Math.max(sessionsCount, eventsUniqueCount, mauUsers.size);
+
+        kpis = {
+          dau: todayVisitors.size,
+          dauChange: pctChange(todayVisitors.size, dauYesterday),
+          wau: wauUsers.size,
+          wauChange: pctChange(thisWeekVisitors.size, lastWeekVisitors.size),
+          mau: mauUsers.size,
+          mauChange: null,  // Need 60-day data for accurate comparison
+          totalUniqueUsers: totalUnique,
+        };
+      }
 
       setData({
         scoreboard,
@@ -494,10 +1097,15 @@ export function useAnalytics(range: DateRange = '7d') {
         dailyVisitors,
         devices,
         referrers,
-        allTimeUniqueVisitors: allTimeSessionsRes.count ?? 0,
+        allTimeUniqueVisitors: kpis.totalUniqueUsers,
         retentionCohorts,
         totalEventsInRange: events.length,
         viral,
+        growth,
+        dispensaryMetrics,
+        acquisitionChannels,
+        campaignSegments,
+        kpis,
       });
     } catch (err) {
       setError(String(err));

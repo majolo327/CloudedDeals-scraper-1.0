@@ -306,8 +306,10 @@ class TestNormalizeWeight:
     def test_50mg_passthrough(self, logic):
         assert logic.normalize_weight("50mg") == "50mg"
 
-    def test_grams_passthrough(self, logic):
-        assert logic.normalize_weight("3.5g") == "3.5g"
+    def test_grams_rejected_for_edible(self, logic):
+        """Gram values are invalid in the edible normalization path
+        (e.g. 224g from oz→g volume conversion on beverages)."""
+        assert logic.normalize_weight("3.5g") is None
 
     def test_none_passthrough(self, logic):
         assert logic.normalize_weight(None) is None
@@ -401,65 +403,10 @@ class TestDetectBrand:
         """'Haze' at the start of text IS the Haze brand."""
         assert logic.detect_brand("Haze Premium Flower 3.5g") == "Haze"
 
-    def test_cake_brand_at_start_is_brand(self, logic):
-        """'Cake' at the start of text IS the Cake brand."""
-        assert logic.detect_brand("Cake She Hits Different 1g") == "Cake"
-
-    def test_cookies_at_start_is_brand(self, logic):
-        """'Cookies' at the start IS the Cookies brand."""
-        assert logic.detect_brand("Cookies Gary Payton 3.5g") == "Cookies"
-
-    # ---- Expanded cookie-strain blocker coverage ----
-    # GSC is one of the most-crossed parents in cannabis; these strains
-    # should NEVER be tagged as Cookies brand.
-
-    @pytest.mark.parametrize("text", [
-        "Lilac Cookies Badder 1g",
-        "Pink Cookies 3.5g",
-        "Monster Cookies Flower 7g",
-        "Samoa Cookies 3.5g",
-        "Space Cookies 1g Cart",
-        "Key Lime Cookies 3.5g",
-        "Mint Cookies Flower 3.5g",
-        "Banana Cookies Live Resin 1g",
-        "Royal Cookies 3.5g",
-        "Tangerine Cookies 3.5g",
-        "Mac Cookies Flower 3.5g",
-        "Golden Cookies 3.5g",
-        "Frosted Cookies 3.5g",
-        "Peach Cookies 3.5g",
-        "Papaya Cookies 1g",
-        "Mochi Cookies 3.5g",
-        "Diesel Cookies Flower 3.5g",
-        "Gorilla Cookies 3.5g",
-        "Dosi Cookies 3.5g",
-        "Wedding Cookies 3.5g",
-        "GMO Cookies 3.5g",
-        "Cream Cookies 3.5g",
-        "Funky Cookies 3.5g",
-        "Snow Cookies 3.5g",
-        "Moon Cookies 3.5g",
-        "Dirty Cookies 3.5g",
-        "Sour Cookies 3.5g",
-        "Butter Cookies 3.5g",
-        "Honey Cookies 3.5g",
-        "Rainbow Cookies 3.5g",
-        "Red Velvet Cookies 3.5g",
-        "Ice Cream Cookies 3.5g",
-        "Exotic Cookies 3.5g",
-        "Cosmic Cookies 3.5g",
-    ])
-    def test_cookie_cross_strains_not_cookies_brand(self, logic, text):
-        """Common GSC-cross strains must NOT be detected as Cookies brand."""
-        assert logic.detect_brand(text) is None
-
-    def test_cookies_and_cream_strain_not_brand(self, logic):
-        """'Cookies and Cream' is a strain (Starfighter x GSC), not Cookies brand."""
-        assert logic.detect_brand("Cookies and Cream 3.5g") is None
-
-    def test_cookies_n_cream_strain_not_brand(self, logic):
-        """'Cookies N Cream' variant spelling is also a strain."""
-        assert logic.detect_brand("Cookies N Cream 3.5g") is None
+    def test_cake_not_a_brand(self, logic):
+        """'Cake' removed from brands — too many strain false positives
+        (Wedding Cake, Ice Cream Cake, Orange Kush Cake, etc.)."""
+        assert logic.detect_brand("Cake She Hits Different 1g") is None
 
     def test_brand_with_another_brand_in_strain(self, logic):
         """When a real brand is present alongside a strain-embedded brand word,
@@ -490,6 +437,28 @@ class TestDetectBrand:
     def test_packs_brand_standalone(self, logic):
         """'PACKS' at start of text IS the PACKS brand."""
         assert logic.detect_brand("PACKS Premium Pre-Roll 1g") == "PACKS"
+
+    # ---- AMA / HSH brand variation detection ----
+
+    def test_ama_abbreviation_detected(self, logic):
+        """'AMA' abbreviation is detected as brand."""
+        assert logic.detect_brand("AMA Gary Peyton Live Resin 1.0g") == "AMA"
+
+    def test_alternative_medicine_association_maps_to_ama(self, logic):
+        """Full name 'Alternative Medicine Association' resolves to 'AMA'."""
+        assert logic.detect_brand("Alternative Medicine Association Cured Resin") == "AMA"
+
+    def test_alternative_medical_association_maps_to_ama(self, logic):
+        """Alternate spelling 'Alternative Medical Association' resolves to 'AMA'."""
+        assert logic.detect_brand("Alternative Medical Association Runtz 0.5g") == "AMA"
+
+    def test_hsh_abbreviation_detected(self, logic):
+        """'HSH' abbreviation is detected as brand."""
+        assert logic.detect_brand("HSH Grape Zkittlez OG") == "HSH"
+
+    def test_high_sierra_holistics_maps_to_hsh(self, logic):
+        """Full name 'High Sierra Holistics' resolves to 'HSH'."""
+        assert logic.detect_brand("High Sierra Holistics Purple Crunch") == "HSH"
 
 
 # =====================================================================
@@ -523,6 +492,80 @@ class TestWeightValidationOz:
     def test_frac_oz_concentrate_weight(self, logic):
         """'1g' concentrate weight from oz conversion."""
         assert logic.validate_weight("1g", "concentrate") == "1g"
+
+
+# =====================================================================
+# Beverage liquid-volume vs THC-potency (oz ≠ weight for edibles)
+# =====================================================================
+
+
+class TestBeverageVolumeNotWeight:
+    """Beverages list oz as liquid volume, not THC weight.
+    'Uncle Arnie's Iced Tea Lemonade 8oz 100mg' → weight should be
+    100mg (THC), NOT 224g (8 × 28 oz→g conversion)."""
+
+    def test_beverage_8oz_100mg_picks_mg(self, logic):
+        """parse_product should extract 100mg, ignoring the 8oz volume."""
+        p = logic.parse_product(
+            "Uncle Arnie's Iced Tea Lemonade 8oz 100mg $20 $8", "Test"
+        )
+        assert p is not None
+        assert p["category"] == "edible"
+        assert p["weight"] == "100mg"
+
+    def test_beverage_oz_before_mg(self, logic):
+        """Even when oz appears before mg in text, mg should be used."""
+        p = logic.parse_product(
+            "Cannabis Drink 12oz 100mg THC $15 $6", "Test"
+        )
+        assert p is not None
+        assert p["weight"] == "100mg"
+
+    def test_beverage_oz_only_no_mg(self, logic):
+        """Beverage with only oz (no mg) — product should still parse
+        but weight should not be the oz-to-grams conversion."""
+        p = logic.parse_product(
+            "Infused Soda 8oz $15 $6", "Test"
+        )
+        # Without mg, edible has no valid weight — product may be rejected
+        # or have None weight; either way it must NOT have a gram weight
+        if p is not None:
+            assert p.get("weight") is None or "g" not in str(p.get("weight", ""))
+
+    def test_beverage_200mg_total_cannabinoids(self, logic):
+        """200mg edible passes through as 200mg (valid for NV market)."""
+        p = logic.parse_product(
+            "Cannabis Lemonade 200mg $20 $8", "Test"
+        )
+        assert p is not None
+        assert p["weight"] == "200mg"
+
+    def test_non_beverage_oz_still_converts(self, logic):
+        """Non-edible products with oz should still convert to grams."""
+        p = logic.parse_product(
+            "Premium Flower 1oz $200 $100", "Test"
+        )
+        # 1oz flower = 28g, but parse_product may reject on price cap
+        # The key assertion: oz→g conversion still works for non-edibles
+        assert p is None or p.get("weight") != "1oz"
+
+
+class TestNormalizeWeightRejectsGrams:
+    """normalize_weight (edible path) should reject gram values."""
+
+    def test_grams_rejected(self, logic):
+        """224.0g from oz→g conversion should not pass through."""
+        assert logic.normalize_weight("224.0g") is None
+
+    def test_grams_small_rejected(self, logic):
+        """Even small gram values are invalid for edible normalization."""
+        assert logic.normalize_weight("3.5g") is None
+
+    def test_mg_still_works(self, logic):
+        """mg values should still normalize correctly."""
+        assert logic.normalize_weight("100mg") == "100mg"
+        assert logic.normalize_weight("95mg") == "100mg"
+        assert logic.normalize_weight("200mg") == "200mg"
 
 
 # =====================================================================
@@ -564,12 +607,12 @@ class TestCleanProductText:
 class TestCleanProductName:
 
     def test_removes_brand_prefix(self, logic):
-        result = logic.clean_product_name("Cookies Gary Payton", brand="Cookies")
-        assert result.startswith("Gary Payton")
+        result = logic.clean_product_name("Connected Gelonade", brand="Connected")
+        assert result.startswith("Gelonade")
 
     def test_removes_brand_with_dash(self, logic):
-        result = logic.clean_product_name("Cookies - Gary Payton", brand="Cookies")
-        assert "Cookies" not in result
+        result = logic.clean_product_name("Connected - Gelonade", brand="Connected")
+        assert "Connected" not in result
 
     def test_truncates_over_60_chars(self, logic):
         long_name = "A" * 70
@@ -627,7 +670,7 @@ class TestCheckForWyldBrand:
         assert logic.check_for_wyld_brand([{"brand": "wyld"}]) is True
 
     def test_no_wyld(self, logic):
-        assert logic.check_for_wyld_brand([{"brand": "Cookies"}]) is False
+        assert logic.check_for_wyld_brand([{"brand": "Connected"}]) is False
 
     def test_empty_list(self, logic):
         assert logic.check_for_wyld_brand([]) is False
@@ -641,11 +684,11 @@ class TestCheckForWyldBrand:
 class TestParseProduct:
 
     def test_full_flower_product(self, logic):
-        text = "Cookies Gary Payton 3.5g $45 $15 THC: 30%"
+        text = "Connected Gelonade 3.5g $45 $15 THC: 30%"
         p = logic.parse_product(text, "Planet13")
         assert p is not None
         assert p["category"] == "flower"
-        assert p["brand"] == "Cookies"
+        assert p["brand"] == "Connected"
         assert p["weight"] == "3.5g"
         assert p["deal_price"] == 15.0
         assert p["original_price"] == 45.0

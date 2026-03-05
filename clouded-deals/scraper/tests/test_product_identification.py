@@ -76,18 +76,6 @@ def _extract_strain_from_raw_text(
 class TestExtractStrainFromRawText:
     """When the product name equals the brand, extract strain from raw_text."""
 
-    def test_cookies_headband_preroll(self):
-        """Cookies brand card with 'Headband' as a separate line."""
-        raw_text = "Cookies\nHeadband\nHybrid\n1g\n$8.00\n$5.00"
-        result = _extract_strain_from_raw_text(raw_text, "Cookies", "Cookies")
-        assert result == "Headband"
-
-    def test_cookies_gary_payton(self):
-        """Cookies brand card with 'Gary Payton' strain."""
-        raw_text = "Cookies\nGary Payton\nHybrid\n3.5g\n$55.00\n$40.00"
-        result = _extract_strain_from_raw_text(raw_text, "Cookies", "Cookies")
-        assert result == "Gary Payton"
-
     def test_stiiizy_white_runtz(self):
         """STIIIZY brand card with strain as a separate line."""
         raw_text = "STIIIZY\nWhite Runtz\nIndica\n1g\n$12.00\n$8.00"
@@ -96,67 +84,67 @@ class TestExtractStrainFromRawText:
 
     def test_skips_prices(self):
         """Price lines should not be returned as strain names."""
-        raw_text = "Cookies\n$8.00\n$5.00\nHeadband\n1g"
-        result = _extract_strain_from_raw_text(raw_text, "Cookies", "Cookies")
-        assert result == "Headband"
+        raw_text = "STIIIZY\n$8.00\n$5.00\nWhite Runtz\n1g"
+        result = _extract_strain_from_raw_text(raw_text, "STIIIZY", "STIIIZY")
+        assert result == "White Runtz"
 
     def test_skips_weight_lines(self):
         """Weight lines should not be returned as strain names."""
-        raw_text = "Cookies\n3.5g\nGelato 41\nHybrid"
-        result = _extract_strain_from_raw_text(raw_text, "Cookies", "Cookies")
+        raw_text = "STIIIZY\n3.5g\nGelato 41\nHybrid"
+        result = _extract_strain_from_raw_text(raw_text, "STIIIZY", "STIIIZY")
         assert result == "Gelato 41"
 
     def test_skips_strain_type_lines(self):
         """Standalone strain type lines (Indica/Sativa/Hybrid) are skipped."""
-        raw_text = "Cookies\nIndica\nCereal Milk\n1g\n$8.00"
-        result = _extract_strain_from_raw_text(raw_text, "Cookies", "Cookies")
+        raw_text = "STIIIZY\nIndica\nCereal Milk\n1g\n$8.00"
+        result = _extract_strain_from_raw_text(raw_text, "STIIIZY", "STIIIZY")
         assert result == "Cereal Milk"
 
     def test_skips_category_labels(self):
         """Category label lines (Flower, Pre-Roll, etc.) are skipped."""
-        raw_text = "Cookies\nFlower\nOcean Beach\n3.5g\n$45.00"
-        result = _extract_strain_from_raw_text(raw_text, "Cookies", "Cookies")
+        raw_text = "STIIIZY\nFlower\nOcean Beach\n3.5g\n$45.00"
+        result = _extract_strain_from_raw_text(raw_text, "STIIIZY", "STIIIZY")
         assert result == "Ocean Beach"
 
     def test_skips_preroll_category_label(self):
         """Pre-Roll category label should be skipped."""
-        raw_text = "Cookies\nPre-Roll\nHeadband\n1g\n$8.00"
-        result = _extract_strain_from_raw_text(raw_text, "Cookies", "Cookies")
+        raw_text = "STIIIZY\nPre-Roll\nHeadband\n1g\n$8.00"
+        result = _extract_strain_from_raw_text(raw_text, "STIIIZY", "STIIIZY")
         assert result == "Headband"
 
     def test_fallback_when_no_strain(self):
         """Falls back to the given fallback when no useful line is found."""
-        raw_text = "Cookies\n$8.00\n1g"
-        result = _extract_strain_from_raw_text(raw_text, "Cookies", "Cookies")
-        assert result == "Cookies"
+        raw_text = "STIIIZY\n$8.00\n1g"
+        result = _extract_strain_from_raw_text(raw_text, "STIIIZY", "STIIIZY")
+        assert result == "STIIIZY"
 
     def test_empty_raw_text(self):
         """Returns fallback when raw_text is empty."""
-        result = _extract_strain_from_raw_text("", "Cookies", "Cookies")
-        assert result == "Cookies"
+        result = _extract_strain_from_raw_text("", "STIIIZY", "STIIIZY")
+        assert result == "STIIIZY"
 
     def test_brand_prefix_in_line(self):
         """Lines that start with brand name are skipped (not the strain)."""
-        raw_text = "Cookies Flower\nCookies\nGary Payton\n3.5g"
-        result = _extract_strain_from_raw_text(raw_text, "Cookies", "Cookies")
-        assert result == "Gary Payton"
+        raw_text = "STIIIZY Flower\nSTIIIZY\nWhite Runtz\n3.5g"
+        result = _extract_strain_from_raw_text(raw_text, "STIIIZY", "STIIIZY")
+        assert result == "White Runtz"
 
     def test_skips_thc_lines(self):
         """THC percentage lines are skipped."""
-        raw_text = "Cookies\nTHC: 28.5%\nGelato\n3.5g"
-        result = _extract_strain_from_raw_text(raw_text, "Cookies", "Cookies")
+        raw_text = "STIIIZY\nTHC: 28.5%\nGelato\n3.5g"
+        result = _extract_strain_from_raw_text(raw_text, "STIIIZY", "STIIIZY")
         assert result == "Gelato"
 
     def test_skips_sale_badge(self):
         """Sale badge text is skipped."""
-        raw_text = "Cookies\nSale!\nLondon Pound Cake\n3.5g\n$45.00\n$35.00"
-        result = _extract_strain_from_raw_text(raw_text, "Cookies", "Cookies")
+        raw_text = "STIIIZY\nSale!\nLondon Pound Cake\n3.5g\n$45.00\n$35.00"
+        result = _extract_strain_from_raw_text(raw_text, "STIIIZY", "STIIIZY")
         assert result == "London Pound Cake"
 
     def test_short_lines_skipped(self):
         """Lines shorter than 3 chars are skipped."""
-        raw_text = "Cookies\nOG\nI\nGeorgia Pie\n3.5g"
-        result = _extract_strain_from_raw_text(raw_text, "Cookies", "Cookies")
+        raw_text = "STIIIZY\nOG\nI\nGeorgia Pie\n3.5g"
+        result = _extract_strain_from_raw_text(raw_text, "STIIIZY", "STIIIZY")
         assert result == "Georgia Pie"
 
 
@@ -252,40 +240,3 @@ class TestFlowerOneGramPrerollHeuristic:
         assert logic.detect_category("Cookies Headband 3.5g") == "flower"
 
 
-# =====================================================================
-# Cookies brand detection regression tests
-# =====================================================================
-
-
-class TestCookiesBrandRegression:
-    """Ensure Cookies brand detection still works correctly."""
-
-    def test_cookies_at_start_is_brand(self):
-        """'Cookies' at the start of text IS the Cookies brand."""
-        from clouded_logic import CloudedLogic
-        logic = CloudedLogic()
-        assert logic.detect_brand("Cookies Gary Payton 3.5g") == "Cookies"
-
-    def test_cookies_headband_is_brand(self):
-        """'Cookies Headband' — Cookies is the brand."""
-        from clouded_logic import CloudedLogic
-        logic = CloudedLogic()
-        assert logic.detect_brand("Cookies Headband 1g") == "Cookies"
-
-    def test_girl_scout_cookies_not_brand(self):
-        """'Girl Scout Cookies' is a strain, not Cookies brand."""
-        from clouded_logic import CloudedLogic
-        logic = CloudedLogic()
-        assert logic.detect_brand("Girl Scout Cookies 3.5g") is None
-
-    def test_cookies_and_cream_not_brand(self):
-        """'Cookies and Cream' is a strain, not Cookies brand."""
-        from clouded_logic import CloudedLogic
-        logic = CloudedLogic()
-        assert logic.detect_brand("Cookies and Cream 3.5g") is None
-
-    def test_pink_cookies_not_brand(self):
-        """'Pink Cookies' is a strain cross, not Cookies brand."""
-        from clouded_logic import CloudedLogic
-        logic = CloudedLogic()
-        assert logic.detect_brand("Pink Cookies 3.5g") is None

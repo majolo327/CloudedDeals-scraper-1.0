@@ -108,11 +108,11 @@ BRANDS = sorted(set([
     'Blazer', 'Blazy Susan', 'Blink', 'BLUEBIRDS', 'BLVD', 'Bohemian Brothers',
     'Bonanza Cannabis', 'Boom Town', 'Bounti', 'Brass Knuckles', 'Bud Bandz',
     # C
-    'Cake', 'Cali Traditional', 'Camino', 'Camo', 'CAMP', 'CANN', 'Cannafornia',
+    'Cali Traditional', 'Camino', 'Camo', 'CAMP', 'CANN', 'Cannafornia',
     'Cannabiotix', 'Cannabreezy', 'Cannalean', 'Cannavative', 'Cannavore',
     'Cannavore Confections', 'Caviar Gold', 'Cheeba Chews', 'Church',
     'Circle S Farms', 'City Trees', 'Claybourne Co.', 'CLEAR Brands', 'Clout King',
-    'Connected', 'Cookies', 'Cosmonaut', 'Cotton Mouth', 'Cresco', 'Crumbs',
+    'Connected', 'Cosmonaut', 'Cotton Mouth', 'Cresco', 'Crumbs',
     'Cultivate', 'Curaleaf',
     # D
     'Dabwoods', 'DADiRRi', 'Dazed!', 'Deep Roots', 'Desert Blaze',
@@ -407,6 +407,12 @@ _BRAND_VARIATION_MAP: dict[str, str] = {
     'effin\'': 'Effin',
     '& shine': '&Shine',
     'and shine': '&Shine',
+    # "The Lab" brand — dispensaries sometimes list as just "Lab"
+    'lab': 'The Lab',
+    # Nevada abbreviation brands — menus use the abbreviation, not full name
+    'alternative medicine association': 'AMA',
+    'alternative medical association': 'AMA',
+    'high sierra holistics': 'HSH',
 }
 
 def _variation_pattern(var: str) -> re.Pattern:
@@ -440,47 +446,6 @@ _STRAIN_BRAND_BLOCKERS = [
     (re.compile(r'\b(?:ghost\s*train|super\s*(?:lemon|silver)|purple|amnesia|neville|blue|catpiss|dungeon|hawaiian|original|golden|x|double|single|citrus|lemon|lime|mango|strawberry|peach|tropical)\s+haze\b', re.IGNORECASE), 'Haze'),
     # Also block if "haze" follows known connectors in compound strain names
     (re.compile(r'\bhaze\s+(?:og|kush|berry|dawg|diesel|cake|cookies|dream|punch|wreck|star|pie|queen|king|widow|mac|zkittlez)\b', re.IGNORECASE), 'Haze'),
-
-    # "Cake" is a brand, but these are strains:
-    (re.compile(r'\b(?:wedding|ice\s*cream|birthday|pound|lava|jungle|layer|cheese|short|space|pancake|fruit|cup|marble|pineapple\s*upside\s*down|rain)\s*cake\b', re.IGNORECASE), 'Cake'),
-
-    # "Cookies" is a brand — but only block if the word isn't at the start
-    # (e.g., "Girl Scout Cookies" strain, but "Cookies Gary Payton" IS the brand)
-    #
-    # ENGINEERING NOTE — Cookie strains are EXTREMELY prevalent:
-    # GSC (Girl Scout Cookies) is one of the most-crossed parent strains in
-    # cannabis.  Breeders routinely cross it with other genetics, producing
-    # hundreds of "X Cookies" cultivar names.  In practice, dispensary menus
-    # contain far more cookie-cross STRAIN names than actual Cookies-brand
-    # products.  This list must be kept comprehensive; when in doubt, add the
-    # prefix — a missing entry causes a false Cookies-brand tag on every unit
-    # of that strain across every dispensary we scrape.
-    #
-    # Rule of thumb: if "<word> Cookies" appears on a menu and the product
-    # is NOT manufactured by the Cookies brand, the prefix belongs here.
-    (re.compile(r'\b(?:'
-                # --- classic / OG cookie crosses ---
-                r'girl\s*scout|thin\s*mint|platinum|animal|lemon|cherry|'
-                r'forum\s*cut|sugar|blueberry|sunset|fire|sour\s*fire|og|'
-                r'mandarin|guava|grape|peanut\s*butter|london\s*pound|kush|'
-                r'berry|tropical|tropicana|strawberry|orange|purple|white|'
-                r'gelato|biscotti|garlic|alien|'
-                # --- additional common cookie-cross strains ---
-                r'lilac|pink|monster|samoa|space|key\s*lime|mint|banana|'
-                r'royal|tangerine|mac|golden|frosted|peach|papaya|'
-                r'watermelon|melon|mochi|diesel|gorilla|jungle|dosi|'
-                r'wedding|miracle|gmo|cream|funky|snow|moon|dirty|'
-                r'sour|butter|candy|honey|rainbow|coffee|lava|crunch|'
-                r'modified|crispy|emerald|neon|exotic|cosmic|red\s*velvet|'
-                r'caramel|vanilla|coconut|lavender|apricot|citrus|ginger|'
-                r'ice\s*cream|pumpkin|pistachio|truffle|'
-                # --- catch-all for numbered / lettered prefixes ---
-                r'\d+\s*'
-                r')\s+cookies\b', re.IGNORECASE), 'Cookies'),
-
-    # "Cookies and Cream" / "Cookies N Cream" is a strain (Starfighter x GSC),
-    # NOT a Cookies-brand product — even though "Cookies" appears at the start.
-    (re.compile(r'\bcookies\s+(?:and|n|&|x)\s+cream\b', re.IGNORECASE), 'Cookies'),
 
     # "Runtz" is a brand, but these are strains:
     (re.compile(r'\b(?:white|pink|gelatti|gelato|tropical|gruntz|rainbow|'
@@ -517,6 +482,9 @@ _STRAIN_BRAND_BLOCKERS = [
 
     # "Terra" is a brand, but block in common compound terms
     (re.compile(r'\bterra\s+(?:cotta|firma)\b', re.IGNORECASE), 'Terra'),
+
+    # "The Lab" is a brand, but "lab tested" / "lab results" are product attributes
+    (re.compile(r'\blab\s+(?:tested|results?|reports?|analysis|verified)\b', re.IGNORECASE), 'The Lab'),
 ]
 
 # ============================================================================
@@ -917,7 +885,7 @@ class CloudedLogic:
         vape_keywords_re = re.compile(r'\b(cart|cartridge|pod|disposable|vape|pen|all[- ]?in[- ]?one|aio|ready[- ]?to[- ]?use)\b')
         has_concentrate = any(kw in t for kw in concentrate_keywords)
         has_concentrate_weight = (
-            any(w in t for w in ['.5g', '1g', '1.0g', '2g', '0.5g'])
+            any(w in t for w in ['.5g', '1g', '1.0g', '2g', '0.5g', '0.3g', '0.35g', '0.85g', '0.9g'])
             or bool(re.search(r'\b1/[248]\s*(?:oz)?\b', t))  # fractional oz
         )
         has_vape_keyword = bool(vape_keywords_re.search(t))
@@ -932,7 +900,10 @@ class CloudedLogic:
         # certainly flower too.  This prevents false vape classification
         # when the raw text block contains stray vape keywords (e.g.
         # "pen" inside "Aspen", navigation text, etc.).
-        if re.search(r'\b(3\.5|7|14|28)\s*g\b', t):
+        # EXCEPTION: If the product has explicit vape keywords (cart,
+        # cartridge, pod, disposable), it's a vape even at 3.5g.
+        # Example: "Trendi Cartridges 3.5g" should be vape, not flower.
+        if re.search(r'\b(3\.5|7|14|28)\s*g\b', t) and not has_vape_keyword:
             return 'flower'
 
         # 6. VAPE
@@ -1004,7 +975,10 @@ class CloudedLogic:
         if not match:
             return None
 
-        val = float(match.group(1))
+        try:
+            val = float(match.group(1))
+        except ValueError:
+            return None
         unit = match.group(2).lower()
 
         # ── PREROLL ──────────────────────────────────────────────
@@ -1074,7 +1048,11 @@ class CloudedLogic:
     # ────────────────────────────────────────────────────────────────
 
     def normalize_weight(self, weight_str):
-        """Normalize weight string, especially for edibles with fuzzy mg values."""
+        """Normalize weight string, especially for edibles with fuzzy mg values.
+
+        This is called in the edible code path — only mg values are meaningful.
+        Gram values (e.g. from oz→g volume conversion on beverages) are rejected.
+        """
         if not weight_str:
             return weight_str
         w = str(weight_str)
@@ -1082,7 +1060,10 @@ class CloudedLogic:
         if 'mg' in w.lower():
             mg_match = re.search(r'([\d.]+)', w)
             if mg_match:
-                val = float(mg_match.group(1))
+                try:
+                    val = float(mg_match.group(1))
+                except ValueError:
+                    return None
                 if 82 <= val <= 118:
                     return '100mg'
                 if 180 <= val <= 220:
@@ -1095,6 +1076,11 @@ class CloudedLogic:
                 if val < 50:
                     return None
                 return f"{int(val)}mg"
+
+        # Non-mg values (e.g. "224.0g" from an 8oz beverage volume
+        # conversion) are not valid edible weights — reject them.
+        if 'g' in w.lower() and 'mg' not in w.lower():
+            return None
 
         return weight_str
 
@@ -1136,13 +1122,23 @@ class CloudedLogic:
                 start_bonus = 100 if pos < 3 else (50 if pos < 10 else 0)
                 found_brands.append((brand, len(brand) + start_bonus))
 
+        # Also check brand variation patterns (full names, misspellings).
+        # These compete with exact brand matches using the same scoring
+        # so that "Alternative Medical Association" (→ AMA, 35 chars)
+        # outscores "Runtz" (5 chars) when both appear in the same text.
+        seen_canonicals = {b for b, _ in found_brands}
+        for var_pat, canonical in _VARIATION_PATTERNS:
+            if canonical in blocked_brands or canonical in seen_canonicals:
+                continue
+            m = var_pat.search(text)
+            if m:
+                pos = m.start()
+                start_bonus = 100 if pos < 3 else (50 if pos < 10 else 0)
+                # Use the variation string length for scoring (longer = better)
+                found_brands.append((canonical, len(m.group(0).strip()) + start_bonus))
+                seen_canonicals.add(canonical)
+
         if not found_brands:
-            # Fallback: try brand variation patterns (misspellings, alternate forms)
-            for var_pat, canonical in _VARIATION_PATTERNS:
-                if canonical in blocked_brands:
-                    continue
-                if var_pat.search(text):
-                    return canonical
             return None
 
         # Return best match (longest + position-weighted), resolved through aliases
@@ -1278,14 +1274,25 @@ class CloudedLogic:
             raw_weight = f"{grams}g"
             weight = self.validate_weight(raw_weight, category)
         else:
-            weight_match = re.search(r'([\d.]+)\s*(g|mg|oz)\b', clean_text, re.IGNORECASE)
+            if category == 'edible':
+                # Edibles use mg for THC potency.  oz is liquid volume
+                # (e.g. "8oz" on a beverage), NOT weight — converting it
+                # to grams produces a nonsensical value (224g) that can
+                # leak through normalize_weight.  Only match mg here.
+                weight_match = re.search(r'([\d.]+)\s*mg\b', clean_text, re.IGNORECASE)
+            else:
+                weight_match = re.search(r'([\d.]+)\s*(g|mg|oz)\b', clean_text, re.IGNORECASE)
             if weight_match:
                 raw_weight = weight_match.group(0)
-                # Convert oz to grams for validation
+                # Convert oz to grams for validation (non-edible only)
                 oz_m = re.match(r'([\d.]+)\s*oz\b', raw_weight, re.IGNORECASE)
                 if oz_m:
-                    oz_val = float(oz_m.group(1))
-                    raw_weight = f"{round(oz_val * 28, 1)}g"
+                    try:
+                        oz_val = float(oz_m.group(1))
+                    except ValueError:
+                        raw_weight = None
+                    else:
+                        raw_weight = f"{round(oz_val * 28, 1)}g"
                 weight = self.validate_weight(raw_weight, category)
 
             # Special handling for edibles — only normalize when a weight
@@ -1581,7 +1588,6 @@ def run_tests():
     print("\n🏷️  BRAND DETECTION:")
     brand_tests = [
         ('AMA Gary Peyton Live Resin 1.0g',    'AMA'),
-        ('Cookies Gary Payton 3.5g',            'Cookies'),
         ('STIIIZY SIP Party Hurricane',         'STIIIZY'),
         ('City Trees Garlic Zoap 1g',           'City Trees'),
         ('Random Unknown Product 3.5g',          None),

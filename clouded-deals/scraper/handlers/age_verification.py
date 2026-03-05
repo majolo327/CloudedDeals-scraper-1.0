@@ -156,12 +156,27 @@ async def _page_has_age_gate_signals(target: Page | Frame) -> bool:
                 if (document.querySelector('.agc_screen')) return true;
                 if (document.querySelector('[class*="age-gate"]')) return true;
                 if (document.querySelector('[class*="age-verification"]')) return true;
+                // AV-prefixed IDs used by Thrive and similar sites
+                if (document.getElementById('AVtextTop')) return true;
+                if (document.getElementById('AVbg')) return true;
+                // Generic overlay/modal that covers the full viewport
+                // (common pattern for dispensary age gates)
+                const overlays = document.querySelectorAll(
+                    '.overlay, .modal-backdrop, [class*="age"], [id*="age"]'
+                );
+                for (const el of overlays) {
+                    const style = window.getComputedStyle(el);
+                    if (style.position === 'fixed' || style.position === 'absolute') {
+                        return true;
+                    }
+                }
                 // Check page text for age-gate keywords
                 const text = (document.body?.innerText || '').toLowerCase();
                 const keywords = [
                     '21 or older', 'are you 21', 'verify your age',
                     'age verification', 'i confirm', 'at least 21',
                     'over 21', '21+', 'must be 21',
+                    'are you of legal age', 'enter site',
                 ];
                 return keywords.some(k => text.includes(k));
             }
@@ -221,27 +236,34 @@ async def dismiss_age_gate(
         logger.debug("Skipping age gate — error or empty page detected")
         return False
 
-    # Fast pre-check: scan the page text for age-gate keywords before
-    # looping through 19 selectors with individual timeouts.  Pages
-    # without any age gate skip the entire selector loop instantly.
-    if not await _page_has_age_gate_signals(target):
-        logger.debug("No age gate signals in page text — skipping selector loop")
-        # Still run JS fallback in case there's a hidden overlay
-        removed = await force_remove_age_gate(target)
-        if removed > 0:
-            logger.info("Age gate removed via JS fallback (%d element(s)) despite no text signals", removed)
-            if post_dismiss_wait_sec > 0:
-                await asyncio.sleep(post_dismiss_wait_sec)
-            return True
-        return False
+    # CRITICAL: ALWAYS try clicking the age gate button before JS removal.
+    # The Dutchie embed script only injects the menu iframe AFTER the
+    # button-click callback fires — JS removal alone does NOT trigger it.
+    # This was the #1 recurring regression: skipping the click loop when
+    # _page_has_age_gate_signals() returned False caused 17/18 Dutchie
+    # sites to fail because their overlays used generic classes that the
+    # pre-check didn't recognise.
+    #
+    # The pre-check is now used ONLY to decide timeout length and whether
+    # to also try secondary selectors — it NEVER skips the click loop.
+    has_signals = await _page_has_age_gate_signals(target)
 
-    # Try primary selectors first (text-based "I am 21 or older" then
-    # TD-specific IDs) with a longer timeout, then secondary generics.
-    all_selectors = [
-        (s, PRIMARY_SELECTOR_TIMEOUT_MS) for s in PRIMARY_AGE_GATE_SELECTORS
-    ] + [
-        (s, SECONDARY_SELECTOR_TIMEOUT_MS) for s in SECONDARY_AGE_GATE_SELECTORS
-    ]
+    if has_signals:
+        all_selectors = [
+            (s, PRIMARY_SELECTOR_TIMEOUT_MS) for s in PRIMARY_AGE_GATE_SELECTORS
+        ] + [
+            (s, SECONDARY_SELECTOR_TIMEOUT_MS) for s in SECONDARY_AGE_GATE_SELECTORS
+        ]
+    else:
+        # No text signals — still try primary selectors but with a
+        # shorter timeout to minimise delay on pages without a gate.
+        # The count()==0 fast-exit below means selectors that don't exist
+        # in the DOM are skipped instantly; this timeout only applies
+        # when an element EXISTS but isn't visible yet.
+        logger.debug("No age gate text signals — trying primary selectors with reduced timeout")
+        all_selectors = [
+            (s, 2_000) for s in PRIMARY_AGE_GATE_SELECTORS
+        ]
 
     for selector, timeout in all_selectors:
         try:

@@ -38,22 +38,37 @@ interface RegionSummary {
   totalProductsLast7: number;
   successRate7: number;
   avgRuntime7: number;
-  configuredSites: number;
+  activeSites: number;
+  /** Aggregated across all of today's shard runs */
+  todaySitesOk: number;
+  todaySitesFailed: number;
+  todayTotalProducts: number;
+  todayShardsCompleted: number;
 }
 
-// How many sites are configured per region (from dispensaries.py)
-const CONFIGURED_SITES: Record<string, number> = {
-  michigan: 114,
-  illinois: 88,
-  arizona: 52,
-  missouri: 31,
-  "new-jersey": 34,
-  ohio: 22,
-  colorado: 17,
-  "new-york": 18,
-  massachusetts: 17,
-  pennsylvania: 16,
+// Expected shards per region — must match REGION_SHARDS in main.py
+const EXPECTED_SHARDS: Record<string, number> = {
+  michigan: 6,
+  illinois: 3,
+  colorado: 3,
+  massachusetts: 2,
+  "new-jersey": 4,
+  arizona: 2,
+  missouri: 4,
+  ohio: 4,
+  "new-york": 2,
+  pennsylvania: 1,
 };
+
+/** Map sharded region names like "michigan-2" to their base "michigan". */
+function getBaseRegion(region: string): string {
+  const match = region.match(/^(.+)-(\d+)$/);
+  if (match) {
+    const base = match[1];
+    if (EXPANSION_REGIONS.some((r) => r.id === base)) return base;
+  }
+  return region;
+}
 
 export default function ExpansionDashboard() {
   const [summaries, setSummaries] = useState<RegionSummary[]>([]);
@@ -72,7 +87,11 @@ export default function ExpansionDashboard() {
           totalProductsLast7: 0,
           successRate7: 0,
           avgRuntime7: 0,
-          configuredSites: CONFIGURED_SITES[r.id] ?? 0,
+          activeSites: 0,
+          todaySitesOk: 0,
+          todaySitesFailed: 0,
+          todayTotalProducts: 0,
+          todayShardsCompleted: 0,
         }))
       );
       setLoading(false);
@@ -81,21 +100,34 @@ export default function ExpansionDashboard() {
 
     (async () => {
       try {
-        // Fetch recent runs for all expansion regions
-        const regionIds = EXPANSION_REGIONS.map((r) => r.id);
-        const { data: runs } = await supabase
-          .from("scrape_runs")
-          .select("*")
-          .in("region", regionIds)
-          .order("started_at", { ascending: false })
-          .limit(200);
+        // Fetch recent runs (no region filter — we filter client-side to match shards)
+        // and live site counts from DB in parallel
+        const [runsResult, regionCoverageResult] = await Promise.all([
+          supabase
+            .from("scrape_runs")
+            .select("*")
+            .order("started_at", { ascending: false })
+            .limit(500),
+          supabase.rpc("get_region_site_coverage"),
+        ]);
 
-        const allRunsData = (runs ?? []) as ScrapeRun[];
+        // Build per-region active site counts from RPC
+        const regionCounts: Record<string, number> = {};
+        for (const row of regionCoverageResult.data ?? []) {
+          regionCounts[row.region] = Number(row.active_sites);
+        }
+
+        // Filter runs to expansion regions (including sharded names)
+        const expansionIds: Set<string> = new Set(EXPANSION_REGIONS.map((r) => r.id));
+        const allRunsData = ((runsResult.data ?? []) as ScrapeRun[]).filter(
+          (run) => expansionIds.has(getBaseRegion(run.region))
+        );
         setAllRuns(allRunsData);
 
         const regionSummaries = EXPANSION_REGIONS.map((r) => {
+          // Match both exact and sharded runs (e.g., "michigan", "michigan-1", "michigan-2")
           const regionRuns = allRunsData.filter(
-            (run) => run.region === r.id
+            (run) => run.region === r.id || run.region?.startsWith(r.id + "-")
           );
           const last7 = regionRuns.slice(0, 7);
           const completed7 = last7.filter(
@@ -122,6 +154,31 @@ export default function ExpansionDashboard() {
                 )
               : 0;
 
+          // Aggregate across ALL of today's shard runs (not just the latest)
+          const todayStart = new Date();
+          todayStart.setUTCHours(0, 0, 0, 0);
+          const todayRuns = regionRuns.filter(
+            (run) =>
+              new Date(run.started_at) >= todayStart &&
+              (run.status === "completed" ||
+                run.status === "completed_with_errors")
+          );
+          // Deduplicate sites across shards using Sets
+          const allScraped = new Set<string>();
+          const allFailedMap = new Map<string, string>();
+          let todayProducts = 0;
+          for (const run of todayRuns) {
+            if (Array.isArray(run.sites_scraped)) {
+              for (const slug of run.sites_scraped) allScraped.add(slug);
+            }
+            if (Array.isArray(run.sites_failed)) {
+              for (const f of run.sites_failed) allFailedMap.set(f.slug, f.error);
+            }
+            todayProducts += run.total_products || 0;
+          }
+          // Remove sites that succeeded in one shard but failed in another
+          for (const slug of allScraped) allFailedMap.delete(slug);
+
           return {
             region: r.id,
             label: r.label,
@@ -130,7 +187,11 @@ export default function ExpansionDashboard() {
             totalProductsLast7: totalProducts,
             successRate7: successRate,
             avgRuntime7: avgRuntime,
-            configuredSites: CONFIGURED_SITES[r.id] ?? 0,
+            activeSites: regionCounts[r.id] ?? 0,
+            todaySitesOk: allScraped.size,
+            todaySitesFailed: allFailedMap.size,
+            todayTotalProducts: todayProducts,
+            todayShardsCompleted: todayRuns.length,
           };
         });
 
@@ -146,7 +207,7 @@ export default function ExpansionDashboard() {
             totalProductsLast7: 0,
             successRate7: 0,
             avgRuntime7: 0,
-            configuredSites: CONFIGURED_SITES[r.id] ?? 0,
+            activeSites: 0,
           }))
         );
       }
@@ -169,8 +230,8 @@ export default function ExpansionDashboard() {
     );
   }
 
-  const totalConfigured = Object.values(CONFIGURED_SITES).reduce(
-    (a, b) => a + b,
+  const totalActiveSites = summaries.reduce(
+    (sum, s) => sum + s.activeSites,
     0
   );
   const totalProductsAll = summaries.reduce(
@@ -189,8 +250,8 @@ export default function ExpansionDashboard() {
           sub="with scrape data"
         />
         <SummaryCard
-          label="Configured Sites"
-          value={totalConfigured.toString()}
+          label="Active Sites"
+          value={totalActiveSites.toLocaleString()}
           sub="across 10 states"
         />
         <SummaryCard
@@ -226,7 +287,9 @@ export default function ExpansionDashboard() {
       {/* Expanded detail for selected region */}
       {selectedRegion && (
         <RegionDetail
-          runs={allRuns.filter((r) => r.region === selectedRegion)}
+          runs={allRuns.filter(
+            (r) => r.region === selectedRegion || r.region?.startsWith(selectedRegion + "-")
+          )}
           regionLabel={
             EXPANSION_REGIONS.find((r) => r.id === selectedRegion)?.label ??
             selectedRegion
@@ -282,7 +345,8 @@ function RegionCard({
   onClick: () => void;
   expanded: boolean;
 }) {
-  const { latestRun, successRate7, configuredSites } = summary;
+  const { latestRun, successRate7, activeSites } = summary;
+  const expectedShards = EXPECTED_SHARDS[summary.region] ?? 1;
 
   const hasData = latestRun !== null;
   const statusColor = !hasData
@@ -313,16 +377,10 @@ function RegionCard({
     zinc: "bg-zinc-300",
   };
 
-  const sitesOk = hasData
-    ? Array.isArray(latestRun.sites_scraped)
-      ? latestRun.sites_scraped.length
-      : 0
-    : 0;
-  const sitesFailed = hasData
-    ? Array.isArray(latestRun.sites_failed)
-      ? latestRun.sites_failed.length
-      : 0
-    : 0;
+  // Use today's aggregated shard data (all shards combined)
+  const sitesOk = summary.todaySitesOk;
+  const sitesFailed = summary.todaySitesFailed;
+  const shardsCompleted = summary.todayShardsCompleted;
 
   return (
     <button
@@ -342,7 +400,12 @@ function RegionCard({
             </h3>
           </div>
           <p className="mt-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            {configuredSites} configured sites
+            {activeSites} active sites
+            {expectedShards > 1 && (
+              <span className="ml-1 text-zinc-400">
+                ({shardsCompleted}/{expectedShards} shards)
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-1.5">
@@ -361,7 +424,9 @@ function RegionCard({
           />
           <MiniStat
             label="Products"
-            value={latestRun.total_products?.toLocaleString() ?? "0"}
+            value={summary.todayTotalProducts > 0
+              ? summary.todayTotalProducts.toLocaleString()
+              : latestRun.total_products?.toLocaleString() ?? "0"}
           />
           <MiniStat
             label="7d Rate"

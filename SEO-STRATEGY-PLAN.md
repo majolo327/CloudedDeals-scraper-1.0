@@ -1,6 +1,6 @@
 # CloudedDeals SEO Engineering Plan
 
-> **Last Updated:** 2026-02-13
+> **Last Updated:** 2026-02-19
 > **Domain:** cloudeddeals.com (live on Netlify)
 > **Stack:** Next.js 14 / Tailwind / Supabase / Netlify
 > **Target:** Tourists + Locals searching for Las Vegas cannabis deals
@@ -46,6 +46,13 @@
 | Accessibility: footer heading hierarchy fixed (h3 → h2) | Phase 6 | Feb 13 |
 | Build verified clean — all SEO pages SSG/ISR, 96.2kB first load | Phase 6 | Feb 13 |
 
+### DONE (Feb 19 — AI Visibility)
+| Item | Phase | Date |
+|------|-------|------|
+| robots.txt updated with explicit AI crawler allow rules (GPTBot, ChatGPT-User, ClaudeBot, Google-Extended, PerplexityBot, Amazonbot, Applebot-Extended, FacebookBot, Bingbot) | Phase 8 | Feb 19 |
+| `llms.txt` created — plain-text site summary for AI models (llmstxt.org standard) | Phase 8 | Feb 19 |
+| `llms-full.txt` created — comprehensive reference with all dispensaries, categories, FAQs, page structure | Phase 8 | Feb 19 |
+
 ### IN PROGRESS / NEXT UP
 | Item | Phase | Priority | Owner |
 |------|-------|----------|-------|
@@ -62,6 +69,9 @@
 ### NOT STARTED
 | Item | Phase | Priority | Notes |
 |------|-------|----------|-------|
+| Submit sitemap to Bing Webmaster Tools | Phase 8 | P0 | ChatGPT uses Bing for web browsing — critical for AI visibility |
+| Submit to Perplexity's index | Phase 8 | P1 | Check if Perplexity has a webmaster submission process |
+| Cannabis directory submissions (Weedmaps, Leafly, etc.) | Phase 4 | P1 | Backlinks + AI source citation |
 | Blog setup (`/blog`) | Phase 5 | P2 | Long-tail keyword capture |
 | Initial blog posts (5 planned) | Phase 5 | P2 | Start after core pages indexed |
 | Cannabis directory submissions (Weedmaps, Leafly, etc.) | Phase 4 | P2 | Backlinks |
@@ -222,6 +232,56 @@ Google rewards pages with original content, not just data tables. This is the si
 | Avg. position for "vegas dispensary deals" | N/A | Top 30 | Top 10 |
 | Domain authority | 0 | 10 | 20 |
 | Backlinks | 0 | 20 | 50 |
+
+---
+
+## Phase 8: AI Visibility (ChatGPT, Gemini, Perplexity, Claude)
+
+AI search is a growing traffic source. The goal is to get CloudedDeals cited when users ask AI assistants about Vegas dispensary deals.
+
+### How AI Models Discover Content
+
+| AI Product | Crawler | Search Backend | How to Get Indexed |
+|-----------|---------|---------------|-------------------|
+| ChatGPT (browsing) | GPTBot, ChatGPT-User | Bing | Submit to Bing Webmaster Tools |
+| Google Gemini / AI Overviews | Google-Extended, Googlebot | Google | Already in GSC |
+| Perplexity | PerplexityBot | Own index + Bing | Allow PerplexityBot in robots.txt |
+| Claude | ClaudeBot | Web search | Allow ClaudeBot in robots.txt |
+| Apple Intelligence / Siri | Applebot-Extended | Apple + Google | Allow Applebot-Extended |
+| Microsoft Copilot | Bingbot | Bing | Submit to Bing Webmaster Tools |
+
+### Done (Technical)
+- [x] robots.txt — explicit allow rules for all major AI crawlers
+- [x] llms.txt — site summary for AI models (llmstxt.org standard)
+- [x] llms-full.txt — comprehensive reference with all pages, dispensaries, FAQs
+
+### Your Manual Steps (P0)
+1. **Submit to Bing Webmaster Tools** (https://www.bing.com/webmasters)
+   - Sign in with Microsoft account
+   - Add https://cloudeddeals.com
+   - Submit sitemap: https://cloudeddeals.com/sitemap.xml
+   - This is the single most important step for ChatGPT visibility
+2. **Continue GSC indexing requests** — Google AI Overviews pulls from Google's index
+
+### Your Manual Steps (P1)
+3. **Submit to cannabis directories** — Weedmaps, Leafly, Cannabis.net, etc.
+   - AI models weight info that appears across multiple authoritative sources
+   - These also provide backlinks which boost domain authority
+4. **Post on Reddit** — r/vegastrees, r/vegas
+   - AI models frequently cite Reddit threads
+   - Share genuinely useful deal info, don't spam
+5. **Get mentioned on travel/tourism sites**
+   - Vegas tourism blogs, "things to do in Vegas" lists
+   - AI models cite these when answering tourist questions
+
+### Future (P2)
+6. **Blog content targeting AI queries**
+   - "Best dispensary deals on the Vegas Strip 2026"
+   - "Cheapest dispensary in Las Vegas"
+   - "Planet 13 deals — is it worth it?"
+   - Blog posts that directly answer common questions get surfaced by AI
+7. **Schema.org speakable markup** — marks content as suitable for voice/AI assistants
+8. **Monitor AI citations** — periodically ask ChatGPT, Gemini, Perplexity about Vegas deals to track visibility
 
 ---
 

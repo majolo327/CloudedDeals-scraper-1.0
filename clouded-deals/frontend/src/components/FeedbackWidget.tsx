@@ -40,7 +40,7 @@ export function FeedbackWidget() {
   };
 
   return (
-    <div className="fixed bottom-20 right-4 z-40 sm:bottom-6">
+    <div className="fixed right-4 z-40 safe-bottom-float">
       {/* Expanded form */}
       {open && (
         <div className="mb-2 w-72 rounded-2xl border p-3 shadow-xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-200" style={{ backgroundColor: 'rgba(12, 14, 28, 0.95)', borderColor: 'rgba(120, 100, 200, 0.12)' }}>

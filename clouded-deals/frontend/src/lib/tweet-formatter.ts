@@ -6,7 +6,7 @@
  *   💰 $45 → $27 (40% OFF)
  *   🏪 Curaleaf - Western Ave
  *
- *   More deals at cloudeddeals.com
+ *   https://cloudeddeals.com/deal/{product_id}
  *   #LasVegasDeals #Cannabis #STIIIZY
  */
 
@@ -25,7 +25,16 @@ const CATEGORY_HASHTAGS: Record<string, string> = {
 
 const BASE_HASHTAGS = ["#LasVegasDeals", "#Cannabis"];
 
-const SITE_CTA = "More deals at cloudeddeals.com";
+const SITE_URL = "https://cloudeddeals.com";
+
+// Twitter wraps every URL to 23 characters via t.co, regardless of raw length.
+const TCO_URL_LENGTH = 23;
+const URL_REGEX = /https?:\/\/\S+/g;
+
+/** Count characters the way Twitter does (URLs = 23 chars each via t.co). */
+function twitterCharCount(text: string): number {
+  return text.replace(URL_REGEX, "x".repeat(TCO_URL_LENGTH)).length;
+}
 
 export function formatDealTweet(deal: Deal): string {
   const product = deal.product;
@@ -65,29 +74,33 @@ export function formatDealTweet(deal: Deal): string {
 
   const hashtagLine = tags.join(" ");
 
+  // ---- Deal-specific link (enables Twitter Card preview) ----
+  const dealUrl = deal.product_id
+    ? `${SITE_URL}/deal/${deal.product_id}`
+    : SITE_URL;
+
   // ---- Assemble ----
   const lines = [
     `🔥 ${name}`,
     `💰 ${priceLine}`,
     dispensaryLine ? `🏪 ${dispensaryLine}` : "",
     "",
-    SITE_CTA,
+    dealUrl,
     hashtagLine,
   ].filter((line, i) => line !== "" || i === 3); // Keep the blank spacer line
 
   let tweet = lines.join("\n");
 
-  // ---- Truncate if needed ----
-  if (tweet.length > MAX_TWEET_LENGTH) {
-    // Shorten product name first.
-    const overhead = tweet.length - MAX_TWEET_LENGTH;
+  // ---- Truncate if needed (t.co-aware) ----
+  if (twitterCharCount(tweet) > MAX_TWEET_LENGTH) {
+    const overhead = twitterCharCount(tweet) - MAX_TWEET_LENGTH;
     const shortenedName = name.slice(0, Math.max(name.length - overhead - 3, 10)) + "...";
     lines[0] = `🔥 ${shortenedName}`;
     tweet = lines.join("\n");
   }
 
   // Final safety trim.
-  if (tweet.length > MAX_TWEET_LENGTH) {
+  if (twitterCharCount(tweet) > MAX_TWEET_LENGTH) {
     tweet = tweet.slice(0, MAX_TWEET_LENGTH - 1) + "…";
   }
 
@@ -126,26 +139,31 @@ export function formatCandidateTweet(candidate: AutoPostCandidate): string {
   }
   const hashtagLine = tags.join(" ");
 
+  // Deal-specific link (enables Twitter Card preview)
+  const dealUrl = candidate.product_id
+    ? `${SITE_URL}/deal/${candidate.product_id}`
+    : SITE_URL;
+
   const lines = [
     `🔥 ${name}`,
     `💰 ${priceLine}`,
     candidate.dispensary_name ? `🏪 ${candidate.dispensary_name}` : "",
     "",
-    SITE_CTA,
+    dealUrl,
     hashtagLine,
   ].filter((line, i) => line !== "" || i === 3);
 
   let tweet = lines.join("\n");
 
-  if (tweet.length > MAX_TWEET_LENGTH) {
-    const overhead = tweet.length - MAX_TWEET_LENGTH;
+  if (twitterCharCount(tweet) > MAX_TWEET_LENGTH) {
+    const overhead = twitterCharCount(tweet) - MAX_TWEET_LENGTH;
     const shortenedName =
       name.slice(0, Math.max(name.length - overhead - 3, 10)) + "...";
     lines[0] = `🔥 ${shortenedName}`;
     tweet = lines.join("\n");
   }
 
-  if (tweet.length > MAX_TWEET_LENGTH) {
+  if (twitterCharCount(tweet) > MAX_TWEET_LENGTH) {
     tweet = tweet.slice(0, MAX_TWEET_LENGTH - 1) + "…";
   }
 

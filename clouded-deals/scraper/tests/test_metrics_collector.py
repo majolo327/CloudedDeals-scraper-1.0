@@ -12,7 +12,7 @@ def test_collect_basic_metrics(make_product):
     deals = [
         make_product(brand="STIIIZY", category="vape", deal_score=90,
                      dispensary_id="planet13"),
-        make_product(brand="Cookies", category="flower", deal_score=80,
+        make_product(brand="Connected", category="flower", deal_score=80,
                      dispensary_id="medizin"),
         make_product(brand="Wyld", category="edible", deal_score=60,
                      dispensary_id="reef"),
@@ -73,4 +73,4 @@ def test_collect_upserts_to_db(make_product):
     call_args = db.table().upsert.call_args
     row = call_args[0][0]
     assert row["qualifying_deals"] == 1
-    assert call_args[1]["on_conflict"] == "run_date"
+    assert call_args[1]["on_conflict"] == "run_date,region"

@@ -50,6 +50,22 @@ export function SeoFooter() {
                   Strip Dispensary Deals
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/downtown-dispensary-deals"
+                  className="text-xs text-slate-500 hover:text-purple-400 transition-colors"
+                >
+                  Downtown Deals
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/local-dispensary-deals"
+                  className="text-xs text-slate-500 hover:text-purple-400 transition-colors"
+                >
+                  Local / Off-Strip Deals
+                </Link>
+              </li>
               {CATEGORIES.map((cat) => (
                 <li key={cat.slug}>
                   <Link
@@ -124,6 +140,14 @@ export function SeoFooter() {
                   About
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/blog"
+                  className="text-xs text-slate-500 hover:text-purple-400 transition-colors"
+                >
+                  Blog
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -162,7 +186,7 @@ export function SeoFooter() {
         {/* Trust + disclaimer */}
         <div className="border-t pt-6" style={{ borderColor: 'var(--border-subtle)' }}>
           <p className="text-center text-xs text-slate-500 leading-relaxed mb-3">
-            Every deal is ranked on merit. No sponsored placements. No ads. Ever.
+            Every deal is ranked on merit. No sponsored placements.
           </p>
           <p className="text-center text-xs text-slate-600 leading-relaxed max-w-lg mx-auto mb-2">
             CloudedDeals is not a licensed cannabis retailer and does not sell, distribute,

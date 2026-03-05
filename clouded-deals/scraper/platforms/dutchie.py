@@ -15,7 +15,9 @@ Flow:
      JS embed probing (60 s) for sites that inject into the page DOM.
   6. Extract products from whichever target was found.
   7. Paginate via ``aria-label="go to page N"`` buttons.
-  8. If specials returned 0 products, fall back to the base menu URL.
+  8. Click through category tabs (Flower, Edibles, Concentrates, etc.)
+     and paginate each to capture the FULL product catalog.
+  9. If specials returned 0 products, fall back to the base menu URL.
 """
 
 from __future__ import annotations
@@ -27,10 +29,10 @@ import re
 from typing import Any, Union
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
-from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout
+from playwright.async_api import Page, Frame, TimeoutError as PlaywrightTimeout, Error as PlaywrightError
 
 from clouded_logic import CONSECUTIVE_EMPTY_MAX
-from config.dispensaries import PLATFORM_DEFAULTS
+from config.dispensaries import PLATFORM_DEFAULTS, is_expansion_region
 from handlers import dismiss_age_gate, force_remove_age_gate, find_dutchie_content, navigate_dutchie_page
 from .base import BaseScraper
 
@@ -42,9 +44,16 @@ _BETWEEN_PAGES_SEC = _DUTCHIE_CFG["between_pages_sec"]          # 5 s
 _TD_SLUGS = {"td-gibson", "td-eastern", "td-decatur"}
 
 # Smart-wait timeouts: content-based polling returns instantly when content
-# appears, so the longer cap only matters if the page is slow to inject.
-_SMART_WAIT_MS = 90_000          # 90 s (up from 60 s — helps heavy pages)
-_SMART_WAIT_RETRY_MS = 60_000    # 60 s on retry attempts
+# appears, so the cap only matters if the page is slow to inject.
+# Proven pattern uses a fixed 5s sleep — 30s is generous but prevents the
+# 120s waits that were consuming most of the timeout budget.
+_SMART_WAIT_MS = 30_000          # 30 s — if embed hasn't injected by now, it won't
+_SMART_WAIT_RETRY_MS = 20_000    # 20 s on retry attempts
+
+# Shorter timeouts for dutchie.com direct URLs (React SPAs) — these either
+# render product cards within ~15 s or not at all.
+_SMART_WAIT_DIRECT_MS = 15_000       # 15 s first attempt
+_SMART_WAIT_DIRECT_RETRY_MS = 10_000  # 10 s retry
 
 # Planet 13 / Medizin share planet13.com — a store selector in the header
 # must be confirmed so the Dutchie embed loads the correct dispensary menu.
@@ -90,6 +99,10 @@ _CATEGORY_LABEL_MAP: dict[str, str] = {
     "vapes": "vape",
     "cartridge": "vape",
     "cartridges": "vape",
+    "disposable": "vape",
+    "disposables": "vape",
+    "disposable vape": "vape",
+    "disposable vapes": "vape",
     "concentrate": "concentrate",
     "concentrates": "concentrate",
     "edible": "edible",
@@ -99,7 +112,8 @@ _CATEGORY_LABEL_MAP: dict[str, str] = {
 # Regex to detect standalone category labels in raw_text lines
 _RE_CATEGORY_LABEL = re.compile(
     r"^\s*(?:Pre[-\s]?Rolls?|Prerolls?|Pre[-\s]?Roll\s+Single|"
-    r"Flower|Vapes?|Cartridges?|Concentrates?|Edibles?)\s*$",
+    r"Flower|Vapes?|Cartridges?|Disposable(?:\s+Vapes?)?|Disposables?|"
+    r"Concentrates?|Edibles?)\s*$",
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -267,10 +281,52 @@ async def _ensure_store_selected(page: Page, slug: str) -> None:
         logger.info("[%s] No store selector found — proceeding with current store", slug)
 
 
+async def _scroll_to_load_content(
+    target: Page | Frame,
+    slug: str,
+    *,
+    max_scrolls: int = 8,
+    scroll_pause_sec: float = 1.5,
+) -> None:
+    """Incrementally scroll to the bottom of *target* to trigger lazy loaders.
+
+    Many Dutchie sites (especially content-heavy ones like td-gibson) defer
+    rendering product cards until they enter the viewport.  This scrolls in
+    increments, pausing between each to let the site's IntersectionObserver
+    or scroll-based lazy loader fire.  Applied to all Dutchie sites as a
+    universal fallback — fast sites already have their cards and the scroll
+    is a no-op.
+    """
+    try:
+        for step in range(max_scrolls):
+            await target.evaluate(
+                """(step) => {
+                    const h = document.documentElement.scrollHeight || document.body.scrollHeight;
+                    const stepSize = Math.ceil(h / 6);
+                    window.scrollTo({ top: stepSize * (step + 1), behavior: 'smooth' });
+                }""",
+                step,
+            )
+            await asyncio.sleep(scroll_pause_sec)
+
+        # Final scroll to absolute bottom
+        await target.evaluate("() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })")
+        await asyncio.sleep(scroll_pause_sec)
+
+        # Scroll back to top so pagination buttons are accessible
+        await target.evaluate("() => window.scrollTo({ top: 0, behavior: 'smooth' })")
+        await asyncio.sleep(0.5)
+
+        logger.info("[%s] Scroll-to-load complete (%d increments)", slug, max_scrolls)
+    except Exception as exc:
+        # Non-fatal — some iframe contexts may restrict scrolling
+        logger.debug("[%s] Scroll-to-load failed (non-fatal): %s", slug, exc)
+
+
 async def _wait_for_product_cards(
     target: Page | Frame,
     slug: str,
-    timeout_ms: int = 30_000,
+    timeout_ms: int = 45_000,
 ) -> bool:
     """Wait for product cards to render inside *target* before extraction.
 
@@ -303,6 +359,90 @@ async def _wait_for_product_cards(
         return False
 
 
+# Dutchie category tab selectors — used to click through each menu category
+# and paginate independently.  Dutchie menus show category filters as tabs
+# or buttons (e.g. "Flower", "Edibles", "Concentrates", "Vapes", "Pre-Rolls").
+# Clicking each tab resets pagination and shows that category's products.
+_CATEGORY_TAB_SELECTORS = [
+    # Dutchie tab/filter button patterns
+    'button[data-testid*="category"]',
+    'button[class*="category"]',
+    'button[class*="Category"]',
+    'a[class*="category"]',
+    'a[class*="Category"]',
+    '[data-testid*="filter"]',
+    '[role="tab"]',
+    # Nav link patterns for category filters
+    'nav button',
+    'nav a',
+    '[class*="filter"] button',
+    '[class*="Filter"] button',
+    '[class*="menu-type"] button',
+    '[class*="MenuType"] button',
+]
+
+# Known Dutchie category labels to click through
+_DUTCHIE_CATEGORIES = [
+    "Flower", "Edibles", "Concentrates", "Vapes", "Pre-Rolls",
+    "Topicals", "Tinctures", "Accessories", "Beverages",
+    "Cartridges", "Pre-Roll", "Preroll", "Edible", "Vape",
+]
+
+# JS to find and return all clickable category filter buttons/tabs.
+# Returns a list of {text, index} objects for each unique category button found.
+_JS_FIND_CATEGORY_TABS = """
+() => {
+    const tabs = [];
+    const seen = new Set();
+
+    // Strategy 1: data-testid category buttons
+    const testIdBtns = document.querySelectorAll(
+        'button[data-testid*="category"], button[data-testid*="filter"], ' +
+        '[data-testid*="category-tab"], [data-testid*="menu-type"]'
+    );
+    for (const btn of testIdBtns) {
+        const text = (btn.textContent || '').trim();
+        if (text && text.length >= 3 && text.length <= 30 && !seen.has(text.toLowerCase())) {
+            seen.add(text.toLowerCase());
+            tabs.push({text: text, index: tabs.length});
+        }
+    }
+    if (tabs.length >= 3) return tabs;
+
+    // Strategy 2: role="tab" elements (Dutchie's tab-based category nav)
+    const roleTabs = document.querySelectorAll('[role="tab"], [role="tablist"] button, [role="tablist"] a');
+    for (const tab of roleTabs) {
+        const text = (tab.textContent || '').trim();
+        if (text && text.length >= 3 && text.length <= 30 && !seen.has(text.toLowerCase())) {
+            seen.add(text.toLowerCase());
+            tabs.push({text: text, index: tabs.length});
+        }
+    }
+    if (tabs.length >= 3) return tabs;
+
+    // Strategy 3: nav buttons/links with category-like labels
+    const categoryNames = new Set([
+        'flower', 'edibles', 'edible', 'concentrates', 'concentrate',
+        'vapes', 'vape', 'pre-rolls', 'pre-roll', 'preroll', 'prerolls',
+        'topicals', 'topical', 'tinctures', 'tincture', 'accessories',
+        'beverages', 'beverage', 'cartridges', 'cartridge', 'specials',
+        'all', 'all products', 'shop all'
+    ]);
+    const allBtns = document.querySelectorAll('button, a, [role="button"]');
+    for (const btn of allBtns) {
+        const text = (btn.textContent || '').trim();
+        const lower = text.toLowerCase();
+        if (categoryNames.has(lower) && !seen.has(lower)) {
+            seen.add(lower);
+            tabs.push({text: text, index: tabs.length});
+        }
+    }
+
+    return tabs;
+}
+"""
+
+
 class DutchieScraper(BaseScraper):
     """Scraper for sites powered by the Dutchie embedded iframe menu."""
 
@@ -332,14 +472,23 @@ class DutchieScraper(BaseScraper):
         # cascade will burn 300+ seconds timing out on selectors that
         # will never match.  Skip directly to fallback URL if available.
         if await self.detect_cloudflare_challenge():
-            if fallback_url and fallback_url != self.url:
-                logger.warning(
-                    "[%s] Cloudflare blocked on primary — skipping to fallback: %s",
-                    self.slug, fallback_url,
-                )
-                return await self._scrape_with_fallback(fallback_url, embed_hint)
-            logger.error("[%s] Cloudflare blocked and no fallback URL — aborting", self.slug)
-            return []
+            # Retry once after a brief wait — Cloudflare challenges are
+            # sometimes intermittent and a fresh page load can succeed.
+            logger.info("[%s] Cloudflare detected — retrying after 5s delay", self.slug)
+            await asyncio.sleep(5)
+            await self.page.reload(wait_until="load", timeout=60_000)
+            await asyncio.sleep(2 + random.uniform(0, 3))
+
+            if await self.detect_cloudflare_challenge():
+                if fallback_url and fallback_url != self.url:
+                    logger.warning(
+                        "[%s] Cloudflare blocked on primary (after retry) — skipping to fallback: %s",
+                        self.slug, fallback_url,
+                    )
+                    return await self._scrape_with_fallback(fallback_url, embed_hint)
+                logger.warning("[%s] Cloudflare blocked and no fallback URL — aborting", self.slug)
+                return []
+            logger.info("[%s] Cloudflare challenge cleared on retry — proceeding", self.slug)
 
         # --- Planet 13 / Medizin store selector ----------------------------
         # P13 and Medizin share planet13.com — ensure the store picker in
@@ -372,15 +521,16 @@ class DutchieScraper(BaseScraper):
         # 90 s cap (was 60 s) — content-based so fast sites return instantly;
         # the longer cap helps heavy pages (td-gibson, planet13) that take
         # longer for the Dutchie embed to inject.
+        smart_wait_ms = _SMART_WAIT_DIRECT_MS if embed_hint == "direct" else _SMART_WAIT_MS
         smart_wait_ok = False
         try:
             await self.page.wait_for_function(
-                _WAIT_FOR_DUTCHIE_JS, timeout=_SMART_WAIT_MS,
+                _WAIT_FOR_DUTCHIE_JS, timeout=smart_wait_ms,
             )
             logger.info("[%s] Smart-wait: Dutchie content detected in DOM", self.slug)
             smart_wait_ok = True
         except PlaywrightTimeout:
-            logger.warning("[%s] Smart-wait: no Dutchie content after %ds — will try detection anyway", self.slug, _SMART_WAIT_MS // 1000)
+            logger.warning("[%s] Smart-wait: no Dutchie content after %ds — will try detection anyway", self.slug, smart_wait_ms // 1000)
             # Re-check Cloudflare after smart-wait timeout — the page may
             # have been intermittently blocked (not detected on initial load
             # but Cloudflare challenge appeared during JS execution).  Bail
@@ -389,21 +539,39 @@ class DutchieScraper(BaseScraper):
                 if fallback_url and fallback_url != self.url:
                     logger.warning("[%s] Cloudflare appeared during smart-wait — trying fallback", self.slug)
                     return await self._scrape_with_fallback(fallback_url, embed_hint)
-                logger.error("[%s] Cloudflare appeared during smart-wait — aborting", self.slug)
+                logger.warning("[%s] Cloudflare appeared during smart-wait — aborting", self.slug)
                 return []
+        except PlaywrightError:
+            logger.warning("[%s] Smart-wait: page closed — aborting", self.slug)
+            return []
 
         # --- Detect Dutchie content using embed_type hint -----------------
         # When we know the embed type (e.g. TD = js_embed), skip the
         # iframe detection phase entirely — saves ~45 s per site.
         logger.info("[%s] Detecting content (embed_hint=%s)", self.slug, embed_hint)
-        target, embed_type = await find_dutchie_content(
+        target, embed_type, about_blank_srcs = await find_dutchie_content(
             self.page,
             iframe_timeout_ms=45_000,
             js_embed_timeout_sec=60,
             embed_type_hint=embed_hint,
+            hint_only=(embed_hint == "direct"),
         )
 
         if target is None:
+            # --- Dynamic fallback from about:blank iframe src URLs --------
+            # When iframes were found with Dutchie src but stuck at
+            # about:blank, use their src as a fallback URL (navigate to
+            # it directly in "direct" mode).  This is more reliable than
+            # the configured fallback_url because it uses the exact URL
+            # the site's embed script was trying to load.
+            if about_blank_srcs and not fallback_url:
+                dynamic_fb = about_blank_srcs[0]
+                logger.info(
+                    "[%s] Using about:blank iframe src as dynamic fallback: %s",
+                    self.slug, dynamic_fb,
+                )
+                return await self._scrape_with_fallback(dynamic_fb, "direct")
+
             # --- Fast-path: skip reload+retry when fallback URL exists ----
             # The reload+retry cycle costs ~300s (navigation + smart-wait +
             # full detection cascade).  When a fallback_url is configured,
@@ -416,6 +584,22 @@ class DutchieScraper(BaseScraper):
                 )
                 await self.save_debug_info("no_dutchie_content_primary")
                 return await self._scrape_with_fallback(fallback_url, embed_hint)
+
+            # --- Fast-bail for dutchie.com direct pages -------------------
+            # dutchie.com pages are React SPAs that render product cards
+            # within seconds of the age gate click.  If nothing appeared
+            # after the 120s smart-wait + 30s direct probe (~150s total),
+            # the dispensary menu is empty or disabled on Dutchie's end.
+            # Reloading won't help — skip the expensive 300s+ reload+retry
+            # cycle that would otherwise burn until the site timeout.
+            if embed_hint == "direct" and not smart_wait_ok:
+                logger.warning(
+                    "[%s] dutchie.com page loaded but no product cards after %ds — "
+                    "dispensary menu may be empty or disabled",
+                    self.slug, _SMART_WAIT_MS // 1000,
+                )
+                await self.save_debug_info("no_products_direct_bail")
+                return []
 
             # No fallback: reload page and retry the full click flow once
             logger.warning("[%s] No Dutchie content after click — trying reload + re-click", self.slug)
@@ -433,23 +617,31 @@ class DutchieScraper(BaseScraper):
             await force_remove_age_gate(self.page)
 
             # Smart-wait again after reload (shorter timeout on retry)
+            retry_wait_ms = _SMART_WAIT_DIRECT_RETRY_MS if embed_hint == "direct" else _SMART_WAIT_RETRY_MS
             try:
                 await self.page.wait_for_function(
-                    _WAIT_FOR_DUTCHIE_JS, timeout=_SMART_WAIT_RETRY_MS,
+                    _WAIT_FOR_DUTCHIE_JS, timeout=retry_wait_ms,
                 )
                 logger.info("[%s] Smart-wait (retry): Dutchie content detected", self.slug)
             except PlaywrightTimeout:
-                logger.warning("[%s] Smart-wait (retry): still nothing after %ds", self.slug, _SMART_WAIT_RETRY_MS // 1000)
+                logger.warning("[%s] Smart-wait (retry): still nothing after %ds", self.slug, retry_wait_ms // 1000)
+            except PlaywrightError:
+                logger.warning("[%s] Smart-wait (retry): page closed — aborting", self.slug)
+                return []
 
-            # On retry, don't use the hint — try the full cascade
-            target, embed_type = await find_dutchie_content(
+            # On retry, keep the hint for direct sites (iframe/js_embed are
+            # irrelevant) but drop it for other types to try the full cascade.
+            retry_hint = embed_hint if embed_hint == "direct" else None
+            target, embed_type, _ = await find_dutchie_content(
                 self.page,
                 iframe_timeout_ms=45_000,
                 js_embed_timeout_sec=60,
+                embed_type_hint=retry_hint,
+                hint_only=(embed_hint == "direct"),
             )
 
         if target is None:
-            logger.error("[%s] Could not find Dutchie content (iframe or JS embed) — aborting", self.slug)
+            logger.warning("[%s] Could not find Dutchie content (iframe or JS embed) — aborting", self.slug)
             await self.save_debug_info("no_dutchie_content")
             return []
 
@@ -458,6 +650,13 @@ class DutchieScraper(BaseScraper):
         # Also try age gate inside an iframe (some sites double-gate).
         if embed_type == "iframe":
             await dismiss_age_gate(target)
+
+        # --- Scroll to trigger lazy-loaded content ----------------------------
+        # Many Dutchie sites (td-gibson, planet13, etc.) defer rendering
+        # product cards until they enter the viewport.  Scroll incrementally
+        # to the bottom to trigger IntersectionObservers / lazy loaders,
+        # then scroll back up.  Applied universally — fast sites are unaffected.
+        await _scroll_to_load_content(target, self.slug)
 
         # --- Wait for product cards to render --------------------------------
         # All Dutchie sites benefit: the smart-wait detects when the
@@ -522,72 +721,29 @@ class DutchieScraper(BaseScraper):
                 )
                 break
 
-        # --- Fallback: if specials returned 0 products, try base menu ------
-        if not all_products:
-            base_url = _strip_specials_from_url(self.url)
-            if base_url and base_url != self.url:
-                logger.warning(
-                    "[%s] Specials page returned 0 products — retrying base menu: %s",
-                    self.slug, base_url,
+        # --- Category tab iteration for expanded coverage ----------------------
+        # EXPANSION STATES ONLY — production NV sites use proven stable patterns.
+        # After paginating the initial view (usually "Specials" or "All"),
+        # click through each category tab (Flower, Edibles, Concentrates,
+        # etc.) and paginate each one independently.  This captures products
+        # that are only shown when a specific category filter is active.
+        # Dedup prevents double-counting products seen in the "All" view.
+        region = self.dispensary.get("region", "southern-nv")
+        if is_expansion_region(region) and len(all_products) > 0:
+            category_products = await self._scrape_category_tabs(target, all_products)
+            if category_products:
+                all_products.extend(category_products)
+                logger.info(
+                    "[%s] Category tab scraping added %d new products (total %d)",
+                    self.slug, len(category_products), len(all_products),
                 )
-                await self.save_debug_info("zero_products_specials", target)
-
-                await self.goto(base_url)
-                await asyncio.sleep(3)
-                await self.page.evaluate(_AGE_GATE_COOKIE_JS)
-                clicked = await self.handle_age_gate(post_wait_sec=3)
-                if clicked:
-                    logger.info("[%s] Age gate clicked on base menu", self.slug)
-                await force_remove_age_gate(self.page)
-
-                try:
-                    await self.page.wait_for_function(
-                        _WAIT_FOR_DUTCHIE_JS, timeout=_SMART_WAIT_RETRY_MS,
-                    )
-                    logger.info("[%s] Smart-wait: Dutchie content detected on base menu", self.slug)
-                except PlaywrightTimeout:
-                    logger.warning("[%s] Smart-wait: no content on base menu after %ds", self.slug, _SMART_WAIT_RETRY_MS // 1000)
-
-                target, embed_type = await find_dutchie_content(
-                    self.page,
-                    iframe_timeout_ms=45_000,
-                    js_embed_timeout_sec=60,
-                    embed_type_hint=embed_hint,
-                )
-
-                if target is not None:
-                    logger.info("[%s] Base menu content found via %s", self.slug, embed_type)
-                    if embed_type == "iframe":
-                        await dismiss_age_gate(target)
-
-                    page_num = 1
-                    while True:
-                        products = await self._extract_products(target)
-                        all_products.extend(products)
-                        logger.info(
-                            "[%s] Base menu page %d → %d products (total %d)",
-                            self.slug, page_num, len(products), len(all_products),
-                        )
-                        page_num += 1
-                        await force_remove_age_gate(self.page)
-                        try:
-                            if not await navigate_dutchie_page(target, page_num):
-                                break
-                        except Exception as exc:
-                            logger.warning(
-                                "[%s] Base menu pagination to page %d failed (%s) — keeping %d products",
-                                self.slug, page_num, exc, len(all_products),
-                            )
-                            break
-                else:
-                    logger.warning("[%s] No Dutchie content on base menu either", self.slug)
 
         # --- Fallback URL from config (e.g. Jardin switched from AIQ to Dutchie) ---
         if not all_products:
             fallback_url = self.dispensary.get("fallback_url")
             if fallback_url and fallback_url != self.url:
                 logger.warning(
-                    "[%s] Primary + base menu both empty — trying fallback_url: %s",
+                    "[%s] Primary scrape empty — trying fallback_url: %s",
                     self.slug, fallback_url,
                 )
                 await self.goto(fallback_url)
@@ -602,6 +758,9 @@ class DutchieScraper(BaseScraper):
                     )
                 except PlaywrightTimeout:
                     pass
+                except PlaywrightError:
+                    logger.warning("[%s] Page closed during inline fallback smart-wait", self.slug)
+                    return all_products
 
                 # Auto-detect dutchie.com fallback URLs as "direct" type
                 fb_host = urlparse(fallback_url).netloc
@@ -610,7 +769,7 @@ class DutchieScraper(BaseScraper):
                     inline_hint = "direct"
                     logger.info("[%s] Auto-detected embed_type='direct' for inline fallback %s", self.slug, fb_host)
 
-                fb_target, fb_embed = await find_dutchie_content(
+                fb_target, fb_embed, _ = await find_dutchie_content(
                     self.page,
                     iframe_timeout_ms=45_000,
                     js_embed_timeout_sec=60,
@@ -620,6 +779,8 @@ class DutchieScraper(BaseScraper):
                     logger.info("[%s] Fallback URL content found via %s", self.slug, fb_embed)
                     if fb_embed == "iframe":
                         await dismiss_age_gate(fb_target)
+                    await _scroll_to_load_content(fb_target, self.slug)
+                    await _wait_for_product_cards(fb_target, self.slug)
                     page_num = 1
                     while True:
                         products = await self._extract_products(fb_target)
@@ -654,12 +815,26 @@ class DutchieScraper(BaseScraper):
         """
         logger.info("[%s] Trying fallback URL: %s", self.slug, fallback_url)
         await self.goto(fallback_url)
-        await asyncio.sleep(3)
+        await asyncio.sleep(3 + random.uniform(0, 2))
 
-        # Cloudflare on fallback = give up
+        # Cloudflare on fallback — retry with backoff before giving up.
+        # Cloudflare challenges are sometimes intermittent; a fresh page
+        # load after a brief pause can succeed where the first attempt fails.
         if await self.detect_cloudflare_challenge():
-            logger.error("[%s] Cloudflare blocked on fallback URL too — aborting", self.slug)
-            return []
+            for attempt, delay in enumerate([8, 15], start=1):
+                logger.info(
+                    "[%s] Cloudflare on fallback — retry %d after %ds",
+                    self.slug, attempt, delay,
+                )
+                await asyncio.sleep(delay)
+                await self.page.reload(wait_until="load", timeout=60_000)
+                await asyncio.sleep(2 + random.uniform(0, 3))
+                if not await self.detect_cloudflare_challenge():
+                    logger.info("[%s] Cloudflare cleared on fallback retry %d", self.slug, attempt)
+                    break
+            else:
+                logger.warning("[%s] Cloudflare blocked on fallback URL after retries — aborting", self.slug)
+                return []
 
         await self.page.evaluate(_AGE_GATE_COOKIE_JS)
         await self.handle_age_gate(post_wait_sec=3)
@@ -672,6 +847,9 @@ class DutchieScraper(BaseScraper):
             logger.info("[%s] Smart-wait (fallback): Dutchie content detected", self.slug)
         except PlaywrightTimeout:
             logger.warning("[%s] Smart-wait (fallback): no content after %ds", self.slug, _SMART_WAIT_RETRY_MS // 1000)
+        except PlaywrightError:
+            logger.warning("[%s] Smart-wait (fallback): page closed — aborting", self.slug)
+            return []
 
         # Auto-detect: dutchie.com fallback URLs are direct React SPAs —
         # skip the full 105s cascade (iframe 45s + js_embed 60s) that
@@ -682,7 +860,7 @@ class DutchieScraper(BaseScraper):
             fb_hint = "direct"
             logger.info("[%s] Auto-detected embed_type='direct' for fallback %s", self.slug, fb_host)
 
-        fb_target, fb_embed = await find_dutchie_content(
+        fb_target, fb_embed, _ = await find_dutchie_content(
             self.page,
             iframe_timeout_ms=45_000,
             js_embed_timeout_sec=60,
@@ -690,13 +868,16 @@ class DutchieScraper(BaseScraper):
         )
 
         if fb_target is None:
-            logger.error("[%s] No Dutchie content on fallback URL — aborting", self.slug)
+            logger.warning("[%s] No Dutchie content on fallback URL — aborting", self.slug)
             await self.save_debug_info("no_dutchie_content_fallback")
             return []
 
         logger.info("[%s] Fallback URL content found via %s", self.slug, fb_embed)
         if fb_embed == "iframe":
             await dismiss_age_gate(fb_target)
+
+        await _scroll_to_load_content(fb_target, self.slug)
+        await _wait_for_product_cards(fb_target, self.slug)
 
         all_products: list[dict[str, Any]] = []
         page_num = 1
@@ -733,6 +914,138 @@ class DutchieScraper(BaseScraper):
         return all_products
 
     # ------------------------------------------------------------------
+    # Category tab iteration (expansion states only)
+    # ------------------------------------------------------------------
+
+    async def _scrape_category_tabs(
+        self,
+        target: Page | Frame,
+        existing_products: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Click through category tabs and paginate each to find new products.
+
+        Only called for expansion state dispensaries.  Builds a dedup set
+        from *existing_products* so only genuinely new products are returned.
+
+        Returns a list of new products not already in *existing_products*.
+        """
+        # Build dedup set from existing products
+        seen_names: set[str] = set()
+        for p in existing_products:
+            key = (p.get("name", "").lower().strip())
+            if key:
+                seen_names.add(key)
+
+        # Find category tabs in the DOM
+        try:
+            tabs = await target.evaluate(_JS_FIND_CATEGORY_TABS)
+        except Exception:
+            logger.debug("[%s] Category tab detection JS failed", self.slug)
+            return []
+
+        if not tabs or len(tabs) < 2:
+            logger.info("[%s] No category tabs found — skipping category iteration", self.slug)
+            return []
+
+        logger.info(
+            "[%s] Found %d category tabs: %s",
+            self.slug, len(tabs),
+            ", ".join(t.get("text", "?") for t in tabs[:10]),
+        )
+
+        new_products: list[dict[str, Any]] = []
+        max_categories = 8  # Safety cap to prevent infinite loops
+
+        for i, tab_info in enumerate(tabs[:max_categories]):
+            tab_text = tab_info.get("text", "")
+            if not tab_text:
+                continue
+
+            # Skip "All" / "Shop All" / "Specials" — already scraped
+            lower = tab_text.lower().strip()
+            if lower in ("all", "all products", "shop all", "specials", "deals"):
+                continue
+
+            logger.info("[%s] Clicking category tab: %s", self.slug, tab_text)
+
+            # Try to click the tab
+            clicked = False
+            for selector in _CATEGORY_TAB_SELECTORS:
+                try:
+                    locator = target.locator(f'{selector}:has-text("{tab_text}")').first
+                    if await locator.count() > 0 and await locator.is_visible():
+                        await locator.click(timeout=5_000)
+                        clicked = True
+                        break
+                except Exception:
+                    continue
+
+            if not clicked:
+                # Fallback: try exact text match
+                try:
+                    btn = target.locator(f'text="{tab_text}"').first
+                    if await btn.count() > 0:
+                        await btn.click(timeout=5_000)
+                        clicked = True
+                except Exception:
+                    pass
+
+            if not clicked:
+                logger.debug("[%s] Could not click category tab: %s", self.slug, tab_text)
+                continue
+
+            # Wait for content to reload after tab click
+            await asyncio.sleep(3 + random.uniform(0, 2))
+
+            # Wait for product cards to appear
+            await _wait_for_product_cards(target, self.slug, timeout_ms=15_000)
+
+            # Paginate within this category
+            page_num = 1
+            consecutive_empty = 0
+            while True:
+                products = await self._extract_products(target)
+
+                # Filter to only new products
+                cat_new = []
+                for p in products:
+                    pkey = p.get("name", "").lower().strip()
+                    if pkey and pkey not in seen_names:
+                        seen_names.add(pkey)
+                        cat_new.append(p)
+
+                new_products.extend(cat_new)
+
+                logger.info(
+                    "[%s] Category '%s' page %d → %d products (%d new, %d total new)",
+                    self.slug, tab_text, page_num, len(products),
+                    len(cat_new), len(new_products),
+                )
+
+                if len(products) == 0:
+                    consecutive_empty += 1
+                    if consecutive_empty >= 2:
+                        break
+                else:
+                    consecutive_empty = 0
+
+                page_num += 1
+                if page_num > 20:  # Safety cap per category
+                    break
+
+                try:
+                    if not await navigate_dutchie_page(target, page_num):
+                        break
+                except Exception:
+                    break
+
+        logger.info(
+            "[%s] Category tab iteration complete — %d new products across %d categories",
+            self.slug, len(new_products), min(len(tabs), max_categories),
+        )
+        return new_products
+
+    # ------------------------------------------------------------------
     # Product extraction
     # ------------------------------------------------------------------
 
@@ -754,6 +1067,11 @@ class DutchieScraper(BaseScraper):
             except PlaywrightTimeout:
                 logger.debug("No products found with selector %s", selector)
                 continue
+            except PlaywrightError:
+                # Page/context/browser closed (TargetClosedError) — no point
+                # trying more selectors against a dead page.
+                logger.warning("[%s] Page closed while waiting for products", self.slug)
+                return products
             elements = await frame.locator(selector).all()
             if elements:
                 logger.debug("Dutchie products matched via %r (%d)", selector, len(elements))

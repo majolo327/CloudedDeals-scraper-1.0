@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { animated, useSpring } from 'react-spring';
 import { useDrag } from '@use-gesture/react';
+import { hapticMedium } from '@/lib/haptics';
 import { Heart, X, ExternalLink, MapPin, BadgeCheck } from 'lucide-react';
 import type { Deal } from '@/types';
 
@@ -18,6 +19,10 @@ interface SwipeableCardProps {
 
 const SWIPE_THRESHOLD = 100;
 const SWIPE_UP_THRESHOLD = 80;
+
+const prefersReducedMotion =
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export function SwipeableCard({
   deal,
@@ -35,6 +40,7 @@ export function SwipeableCard({
     y: 0,
     rotate: 0,
     scale: 1,
+    immediate: prefersReducedMotion,
     config: { friction: 50, tension: 500 },
   }));
 
@@ -63,7 +69,7 @@ export function SwipeableCard({
             config: { friction: 50, tension: 200 },
             onRest: onSwipeUp,
           });
-          tryHaptic();
+          hapticMedium();
           return;
         }
         if (triggerRight) {
@@ -75,7 +81,7 @@ export function SwipeableCard({
             config: { friction: 50, tension: 200 },
             onRest: onSwipeRight,
           });
-          tryHaptic();
+          hapticMedium();
           return;
         }
         if (triggerLeft) {
@@ -87,7 +93,7 @@ export function SwipeableCard({
             config: { friction: 50, tension: 200 },
             onRest: onSwipeLeft,
           });
-          tryHaptic();
+          hapticMedium();
           return;
         }
         // Spring back
@@ -234,8 +240,3 @@ export function SwipeableCard({
   );
 }
 
-function tryHaptic() {
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    navigator.vibrate(10);
-  }
-}
