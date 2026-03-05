@@ -16,9 +16,10 @@ export function AgeGate({ onVerify }: AgeGateProps) {
       <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at center, rgba(88, 28, 135, 0.2) 0%, transparent 65%)' }} />
       <div className="relative w-full max-w-md glass-strong frost rounded-3xl p-6 sm:p-8 text-center shadow-2xl">
         <div className="flex justify-center mb-5 sm:mb-6">
-          <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
             Clouded<span className="text-purple-400">Deals</span>
-          </span>
+            <span className="sr-only"> — Las Vegas Dispensary Deals Today</span>
+          </h1>
         </div>
         <div className="w-12 h-1 bg-purple-500 mx-auto rounded-full mb-5 sm:mb-6" />
         <div className="mb-6 sm:mb-8">
