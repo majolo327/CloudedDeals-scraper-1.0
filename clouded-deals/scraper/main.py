@@ -1693,13 +1693,24 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
         return active
 
     # Fetch active slugs from Supabase so the admin can disable sites.
-    result = (
-        db.table("dispensaries")
-        .select("id")
-        .eq("is_active", True)
-        .execute()
-    )
-    active_slugs = {row["id"] for row in result.data}
+    # NOTE: Supabase returns max 1000 rows by default.  We have ~2,100
+    # dispensaries, so we must paginate to avoid silently dropping sites.
+    active_slugs: set[str] = set()
+    page_size = 1000
+    offset = 0
+    while True:
+        result = (
+            db.table("dispensaries")
+            .select("id")
+            .eq("is_active", True)
+            .range(offset, offset + page_size - 1)
+            .execute()
+        )
+        for row in result.data:
+            active_slugs.add(row["id"])
+        if len(result.data) < page_size:
+            break
+        offset += page_size
 
     # If the DB has no dispensary rows yet, fall back to the config list.
     if not active_slugs:
