@@ -79,44 +79,59 @@ export function useDashboardMetrics(window: TimeWindow = "30d") {
     try {
       const days = windowToDays(window);
 
-      // Fire all 4 RPCs in parallel — each stays under the 8s timeout
+      // Helper: wrap each RPC so individual failures don't block others
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const safeRpc = async <T>(name: string, call: () => PromiseLike<any>):
+        Promise<{ data: T | null; error: string | null }> => {
+        try {
+          const res = await call();
+          if (res.error) return { data: null, error: `${name}: ${res.error.message}` };
+          return { data: res.data as T, error: null };
+        } catch (e) {
+          return { data: null, error: `${name}: ${e instanceof Error ? e.message : "unknown"}` };
+        }
+      };
+
+      // Fire all 4 RPCs in parallel — each must complete in <8s
       const [growthRes, retentionRes, cohortsRes, pipelineRes] =
         await Promise.all([
-          supabase.rpc("get_dashboard_growth", { window_days: days }),
-          supabase.rpc("get_dashboard_retention", { window_days: days }),
-          supabase.rpc("get_dashboard_cohorts"),
-          supabase.rpc("get_dashboard_pipeline"),
+          safeRpc<GrowthMetrics>("growth", () =>
+            supabase.rpc("get_dashboard_growth", { window_days: days })),
+          safeRpc<RetentionMetrics>("retention", () =>
+            supabase.rpc("get_dashboard_retention", { window_days: days })),
+          safeRpc<{ cohorts: CohortRow[] }>("cohorts", () =>
+            supabase.rpc("get_dashboard_cohorts")),
+          safeRpc<{
+            pipeline: PipelineMetrics;
+            viral: ViralMetrics;
+            coverage: CoverageRow[];
+            calculated_at: string;
+          }>("pipeline", () =>
+            supabase.rpc("get_dashboard_pipeline")),
         ]);
 
-      // Collect errors from any RPC that failed
-      const errors: string[] = [];
-      if (growthRes.error) errors.push(`growth: ${growthRes.error.message}`);
-      if (retentionRes.error) errors.push(`retention: ${retentionRes.error.message}`);
-      if (cohortsRes.error) errors.push(`cohorts: ${cohortsRes.error.message}`);
-      if (pipelineRes.error) errors.push(`pipeline: ${pipelineRes.error.message}`);
+      // Collect errors
+      const errors = [growthRes, retentionRes, cohortsRes, pipelineRes]
+        .map((r) => r.error)
+        .filter(Boolean) as string[];
 
       if (errors.length === 4) {
-        // All failed — show error
         setError(errors.join("; "));
         setLoading(false);
         return;
       }
 
+      // Show partial errors as a warning but still populate data
       if (errors.length > 0) {
         console.warn("Some dashboard RPCs failed:", errors);
+        setError(errors.join("; "));
       }
 
-      // Merge results into a single DashboardData shape
-      // Each RPC returns JSON directly matching the expected sub-shape
-      const growth = growthRes.data as GrowthMetrics | null;
-      const retention = retentionRes.data as RetentionMetrics | null;
-      const cohortsData = cohortsRes.data as { cohorts: CohortRow[] } | null;
-      const pipelineData = pipelineRes.data as {
-        pipeline: PipelineMetrics;
-        viral: ViralMetrics;
-        coverage: CoverageRow[];
-        calculated_at: string;
-      } | null;
+      // Merge results — zones with failed RPCs get "no data" defaults
+      const growth = growthRes.data;
+      const retention = retentionRes.data;
+      const cohortsData = cohortsRes.data;
+      const pipelineData = pipelineRes.data;
 
       setData({
         growth: growth ?? {
