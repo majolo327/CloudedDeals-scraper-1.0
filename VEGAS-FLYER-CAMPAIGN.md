@@ -1,73 +1,91 @@
-# CloudedDeals Vegas Strip QR Flyer Campaign
+# CloudedDeals Vegas Flyer Campaign v2
 
-## Ready-to-Order Guerilla Beta Test Plan
+## Redesigned for Car Flyering, Dispensary Counters & Smoke Shops
 
 ---
 
-## THE FLYER — DESIGN SPEC
+## WHAT CHANGED FROM v1
+
+| | v1 (Strip Guerilla) | v2 (Car + Counter) |
+|---|---|---|
+| **Distribution** | Hand-to-hand on the strip | Windshields, dispensary checkout counters, smoke shop counters |
+| **Interaction** | Someone hands it to you, says the hook | Person picks it up cold, no one explaining it |
+| **Audience** | Tourists walking the strip | Locals + tourists at dispensaries, car owners in dispensary/smoke shop parking lots |
+| **Design** | B&W, raw guerilla feel | Color accent, more polished — sits next to professional dispensary materials |
+| **Size** | Quarter sheet (4.25" x 5.5") | Same quarter sheet — fits under wipers, fits counter card holders |
+| **Dispensary count** | 63 | 75 |
+| **Copy tone** | Aggressive ("stop overpaying") | Still direct but adds value prop for locals ("compare before you buy") |
+
+---
+
+## THE FLYER — v2 DESIGN SPEC
 
 ### Format
-- **Size:** Quarter sheet (4.25" x 5.5") — pocket-sized, cheap to print, easy to hand out fast
-- **Sides:** Single-sided (keeps cost down, one glance is all you get with tourists anyway)
-- **Color:** Black ink on WHITE paper (cheapest possible, high contrast for QR readability)
-- **Paper:** 20lb bond or 60lb offset (lightweight, cheap, disposable — this is guerilla, not a wedding invite)
+- **Size:** 4.25" x 5.5" (quarter sheet) — fits under windshield wipers, fits standard counter card holders
+- **Sides:** Single-sided
+- **Color:** Full color (one side only keeps cost reasonable for 10K at ~$150-250)
+- **Paper:** 80lb gloss text or 100lb gloss cover — heavier than v1 so it doesn't blow off windshields, feels substantial on a counter
 
 ### Layout (Top to Bottom)
 
 ```
-┌─────────────────────────────┐
-│                             │
-│      STOP OVERPAYING        │  ← Bold, largest text, all caps
-│        FOR WEED.            │     This is the hook. Tourists
-│                             │     relate to this instantly.
-│─────────────────────────────│
-│                             │
-│  Every deal. Every          │  ← Medium text, the tagline
-│  dispensary. One place.     │
-│                             │
-│  ┌───────────────────────┐  │
-│  │                       │  │
-│  │      [QR CODE]        │  │  ← Minimum 1.2" x 1.2"
-│  │                       │  │     Links to cloudeddeals.com
-│  │   cloudeddeals.com    │  │     URL printed below QR as
-│  │                       │  │     fallback for manual entry
-│  └───────────────────────┘  │
-│                             │
-│  63 Vegas dispensaries.     │  ← Social proof / credibility
-│  Updated every morning.     │     numbers
-│  100% free. No app needed.  │
-│                             │
-│        CLOUDED DEALS        │  ← Logo / brand name at bottom
-│                             │
-└─────────────────────────────┘
+┌─────────────────────────────────┐
+│  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░  │  ← Deep purple-to-black gradient
+│                                 │    header band
+│     STOP OVERPAYING             │  ← White text, bold, largest
+│        FOR WEED.                │
+│                                 │
+│  ─────────────────────────────  │  ← Thin green (#34d399) divider
+│                                 │
+│  Compare deals from 75 Vegas    │  ← White/light text, medium
+│  dispensaries before you buy.   │
+│                                 │
+│     ┌─────────────────────┐     │
+│     │                     │     │
+│     │     [QR CODE]       │     │  ← 1.5" x 1.5" minimum
+│     │                     │     │    White background box
+│     │                     │     │    around QR for contrast
+│     └─────────────────────┘     │
+│                                 │
+│       cloudeddeals.com          │  ← Fallback URL, green accent
+│                                 │
+│  ┌─────────────────────────┐    │
+│  │ ✓ Updated every morning │    │  ← 3 bullet trust badges
+│  │ ✓ 100% free             │    │    Small, clean, stacked
+│  │ ✓ No app needed         │    │
+│  └─────────────────────────┘    │
+│                                 │
+│      ── CLOUDED DEALS ──        │  ← Brand lockup, bottom
+│  Every deal. Every dispensary.  │    Tagline below
+│                                 │
+└─────────────────────────────────┘
 ```
 
-### Design Notes
+### Color Palette
+- **Background:** `#0a0b14` (near-black, matches the site)
+- **Headline text:** `#f5f5f5` (white)
+- **Accent / "Deals" / divider / URL:** `#a78bfa` (purple) and `#34d399` (green)
+- **QR code:** Black on white (always — never invert QR colors)
+- **QR background box:** White with rounded corners, provides scan contrast on dark flyer
 
-1. **QR Code must link to:** `https://cloudeddeals.com?utm_source=flyer&utm_medium=qr&utm_campaign=vegas_strip_beta`
-   - This UTM tracking lets you measure exactly how many scans convert
-   - Test the QR code on 3+ different phones before sending to print
+### Why Color for v2
 
-2. **QR code size:** At least 1.2" x 1.2" on a quarter sheet. Bigger is better. Tourists will scan this in bright sunlight, possibly tipsy. Make it easy.
-
-3. **"cloudeddeals.com" in plain text below the QR** — some people don't trust QR codes, some older phones struggle. Give them the URL to type.
-
-4. **No clutter.** Resist the urge to add more. A tourist on the strip has 1.5 seconds of attention. The entire flyer should be readable in that time.
-
-5. **Black on white** prints the sharpest QR code. Color QR codes on cheap paper risk scan failures. Don't risk it on a $0.01 flyer.
+v1 was B&W for guerilla economics. v2 sits on dispensary counters next to full-color brand materials. A B&W flyer on a dispensary counter looks like a mistake. The dark background with purple/green accents matches CloudedDeals branding and stands out on a windshield (white flyers blend into every other flyer/ticket). Cost difference for 10K single-sided color on 80lb gloss: ~$80-150 more than B&W. Worth it.
 
 ---
 
-## COPY — FINAL TEXT (exactly what goes on the flyer)
+## COPY — FINAL TEXT v2
 
 **Headline (top, biggest):**
 ```
-STOP OVERPAYING FOR WEED.
+STOP OVERPAYING
+FOR WEED.
 ```
 
-**Tagline (below headline):**
+**Subhead:**
 ```
-Every deal. Every dispensary. One place.
+Compare deals from 75 Vegas
+dispensaries before you buy.
 ```
 
 **Below QR code:**
@@ -75,190 +93,257 @@ Every deal. Every dispensary. One place.
 cloudeddeals.com
 ```
 
-**Body (below QR, smaller text):**
+**Trust badges (below URL):**
 ```
-63 Vegas dispensaries. Updated every morning.
-100% free. No app needed. Just scan.
+✓ Updated every morning
+✓ 100% free
+✓ No app needed
 ```
 
-**Bottom (brand):**
+**Brand lockup (bottom):**
 ```
 CLOUDED DEALS
+Every deal. Every dispensary.
 ```
 
-That's it. Nothing else. Every word earns its space.
+### Copy Changes from v1
+
+| v1 | v2 | Why |
+|---|---|---|
+| "Every deal. Every dispensary. One place." as subhead | "Compare deals from 75 Vegas dispensaries before you buy." | On a counter/windshield, no one is explaining context. The new subhead tells you exactly what this does in one line. "Before you buy" creates urgency for someone already at a dispensary. |
+| "63 Vegas dispensaries" in body | "75 Vegas dispensaries" in subhead | Updated count. Moved to subhead for more prominence. |
+| "Just scan." in body | Removed | Obvious with a QR code. Don't waste space. |
+| Trust badges were a paragraph | Trust badges are checkmarks | Scannable at a glance on a counter. People read checkmarks faster than sentences. |
 
 ---
 
-## WHY THIS DESIGN CONVERTS
+## WHY THIS DESIGN CONVERTS (Counter/Windshield Context)
 
 | Element | Why It Works |
 |---------|-------------|
-| "Stop overpaying for weed" | Direct pain point. Every tourist buying weed in Vegas is overpaying and knows it. Strip dispensaries charge 2-3x. This hits them where it hurts. |
-| Quarter sheet size | Fits in a pocket. People keep it instead of trashing it immediately. They scan later at the hotel. |
-| "63 dispensaries" | Specific number = credibility. Not "all dispensaries" which sounds like marketing BS. 63 is real. |
-| "Updated every morning" | Implies freshness. Today's deals, not stale info. |
-| "No app needed" | Removes friction. Tourists don't want to download another app. This is a website — scan and go. |
-| "100% free" | Removes suspicion. No catch. |
-| Single-sided B&W | Tourists glance at one side. If it's double-sided, 50% see the wrong side first. B&W feels underground/authentic, not corporate. |
+| Dark background | Every other windshield flyer is white. This stands out under a wiper. On a dispensary counter with white/green materials everywhere, the dark card pops. |
+| "Stop overpaying for weed" | Still the best hook. Someone at a dispensary checkout is about to pay. Someone finding this on their car just left a dispensary. Both are price-sensitive. |
+| "75 Vegas dispensaries" | Specific number in the subhead. Locals think "wait, I only know like 5 places." Tourists think "I had no idea there were that many." |
+| "Before you buy" | Creates FOMO. You're standing in a dispensary. Did you check if there's a better deal somewhere else? Now you will next time. |
+| Checkmark trust badges | Counter cards get 2-3 seconds. Checkmarks communicate faster than sentences. ✓ = done, handled, no catch. |
+| QR on white box | Dark flyer = needs a white background behind QR for reliable scanning. The white box also draws the eye as the obvious action point. |
+| Heavier paper | 80-100lb stock doesn't crumple under a wiper. Feels like a real card on a counter, not a throwaway. |
 
 ---
 
-## PRINTING — WHERE TO ORDER
+## DISTRIBUTION STRATEGY — v2 CHANNELS
 
-### Budget Reality Check
+### Channel 1: Car Flyering (Parking Lots)
 
-$100 for 10,000-20,000 flyers = $0.005-$0.01 per flyer. That's extremely tight for professional printing. Here's how to actually make it work:
+**Where:**
+- Dispensary parking lots (every dispensary in Vegas has one)
+- Smoke shop parking lots
+- Strip casino parking garages (public levels)
+- Planet 13 parking lot (the "world's largest dispensary" — huge lot, all cannabis customers)
+- Convention center parking during events
+- Apartment complexes near dispensaries (local customers)
 
-### OPTION A: Online Bulk (Best Price, 2-5 Day Ship) — RECOMMENDED
+**How:**
+- Tuck under driver-side windshield wiper, face up so headline is visible through glass
+- Dark flyer = immediately visible against windshield (unlike white flyers that blend in)
+- Hit lots during peak hours (evenings, weekends) when cars are parked for 1-2 hours
+- One person can hit 200-300 cars/hour in a parking lot
 
-| Vendor | Product | Action |
-|--------|---------|--------|
-| **[ZoePrint](https://www.zoeprint.com/product/cheap-flyer-printing-black-and-white-425x55)** | 4.25x5.5 B&W flyers — dedicated product for exactly this size and format | Go to link, select 10,000 qty, 20lb bond, single-sided, get quote |
-| **[PrintPlace](https://www.printplace.com/cheap-flyers)** | Advertises starting at 2¢/piece for 10K+ qty | Use their calculator: 4.25x5.5 or closest size, B&W, lightest paper |
-| **[PrintIt4Less](https://www.printit4less.com/product/flyer-black-white/)** | Dedicated B&W flyer product, "guaranteed lowest cost" | Configure for quarter page, 10K qty — call 1-800-370-5591 for bulk quote |
-| **[55printing.com](https://www.55printing.com/cheap-flyers-printing/)** | 24+ sizes including 4.25x5.5, B&W option, free design included | Select size, B&W, 10K qty. Free design help if you need layout done |
-| **[A Good Sign](https://agoodsignabq.com/product/handbills-quarter-sheet-flyers-black-ink/)** | "Handbills/Quarter Sheet" — literally built for this use case | Configure for 10K black ink handbills |
-| **[PrintPapa](https://www.printpapa.com/eshop/pc/Flyer-Qtr-Page-4-25x5-5-661p1948.htm)** | Quarter page 4.25x5.5, quantities up to 100K | Select B&W, lightest paper, 10K qty |
+**Volume math:**
+- 10,000 flyers ÷ 250 cars/hour = 40 hours of flyering
+- 2 hours/day, 3 days/week = ~7 weeks of sustained distribution
+- Or blitz it: 4 hours/day across a long weekend = done in 10 days
 
-**How to get under $100:**
-- Choose the lightest paper (20lb bond)
-- Single-sided only
-- Black ink only (no color)
-- Standard turnaround (not rush)
-- If 10K is over budget, 5K might land under $100 and that's still plenty for a beta test
+**Legal notes:**
+- Flyering on public parking lots is generally permitted
+- Private parking lots (casinos, malls): technically trespassing if asked to leave — be discreet, move fast
+- Don't flyer cars that already have a flyer under the wiper
+- Pick up any flyers that fall on the ground — littering citations are real
 
-### OPTION B: Same-Day Local Vegas Printing (Costs More, Instant)
+### Channel 2: Dispensary Checkout Counters (Budtender Stands)
 
-If you're already in Vegas or need them NOW:
+**The pitch to dispensary managers:**
+"We run CloudedDeals — a free site that shows every deal from every dispensary in Vegas. We'd love to leave a small stack of cards at your checkout. It drives repeat customers back to dispensaries by showing them today's deals every morning. It's good for you — your deals get seen by 75 dispensaries' worth of traffic."
 
-| Shop | Phone | Address | Notes |
-|------|-------|---------|-------|
-| **[Design One Printing](https://designoneprinting.com/flyer/)** | 702-530-6277 | Las Vegas & Henderson | Same-day flyers, call for bulk quote |
-| **[Digital Insight Printing](https://digitalinsightprinting.com/flyers-prd)** | Check site | Las Vegas & Henderson | Order by 12PM for same-day pickup |
-| **[Sunrise Printing](https://sunriseprintinglv.com/)** | Check site | 3945 E Patrick Ln, LV 89120 | Same-day if ordered by 10AM, Mon-Fri 8-4, Sat 8-12 |
-| **[RushMyPrints](https://www.rushmyprints.com/las-vegas-printing-services/)** | Check site | Las Vegas & North LV | 24-hour print shop |
+**Why dispensaries say yes:**
+- Their deals get free exposure to all CloudedDeals users
+- It positions them as transparent / customer-friendly
+- The card is small, professional, not competing with their own branding
+- "Every morning" implies customers check daily → repeat visits
 
-**Local reality:** Same-day in Vegas will run more like $200-400 for 10K. But you can negotiate. Call and say "I need 10,000 quarter sheet handbills, black and white, single sided, cheapest paper you've got." They'll quote you.
+**Target dispensaries (start with these — scraped, so their deals are already live):**
+- Planet 13 (high volume, tourist-heavy, brand-conscious)
+- The Dispensary (Decatur + Gibson — locally loved, will appreciate the local angle)
+- Greenlight (Downtown + Paradise — independent, approachable management)
+- Cultivate (Spring Mountain + Durango — known for deals, this is on-brand for them)
+- Thrive (4 locations — they already promote deals heavily)
+- Oasis (Strip-adjacent, deal-forward)
 
-**Compromise:** Print 2,000-3,000 locally for same-day at ~$80-120, then order 10K-20K online at bulk pricing for the next wave.
+**How to place:**
+- Stack of 25-50 cards next to the register or on the waiting area table
+- Check back weekly to restock
+- Leave your number with the budtender for restocks
+- Bring the manager a card and show them their own deals on the site — instant credibility
 
-### OPTION C: Self-Print (Cheapest Possible, DIY)
+### Channel 3: Smoke Shop Counters
 
-If you have access to a laser printer or can use a FedEx/Staples self-service:
-- 4 quarter sheets per letter-size page
-- 10,000 flyers = 2,500 pages
-- B&W self-service at Staples/FedEx: ~$0.09-0.14/page = $225-350 (over budget)
-- If you know someone with a laser printer and can buy bulk paper: ~$30 for 2,500 sheets of paper + toner
+**Why smoke shops:**
+- Vegas smoke shop customers buy weed. They're the exact target demographic.
+- Smoke shops don't sell weed (different license) so CloudedDeals isn't competing with them
+- Smoke shop owners are usually chill about counter cards from non-competing businesses
+- Cross-promotion: smoke shop customer → discovers dispensary deals → buys more accessories at smoke shop
 
-Not recommended unless you have printer access. The per-page math doesn't work at copy shops.
+**The pitch:**
+"Hey, can I leave a small stack of these on your counter? It's a free site that shows dispensary deals in Vegas. Your customers will love it and it's not competing with anything you sell."
 
----
-
-## RECOMMENDED ORDER (what I'd actually do)
-
-**Step 1:** Go to [ZoePrint B&W 4.25x5.5](https://www.zoeprint.com/product/cheap-flyer-printing-black-and-white-425x55) and [PrintPlace](https://www.printplace.com/cheap-flyers). Get quotes for 10,000 and 5,000 qty. Pick whoever is cheapest with standard shipping.
-
-**Step 2:** If you need flyers THIS WEEK and are in Vegas, call Design One Printing (702-530-6277) and ask for a quote on 2,000-3,000 quarter sheet B&W handbills for immediate pickup. Should be $60-100 range.
-
-**Step 3:** Use both. Hand out the local batch immediately as your first wave, then the online bulk order arrives for sustained distribution.
-
----
-
-## QR CODE GENERATION
-
-Generate your QR code for free:
-
-1. Go to any free QR generator (qr-code-generator.com, qrcode-monkey.com, etc.)
-2. Enter URL: `https://cloudeddeals.com?utm_source=flyer&utm_medium=qr&utm_campaign=vegas_strip_beta`
-3. Download as **PNG at 300 DPI minimum** (for print quality)
-4. Use the plain black-on-white version. No fancy colors or embedded logos — those reduce scan reliability on cheap paper
-5. **Test it** on at least 3 phones before sending to printer
-
----
-
-## DISTRIBUTION STRATEGY — STRIP DEPLOYMENT
-
-### Where to Hand Out
-
-**High-traffic tourist zones (walk these on foot):**
-- Las Vegas Blvd between Mandalay Bay and The STRAT (the main strip)
-- Fremont Street Experience (downtown, heavy foot traffic at night)
-- Outside Planet 13 (the "largest dispensary in the world" — tourists literally walking to buy weed)
-- Near dispensary clusters on Industrial Rd / Western Ave
-- Convention center areas during any active conventions
-- Hotel casino entrances and exits (technically on public sidewalk)
-
-**Best times:**
-- Thursday-Saturday, 7PM-12AM (peak tourist foot traffic)
-- Friday-Sunday afternoon, 2PM-6PM (people heading out for the night)
-- During major events/conventions (CES, fight weekends, EDC, etc.)
-
-### How to Hand Out
-
-- Lead with the hook: "Hey, looking for weed deals?" or "Stop overpaying for weed" (said out loud)
-- Don't be pushy — offer, don't force. One hand out, one sentence, move on
-- Tourists expect being handed things on the strip (they're used to the nightclub promoter guys)
-- Wear something branded if possible (even a basic black tee with "cloudeddeals.com" on it)
-- Target people who look like they're browsing/walking, not people rushing somewhere
-
-### Legal Notes
-
-- Las Vegas allows handbilling on public sidewalks (First Amendment activity)
-- Stay on public sidewalks, NOT on casino/hotel private property
-- Don't block pedestrian traffic
-- Don't litter — if someone drops it, pick it up (for optics and to avoid citations)
-- No permit required for handbilling on public sidewalks in Clark County
+**Target smoke shops:**
+- Shops within 1 mile of major dispensaries (customers overlap)
+- Strip-area smoke shops (tourist traffic)
+- Downtown Fremont area smoke shops
+- Any smoke shop with existing flyer/card holder on counter
 
 ---
 
-## MEASURING SUCCESS
+## QR CODE — v2 TRACKING
 
-### What to Track
+### URL
+```
+https://cloudeddeals.com?utm_source=flyer&utm_medium=qr&utm_campaign=vegas_v2
+```
 
-Since the QR links to `cloudeddeals.com?utm_source=flyer&utm_medium=qr&utm_campaign=vegas_strip_beta`:
+Use `vegas_v2` to differentiate from v1 strip campaign data.
 
-- **Google Analytics / Netlify Analytics:** Filter by utm_campaign=vegas_strip_beta to see exact traffic from flyers
-- **Scan volume by day:** Which distribution days/times drove the most scans?
-- **Bounce rate from flyer traffic:** Do flyer users actually browse deals or immediately leave?
-- **Return visits:** Do flyer users come back the next day? (This is the real signal)
+### Additional tracking variants (optional)
 
-### Success Benchmarks for Guerilla Flyers
+If you want to know WHICH channel drives scans, print separate batches:
 
-| Metric | Okay | Good | Great |
-|--------|------|------|-------|
-| Scan rate (scans / flyers handed out) | 2-3% | 5-8% | 10%+ |
-| Bounce rate from flyer traffic | <70% | <50% | <40% |
-| Return visit rate (came back within 7 days) | 5% | 10% | 20%+ |
-| Cost per new user | <$0.50 | <$0.20 | <$0.10 |
+| Channel | UTM Campaign | Batch |
+|---------|-------------|-------|
+| Car flyering | `vegas_v2_car` | 6,000 flyers |
+| Dispensary counters | `vegas_v2_counter` | 2,000 flyers |
+| Smoke shop counters | `vegas_v2_smoke` | 2,000 flyers |
 
-If you hand out 10,000 flyers and get 500+ scans (5%), that's a strong guerilla campaign. At $100 total cost, that's $0.20 per new user — very efficient for a beta.
+This means 3 different QR codes → 3 print runs. Only do this if your printer can handle 3 jobs without extra setup cost. Otherwise just use the single `vegas_v2` campaign tag.
+
+### QR Generation
+1. Go to qrcode-monkey.com (free, no watermark)
+2. Enter the URL above
+3. Set format to PNG, 2000x2000px minimum (for print at 300 DPI)
+4. Download **black QR on transparent background**
+5. Place on a white rounded-corner box in your design
+6. **TEST on 3+ phones** before sending to printer
+
+---
+
+## PRINTING — v2 SPECS
+
+### What to Order
+- **Qty:** 10,000
+- **Size:** 4.25" x 5.5"
+- **Sides:** Single-sided, full color (4/0 in print terminology)
+- **Paper:** 80lb gloss text (minimum) or 100lb gloss cover (preferred for counter cards)
+- **Finish:** UV coating or aqueous coating (prevents smearing, adds durability for windshield weather exposure)
+
+### Price Expectations for 10K Full-Color Quarter Sheets
+
+| Vendor | Est. Price | Notes |
+|--------|-----------|-------|
+| **GotPrint** | $80-150 | gotprint.com — great for small format color flyers, fast turnaround |
+| **VistaPrint** | $100-180 | vistaprint.com — frequent sales, bulk pricing |
+| **PrintPlace** | $100-200 | printplace.com — good paper options, reliable |
+| **UPrinting** | $90-160 | uprinting.com — competitive on small format |
+| **Overnight Prints** | $120-200 | overnightprints.com — fast shipping option |
+
+**Budget:** $100-200 for 10K full-color single-sided on 80-100lb stock is realistic. Shop around. Upload the same print-ready PDF to 3-4 vendors and compare.
+
+### Local Vegas (Same-Day)
+Same vendors as v1:
+- **Design One Printing** — 702-530-6277
+- **Digital Insight Printing** — Las Vegas & Henderson
+- **Sunrise Printing** — 3945 E Patrick Ln, LV 89120
+
+Tell them: "10,000 quarter sheet flyers, 4.25 by 5.5, full color one side, 80lb gloss. What's your best price?"
+
+---
+
+## PRINT-READY FILE
+
+A print-ready HTML template is included at:
+```
+clouded-deals/flyer/vegas-flyer-v2.html
+```
+
+Open it in Chrome → Print → Save as PDF → Send to printer.
+
+Settings when saving as PDF:
+- Paper size: Custom 4.25" x 5.5"
+- Margins: None
+- Background graphics: ON (critical — this enables the dark background)
+- Scale: 100%
+
+Or screenshot it at 300 DPI using a browser extension for a PNG.
 
 ---
 
 ## PRINT-READY CHECKLIST
 
-Before you send anything to a printer:
-
-- [ ] QR code generated with UTM tracking URL
-- [ ] QR code tested on 3+ phones (iPhone, Android, old phone)
-- [ ] QR code exported at 300+ DPI as PNG
-- [ ] Flyer designed in Canva/Figma/Illustrator at 4.25" x 5.5" with 0.125" bleed
-- [ ] All text is black, background is white
-- [ ] "cloudeddeals.com" is readable in plain text below QR
-- [ ] Headline "STOP OVERPAYING FOR WEED." is the largest text element
-- [ ] Design exported as print-ready PDF (300 DPI, CMYK if printer requires it)
-- [ ] Price confirmed with printer for exact qty
+- [ ] QR code generated with `vegas_v2` UTM tracking URL
+- [ ] QR code tested on 3+ phones (iPhone, Android, older phone)
+- [ ] QR code tested in bright light AND dim light (simulates windshield + dispensary counter)
+- [ ] Print PDF exported at 300 DPI with 0.125" bleed
+- [ ] Dark background renders correctly in PDF (check — some PDF exporters drop backgrounds)
+- [ ] "cloudeddeals.com" readable in plain text below QR
+- [ ] Paper stock is 80lb+ (not flimsy — must survive under a windshield wiper)
+- [ ] UV/aqueous coating ordered (weather resistance for car flyering)
+- [ ] Ordered a proof before the full 10K run
+- [ ] Price confirmed with printer
 - [ ] Delivery date confirmed
 
 ---
 
-## QUICK-START (do this right now)
+## MEASURING SUCCESS — v2 BENCHMARKS
 
-1. **Generate QR code** at qrcode-monkey.com with URL: `https://cloudeddeals.com?utm_source=flyer&utm_medium=qr&utm_campaign=vegas_strip_beta`
-2. **Open Canva** (free) → Custom size 4.25" x 5.5" → Drop in the layout from the spec above
-3. **Get quotes** from ZoePrint and PrintPlace (links above) for 10K qty
-4. **If you need flyers today**, call Design One Printing at 702-530-6277
-5. **Go hand them out** on the strip Thursday-Saturday night
+### Metrics
 
-That's it. Don't overthink it. The flyer's job is to get a phone pointed at the QR code. Everything after that is cloudeddeals.com's job.
+| Metric | Car Flyering | Counter Cards |
+|--------|-------------|---------------|
+| **Scan rate** | 1-3% (lower — cold placement, many tossed) | 5-15% (higher — picked up intentionally) |
+| **Cost per scan** | $0.03-0.10 | $0.02-0.05 |
+| **Expected scans from 10K** | 100-300 | 250-750 |
+| **Return visit rate** | 5-10% | 15-25% (locals come back) |
+
+### Why Counter Cards Outperform
+
+People who pick up a card from a dispensary counter are already cannabis buyers, already in buying mode, and chose to take the card. Car flyering is spray-and-pray — many recipients don't buy cannabis at all (they were just parked near a dispensary). Both channels are worth running but counter cards will have higher conversion per flyer.
+
+### The Real Win
+
+If 10K flyers generate 300-500 scans at $0.20-0.30 each, and 15% become repeat users (45-75 people), that's 45-75 daily active users acquired for ~$150. Those users check CloudedDeals every time they buy weed. Lifetime value per user is enormous for a free product with no marginal cost per user.
+
+---
+
+## QUICK-START v2
+
+1. **Open** `clouded-deals/flyer/vegas-flyer-v2.html` in Chrome
+2. **Generate QR** at qrcode-monkey.com → URL: `https://cloudeddeals.com?utm_source=flyer&utm_medium=qr&utm_campaign=vegas_v2`
+3. **Replace** the placeholder QR in the HTML with your generated QR
+4. **Print to PDF** (Chrome → Print → Save as PDF, background graphics ON)
+5. **Get quotes** from GotPrint, VistaPrint, PrintPlace for 10K qty
+6. **Order** — allow 3-5 business days for delivery
+7. **Distribute** — start with dispensary parking lots and counter drops
+
+---
+
+## DISPENSARY OUTREACH SCRIPT
+
+For when you walk into a dispensary to ask about placing cards:
+
+> "Hey, I run CloudedDeals — it's a free website that shows every dispensary deal in Vegas, updated every morning. We already have your deals listed. Can I leave a small stack of these cards by the register? It helps drive repeat customers back to dispensaries. Here, check it out —"
+>
+> *[Show them cloudeddeals.com on your phone, navigate to their dispensary page]*
+>
+> "See? Your deals show up right here. When people scan this card, they see your deals alongside everyone else's. It's free for you, free for customers."
+
+If they say no: "No worries! Here's one for you personally — great for comparing prices on your days off." Leave one card and move on. Don't push it.
+
+If they say yes: Leave 25-50 cards, get the manager's name, and check back in a week to restock. Build the relationship.
