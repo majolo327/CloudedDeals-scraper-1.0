@@ -308,5 +308,16 @@ CREATE INDEX IF NOT EXISTS idx_products_active ON products (is_active) WHERE is_
 
 
 -- ===========================================================================
+-- 041: Fix dashboard metrics timeout — proper composite indexes
+-- ===========================================================================
+CREATE INDEX IF NOT EXISTS idx_analytics_anon_created_ts
+  ON analytics_events(created_at, anon_id)
+  WHERE anon_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_analytics_event_anon_created
+  ON analytics_events(event_name, created_at, anon_id)
+  WHERE anon_id IS NOT NULL;
+
+-- ===========================================================================
 -- Done! All tables, indexes, RLS policies, and views are set up.
 -- ===========================================================================
