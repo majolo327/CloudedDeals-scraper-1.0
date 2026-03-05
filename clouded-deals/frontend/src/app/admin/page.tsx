@@ -312,13 +312,13 @@ export default function AdminDashboard() {
             noData={!loading && p?.total_deals_active == null}
           />
           <MetricCard
-            label="Total Products Scraped"
+            label="Unique Products in DB"
             value={
               p?.total_products != null
                 ? p.total_products.toLocaleString()
                 : null
             }
-            sub="unique rows"
+            sub="deduplicated all-time"
             loading={loading}
             noData={!loading && p?.total_products == null}
           />
@@ -393,7 +393,7 @@ export default function AdminDashboard() {
                   <tr>
                     <th className="px-4 py-2 font-semibold">State</th>
                     <th className="px-4 py-2 text-right font-semibold">Sites OK</th>
-                    <th className="px-4 py-2 text-right font-semibold">Products</th>
+                    <th className="px-4 py-2 text-right font-semibold" title="Cumulative product scrapes over 7 days (includes repeats across runs)">Product Scrapes</th>
                     <th className="px-4 py-2 text-right font-semibold">7D Rate</th>
                     <th className="px-4 py-2 text-right font-semibold">Last Run</th>
                   </tr>
@@ -436,6 +436,38 @@ export default function AdminDashboard() {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot className="border-t-2 border-zinc-300 dark:border-zinc-600">
+                  <tr className="bg-zinc-50 font-semibold text-zinc-800 dark:bg-zinc-800/50 dark:text-zinc-200">
+                    <td className="px-4 py-2 text-xs">Total</td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {data.coverage.reduce((sum: number, cov: CoverageRow) => sum + (cov.sites_ok ?? 0), 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {data.coverage.reduce((sum: number, cov: CoverageRow) => sum + (cov.products ?? 0), 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {(() => {
+                        const totalOk = data.coverage.reduce((s: number, c: CoverageRow) => s + (c.sites_ok ?? 0), 0);
+                        const weightedSum = data.coverage.reduce((s: number, c: CoverageRow) => s + (c.success_rate_7d ?? 0) * (c.sites_ok ?? 0), 0);
+                        const avg = totalOk > 0 ? Math.round(weightedSum / totalOk) : 0;
+                        return (
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${
+                            avg >= 85
+                              ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+                              : avg >= 60
+                                ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400"
+                                : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+                          }`}>
+                            {avg}%
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-4 py-2 text-right text-[10px] text-zinc-400 dark:text-zinc-500">
+                      weighted avg
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
