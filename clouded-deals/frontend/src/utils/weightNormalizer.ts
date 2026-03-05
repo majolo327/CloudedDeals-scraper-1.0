@@ -201,25 +201,39 @@ function parseWeightToGrams(w: string): number | null {
  *
  * Handles:  850mg ↔ 0.85g,  500mg ↔ 0.5g,  1/8 ↔ 3.5g,  1/4 ↔ 7g
  * Also matches edible mg values directly: 100mg = 100mg.
+ *
+ * Uses range-based matching for gram filters so that "1g" captures 0.8–1.0g
+ * vapes (marketed as 1g class), and "0.5g" captures 0.3–0.5g products.
  */
 export function weightsMatch(dealWeight: string, filterWeight: string): boolean {
   if (!dealWeight || !filterWeight) return false;
   // Exact match first (fast path)
   if (dealWeight === filterWeight) return true;
 
-  // Both contain "mg" — compare mg values directly
+  // Both contain "mg" — compare mg values directly (within 5mg tolerance for rounding)
   const dealMg = dealWeight.match(/([\d.]+)\s*mg/i);
   const filterMg = filterWeight.match(/([\d.]+)\s*mg/i);
   if (dealMg && filterMg) {
-    return Math.abs(parseFloat(dealMg[1]) - parseFloat(filterMg[1])) < 0.5;
+    return Math.abs(parseFloat(dealMg[1]) - parseFloat(filterMg[1])) < 5;
   }
 
-  // Convert both to grams and compare
+  // Convert both to grams and compare with range-based tolerance.
+  // Cannabis vape/concentrate sizes cluster around standard tiers:
+  //   0.5g tier: 0.3g, 0.35g, 0.5g
+  //   1g tier:   0.8g, 0.85g, 0.9g, 0.95g, 1g
+  //   3.5g tier: 3.5g (eighth)
+  // We use a 25% downward tolerance so "1g" matches 0.75g–1.05g,
+  // and "0.5g" matches 0.375g–0.525g. Larger weights use tighter tolerance.
   const dealG = parseWeightToGrams(dealWeight);
   const filterG = parseWeightToGrams(filterWeight);
   if (dealG === null || filterG === null) return false;
 
-  return Math.abs(dealG - filterG) < 0.005;
+  // For weights ≤ 2g (vapes, concentrates, prerolls), use 20% range below
+  // so "1g" matches 0.8–1.05g (catches 0.8, 0.85, 0.9, 0.95, 1.0g vapes).
+  // For larger weights (flower eighths, quarters, etc.), use tight 5% tolerance.
+  const below = filterG <= 2 ? filterG * 0.20 : filterG * 0.05;
+  const above = filterG * 0.05;
+  return dealG >= filterG - below && dealG <= filterG + above;
 }
 
 /**
