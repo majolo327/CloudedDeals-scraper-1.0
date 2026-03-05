@@ -239,12 +239,12 @@ class TestPassesHardFilters:
                          weight_value=1.0)
         assert passes_hard_filters(p) is True
 
-    def test_disposable_zero_discount_rejected(self, make_product):
-        """$20 disposable with 0% discount still rejected — need *some* markdown."""
+    def test_disposable_zero_discount_passes_budget(self, make_product):
+        """$20 disposable with 0% discount passes — budget ceiling is the gate."""
         p = make_product(category="vape", sale_price=20.0, original_price=20.0,
                          discount_percent=0, product_subtype="disposable",
                          weight_value=1.0)
-        assert passes_hard_filters(p) is False
+        assert passes_hard_filters(p) is True
 
     def test_non_budget_vape_cart_needs_15pct(self, make_product):
         """$20 cartridge at 10% — bypass is disposable-only, carts still need 15%."""
@@ -270,8 +270,8 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is True
 
     def test_half_gram_disposable_over_new_cap(self, make_product):
-        """0.5g disposable at $19 — exceeds widened $18 cap."""
-        p = make_product(category="vape", sale_price=19.0, original_price=38.0,
+        """0.5g disposable at $26 — exceeds widened $25 cap."""
+        p = make_product(category="vape", sale_price=26.0, original_price=52.0,
                          discount_percent=50, product_subtype="disposable",
                          weight_value=0.5)
         assert passes_hard_filters(p) is False
@@ -438,9 +438,9 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is False
 
     def test_disposable_half_gram_over_cap_rejected(self, make_product):
-        """$19 for a 0.5g disposable exceeds the $18 cap."""
+        """$26 for a 0.5g disposable exceeds the $25 cap."""
         p = make_product(category="vape", product_subtype="disposable",
-                         sale_price=19.0, original_price=38.0,
+                         sale_price=26.0, original_price=52.0,
                          discount_percent=50, weight_value=0.5)
         assert passes_hard_filters(p) is False
 
@@ -453,9 +453,9 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is True
 
     def test_disposable_no_weight_over_full_gram_cap_rejected(self, make_product):
-        """Disposable with no weight still rejects above the $25 cap."""
+        """Disposable with no weight still rejects above the $35 cap."""
         p = make_product(category="vape", product_subtype="disposable",
-                         sale_price=27.0, original_price=54.0,
+                         sale_price=36.0, original_price=72.0,
                          discount_percent=50, weight_value=None)
         assert passes_hard_filters(p) is False
 
@@ -505,7 +505,7 @@ class TestPassesHardFilters:
     def test_disposable_cap_applies_on_jane(self, make_product):
         """Vape subtype caps apply to ALL platforms including Jane."""
         p = make_product(category="vape", product_subtype="disposable",
-                         sale_price=27.0, weight_value=1.0,
+                         sale_price=36.0, weight_value=1.0,
                          source_platform="jane")
         assert passes_hard_filters(p) is False
 
@@ -1367,9 +1367,11 @@ class TestConstants:
             assert "1" in caps
             assert caps["1"] > caps["0.5"]  # full-gram cap > half-gram
 
-    def test_disposable_cap_lower_than_cart(self):
-        """Disposables should have a lower cap than carts (single-use vs reusable)."""
-        assert VAPE_SUBTYPE_PRICE_CAPS["disposable"]["1"] < VAPE_SUBTYPE_PRICE_CAPS["cartridge"]["1"]
+    def test_disposable_cap_equal_to_cart(self):
+        """Disposables have the same caps as carts — battery included justifies
+        higher price, and the tighter old caps were rejecting real deals."""
+        assert VAPE_SUBTYPE_PRICE_CAPS["disposable"]["1"] == VAPE_SUBTYPE_PRICE_CAPS["cartridge"]["1"]
+        assert VAPE_SUBTYPE_PRICE_CAPS["disposable"]["0.5"] == VAPE_SUBTYPE_PRICE_CAPS["cartridge"]["0.5"]
 
 
 # =====================================================================

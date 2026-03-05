@@ -39,6 +39,11 @@ interface RegionSummary {
   successRate7: number;
   avgRuntime7: number;
   activeSites: number;
+  /** Aggregated across all of today's shard runs */
+  todaySitesOk: number;
+  todaySitesFailed: number;
+  todayTotalProducts: number;
+  todayShardsCompleted: number;
 }
 
 // Expected shards per region — must match REGION_SHARDS in main.py
@@ -83,6 +88,10 @@ export default function ExpansionDashboard() {
           successRate7: 0,
           avgRuntime7: 0,
           activeSites: 0,
+          todaySitesOk: 0,
+          todaySitesFailed: 0,
+          todayTotalProducts: 0,
+          todayShardsCompleted: 0,
         }))
       );
       setLoading(false);
@@ -145,6 +154,31 @@ export default function ExpansionDashboard() {
                 )
               : 0;
 
+          // Aggregate across ALL of today's shard runs (not just the latest)
+          const todayStart = new Date();
+          todayStart.setUTCHours(0, 0, 0, 0);
+          const todayRuns = regionRuns.filter(
+            (run) =>
+              new Date(run.started_at) >= todayStart &&
+              (run.status === "completed" ||
+                run.status === "completed_with_errors")
+          );
+          // Deduplicate sites across shards using Sets
+          const allScraped = new Set<string>();
+          const allFailedMap = new Map<string, string>();
+          let todayProducts = 0;
+          for (const run of todayRuns) {
+            if (Array.isArray(run.sites_scraped)) {
+              for (const slug of run.sites_scraped) allScraped.add(slug);
+            }
+            if (Array.isArray(run.sites_failed)) {
+              for (const f of run.sites_failed) allFailedMap.set(f.slug, f.error);
+            }
+            todayProducts += run.total_products || 0;
+          }
+          // Remove sites that succeeded in one shard but failed in another
+          for (const slug of Array.from(allScraped)) allFailedMap.delete(slug);
+
           return {
             region: r.id,
             label: r.label,
@@ -154,6 +188,10 @@ export default function ExpansionDashboard() {
             successRate7: successRate,
             avgRuntime7: avgRuntime,
             activeSites: regionCounts[r.id] ?? 0,
+            todaySitesOk: allScraped.size,
+            todaySitesFailed: allFailedMap.size,
+            todayTotalProducts: todayProducts,
+            todayShardsCompleted: todayRuns.length,
           };
         });
 
@@ -170,6 +208,10 @@ export default function ExpansionDashboard() {
             successRate7: 0,
             avgRuntime7: 0,
             activeSites: 0,
+            todaySitesOk: 0,
+            todaySitesFailed: 0,
+            todayTotalProducts: 0,
+            todayShardsCompleted: 0,
           }))
         );
       }
@@ -339,18 +381,10 @@ function RegionCard({
     zinc: "bg-zinc-300",
   };
 
-  // Aggregate the latest run's data (note: for more accurate aggregation,
-  // the scraper dashboard now aggregates all today's shard runs)
-  const sitesOk = hasData
-    ? Array.isArray(latestRun.sites_scraped)
-      ? latestRun.sites_scraped.length
-      : 0
-    : 0;
-  const sitesFailed = hasData
-    ? Array.isArray(latestRun.sites_failed)
-      ? latestRun.sites_failed.length
-      : 0
-    : 0;
+  // Use today's aggregated shard data (all shards combined)
+  const sitesOk = summary.todaySitesOk;
+  const sitesFailed = summary.todaySitesFailed;
+  const shardsCompleted = summary.todayShardsCompleted;
 
   return (
     <button
@@ -372,7 +406,9 @@ function RegionCard({
           <p className="mt-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
             {activeSites} active sites
             {expectedShards > 1 && (
-              <span className="ml-1 text-zinc-400">({expectedShards} shards)</span>
+              <span className="ml-1 text-zinc-400">
+                ({shardsCompleted}/{expectedShards} shards)
+              </span>
             )}
           </p>
         </div>
@@ -392,7 +428,9 @@ function RegionCard({
           />
           <MiniStat
             label="Products"
-            value={latestRun.total_products?.toLocaleString() ?? "0"}
+            value={summary.todayTotalProducts > 0
+              ? summary.todayTotalProducts.toLocaleString()
+              : latestRun.total_products?.toLocaleString() ?? "0"}
           />
           <MiniStat
             label="7d Rate"

@@ -1,0 +1,18 @@
+{
+  "name": "CloudedDeals",
+  "short_name": "Clouded",
+  "description": "Every deal from every Las Vegas dispensary, updated daily",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0b14",
+  "theme_color": "#0a0b14",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo-transparent.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

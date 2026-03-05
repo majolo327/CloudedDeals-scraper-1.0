@@ -5,6 +5,7 @@ description = "Playwright-based scraper for CloudedDeals"
 requires-python = ">=3.10"
 dependencies = [
     "playwright>=1.40.0",
+    "playwright-stealth>=2.0.0",
     "supabase>=2.3.0",
     "python-dotenv>=1.0.0",
 ]

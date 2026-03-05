@@ -1,0 +1,47 @@
+name: CI — Frontend Tests
+
+on:
+  pull_request:
+    paths:
+      - "clouded-deals/frontend/**"
+  push:
+    branches: [main]
+    paths:
+      - "clouded-deals/frontend/**"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: clouded-deals/frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: clouded-deals/frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: clouded-deals/frontend
+        run: npm run lint
+
+      - name: Type-check & Build
+        working-directory: clouded-deals/frontend
+        run: npx next build
+        env:
+          # Prevent build from requiring real Supabase creds
+          NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder"
+
+      - name: Run tests
+        working-directory: clouded-deals/frontend
+        run: npm test

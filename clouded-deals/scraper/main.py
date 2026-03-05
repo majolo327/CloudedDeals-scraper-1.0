@@ -13,8 +13,7 @@ Usage:
 Environment variables (for CI):
     DRY_RUN=true              # scrape only, skip all DB writes
     LIMIT_DISPENSARIES=true   # scrape only 3 sites (1 per platform)
-    PLATFORM_GROUP=stable     # scrape only stable platforms (dutchie/curaleaf/jane)
-    PLATFORM_GROUP=new        # scrape only new platforms (rise/carrot/aiq)
+    PLATFORM_GROUP=stable     # scrape stable platforms (dutchie/curaleaf/jane/carrot/aiq/rise)
     PLATFORM_GROUP=all        # scrape everything (default)
     REGION=southern-nv        # scrape only one region/state
     REGION=northern-nv        # scrape only Northern Nevada (Reno/Sparks/Carson City)
@@ -46,6 +45,7 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 
 from playwright.async_api import async_playwright
+from playwright._impl._errors import TargetClosedError
 
 from config.dispensaries import (
     DISPENSARIES, SITE_TIMEOUT_SEC,
@@ -1480,6 +1480,10 @@ async def _scrape_site_inner(
                 _raw_check,
             ):
                 classification["product_subtype"] = "disposable"
+            elif re.search(r"\bcartridges?\b|\bcarts?\b|\b510\b", _raw_check):
+                classification["product_subtype"] = "cartridge"
+            elif re.search(r"\bpods?\b", _raw_check):
+                classification["product_subtype"] = "pod"
 
         # Map CloudedLogic output to the DB schema expected by _upsert_products
         enriched: dict[str, Any] = {
@@ -1689,13 +1693,24 @@ def _get_active_dispensaries(slug_filter: str | None = None) -> list[dict]:
         return active
 
     # Fetch active slugs from Supabase so the admin can disable sites.
-    result = (
-        db.table("dispensaries")
-        .select("id")
-        .eq("is_active", True)
-        .execute()
-    )
-    active_slugs = {row["id"] for row in result.data}
+    # NOTE: Supabase returns max 1000 rows by default.  We have ~2,100
+    # dispensaries, so we must paginate to avoid silently dropping sites.
+    active_slugs: set[str] = set()
+    page_size = 1000
+    offset = 0
+    while True:
+        result = (
+            db.table("dispensaries")
+            .select("id")
+            .eq("is_active", True)
+            .range(offset, offset + page_size - 1)
+            .execute()
+        )
+        for row in result.data:
+            active_slugs.add(row["id"])
+        if len(result.data) < page_size:
+            break
+        offset += page_size
 
     # If the DB has no dispensary rows yet, fall back to the config list.
     if not active_slugs:
@@ -1825,92 +1840,158 @@ async def run(slug_filter: str | None = None) -> None:
     status = "failed"
 
     try:
-        # Launch ONE shared browser for all concurrent scrapers
-        pw = await async_playwright().start()
-        browser = await launch_stealth_browser(
-            pw,
-            extra_args=[
-                "--disable-gpu",
-                "--disable-extensions",
-                "--disable-background-timer-throttling",
-            ],
-        )
-        logger.info("Shared browser launched — dispatching %d sites", len(dispensaries))
+        # ── Browser crash recovery loop ────────────────────────────────
+        # The shared Chromium process can segfault (exit code 139) under
+        # memory pressure or GPU driver issues, killing ALL in-flight
+        # scrapes with TargetClosedError.  This loop detects the crash,
+        # relaunches a fresh browser, and retries only the failed sites.
+        # Max 2 recovery attempts to avoid infinite crash loops.
+        _MAX_BROWSER_RECOVERIES = 2
+        pending_dispensaries = list(dispensaries)
+        all_results: list[tuple[dict[str, Any], dict[str, Any] | Exception]] = []
 
-        # Dual-semaphore approach: a global cap prevents too many total browser
-        # contexts, and per-platform caps prevent heavy platforms (Dutchie) from
-        # monopolising all slots and starving lighter scrapers.
-        global_semaphore = asyncio.Semaphore(concurrency)
-        platform_semaphores: dict[str, asyncio.Semaphore] = {
-            plat: asyncio.Semaphore(cap)
-            for plat, cap in _PLATFORM_CONCURRENCY.items()
-        }
-
-        # Domain-level throttle: when many sites share the same domain
-        # (e.g. 111 Michigan sites on dutchie.com), insert a randomized
-        # delay between requests to avoid triggering WAF / bot detection.
-        # Each domain gets its own asyncio.Lock so only one request at a
-        # time negotiates the cooldown.  Reduced from 3-7s to 1.5-3.5s
-        # to improve throughput on large expansion state shards (~75 sites)
-        # while still avoiding predictable request patterns.
+        # Domain-level throttle state (persists across recovery attempts)
         _DOMAIN_MIN_INTERVAL = float(os.getenv("DOMAIN_MIN_INTERVAL", "1.5"))
         _DOMAIN_MAX_JITTER = float(os.getenv("DOMAIN_MAX_JITTER", "2.0"))
         domain_locks: dict[str, asyncio.Lock] = {}
         domain_last_request: dict[str, float] = {}
 
-        async def _bounded_scrape(dispensary: dict[str, Any]) -> dict[str, Any]:
-            """Scrape a single site, bounded by global + platform semaphores."""
-            plat = dispensary["platform"]
-            plat_sem = platform_semaphores.get(plat, global_semaphore)
-            domain = _urlparse(dispensary["url"]).netloc
+        for browser_attempt in range(_MAX_BROWSER_RECOVERIES + 1):
+            if not pending_dispensaries:
+                break
 
-            # Ensure one lock per domain
-            if domain not in domain_locks:
-                domain_locks[domain] = asyncio.Lock()
+            # Check deadline before (re)launching browser
+            if deadline and time.time() >= deadline - 30:
+                logger.warning(
+                    "Job deadline reached — skipping %d remaining sites",
+                    len(pending_dispensaries),
+                )
+                for d in pending_dispensaries:
+                    all_results.append((d, {"slug": d["slug"], "error": "Skipped — job deadline reached"}))
+                break
 
-            async with global_semaphore:
-                async with plat_sem:
-                    # Domain-level cooldown — serialize the timing check.
-                    # Randomized wait (3-7s default) mimics human browsing
-                    # cadence and avoids predictable request fingerprints.
-                    async with domain_locks[domain]:
-                        elapsed_since = time.time() - domain_last_request.get(domain, 0)
-                        cooldown = _DOMAIN_MIN_INTERVAL + random.uniform(0, _DOMAIN_MAX_JITTER)
-                        if elapsed_since < cooldown:
-                            wait = cooldown - elapsed_since
-                            logger.debug(
-                                "[%s] Domain throttle: waiting %.1fs for %s",
-                                dispensary["slug"], wait, domain,
-                            )
-                            await asyncio.sleep(wait)
-                        domain_last_request[domain] = time.time()
+            # Launch (or relaunch) the shared browser
+            pw = await async_playwright().start()
+            browser = await launch_stealth_browser(
+                pw,
+                extra_args=[
+                    "--disable-gpu",
+                    "--disable-extensions",
+                    "--disable-background-timer-throttling",
+                ],
+            )
+            if browser_attempt == 0:
+                logger.info("Shared browser launched — dispatching %d sites", len(pending_dispensaries))
+            else:
+                logger.info(
+                    "Browser relaunched (recovery %d/%d) — retrying %d sites",
+                    browser_attempt, _MAX_BROWSER_RECOVERIES, len(pending_dispensaries),
+                )
 
-                    site_start = time.time()
-                    logger.info("[START] %s (%s)", dispensary["name"], plat)
-                    result = await scrape_site(
-                        dispensary, browser=browser, deadline=deadline,
+            # Semaphores are re-created per attempt (old ones may be in
+            # inconsistent state after a crash cancelled their waiters).
+            global_semaphore = asyncio.Semaphore(concurrency)
+            platform_semaphores: dict[str, asyncio.Semaphore] = {
+                plat: asyncio.Semaphore(cap)
+                for plat, cap in _PLATFORM_CONCURRENCY.items()
+            }
+
+            async def _bounded_scrape(dispensary: dict[str, Any]) -> dict[str, Any]:
+                """Scrape a single site, bounded by global + platform semaphores."""
+                plat = dispensary["platform"]
+                plat_sem = platform_semaphores.get(plat, global_semaphore)
+                domain = _urlparse(dispensary["url"]).netloc
+
+                # Ensure one lock per domain
+                if domain not in domain_locks:
+                    domain_locks[domain] = asyncio.Lock()
+
+                async with global_semaphore:
+                    async with plat_sem:
+                        async with domain_locks[domain]:
+                            elapsed_since = time.time() - domain_last_request.get(domain, 0)
+                            cooldown = _DOMAIN_MIN_INTERVAL + random.uniform(0, _DOMAIN_MAX_JITTER)
+                            if elapsed_since < cooldown:
+                                wait = cooldown - elapsed_since
+                                logger.debug(
+                                    "[%s] Domain throttle: waiting %.1fs for %s",
+                                    dispensary["slug"], wait, domain,
+                                )
+                                await asyncio.sleep(wait)
+                            domain_last_request[domain] = time.time()
+
+                        site_start = time.time()
+                        logger.info("[START] %s (%s)", dispensary["name"], plat)
+                        result = await scrape_site(
+                            dispensary, browser=browser, deadline=deadline,
+                        )
+                        elapsed_s = time.time() - site_start
+                        label = "DONE" if not result.get("error") else "FAIL"
+                        logger.info(
+                            "[%s]  %s — %.1fs — %d products",
+                            label, dispensary["name"], elapsed_s,
+                            result.get("products", 0),
+                        )
+                        return result
+
+            # Run pending sites concurrently (bounded by semaphore)
+            results = await asyncio.gather(
+                *[_bounded_scrape(d) for d in pending_dispensaries],
+                return_exceptions=True,
+            )
+
+            # Close browser (may already be dead after a crash — ignore errors)
+            try:
+                await browser.close()
+            except Exception:
+                pass
+            try:
+                await pw.stop()
+            except Exception:
+                pass
+
+            # Separate successful results from browser-crash failures.
+            # TargetClosedError means the browser died — these sites need
+            # a retry with a fresh browser.  All other exceptions/results
+            # are final (site-level errors, timeouts, successes).
+            next_pending: list[dict[str, Any]] = []
+            crash_count = 0
+            for disp, result in zip(pending_dispensaries, results):
+                is_crash = (
+                    isinstance(result, TargetClosedError)
+                    or (isinstance(result, Exception) and "Target" in type(result).__name__)
+                    or (isinstance(result, Exception) and "target" in str(result).lower() and "closed" in str(result).lower())
+                )
+                if is_crash:
+                    crash_count += 1
+                    next_pending.append(disp)
+                else:
+                    all_results.append((disp, result))
+
+            if crash_count > 0 and browser_attempt < _MAX_BROWSER_RECOVERIES:
+                logger.error(
+                    "Browser crashed — %d sites affected. Relaunching... (%d/%d recoveries)",
+                    crash_count, browser_attempt + 1, _MAX_BROWSER_RECOVERIES,
+                )
+                pending_dispensaries = next_pending
+                # Brief pause to let the OS reclaim resources from the dead process
+                await asyncio.sleep(3)
+            else:
+                # Either no crashes or we've exhausted recovery attempts
+                if crash_count > 0:
+                    logger.error(
+                        "Browser crashed — %d sites affected. No more recovery attempts.",
+                        crash_count,
                     )
-                    elapsed_s = time.time() - site_start
-                    label = "DONE" if not result.get("error") else "FAIL"
-                    logger.info(
-                        "[%s]  %s — %.1fs — %d products",
-                        label, dispensary["name"], elapsed_s,
-                        result.get("products", 0),
-                    )
-                    return result
+                    for disp in next_pending:
+                        all_results.append((
+                            disp,
+                            {"slug": disp["slug"], "error": "Browser crashed — recovery attempts exhausted"},
+                        ))
+                break
 
-        # Run all sites concurrently (bounded by semaphore)
-        results = await asyncio.gather(
-            *[_bounded_scrape(d) for d in dispensaries],
-            return_exceptions=True,
-        )
-
-        # Close shared browser
-        await browser.close()
-        await pw.stop()
-
-        # Process results
-        for disp, result in zip(dispensaries, results):
+        # Process results (from all browser attempts, merged)
+        for disp, result in all_results:
             if isinstance(result, Exception):
                 logger.error("Unhandled exception: %s", result)
                 sites_failed.append({"slug": "unknown", "error": str(result)})

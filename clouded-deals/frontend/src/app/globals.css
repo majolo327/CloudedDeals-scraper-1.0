@@ -197,6 +197,13 @@ body {
 
 /* ===== FOCUS & ACCESSIBILITY ===== */
 
+/* Universal button press — tactile scale feedback on all interactive elements */
+button:active:not(:disabled),
+[role="button"]:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform 100ms ease;
+}
+
 *:focus-visible {
   outline: 2px solid rgba(168, 85, 247, 0.7);
   outline-offset: 2px;
@@ -228,6 +235,8 @@ body {
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
@@ -441,7 +450,7 @@ body {
 
   /* Sticky elements below the header: accounts for header height + safe area top */
   .safe-top-sticky {
-    top: calc(3.5rem + env(safe-area-inset-top, 0px));
+    top: calc(3rem + env(safe-area-inset-top, 0px));
   }
   @media (min-width: 640px) {
     .safe-top-sticky {

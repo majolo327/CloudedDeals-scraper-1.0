@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, MapPin, DollarSign, ArrowRight } from 'lucide-react';
+import { Search, RefreshCw, ArrowRight } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 
 interface ValuePropSplashProps {
@@ -48,8 +48,8 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
         {/* Subtext — dynamic deal count baked in, single line */}
         <p className="text-lg text-slate-300 max-w-sm leading-relaxed mb-6 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
           {dealCount > 0
-            ? `${dealCount} deals updated today. Every dispensary in Vegas.`
-            : 'Every deal from every dispensary in Vegas. Updated daily.'}
+            ? `${dealCount} curated deals today. Only the best from every dispensary.`
+            : 'Only the best deals from every dispensary in Vegas. Updated daily.'}
         </p>
 
         {/* Feature callouts — action-oriented, scannable */}
@@ -62,18 +62,10 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
               color: 'text-purple-400 bg-purple-500/10',
             },
             {
-              icon: MapPin,
-              title: 'Get directions',
-              desc: 'One tap to any dispensary in Vegas, sorted by distance',
+              icon: RefreshCw,
+              title: 'Fresh every morning',
+              desc: 'New drops daily. Tap to save.',
               color: 'text-emerald-400 bg-emerald-500/10',
-            },
-            {
-              icon: DollarSign,
-              title: 'Save deals you like',
-              desc: dealCount > 0
-                ? `Tap the heart, build your list. ${dealCount} deals live right now.`
-                : 'Tap the heart to save. 27 dispensaries checked every morning.',
-              color: 'text-amber-400 bg-amber-500/10',
             },
           ].map((feature) => (
             <div

@@ -35,14 +35,9 @@ export function SwipeOverlay({
   onShareSaves,
 }: SwipeOverlayProps) {
   const [mounted, setMounted] = useState(false);
-  const [entering, setEntering] = useState(true);
 
   useEffect(() => {
     setMounted(true);
-    // Allow entrance animation to play
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setEntering(false));
-    });
   }, []);
 
   // Lock body scroll when overlay is open
@@ -79,9 +74,7 @@ export function SwipeOverlay({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[100] flex flex-col transition-opacity duration-300 ${
-        entering ? 'opacity-0' : 'opacity-100'
-      }`}
+      className={`fixed inset-0 z-[100] flex flex-col animate-modal-enter`}
       style={{ backgroundColor: 'var(--surface-0)' }}
     >
       {/* Ambient gradient — same as main app */}

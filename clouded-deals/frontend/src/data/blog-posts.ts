@@ -114,7 +114,7 @@ export const BLOG_POSTS: BlogPost[] = [
     readingTime: '5 min read',
     category: 'comparison',
     heroSubtitle:
-      'We check every dispensary every morning. Here\'s where the cheapest prices actually are.',
+      'We scan every dispensary every morning. Only the best prices make it here.',
     sections: [
       {
         heading: 'Price Matters in Vegas',
@@ -231,7 +231,7 @@ export const BLOG_POSTS: BlogPost[] = [
     title: 'Vegas Dispensary Deals Today',
     metaTitle: 'Vegas Dispensary Deals Today — Updated Daily at 8 AM PT',
     description:
-      'Today\'s best dispensary deals in Las Vegas. We check every dispensary every morning. See today\'s prices on flower, vapes, edibles & more.',
+      'Today\'s best dispensary deals in Las Vegas, curated from every dispensary every morning. See the top prices on flower, vapes, edibles & more.',
     keywords: [
       'vegas dispensary deals today',
       'las vegas dispensary deals today',

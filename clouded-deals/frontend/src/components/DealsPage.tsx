@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Clock, ChevronDown, Sparkles, Loader2 } from 'lucide-react';
+import { Clock, ChevronDown, Loader2, Sparkles } from 'lucide-react';
 import type { Deal } from '@/types';
 import { DealCard } from './cards';
 import { SwipeOverlay } from './SwipeOverlay';
@@ -10,7 +10,7 @@ import { ExpiredDealsBanner } from './ExpiredDealsBanner';
 import { FilterSheet } from './FilterSheet';
 import { StickyStatsBar } from './layout';
 import { DealCardSkeleton } from './Skeleton';
-import { getTimeUntilMidnight, formatUpdateTime, isDealsFromYesterday } from '@/utils';
+import { getTimeUntilMidnight, isDealsFromYesterday, formatUpdateTime } from '@/utils';
 import { useDeck } from '@/hooks/useDeck';
 import { useUniversalFilters, formatDistance } from '@/hooks/useUniversalFilters';
 import { hapticSpecial } from '@/lib/haptics';
@@ -71,6 +71,41 @@ export function DealsPage({
     filterAndSortDeals,
   } = useUniversalFilters();
 
+  // Auto-refresh once if deals are stale and the user is still on the page after 30s.
+  // This is a final fallback after the page-level retries at 5s and 10s.
+  const autoRefreshDone = useRef(false);
+  useEffect(() => {
+    if (autoRefreshDone.current || isExpired || deals.length === 0 || !onRefresh) return;
+    if (!isDealsFromYesterday(deals)) {
+      autoRefreshDone.current = false;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (autoRefreshDone.current) return;
+      autoRefreshDone.current = true;
+      onRefresh();
+    }, 30_000);
+
+    return () => clearTimeout(timer);
+  }, [deals, isExpired, onRefresh]);
+
+  // Location-needed flow: when sort dropdown selects "Nearest First" without location,
+  // open the FilterSheet with the location prompt.
+  const [needsLocation, setNeedsLocation] = useState(false);
+
+  const handleLocationNeeded = useCallback(() => {
+    setNeedsLocation(true);
+  }, []);
+
+  const handleLocationNeededHandled = useCallback(() => {
+    setNeedsLocation(false);
+  }, []);
+
+  const handleSortChange = useCallback((sort: typeof filters.sortBy) => {
+    setFilters({ ...filters, sortBy: sort });
+  }, [setFilters, filters]);
+
   const handleLocationSet = useCallback(() => {
     refreshLocation();
     setFilters({ ...filters, sortBy: 'distance' });
@@ -85,7 +120,8 @@ export function DealsPage({
 
   useEffect(() => {
     if (deals.length > 0) {
-      setTimeout(() => setIsLoading(false), 300);
+      const t = setTimeout(() => setIsLoading(false), 300);
+      return () => clearTimeout(t);
     }
   }, [deals]);
 
@@ -177,6 +213,12 @@ export function DealsPage({
       <StickyStatsBar
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
+        showSwipeMode={!isExpired && filteredDeals.length > 0}
+        onSwipeModeClick={() => setSwipeOpen(true)}
+        sortBy={filters.sortBy}
+        onSortChange={handleSortChange}
+        hasLocation={!!userCoords}
+        onLocationNeeded={handleLocationNeeded}
       >
         <FilterSheet
           filters={filters}
@@ -186,6 +228,8 @@ export function DealsPage({
           onReset={resetFilters}
           activeFilterCount={activeFilterCount}
           onLocationSet={handleLocationSet}
+          openForLocation={needsLocation}
+          onOpenForLocationHandled={handleLocationNeededHandled}
         />
       </StickyStatsBar>
 
@@ -219,23 +263,29 @@ export function DealsPage({
           {/* Expired deals banner */}
           {isExpired && <ExpiredDealsBanner expiredCount={deals.length} />}
 
-          {/* Overnight banner — active deals that are from yesterday */}
-          {!isExpired && deals.length > 0 && isDealsFromYesterday(deals) && (
-            <div className="flex items-center gap-2.5 rounded-xl border border-amber-500/15 bg-amber-950/20 px-4 py-3 mb-4">
-              <Clock className="w-4 h-4 text-amber-400/70 flex-shrink-0" />
-              <p className="text-xs text-slate-400">
-                These deals were last updated yesterday &mdash; today&apos;s deals typically arrive around 8–9 AM PT.
-              </p>
-            </div>
-          )}
+          {/* Overnight banner — active deals that are from yesterday.
+              Time-aware: before 10am PT shows ETA, after 10am shows "hang tight" with spinner. */}
+          {!isExpired && deals.length > 0 && isDealsFromYesterday(deals) && (() => {
+            const ptHour = parseInt(
+              new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', hour12: false }),
+              10,
+            );
+            const message = !isNaN(ptHour) && ptHour < 10
+              ? "Today's deals are on the way \u2014 they typically land around 8\u20139 AM PT."
+              : "Hang tight \u2014 we're gathering today's deals for you.";
+            return (
+              <div className="flex items-center gap-2.5 rounded-xl border border-purple-500/15 bg-purple-950/20 px-4 py-3 mb-4">
+                <Loader2 className="w-4 h-4 text-purple-400/70 flex-shrink-0 animate-spin" />
+                <p className="text-xs text-slate-400">{message}</p>
+              </div>
+            );
+          })()}
 
           {/* Header row — clean and minimal */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 min-w-0">
               <h2 className="text-sm font-medium text-slate-300">
-                {isExpired || (!isExpired && deals.length > 0 && isDealsFromYesterday(deals))
-                  ? "Yesterday's deals"
-                  : "Today's deals"}{deals.length > 0 ? ` (${deals.length})` : ''}
+                Today&apos;s deals{deals.length > 0 ? ` (${deals.length})` : ''}
               </h2>
               {!isExpired && deals.length > 0 && (() => {
                 const updateText = formatUpdateTime(deals);
@@ -247,9 +297,9 @@ export function DealsPage({
                 const hoursOld = (Date.now() - latestMs) / (1000 * 60 * 60);
                 const isStale = fromYesterday || hoursOld > 14;
                 return isStale ? (
-                  <span className="flex items-center gap-1 text-[10px] text-amber-400/80">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400/60" />
-                    {updateText || 'Stale'}
+                  <span className="flex items-center gap-1 text-[10px] text-purple-400/80">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Refreshing
                   </span>
                 ) : (
                   <span className="flex items-center gap-1 text-[10px] text-emerald-500/70">
