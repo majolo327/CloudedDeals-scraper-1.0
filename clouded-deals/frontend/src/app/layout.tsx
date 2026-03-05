@@ -27,7 +27,7 @@ export const viewport: Viewport = {
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://cloudeddeals.com";
 const OG_TITLE = "Las Vegas Dispensary Deals Today | CloudedDeals";
 const OG_DESCRIPTION =
-  "Every deal from every Las Vegas dispensary, updated daily at 8 AM. Compare prices on flower, vapes, edibles & concentrates. No account needed.";
+  "The best cannabis deals from every Las Vegas dispensary, curated daily at 8 AM. Flower, vapes, edibles & concentrates — only the deals worth your money.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -68,7 +68,7 @@ export const metadata: Metadata = {
         url: `${SITE_URL}/og-image.png`,
         width: 1200,
         height: 630,
-        alt: "CloudedDeals — Every Deal. Every Dispensary. One Place.",
+        alt: "CloudedDeals — The Best Deals. Every Dispensary.",
       },
     ],
   },

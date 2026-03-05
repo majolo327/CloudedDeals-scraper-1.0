@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Clock, ChevronDown, Sparkles, Loader2 } from 'lucide-react';
+import { Clock, ChevronDown, Loader2 } from 'lucide-react';
 import type { Deal } from '@/types';
 import { DealCard } from './cards';
 import { SwipeOverlay } from './SwipeOverlay';
@@ -10,7 +10,7 @@ import { ExpiredDealsBanner } from './ExpiredDealsBanner';
 import { FilterSheet } from './FilterSheet';
 import { StickyStatsBar } from './layout';
 import { DealCardSkeleton } from './Skeleton';
-import { getTimeUntilMidnight, formatUpdateTime, isDealsFromYesterday } from '@/utils';
+import { getTimeUntilMidnight, isDealsFromYesterday } from '@/utils';
 import { useDeck } from '@/hooks/useDeck';
 import { useUniversalFilters, formatDistance } from '@/hooks/useUniversalFilters';
 import { hapticSpecial } from '@/lib/haptics';
@@ -197,6 +197,8 @@ export function DealsPage({
       <StickyStatsBar
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
+        showSwipeMode={!isExpired && filteredDeals.length > 0}
+        onSwipeModeClick={() => setSwipeOpen(true)}
       >
         <FilterSheet
           filters={filters}

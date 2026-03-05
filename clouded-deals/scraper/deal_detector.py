@@ -101,8 +101,11 @@ VAPE_SUBTYPE_PRICE_FLOORS: dict[str, dict[str, float]] = {
 # Products without a detected weight use the conservative "0.5" cap.
 VAPE_SUBTYPE_PRICE_CAPS: dict[str, dict[str, float]] = {
     "disposable": {
-        "0.5": 18,    # half-gram disposable cap (widened from $15 — premium brands like Rove/STIIIZY are $15-18 on sale)
-        "1": 25,      # full-gram disposable cap (0.8g-1g)
+        "0.5": 25,    # half-gram disposable cap (widened from $18 — battery included
+                       # makes disposables legitimately pricier than carts; premium
+                       # brands like Rove Diamond, STIIIZY LIIIL are $18-22 on sale)
+        "1": 35,      # full-gram disposable cap (widened from $25 — 1g disposables
+                       # like Jeeter Juice retail $40-50, sale at $30-35 is genuine)
     },
     "cartridge": {
         "0.5": 25,    # half-gram cart cap
@@ -467,7 +470,7 @@ CATEGORY_TARGETS: dict[str, int] = {
 CATEGORY_MINIMUMS: dict[str, int] = {
     "flower": 12,
     "vape": 6,           # reduced from 10 (smaller pool without disposables)
-    "disposable": 6,     # NEW — ensure at least 6 disposables in the feed
+    "disposable": 15,    # ensure at least 15 genuine disposables in the feed
     "edible": 8,
     "concentrate": 6,
     "preroll": 6,
@@ -526,6 +529,7 @@ _NON_CANNABIS_KEYWORDS = {
     "rolling paper", "pipe", "bong", "stash", "bag", "backpack",
     "lanyard", "keychain", "pin", "sticker", "poster",
     "gift card", "gift certificate",
+    "vape battery", "pen battery",
 }
 
 
@@ -1182,6 +1186,14 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
     # in the feed instead of being outscored by higher-priced categories.
     if category in ("preroll", "edible") and sale_price <= 11:
         score += 5
+
+    # 8. DISPOSABLE BOOST (up to 12 points)
+    # Disposables are underrepresented because the raw inventory pool is
+    # dominated by 510 carts.  A 12pt boost helps disposables compete
+    # without making a mediocre disposable beat a great cart deal.
+    # 25% of users are exclusively disposable vape users — P0 retention.
+    if category == "vape" and product.get("product_subtype") == "disposable":
+        score += 12
 
     return min(100, score)
 

@@ -48,8 +48,8 @@ export function ValuePropSplash({ dealCount, onContinue, onSkip }: ValuePropSpla
         {/* Subtext — dynamic deal count baked in, single line */}
         <p className="text-lg text-slate-300 max-w-sm leading-relaxed mb-6 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
           {dealCount > 0
-            ? `${dealCount} deals updated today. Every dispensary in Vegas.`
-            : 'Every deal from every dispensary in Vegas. Updated daily.'}
+            ? `${dealCount} curated deals today. Only the best from every dispensary.`
+            : 'Only the best deals from every dispensary in Vegas. Updated daily.'}
         </p>
 
         {/* Feature callouts — action-oriented, scannable */}

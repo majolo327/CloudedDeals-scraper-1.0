@@ -1,11 +1,11 @@
 # CLAUDE.md — Project Instructions for Claude Code
 
-> **Last updated:** Feb 27, 2026 | Pre-seed stage | Locked Beta (Feb 22, 2026)
+> **Last updated:** Mar 5, 2026 | Pre-seed stage | Locked Beta (Feb 22, 2026)
 
 ## Project Overview
 
 **CloudedDeals** is a deal-tracking platform for cannabis dispensaries. A
-Playwright-based scraper visits ~2,072 dispensary websites daily across 11
+Playwright-based scraper visits ~2,122 dispensary websites daily across 11
 states, extracts menus/pricing, detects and scores deals, and pushes the top
 results to Supabase. A Next.js frontend displays curated deals to consumers.
 The scraper runs as GitHub Actions cron jobs — no servers to maintain.
@@ -87,6 +87,7 @@ CloudedDeals-scraper-1.0/
 │   │   ├── parser.py                 # Raw text → structured fields (prices, weight, brand)
 │   │   ├── metrics_collector.py      # Daily pipeline metrics → Supabase daily_metrics table
 │   │   ├── enrichment_snapshots.py   # Weekly price distributions & cross-state brand pricing
+│   │   ├── diagnose_disposables.py    # Vape subtype classification diagnostic
 │   │   ├── debug.py                  # Database diagnostic utility
 │   │   ├── test_connection.py        # Supabase connectivity check
 │   │   ├── config/
@@ -119,6 +120,9 @@ CloudedDeals-scraper-1.0/
 │   │   │   │   ├── deal/[id]/        # Individual deal + redirect
 │   │   │   │   ├── admin/            # PIN-protected admin dashboard (6 tabs)
 │   │   │   │   ├── api/              # API routes (search, health, auto-post, admin)
+│   │   │   │   ├── blog/             # Blog listing and individual posts
+│   │   │   │   ├── downtown-dispensary-deals/ # Downtown-focused deals SEO page
+│   │   │   │   ├── local-dispensary-deals/    # Local deals SEO page
 │   │   │   │   └── ...               # SEO pages, auth callback, saves, sitemap
 │   │   │   ├── components/           # React components
 │   │   │   │   ├── DealCard.tsx      # Core deal display card
@@ -129,7 +133,8 @@ CloudedDeals-scraper-1.0/
 │   │   │   │   ├── modals/           # Deal detail, share, report modals
 │   │   │   │   ├── seo/              # JSON-LD, breadcrumbs, SEO headers
 │   │   │   │   ├── layout/           # Footer, age gate, sticky stats bar
-│   │   │   │   └── ftue/             # First-time user experience flow
+│   │   │   │   ├── ftue/             # First-time user experience flow
+│   │   │   │   └── CoachMark.tsx     # Interactive coach mark component
 │   │   │   ├── lib/
 │   │   │   │   ├── supabase.ts       # Lazy public client + service client (RLS bypass)
 │   │   │   │   ├── api.ts            # Main data layer: fetchDeals(), fetchDispensaries(),
@@ -138,7 +143,8 @@ CloudedDeals-scraper-1.0/
 │   │   │   │   ├── region.ts         # Multi-region: southern-nv / northern-nv detection
 │   │   │   │   ├── twitter.ts        # OAuth 1.0a Twitter API v2 client
 │   │   │   │   ├── auto-post-selector.ts # Daily tweet deal selection logic
-│   │   │   │   └── ...               # analytics, auth, share, zip codes, SEO data
+│   │   │   │   ├── haptics.ts        # Haptic feedback utility
+│   │   │   └── ...               # analytics, auth, share, zip codes, SEO data
 │   │   │   ├── hooks/                # useDeck, useSavedDeals, useAnalytics, useFilters
 │   │   │   ├── middleware.ts         # Edge rate-limiting + security headers
 │   │   │   └── types/index.ts        # Extended types: BadgeType, BrandTier, DealStatus
@@ -148,10 +154,10 @@ CloudedDeals-scraper-1.0/
 │   │
 │   ├── supabase/
 │   │   ├── config.toml               # Supabase project config
-│   │   └── migrations/               # 001–038: schema, RLS, indexes, views
+│   │   └── migrations/               # 001–039: schema, RLS, indexes, views
 │   │       ├── 001_initial_schema.sql # dispensaries, products, deals, scrape_runs
 │   │       └── ...                    # User tracking, analytics, search indexes,
-│   │                                  #   price history, deal observations, retention
+│   │                                  #   price history, deal observations, retention KPIs
 │   ├── scripts/
 │   │   ├── migrate.sh                # Idempotent migration runner (requires psql)
 │   │   └── all_migrations.sql        # Combined schema for fresh installs
@@ -163,21 +169,30 @@ CloudedDeals-scraper-1.0/
 │   ├── recon.yml                     # Manual platform detection recon
 │   ├── site-diagnostics.yml          # Manual deep site health checks
 │   ├── tweet-deals.yml               # Auto-post 4 tweets/day to Twitter
-│   └── debug.yml                     # Manual database diagnostic
+│   ├── debug.yml                     # Manual database diagnostic
+│   └── diagnose-disposables.yml      # Manual vape classification diagnostic
 │
 ├── .claude/agents/
 │   └── deal-curation-engineer.md     # Custom Claude agent for deal scoring/curation fixes
 │
-├── docs/                             # Strategy docs & market research
-│   ├── INVESTOR-DILIGENCE-RESPONSES.md
-│   ├── EXPANSION-ROADMAP-PHASES-2-4.md
-│   ├── MARKET-COVERAGE-SPRINT-GUIDE.md
-│   └── research-*.md                 # Per-state market research
+├── docs/                             # Strategy docs
+│   └── INVESTOR-DILIGENCE-RESPONSES.md
 │
-└── [root-level docs]                 # Audit reports, plans, campaign docs
-    ├── BETA_AUDIT_REPORT.md
-    ├── BETA_LAUNCH_READINESS.md
-    ├── PLAN.md                       # Bundle text brand contamination fix (implemented)
+├── archive/                          # Historical docs (no longer authoritative)
+│   ├── README.md
+│   ├── market-research/              # Pre-expansion research & planning
+│   │   ├── DISPENSARY-EXPANSION-PLAN.md
+│   │   ├── EXPANSION-ROADMAP-PHASES-2-4.md
+│   │   ├── MARKET-COVERAGE-SPRINT-GUIDE.md
+│   │   └── research-*.md             # Per-state market research
+│   ├── audits/                       # Pre-beta QA reports
+│   │   ├── QA-AUDIT-REPORT.md
+│   │   └── MICHIGAN_TEST1_ANALYSIS.md
+│   └── snapshots/
+│       └── SCRAPE-REVIEW-2026-02-12.md
+│
+└── [root-level docs]                 # Active reference docs
+    ├── BETA_STATUS_REPORT.md         # Consolidated beta audit + readiness
     ├── SEO-STRATEGY-PLAN.md
     ├── VEGAS-FLYER-CAMPAIGN.md
     └── ...
@@ -205,14 +220,14 @@ CloudedDeals-scraper-1.0/
 
 ### Database
 - **Supabase** (hosted PostgreSQL)
-- 38 migrations (001–038)
+- 39 migrations (001–039)
 - Core tables: `dispensaries`, `products`, `deals`, `scrape_runs`, `daily_metrics`
 - User tables: `user_sessions`, `user_events`, `user_saved_deals`, `analytics_events`
 - RLS policies: public read for deals/products, service-role for writes
 
 ### CI/CD
 - **GitHub Actions** — all automation
-- 6 workflow files (scrape, CI, recon, diagnostics, tweets, debug)
+- 7 workflow files (scrape, CI, recon, diagnostics, tweets, debug, diagnose-disposables)
 
 ---
 
@@ -370,23 +385,33 @@ All scrapers inherit `BaseScraper` and implement `async scrape()`:
 
 **Hard filter thresholds:**
 - Global price: $3.00–$100.00 sale price
-- Minimum discount: 15%
+- Minimum discount: 15% (12% for edibles/prerolls)
 - Maximum discount: 85% (data error threshold)
-- Category-specific price caps (e.g. flower 3.5g: $10–$22, preroll: $2–$6)
+- Category-specific price caps:
+  - Flower: $22 (3.5g), $40 (7g), $55 (14g), $100 (28g)
+  - Vape: $25 (fallback); subtype-specific caps for disposable/cart/pod by size
+  - Edible: $15, Concentrate: $18 (0.5g) / $25 (1g) / $50 (2g)
+  - Preroll: $9, Infused preroll: $15, Preroll pack: $20
+- Vape subtype price floors (disposable ≤0.6g: $8, >0.6g: $17; carts/pods lower)
 
 **Badge thresholds (from score 0–100):**
 - **STEAL:** score >= 85
 - **FIRE:** 70–84
 - **SOLID:** 50–69
 
+**Disposable scoring boost:** +12pts for vape products classified as
+disposable, compensating for inventory underrepresentation (~25% of NV users
+are disposable-exclusive).
+
 **Top-200 category targets:**
-- Flower: 60, Vape: 50, Edible: 30, Concentrate: 30, Pre-roll: 20
+- Flower: 58, Disposable: 30, Edible: 29, Concentrate: 29, Preroll: 24,
+  Vape (cart/pod): 21, Other: 9
 
 ---
 
-## Coverage (as of Feb 2026)
+## Coverage (as of Mar 2026)
 
-**~2,072 active dispensaries** across 11 states (12 regions), 6 platforms.
+**~2,122 active dispensaries** across 11 states (12 regions), 6 platforms.
 
 | Region | Sites | Platforms | Status |
 |--------|-------|-----------|--------|
@@ -418,6 +443,7 @@ brand intelligence, and future market launches.
 | `site-diagnostics.yml` | Manual | Deep site health analysis | 90 min |
 | `tweet-deals.yml` | 4x daily + manual | Auto-post deals to Twitter | 5 min |
 | `debug.yml` | Manual | Database diagnostic dump | 5 min |
+| `diagnose-disposables.yml` | Manual | Vape product classification diagnostic | 5 min |
 
 **Scrape workflow region sharding:** Large states are sharded into parallel
 cron jobs (Michigan = 6 shards, Missouri/Ohio/NJ = 4 shards, Illinois/Colorado
@@ -432,12 +458,13 @@ staggered 2-minute offset. All times DST-adjusted as of March 8, 2026.
 
 | File | Purpose | Key exports |
 |------|---------|-------------|
-| `clouded_logic.py` | **Single source of truth** — category detection, weight validation, brand DB (200+), price caps, qualification | `CloudedLogic.detect_category()`, `validate_weight()`, `parse_product()`, `is_qualifying()` |
+| `clouded_logic.py` | **Single source of truth** — category detection, weight validation, brand DB (264), price caps, disposable brand lines, qualification | `CloudedLogic.detect_category()`, `validate_weight()`, `parse_product()`, `is_qualifying()` |
 | `deal_detector.py` | Hard filters → scoring → quality gate → dedup → top-200 | `detect_deals()`, `passes_hard_filters()`, `calculate_deal_score()`, `select_top_deals()` |
-| `product_classifier.py` | Post-detection enrichment: infused, pack, vape/concentrate/edible subtypes, category correction | `classify_product()` → `{is_infused, product_subtype, corrected_category}` |
+| `product_classifier.py` | Post-detection enrichment: infused, pack, vape/concentrate/edible subtypes, disposable detection (brand-specific), category correction | `classify_product()` → `{is_infused, product_subtype, corrected_category}` |
 | `parser.py` | Raw text extraction: prices (was/now, bundle, BOGO), weight, brand, THC/CBD | Pure functions, regex-based |
 | `metrics_collector.py` | Pipeline metrics: counts, category breakdown, score distribution, enrichment rates | `collect_daily_metrics()` |
 | `enrichment_snapshots.py` | Weekly: price distributions by (region, category, weight_tier), cross-state brand pricing | `compute_price_distributions()`, `compute_brand_pricing()` |
+| `diagnose_disposables.py` | Vape subtype classification diagnostic (DB + offline modes) | CLI tool, no exports |
 
 ### Scraper (browser automation)
 
@@ -447,7 +474,7 @@ staggered 2-minute offset. All times DST-adjusted as of March 8, 2026.
 | `handlers/age_verification.py` | Universal age-gate dismissal: primary selectors → secondary → JS fallback → MutationObserver |
 | `handlers/iframe.py` | Dutchie content detection cascade: iframe → JS embed → direct page |
 | `handlers/pagination.py` | Platform-specific pagination: Dutchie (page N buttons), Curaleaf (numbered), Jane (View More) |
-| `config/dispensaries.py` | ~2,072 dispensary configs, UA pool (Chrome 133–134), viewport pool, region→timezone map |
+| `config/dispensaries.py` | ~2,122 dispensary configs, UA pool (Chrome 133–134), viewport pool, region→timezone map |
 
 ### Frontend (data layer)
 
@@ -496,25 +523,23 @@ All platforms are in **locked beta**. Rules:
 |----------|----------|---------|
 | `OPERATIONS.md` (root) | Engineering, Ops | Complete ops reference — coverage, pipeline, anti-bot, platform status |
 | `CLAUDE.md` | AI assistants | This file — project instructions and codebase guide |
+| `BETA_STATUS_REPORT.md` | Engineering | Consolidated beta audit + readiness report (all P0s resolved) |
 | `clouded-deals/docs/README.md` | New contributors | Setup instructions for scraper + frontend + DB |
 | `docs/INVESTOR-DILIGENCE-RESPONSES.md` | Investors | Product positioning, TAM, cost structure Q&A |
 | `SEO-STRATEGY-PLAN.md` | Marketing | SEO/AI visibility plan (llms.txt, JSON-LD, GSC) |
 | `VEGAS-FLYER-CAMPAIGN.md` | Marketing | Guerilla QR flyer campaign for Vegas Strip |
 | `clouded-deals/docs/AUDIT-dashboard-kpi.md` | Engineering | Dashboard KPI improvements (awaiting implementation) |
 
-### Historical / Reference
+### Historical / Reference (archived in `/archive/`)
 
 | Document | Status | Notes |
 |----------|--------|-------|
-| `BETA_AUDIT_REPORT.md` | Resolved | All 6 P0 blockers resolved as of Feb 26 |
-| `BETA_LAUNCH_READINESS.md` | Resolved | Overlaps with audit report; all blockers resolved |
-| `PLAN.md` | Implemented | Bundle text brand contamination fix — shipped |
-| `DISPENSARY-EXPANSION-PLAN.md` | Superseded | Planned ~600 sites; achieved 2,072 |
-| `docs/EXPANSION-ROADMAP-PHASES-2-4.md` | Superseded | Phase planning complete |
-| `docs/research-*.md` | Superseded | Pre-expansion market research; states now live |
-| `SCRAPE-REVIEW-2026-02-12.md` | Snapshot | Feb 12 data quality snapshot |
-| `QA-AUDIT-REPORT.md` | Snapshot | Feb 8 pre-beta QA (many items fixed) |
-| `MICHIGAN_TEST1_ANALYSIS.md` | Snapshot | Feb 12 test run analysis (bugs fixed) |
+| `archive/market-research/DISPENSARY-EXPANSION-PLAN.md` | Superseded | Planned ~600 sites; achieved 2,122 |
+| `archive/market-research/EXPANSION-ROADMAP-PHASES-2-4.md` | Superseded | Phase planning complete |
+| `archive/market-research/research-*.md` | Superseded | Pre-expansion market research; states now live |
+| `archive/snapshots/SCRAPE-REVIEW-2026-02-12.md` | Snapshot | Feb 12 data quality snapshot |
+| `archive/audits/QA-AUDIT-REPORT.md` | Snapshot | Feb 8 pre-beta QA (many items fixed) |
+| `archive/audits/MICHIGAN_TEST1_ANALYSIS.md` | Snapshot | Feb 12 test run analysis (bugs fixed) |
 
 ---
 

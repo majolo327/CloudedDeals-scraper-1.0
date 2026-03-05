@@ -20,7 +20,7 @@ export function WebSiteJsonLd() {
     name: 'CloudedDeals',
     url: SITE_URL,
     description:
-      'Every deal from every Las Vegas dispensary, updated daily. Compare prices on flower, vapes, edibles & concentrates.',
+      'The best cannabis deals from every Las Vegas dispensary, curated daily. Flower, vapes, edibles & concentrates — only the deals worth your money.',
     potentialAction: {
       '@type': 'SearchAction',
       target: {
@@ -56,7 +56,7 @@ export function OrganizationJsonLd() {
     logo: `${SITE_URL}/og-image.png`,
     sameAs: ['https://twitter.com/CloudedDeals'],
     description:
-      'Las Vegas cannabis deals aggregator. We check every dispensary every morning and bring every deal into one place.',
+      'Las Vegas cannabis deals aggregator. We scan every dispensary every morning and surface only the deals worth your money.',
   };
 
   return (
