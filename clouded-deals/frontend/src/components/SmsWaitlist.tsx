@@ -225,7 +225,7 @@ export function SmsWaitlist({ addToast }: SmsWaitlistProps) {
 
                     <button
                       type="button"
-                      onClick={handleCloseModal}
+                      onClick={handleDismissBar}
                       className="w-full py-2 min-h-[44px] text-slate-500 hover:text-slate-300 text-sm transition-colors"
                     >
                       Maybe later
