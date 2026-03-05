@@ -54,6 +54,42 @@ Since `gh` CLI cannot create PRs, follow this process **every time**:
 - Commit message body should explain **why**, not just what
 - Append the Claude session URL to every commit message
 
+### Mandatory Build Verification (Frontend)
+
+**CRITICAL:** Before pushing ANY branch that touches files under
+`clouded-deals/frontend/`, you MUST run a full production build and confirm
+zero errors:
+
+```bash
+cd clouded-deals/frontend
+npx next build
+```
+
+- **Do NOT push** if the build fails — fix all TypeScript and compilation
+  errors first
+- This applies to every push, not just the final one — Netlify builds deploy
+  previews for every branch push, and failures block production deploys when
+  merged to main
+- Common pitfalls that have caused build failures:
+  - Missing properties on TypeScript interfaces (especially in error/fallback
+    code paths that aren't exercised at runtime)
+  - Using `for...of` on `Set` or `Map` without `--downlevelIteration` (use
+    `.forEach()` instead)
+  - JSX comment syntax errors (`//` comments inside JSX — use
+    `{/* comment */}` instead)
+
+### Mandatory Test Verification (Scraper)
+
+Before pushing ANY branch that touches files under `clouded-deals/scraper/`,
+run the unit test suite:
+
+```bash
+cd clouded-deals/scraper
+python -m pytest tests/ -v --tb=short -m "not live" --ignore=tests/test_platform_recon.py
+```
+
+- **Do NOT push** if tests fail — fix all failures first
+
 ---
 
 ## Repository Structure

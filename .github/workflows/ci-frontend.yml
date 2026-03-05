@@ -34,6 +34,14 @@ jobs:
         working-directory: clouded-deals/frontend
         run: npm run lint
 
+      - name: Type-check & Build
+        working-directory: clouded-deals/frontend
+        run: npx next build
+        env:
+          # Prevent build from requiring real Supabase creds
+          NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder"
+
       - name: Run tests
         working-directory: clouded-deals/frontend
         run: npm test
