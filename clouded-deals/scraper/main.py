@@ -13,8 +13,7 @@ Usage:
 Environment variables (for CI):
     DRY_RUN=true              # scrape only, skip all DB writes
     LIMIT_DISPENSARIES=true   # scrape only 3 sites (1 per platform)
-    PLATFORM_GROUP=stable     # scrape only stable platforms (dutchie/curaleaf/jane)
-    PLATFORM_GROUP=new        # scrape only new platforms (rise/carrot/aiq)
+    PLATFORM_GROUP=stable     # scrape stable platforms (dutchie/curaleaf/jane/carrot/aiq/rise)
     PLATFORM_GROUP=all        # scrape everything (default)
     REGION=southern-nv        # scrape only one region/state
     REGION=michigan           # scrape only Michigan dispensaries
@@ -43,7 +42,7 @@ from supabase import create_client, Client
 from playwright.async_api import async_playwright
 
 from config.dispensaries import (
-    BROWSER_ARGS, BROWSER_CHANNEL, DISPENSARIES, SITE_TIMEOUT_SEC,
+    DISPENSARIES, SITE_TIMEOUT_SEC,
     get_platforms_for_group, get_dispensaries_by_group,
     get_dispensaries_by_region,
 )

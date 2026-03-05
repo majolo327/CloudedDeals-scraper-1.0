@@ -2483,9 +2483,9 @@ def get_chain_id(dispensary_slug: str) -> str:
 # ---------------------------------------------------------------------------
 
 PLATFORM_GROUPS: dict[str, list[str]] = {
-    "stable": ["dutchie", "curaleaf", "jane", "carrot", "aiq"],
+    "stable": ["dutchie", "curaleaf", "jane", "carrot", "aiq", "rise"],
     "new": [],
-    "disabled": ["rise"],
+    "disabled": [],
 }
 
 # Reverse lookup: platform → group name

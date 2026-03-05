@@ -37,6 +37,7 @@ from config.dispensaries import get_dispensary_by_slug, PLATFORM_DEFAULTS
 from platforms.dutchie import DutchieScraper
 from platforms.jane import JaneScraper
 from platforms.carrot import CarrotScraper
+from platforms.rise import RiseScraper
 from handlers.iframe import (
     find_dutchie_content,
     JS_EMBED_CONTAINERS,
@@ -956,3 +957,105 @@ class TestDeepDiagnostics:
                 await context.close()
 
             await browser.close()
+
+
+# ===================================================================
+# RISE CLOUDFLARE CANARY — Stealth v2 validation
+#
+# These tests verify that the stealth stack (real Chrome TLS + playwright-
+# stealth 2.0) can bypass Cloudflare Turnstile on Rise/GTI sites.
+# If these fail, Cloudflare is still blocking and the stealth approach
+# needs further work.  If they pass, we can bulk re-enable all 37 Rise
+# sites across NV, IL, NJ, OH, NY, MA, PA.
+# ===================================================================
+
+class TestRiseCloudflareCanary:
+    """Canary tests for Rise sites — validates Cloudflare bypass.
+
+    Tests one site per region to confirm the stealth v2 stack works
+    across different geographic Rise URLs (all share the same CDN:
+    cdn-bong.risecannabis.com with Cloudflare Turnstile).
+    """
+
+    @pytest.mark.timeout(600)
+    async def test_rise_tropicana_nv(self):
+        """Rise Tropicana West (NV) — primary canary.
+
+        Expected: Stealth v2 bypasses Cloudflare Turnstile.  Age gate
+        dismissed, ~700+ products extracted from the Next.js SPA.
+        If Cloudflare blocks: page title = 'Just a moment', 0 products.
+        """
+        report = await _run_diagnostic("rise-tropicana", RiseScraper)
+        _print_report(report)
+
+        assert report["error"] is None, f"Scrape crashed: {report['error']}"
+
+        # Check specifically for Cloudflare block
+        title = (report.get("page_title") or "").lower()
+        assert "just a moment" not in title, (
+            "CLOUDFLARE BLOCKED: Rise Tropicana hit Cloudflare challenge. "
+            "Stealth v2 did not bypass Turnstile. "
+            f"Page title: {report.get('page_title')}"
+        )
+
+        assert report["product_count"] > 0, (
+            f"Rise Tropicana returned 0 products (no Cloudflare detected). "
+            f"Page title: {report.get('page_title')}. "
+            f"Probes: {report.get('probe_counts', {})}. "
+            f"This may be a SPA hydration issue, not a Cloudflare block."
+        )
+
+        # Rise typically has 200-730 products — flag if suspiciously low
+        if report["product_count"] < 50:
+            logger.warning(
+                "[rise-tropicana] Only %d products — expected 200+. "
+                "Partial load or extraction issue?",
+                report["product_count"],
+            )
+
+    @pytest.mark.timeout(600)
+    async def test_rise_mundelein_il(self):
+        """Rise Mundelein (IL) — cross-region canary.
+
+        Validates Cloudflare bypass works for Illinois Rise URLs
+        (same CDN but different store ID / menu path).
+        """
+        report = await _run_diagnostic("rise-mundelein", RiseScraper)
+        _print_report(report)
+
+        assert report["error"] is None, f"Scrape crashed: {report['error']}"
+
+        title = (report.get("page_title") or "").lower()
+        assert "just a moment" not in title, (
+            "CLOUDFLARE BLOCKED: Rise Mundelein IL hit Cloudflare challenge. "
+            f"Page title: {report.get('page_title')}"
+        )
+
+        assert report["product_count"] > 0, (
+            f"Rise Mundelein IL returned 0 products. "
+            f"Page title: {report.get('page_title')}. "
+            f"Probes: {report.get('probe_counts', {})}"
+        )
+
+    @pytest.mark.timeout(600)
+    async def test_rise_bloomfield_nj(self):
+        """Rise Bloomfield (NJ) — cross-region canary.
+
+        Validates Cloudflare bypass works for New Jersey Rise URLs.
+        """
+        report = await _run_diagnostic("rise-nj-bloomfield", RiseScraper)
+        _print_report(report)
+
+        assert report["error"] is None, f"Scrape crashed: {report['error']}"
+
+        title = (report.get("page_title") or "").lower()
+        assert "just a moment" not in title, (
+            "CLOUDFLARE BLOCKED: Rise Bloomfield NJ hit Cloudflare challenge. "
+            f"Page title: {report.get('page_title')}"
+        )
+
+        assert report["product_count"] > 0, (
+            f"Rise Bloomfield NJ returned 0 products. "
+            f"Page title: {report.get('page_title')}. "
+            f"Probes: {report.get('probe_counts', {})}"
+        )
