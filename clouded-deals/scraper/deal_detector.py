@@ -1,5 +1,5 @@
 """
-Deal qualification, scoring, and top-200 selection engine.
+Deal qualification, scoring, and top-300 selection engine.
 
 Pipeline:
   1. **Hard filters** (``passes_hard_filters``) — category price caps,
@@ -93,9 +93,9 @@ VAPE_SUBTYPE_PRICE_FLOORS: dict[str, dict[str, float]] = {
 }
 
 # Vape subtype price CAPS — maximum acceptable SALE price per subtype
-# and weight tier.  Disposable vapes should be cheaper than carts/pods
-# because they're single-use.  Products without a detected subtype fall
-# back to the generic "vape" cap in CATEGORY_PRICE_CAPS ($25).
+# and weight tier.  Disposable caps match cart/pod caps — disposables
+# include a battery which offsets the single-use cost.  Products without
+# a detected subtype fall back to the generic "vape" cap ($25).
 #
 # Weight matching: ≤0.6g uses the "0.5" cap, >0.6g uses the "1" cap.
 # Products without a detected weight use the conservative "0.5" cap.
@@ -440,10 +440,10 @@ CATEGORY_BOOST: dict[str, int] = {
 }
 
 # =====================================================================
-# Phase 3: Top-200 selection parameters
+# Phase 3: Top-300 selection parameters
 # =====================================================================
 
-TARGET_DEAL_COUNT = 200
+TARGET_DEAL_COUNT = 300
 
 # Guaranteed-exposure: every scraped dispensary that yields 0 deals through
 # the normal pipeline will have its best product force-picked so it always
@@ -455,25 +455,29 @@ MIN_PRODUCTS_FOR_GUARANTEE = 1
 GUARANTEED_DEAL_SCORE_CAP = 25  # modest score so guarantees don't outrank real deals
 
 CATEGORY_TARGETS: dict[str, int] = {
-    "flower": 58,        # -2 (from 60)
-    "vape": 21,          # -24 (from 45 — disposables carved out into own category)
-    "disposable": 30,    # NEW — dedicated disposable vape slots
-    "edible": 29,        # -1 (from 30)
-    "concentrate": 29,   # -1 (from 30)
-    "preroll": 24,       # -1 (from 25)
-    "other": 9,          # -1 (from 10)
+    "flower": 72,            # +14 (from 58 — more weight tier diversity)
+    "vape": 30,              # +9  (from 21 — carts/pods get more room too)
+    "disposable": 45,        # +15 (from 30 — P0: more weight/brand diversity)
+    "edible": 40,            # +11 (from 29)
+    "concentrate": 38,       # +9  (from 29)
+    "preroll": 15,           # -9  (from 24 — infused & packs carved out)
+    "infused_preroll": 25,   # NEW — dedicated infused preroll slots
+    "preroll_pack": 20,      # NEW — dedicated preroll pack slots
+    "other": 15,             # +6  (from 9)
 }
 
 # Minimum category floors — each category must fill at least this many
 # slots before surplus is redistributed.  Prevents the feed from being
 # dominated by a single category (e.g. all prerolls, no flower).
 CATEGORY_MINIMUMS: dict[str, int] = {
-    "flower": 12,
-    "vape": 6,           # reduced from 10 (smaller pool without disposables)
-    "disposable": 15,    # ensure at least 15 genuine disposables in the feed
-    "edible": 8,
-    "concentrate": 6,
-    "preroll": 6,
+    "flower": 20,
+    "vape": 8,
+    "disposable": 20,        # P0: guarantee 20 disposables minimum
+    "edible": 12,
+    "concentrate": 10,
+    "preroll": 4,             # smaller pool now (infused & packs carved out)
+    "infused_preroll": 8,     # NEW
+    "preroll_pack": 6,        # NEW
     "other": 0,
 }
 
@@ -656,8 +660,8 @@ def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> b
             return False
 
     # --- Vape subtype price CAPS (catches non-deals by subtype) ---
-    # Disposable vapes should be cheaper than carts/pods.  Half-gram
-    # disposables cap at $15; full-gram (0.8g-1g) cap at $25.  Applies to ALL platforms.
+    # Per-subtype caps: disposables match carts/pods at $25/0.5g, $35/1g
+    # (battery included offsets single-use cost).  Applies to ALL platforms.
     if category == "vape" and subtype in VAPE_SUBTYPE_PRICE_CAPS:
         caps = VAPE_SUBTYPE_PRICE_CAPS[subtype]
         try:
@@ -1362,7 +1366,7 @@ def remove_cross_chain_duplicates(
 
 
 # =====================================================================
-# Phase 3: Top-200 Selection with Variety
+# Phase 3: Top-300 Selection with Variety
 # =====================================================================
 
 
@@ -1474,7 +1478,7 @@ def _pick_from_pools(
 def select_top_deals(
     scored_deals: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Select the best ~200 deals with category, brand, and dispensary diversity.
+    """Select the best ~300 deals with category, brand, and dispensary diversity.
 
     Uses a two-round approach:
       Round 1 — tight diversity caps for a high-variety core selection.
@@ -1494,10 +1498,14 @@ def select_top_deals(
     buckets: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for deal in scored_deals:
         cat = deal.get("category", "other")
-        # Virtual category: disposable vapes get their own selection bucket
-        # so they receive dedicated slots instead of competing with carts/pods.
+        # Virtual categories: split subtypes into dedicated selection buckets
+        # so they receive guaranteed slots instead of competing within parent.
         if cat == "vape" and deal.get("product_subtype") == "disposable":
             cat = "disposable"
+        elif cat == "preroll" and deal.get("product_subtype") == "infused_preroll":
+            cat = "infused_preroll"
+        elif cat == "preroll" and deal.get("product_subtype") == "preroll_pack":
+            cat = "preroll_pack"
         elif cat not in CATEGORY_TARGETS:
             cat = "other"
         buckets[cat].append(deal)
@@ -1869,7 +1877,7 @@ def select_top_deals(
 def detect_deals(
     products: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Full pipeline: filter -> score -> dedup -> select top 200.
+    """Full pipeline: filter -> score -> dedup -> select top 300.
 
     Returns only the curated top deals with ``deal_score`` set.
     All other products should get ``deal_score = 0``.

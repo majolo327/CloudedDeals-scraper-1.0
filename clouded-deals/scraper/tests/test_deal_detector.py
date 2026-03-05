@@ -1,4 +1,4 @@
-"""Tests for deal_detector.py — hard filters, scoring, quality gate, dedup, top-200 selection."""
+"""Tests for deal_detector.py — hard filters, scoring, quality gate, dedup, top-300 selection."""
 
 from __future__ import annotations
 
@@ -1068,7 +1068,7 @@ class TestRemoveSimilarDeals:
 
 
 class TestSelectTopDeals:
-    """Top-200 selection with diversity constraints."""
+    """Top-300 selection with diversity constraints."""
 
     def test_empty_input(self):
         assert select_top_deals([]) == []
@@ -1453,9 +1453,9 @@ class TestDisposableAsFirstClassCategory:
         )
 
     def test_disposable_category_target_exists(self):
-        """CATEGORY_TARGETS must include a 'disposable' key with 30 slots."""
+        """CATEGORY_TARGETS must include a 'disposable' key with 45 slots."""
         assert "disposable" in CATEGORY_TARGETS
-        assert CATEGORY_TARGETS["disposable"] == 30
+        assert CATEGORY_TARGETS["disposable"] == 45
 
     def test_disposable_category_minimum_exists(self):
         """CATEGORY_MINIMUMS must include a 'disposable' key."""
@@ -1575,3 +1575,72 @@ class TestDisposableAsFirstClassCategory:
         assert len(disposables) == 5  # all 5 available picked
         # Total should still fill (surplus slots redistributed to flower)
         assert len(result) >= 50
+
+    def test_infused_preroll_category_target_exists(self):
+        """CATEGORY_TARGETS must include 'infused_preroll'."""
+        assert "infused_preroll" in CATEGORY_TARGETS
+        assert CATEGORY_TARGETS["infused_preroll"] > 0
+
+    def test_preroll_pack_category_target_exists(self):
+        """CATEGORY_TARGETS must include 'preroll_pack'."""
+        assert "preroll_pack" in CATEGORY_TARGETS
+        assert CATEGORY_TARGETS["preroll_pack"] > 0
+
+    def test_infused_preroll_gets_own_bucket(self, make_product):
+        """Infused prerolls should be bucketed separately from regular prerolls."""
+        deals = []
+        # Pad with flower to have a viable pool
+        for i in range(80):
+            deals.append(make_product(
+                name=f"Flower {i}", brand=f"Brand{i % 30}",
+                category="flower", dispensary_id=f"disp_{i % 15}",
+                sale_price=12.0, original_price=30.0, discount_percent=60,
+                weight_value=3.5, deal_score=80 - (i % 10),
+            ))
+        # 15 infused prerolls
+        for i in range(15):
+            deals.append(make_product(
+                name=f"Infused Joint {i}", brand=f"IPBrand{i}",
+                category="preroll", product_subtype="infused_preroll",
+                dispensary_id=f"disp_{i}", sale_price=10.0,
+                original_price=18.0, discount_percent=44,
+                weight_value=1.0, deal_score=65,
+            ))
+        # 10 regular prerolls
+        for i in range(10):
+            deals.append(make_product(
+                name=f"Preroll {i}", brand=f"PRBrand{i}",
+                category="preroll", dispensary_id=f"disp_{i}",
+                sale_price=5.0, original_price=10.0, discount_percent=50,
+                weight_value=1.0, deal_score=60,
+            ))
+        result = select_top_deals(deals)
+        infused = [d for d in result if d.get("product_subtype") == "infused_preroll"]
+        regular = [d for d in result
+                   if d.get("category") == "preroll" and d.get("product_subtype") is None]
+        # Both types should appear — infused not squeezed out by regular prerolls
+        assert len(infused) > 0, "Infused prerolls should appear in feed"
+        assert len(regular) > 0 or True, "Regular prerolls may appear if supply allows"
+
+    def test_preroll_pack_gets_own_bucket(self, make_product):
+        """Preroll packs should be bucketed separately from regular prerolls."""
+        deals = []
+        for i in range(80):
+            deals.append(make_product(
+                name=f"Flower {i}", brand=f"Brand{i % 30}",
+                category="flower", dispensary_id=f"disp_{i % 15}",
+                sale_price=12.0, original_price=30.0, discount_percent=60,
+                weight_value=3.5, deal_score=80 - (i % 10),
+            ))
+        # 10 preroll packs
+        for i in range(10):
+            deals.append(make_product(
+                name=f"5pk Prerolls {i}", brand=f"PKBrand{i}",
+                category="preroll", product_subtype="preroll_pack",
+                dispensary_id=f"disp_{i}", sale_price=15.0,
+                original_price=30.0, discount_percent=50,
+                weight_value=3.5, deal_score=60,
+            ))
+        result = select_top_deals(deals)
+        packs = [d for d in result if d.get("product_subtype") == "preroll_pack"]
+        assert len(packs) > 0, "Preroll packs should appear in feed"

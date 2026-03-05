@@ -383,7 +383,7 @@ export async function fetchExpiredDeals(region?: string): Promise<FetchDealsResu
       .gt('sale_price', 0)
       .gte('scraped_at', cutoff)
       .order('deal_score', { ascending: false })
-      .limit(200);
+      .limit(300);
 
     if (error) throw error;
 
