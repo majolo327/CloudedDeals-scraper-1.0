@@ -1,6 +1,6 @@
 # Beta Status Report
 
-**Audit dates:** February 14, 2026 (initial) | February 26, 2026 (final update)
+**Audit dates:** February 14, 2026 (initial) | March 5, 2026 (latest update)
 **Scope:** Full-stack audit — scraper pipeline, frontend, database, scoring,
 legal, operations, marketing
 **Status:** **LOCKED BETA** as of Feb 22, 2026. All blockers resolved.
@@ -23,9 +23,11 @@ legal, operations, marketing
 6. Jane products artificially inflated — baseline reduced 22 to 15pts
 
 Additional work completed: 3,101 lines of frontend bloat removed (challenges,
-streaks, smart tips, coach marks, dead code), DB CHECK constraints added,
-foreign keys added, composite indexes added, security headers hardened,
-cannabis legal disclaimers added, beta indicator added, DST cron adjustment.
+streaks, smart tips, dead code), DB CHECK constraints added, foreign keys
+added, composite indexes added, security headers hardened, cannabis legal
+disclaimers added, beta indicator added, DST cron adjustment. Post-lock:
+disposable vape classification overhaul, 3 UX polish phases, retention KPI
+migration, blog pages, coach marks (re-added), haptic feedback.
 
 ---
 
@@ -51,7 +53,7 @@ cannabis legal disclaimers added, beta indicator added, DST cron adjustment.
 
 | Item | Resolution |
 |------|------------|
-| Feature bloat (~1,200 lines) | Deleted: challenges, streaks, brand affinity, smart tips, coach marks, preference selector, dead components |
+| Feature bloat (~1,200 lines) | Deleted: challenges, streaks, brand affinity, smart tips, preference selector, dead components. Coach marks re-added in UX Phase 1 (Mar 2026) as a targeted onboarding tool. |
 | Product name pollution | `_clean_product_name()` strips prices, deal text, brand prefixes |
 | Custom 404 page | `not-found.tsx` with branded styling |
 | Beta indicator | "BETA" pill badge next to logo (PR #201) |
@@ -116,42 +118,66 @@ cannabis legal disclaimers added, beta indicator added, DST cron adjustment.
 
 ---
 
-## Scoring Algorithm Status (verified correct)
+## Scoring Algorithm Status (verified correct as of Mar 5, 2026)
 
 - **Unit value scoring** — per-category $/g and $/mg thresholds, well-calibrated
-- **Top-200 selection** — stratified by category with round-robin diversity
+- **Top-200 selection** — stratified by category with round-robin diversity;
+  dedicated disposable allocation (30 slots) alongside carts/pods (21 slots)
 - **3-level deduplication** — per-dispensary, cross-chain, global name
 - **Quality gates** — brand required, name >=5 chars, weight required for
   flower/concentrate/vape
-- **Hard filters** — $3-$100 range, 15-85% discount, category price caps
-- **Brand detection** — 200+ brands with alias handling and strain blockers
+- **Hard filters** — $3-$100 range, 15-85% discount (12% min for edibles/prerolls),
+  category price caps, vape subtype price floors
+- **Brand detection** — 264 brands with alias handling and strain blockers
+- **Disposable scoring boost** — +12pts for disposable vapes (compensates for
+  inventory underrepresentation; ~25% of NV users are disposable-exclusive)
+- **Disposable classification** — brand-specific product line detection (~30
+  brand lines) in `clouded_logic.py` + `product_classifier.py`
 
-**Price caps:**
+**Price caps (tightened Mar 2026):**
 
 | Category | Cap | Status |
 |----------|-----|--------|
-| Flower 3.5g | $25 | Good |
-| Flower 7g | $45 | Good |
-| Flower 14g | $65 | Good |
+| Flower 3.5g | $22 | Tightened from $25 |
+| Flower 7g | $40 | Tightened from $45 |
+| Flower 14g | $55 | Tightened from $65 |
 | Flower 28g | $100 | Good |
-| Vape | $35 | Good |
-| Edible | $18 | Raised from $14 |
-| Concentrate 1g | $45 | Good |
-| Preroll | $10 | Good |
+| Vape (fallback) | $25 | Tightened from $35 |
+| Edible | $15 | Tightened from $18 |
+| Concentrate 0.5g | $18 | New |
+| Concentrate 1g | $25 | Tightened from $45 |
+| Concentrate 2g | $50 | New |
+| Preroll | $9 | Tightened from $10 |
+| Infused preroll | $15 | New |
+| Preroll pack | $20 | New |
+
+**Vape subtype caps (size-aware, new):**
+
+| Subtype | Size | Floor | Cap |
+|---------|------|-------|-----|
+| Disposable | ≤0.6g | $8 | $25 |
+| Disposable | >0.6g | $17 | $35 |
+| Cart/Pod | ≤0.6g | $7 | $25 |
+| Cart/Pod | >0.6g | $14 | $35 |
 
 ---
 
 ## What's Solid
 
-- Scraper architecture (6 platforms, ~2,072 sites, proven patterns)
-- Frontend UX (skeletons, error/empty states, offline cache, FTUE)
+- Scraper architecture (6 platforms, ~2,122 sites, proven patterns)
+- Disposable vape classification (brand-specific detection, dedicated scoring
+  boost, size-aware price floors/caps, 30-slot allocation in top-200)
+- Frontend UX (3 polish phases shipped: haptics, coach marks, smart defaults,
+  pull-to-refresh, sticky CTA, transitions, accessibility improvements)
 - Mobile responsive (touch-friendly, safe-area, responsive grid)
-- SEO foundation (sitemap, JSON-LD, canonicals, OG images, breadcrumbs)
+- SEO foundation (sitemap, JSON-LD, canonicals, OG images, breadcrumbs, blog)
 - Data pipeline (automated daily scrapes, quality scoring, diversity selection)
-- Analytics (comprehensive event tracking)
+- Analytics (comprehensive event tracking, server-side retention KPIs, 90-day
+  cohort tracking via migration 039)
 - Security basics (constant-time PIN, RLS, env secrets, no source maps)
 
 ---
 
 *Re-run this audit before public launch. Focus areas: Sentry, cookie consent,
-privacy policy, CSRF, frontend tests, uptime monitoring.*
+privacy policy, CSRF, frontend tests, uptime monitoring. Last full review:
+Mar 5, 2026.*
