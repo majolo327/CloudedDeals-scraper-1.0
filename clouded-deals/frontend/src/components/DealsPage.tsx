@@ -104,7 +104,8 @@ export function DealsPage({
 
   useEffect(() => {
     if (deals.length > 0) {
-      setTimeout(() => setIsLoading(false), 300);
+      const t = setTimeout(() => setIsLoading(false), 300);
+      return () => clearTimeout(t);
     }
   }, [deals]);
 
@@ -272,9 +273,9 @@ export function DealsPage({
                 const hoursOld = (Date.now() - latestMs) / (1000 * 60 * 60);
                 const isStale = fromYesterday || hoursOld > 14;
                 return isStale ? (
-                  <span className="flex items-center gap-1 text-[10px] text-amber-400/80">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400/60" />
-                    {updateText || 'Stale'}
+                  <span className="flex items-center gap-1 text-[10px] text-purple-400/80">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Refreshing
                   </span>
                 ) : (
                   <span className="flex items-center gap-1 text-[10px] text-emerald-500/70">
