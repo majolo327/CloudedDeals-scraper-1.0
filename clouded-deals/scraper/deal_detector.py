@@ -452,12 +452,13 @@ MIN_PRODUCTS_FOR_GUARANTEE = 1
 GUARANTEED_DEAL_SCORE_CAP = 25  # modest score so guarantees don't outrank real deals
 
 CATEGORY_TARGETS: dict[str, int] = {
-    "flower": 60,
-    "vape": 45,
-    "edible": 30,
-    "concentrate": 30,
-    "preroll": 25,
-    "other": 10,
+    "flower": 58,
+    "vape": 21,
+    "disposable": 30,
+    "edible": 29,
+    "concentrate": 29,
+    "preroll": 24,
+    "other": 9,
 }
 
 # Minimum category floors — each category must fill at least this many
@@ -465,7 +466,8 @@ CATEGORY_TARGETS: dict[str, int] = {
 # dominated by a single category (e.g. all prerolls, no flower).
 CATEGORY_MINIMUMS: dict[str, int] = {
     "flower": 12,
-    "vape": 10,
+    "vape": 6,
+    "disposable": 8,
     "edible": 8,
     "concentrate": 6,
     "preroll": 6,
@@ -504,7 +506,7 @@ MIN_DISPOSABLE_VAPES_PER_DISPENSARY = 1
 
 # Target number of disposable vape deals in the final feed.  Soft ceiling:
 # if fewer qualifying disposables exist, take what's available.
-TARGET_DISPOSABLE_DEALS = 40
+TARGET_DISPOSABLE_DEALS = 30
 
 # Per-dispensary disposable cap — aim for 2 (one per weight tier), accept 1
 # if only one tier is available at that store.
@@ -707,16 +709,25 @@ def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> b
     # --- Standard filters (non-Jane platforms) ---
     # Budget bypass: certain product types at accessible price points are
     # genuine deals where the absolute price IS the value proposition.
-    # A $9 edible from $10 is 10%, a $20 disposable from $22 is 9% —
-    # both below the normal 12-15% floors but clearly good deals.
-    # We only require *any* discount (>0%) instead of the full minimum.
-    is_budget_deal = (
-        (category in ("edible", "preroll") and sale_price <= 10)
-        or (category == "vape"
-            and subtype == "disposable"
-            and sale_price <= 25)
+    is_budget_edible_preroll = (
+        category in ("edible", "preroll") and sale_price <= 10
     )
-    if is_budget_deal:
+    is_budget_disposable = (
+        category == "vape"
+        and subtype == "disposable"
+        and sale_price <= 25
+    )
+
+    # Budget disposables (≤$25) skip discount AND original_price checks.
+    # Most Dutchie disposables only show a retail price without a was-price
+    # or meaningful discount.  The $25 price ceiling is a sufficient quality
+    # gate — the absolute price IS the value proposition.
+    if is_budget_disposable:
+        return _passes_price_cap(sale_price, category, weight_value, region)
+
+    # Budget edibles/prerolls still require *any* discount (>0%) but bypass
+    # the full minimum discount floors.
+    if is_budget_edible_preroll:
         min_disc = 1
     else:
         min_disc = CATEGORY_MIN_DISCOUNT.get(category, HARD_FILTERS["min_discount_percent"])
@@ -724,6 +735,7 @@ def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> b
         return False
     if discount > HARD_FILTERS["max_discount_percent"]:
         return False  # fake discount / data error
+
     if HARD_FILTERS["require_original_price"]:
         if not original_price or original_price <= sale_price:
             return False
@@ -1555,7 +1567,11 @@ def select_top_deals(
     buckets: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for deal in scored_deals:
         cat = deal.get("category", "other")
-        if cat not in CATEGORY_TARGETS:
+        # Virtual category: disposable vapes get their own dedicated bucket
+        # so they don't compete with carts/pods for the "vape" allocation.
+        if cat == "vape" and deal.get("product_subtype") == "disposable":
+            cat = "disposable"
+        elif cat not in CATEGORY_TARGETS:
             cat = "other"
         buckets[cat].append(deal)
 
@@ -1860,208 +1876,34 @@ def select_top_deals(
             )
 
     # ------------------------------------------------------------------
-    # Step 4b: Disposable vape dedicated slot allocation
+    # Step 4b: Disposable chain cap enforcement
     # ------------------------------------------------------------------
-    # Disposable vapes are a high-demand consumer category.  Allocate up to
-    # TARGET_DISPOSABLE_DEALS (~40) dedicated slots with:
-    #   - Up to MAX_DISPOSABLES_PER_DISPENSARY (2) per store, preferring
-    #     different weight tiers (one half-gram, one full-gram)
-    #   - MAX_DISPOSABLES_PER_CHAIN (4) cap so Rise/Thrive/Curaleaf don't
-    #     flood the feed with identical deals from multiple locations
-    #   - Roughly 50/50 weight-tier split across the full allocation
-    disp_disposable_pool: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for deal in scored_deals:
+    # Disposables now get dedicated slots via CATEGORY_TARGETS["disposable"]
+    # in Round 1/2.  This post-processing step ensures no single chain
+    # floods the feed with identical disposable deals from multiple locations.
+    chain_dv_groups: dict[str, list[tuple[int, dict[str, Any]]]] = defaultdict(list)
+    for i, deal in enumerate(result):
         if (
             deal.get("category") == "vape"
             and deal.get("product_subtype") == "disposable"
         ):
-            disp_id = deal.get("dispensary_id") or ""
-            if disp_id:
-                disp_disposable_pool[disp_id].append(deal)
+            chain = _chain_prefix(deal.get("dispensary_id") or "")
+            if chain:
+                chain_dv_groups[chain].append((i, deal))
 
-    if disp_disposable_pool:
-        # Count disposable vapes already in the result (from rounds 1/2)
-        result_disp_disposable: dict[str, int] = defaultdict(int)
-        result_disp_disposable_tiers: dict[str, set[str]] = defaultdict(set)
-        for deal in result:
-            if (
-                deal.get("category") == "vape"
-                and deal.get("product_subtype") == "disposable"
-            ):
-                disp_id = deal.get("dispensary_id") or ""
-                result_disp_disposable[disp_id] += 1
-                result_disp_disposable_tiers[disp_id].add(_weight_tier(deal))
-
-        result_keys_dv = {
-            (d.get("name", ""), d.get("sale_price")) for d in result
-        }
-        dv_brand_counts: dict[str, int] = defaultdict(int)
-        for deal in result:
-            b = (deal.get("brand") or "").lower()
-            if b:
-                dv_brand_counts[b] += 1
-
-        # Chain tracking for disposable cap
-        dv_chain_counts: dict[str, int] = defaultdict(int)
-        for deal in result:
-            if (
-                deal.get("category") == "vape"
-                and deal.get("product_subtype") == "disposable"
-            ):
-                chain = _chain_prefix(deal.get("dispensary_id") or "")
-                if chain:
-                    dv_chain_counts[chain] += 1
-
-        existing_disposable_count = sum(
-            1 for d in result
-            if d.get("category") == "vape"
-            and d.get("product_subtype") == "disposable"
+    trim_indices: set[int] = set()
+    for chain, entries in chain_dv_groups.items():
+        if len(entries) > MAX_DISPOSABLES_PER_CHAIN:
+            # Keep the highest-scored ones
+            entries.sort(key=lambda x: x[1].get("deal_score", 0), reverse=True)
+            for idx, _ in entries[MAX_DISPOSABLES_PER_CHAIN:]:
+                trim_indices.add(idx)
+    if trim_indices:
+        result = [d for i, d in enumerate(result) if i not in trim_indices]
+        logger.info(
+            "Disposable chain cap: trimmed %d excess disposable deals",
+            len(trim_indices),
         )
-
-        dv_added = 0
-        dv_target_remaining = TARGET_DISPOSABLE_DEALS - existing_disposable_count
-
-        if dv_target_remaining > 0:
-            # Sort dispensaries by best disposable score (desc) so
-            # high-quality stores get picked first.
-            sorted_disps = sorted(
-                disp_disposable_pool.keys(),
-                key=lambda d: max(
-                    (deal.get("deal_score", 0) for deal in disp_disposable_pool[d]),
-                    default=0,
-                ),
-                reverse=True,
-            )
-
-            # Track half/full counts globally for 50/50 balance.
-            global_half_count = sum(
-                1 for d in result
-                if d.get("category") == "vape"
-                and d.get("product_subtype") == "disposable"
-                and _weight_tier(d) == "vape_half"
-            )
-            global_full_count = existing_disposable_count - global_half_count
-
-            # -- Pass 1: One disposable per dispensary, prefer a weight tier
-            #    not already in the result for that store.
-            for disp_id in sorted_disps:
-                if dv_added >= dv_target_remaining:
-                    break
-                existing = result_disp_disposable.get(disp_id, 0)
-                if existing >= MAX_DISPOSABLES_PER_DISPENSARY:
-                    continue
-
-                pool = disp_disposable_pool[disp_id]
-                pool.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
-
-                chain = _chain_prefix(disp_id)
-                if chain and dv_chain_counts.get(chain, 0) >= MAX_DISPOSABLES_PER_CHAIN:
-                    continue
-
-                existing_tiers = result_disp_disposable_tiers.get(disp_id, set())
-                prefer_half = global_full_count > global_half_count
-                preferred_tier = "vape_half" if prefer_half else "vape_full"
-
-                best = _pick_best_disposable(
-                    pool, result_keys_dv, dv_brand_counts, _BACKFILL_BRAND_TOTAL,
-                    preferred_tier=preferred_tier, excluded_tiers=existing_tiers,
-                )
-
-                if best is not None:
-                    result.append(best)
-                    deal_key = (best.get("name", ""), best.get("sale_price"))
-                    result_keys_dv.add(deal_key)
-                    brand_lower = (best.get("brand") or "").lower()
-                    if brand_lower:
-                        dv_brand_counts[brand_lower] += 1
-                    result_disp_disposable[disp_id] = existing + 1
-                    tier = _weight_tier(best)
-                    result_disp_disposable_tiers[disp_id].add(tier)
-                    if chain:
-                        dv_chain_counts[chain] += 1
-                    if tier == "vape_half":
-                        global_half_count += 1
-                    else:
-                        global_full_count += 1
-                    dv_added += 1
-
-            # -- Pass 2: Second disposable per dispensary (different tier)
-            for disp_id in sorted_disps:
-                if dv_added >= dv_target_remaining:
-                    break
-                existing = result_disp_disposable.get(disp_id, 0)
-                if existing >= MAX_DISPOSABLES_PER_DISPENSARY:
-                    continue
-                if existing < 1:
-                    continue  # Pass 1 skipped this store, skip in pass 2
-
-                pool = disp_disposable_pool[disp_id]
-                chain = _chain_prefix(disp_id)
-                if chain and dv_chain_counts.get(chain, 0) >= MAX_DISPOSABLES_PER_CHAIN:
-                    continue
-
-                existing_tiers = result_disp_disposable_tiers.get(disp_id, set())
-                prefer_half = global_full_count > global_half_count
-                preferred_tier = "vape_half" if prefer_half else "vape_full"
-
-                best = _pick_best_disposable(
-                    pool, result_keys_dv, dv_brand_counts, _BACKFILL_BRAND_TOTAL,
-                    preferred_tier=preferred_tier, excluded_tiers=existing_tiers,
-                )
-
-                if best is not None:
-                    result.append(best)
-                    deal_key = (best.get("name", ""), best.get("sale_price"))
-                    result_keys_dv.add(deal_key)
-                    brand_lower = (best.get("brand") or "").lower()
-                    if brand_lower:
-                        dv_brand_counts[brand_lower] += 1
-                    result_disp_disposable[disp_id] += 1
-                    tier = _weight_tier(best)
-                    result_disp_disposable_tiers[disp_id].add(tier)
-                    if chain:
-                        dv_chain_counts[chain] += 1
-                    if tier == "vape_half":
-                        global_half_count += 1
-                    else:
-                        global_full_count += 1
-                    dv_added += 1
-
-        if dv_added > 0:
-            logger.info(
-                "Disposable vape allocation: added %d deals (target %d, "
-                "half-gram: %d, full-gram: %d, chains capped: %s)",
-                dv_added, TARGET_DISPOSABLE_DEALS,
-                global_half_count, global_full_count,
-                [c for c, n in dv_chain_counts.items() if n >= MAX_DISPOSABLES_PER_CHAIN],
-            )
-
-        # -- Post-processing: trim disposables that exceed chain cap.
-        # Disposables from large chains may have entered via rounds 1/2
-        # before Step 4b ran.  Remove the lowest-scored excess.
-        chain_dv_groups: dict[str, list[tuple[int, dict[str, Any]]]] = defaultdict(list)
-        for i, deal in enumerate(result):
-            if (
-                deal.get("category") == "vape"
-                and deal.get("product_subtype") == "disposable"
-            ):
-                chain = _chain_prefix(deal.get("dispensary_id") or "")
-                if chain:
-                    chain_dv_groups[chain].append((i, deal))
-
-        trim_indices: set[int] = set()
-        for chain, entries in chain_dv_groups.items():
-            if len(entries) > MAX_DISPOSABLES_PER_CHAIN:
-                # Keep the highest-scored ones
-                entries.sort(key=lambda x: x[1].get("deal_score", 0), reverse=True)
-                for idx, _ in entries[MAX_DISPOSABLES_PER_CHAIN:]:
-                    trim_indices.add(idx)
-        if trim_indices:
-            result = [d for i, d in enumerate(result) if i not in trim_indices]
-            logger.info(
-                "Disposable chain cap: trimmed %d excess disposable deals",
-                len(trim_indices),
-            )
 
     # ------------------------------------------------------------------
     # Step 5: Dispensary cap enforcement (uses backfill cap if active)
