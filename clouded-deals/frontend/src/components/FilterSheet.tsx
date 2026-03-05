@@ -3,16 +3,13 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { SlidersHorizontal, X, RotateCcw, Check, MapPin, ChevronDown, Navigation, Loader2, Search, ArrowLeft } from 'lucide-react';
-import type { Category } from '@/types';
 import { DISPENSARIES } from '@/data/dispensaries';
-import { VALID_WEIGHTS_BY_CATEGORY } from '@/utils/weightNormalizer';
 import { trackEvent } from '@/lib/analytics';
 import { hapticLight } from '@/lib/haptics';
 import { CoachMark } from './CoachMark';
 import { isVegasArea, getZipCoordinates } from '@/lib/zipCodes';
 import type {
   UniversalFilterState,
-  SortOption,
   DistanceRange,
 } from '@/hooks/useUniversalFilters';
 import { DEFAULT_UNIVERSAL_FILTERS } from '@/hooks/useUniversalFilters';
@@ -21,20 +18,17 @@ import { DEFAULT_UNIVERSAL_FILTERS } from '@/hooks/useUniversalFilters';
 export type FilterState = UniversalFilterState;
 export const DEFAULT_FILTERS = DEFAULT_UNIVERSAL_FILTERS;
 
-const CATEGORIES: { id: Category; label: string; icon: string }[] = [
-  { id: 'flower', label: 'Flower', icon: '🌿' },
-  { id: 'vape', label: 'Vapes', icon: '💨' },
-  { id: 'edible', label: 'Edibles', icon: '🍬' },
-  { id: 'preroll', label: 'Pre-Rolls', icon: '🚬' },
-  { id: 'concentrate', label: 'Concentrates', icon: '💎' },
-];
-
-const SORT_OPTIONS: { id: SortOption; label: string }[] = [
-  { id: 'deal_score', label: 'Best Deal (Curated)' },
-  { id: 'price_asc', label: 'Price: Low to High' },
-  { id: 'price_desc', label: 'Price: High to Low' },
-  { id: 'discount', label: 'Biggest Discount' },
-  { id: 'distance', label: 'Nearest First' },
+/** Universal weight/size options — standard cannabis sizes consumers shop by. */
+const WEIGHT_OPTIONS: { id: string; label: string }[] = [
+  { id: 'disposable', label: 'Disposable' },
+  { id: '0.5g', label: '0.5g' },
+  { id: '1g', label: '1g' },
+  { id: '3.5g', label: '3.5g' },
+  { id: '7g', label: '7g' },
+  { id: '14g', label: '14g' },
+  { id: '28g', label: '28g' },
+  { id: '100mg', label: '100mg' },
+  { id: '200mg', label: '200mg' },
 ];
 
 const DISTANCE_OPTIONS: { id: DistanceRange; label: string; desc: string }[] = [
@@ -43,42 +37,6 @@ const DISTANCE_OPTIONS: { id: DistanceRange; label: string; desc: string }[] = [
   { id: 'nearby', label: 'Nearby', desc: 'Within 10 miles' },
   { id: 'across_town', label: 'Across Town', desc: 'Within 15 miles' },
 ];
-
-/** Weight options that adapt to selected category. */
-function getWeightOptions(selectedCategories: Category[]): { id: string; label: string }[] {
-  const options: { id: string; label: string }[] = [{ id: 'all', label: 'Any Size' }];
-
-  // Show "Disposable" when vape is selected (or no category filter)
-  const showDisposable = selectedCategories.length === 0
-    || selectedCategories.includes('vape');
-
-  // If exactly one category is selected, show weights for that category
-  if (selectedCategories.length === 1) {
-    const cat = selectedCategories[0];
-    const config = VALID_WEIGHTS_BY_CATEGORY[cat];
-    if (config) {
-      // Disposable filters by product_subtype (AIO, RTU, all-in-one)
-      if (showDisposable) {
-        options.push({ id: 'disposable', label: 'Disposable' });
-      }
-      for (const w of config.commonWeights) {
-        const display = `${w}${config.unit}`;
-        options.push({ id: display, label: display });
-      }
-    }
-    return options;
-  }
-
-  // No category or multiple: show universal common weights
-  if (showDisposable) {
-    options.push({ id: 'disposable', label: 'Disposable' });
-  }
-  const universalWeights = ['0.5g', '1g', '3.5g', '7g', '14g', '28g', '100mg', '200mg'];
-  for (const w of universalWeights) {
-    options.push({ id: w, label: w });
-  }
-  return options;
-}
 
 type LocationPromptState = 'hidden' | 'choose' | 'requesting' | 'zip';
 
@@ -90,6 +48,9 @@ interface FilterSheetProps {
   onReset?: () => void;
   activeFilterCount?: number;
   onLocationSet?: () => void;
+  /** When true, opens the sheet and shows the location prompt (for "Nearest First" sort without location). */
+  openForLocation?: boolean;
+  onOpenForLocationHandled?: () => void;
 }
 
 export function FilterSheet({
@@ -100,9 +61,10 @@ export function FilterSheet({
   onReset,
   activeFilterCount: externalActiveCount,
   onLocationSet,
+  openForLocation = false,
+  onOpenForLocationHandled,
 }: FilterSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [sortOpen, setSortOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationPrompt, setLocationPrompt] = useState<LocationPromptState>('hidden');
   const [zipInput, setZipInput] = useState('');
@@ -119,8 +81,6 @@ export function FilterSheet({
       .map((d) => ({ id: d.id, name: d.name }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, []);
-
-  const weightOptions = useMemo(() => getWeightOptions(filters.categories), [filters.categories]);
 
   // Recently selected dispensaries (persisted across sessions)
   const RECENT_DISPOS_KEY = 'clouded_recent_dispensaries';
@@ -175,15 +135,6 @@ export function FilterSheet({
     trackEvent('filter_change', undefined, { action: 'reset' });
   };
 
-  const toggleCategory = (cat: Category) => {
-    hapticLight();
-    const next = filters.categories.includes(cat)
-      ? filters.categories.filter((c) => c !== cat)
-      : [...filters.categories, cat];
-    onFiltersChange({ ...filters, categories: next, quickFilter: 'none' });
-    trackEvent('filter_change', undefined, { categories: next.join(',') });
-  };
-
   const toggleDispensary = (id: string) => {
     hapticLight();
     const isAdding = !filters.dispensaryIds.includes(id);
@@ -203,16 +154,6 @@ export function FilterSheet({
     onFiltersChange({ ...filters, dispensaryIds: [], quickFilter: 'none' });
   };
 
-  // Sort option click — if "distance" is selected without location, prompt for it
-  const handleSortSelect = useCallback((optId: SortOption) => {
-    if (optId === 'distance' && !hasLocation) {
-      setLocationPrompt('choose');
-      return;
-    }
-    onFiltersChange({ ...filters, sortBy: optId });
-    setSortOpen(false);
-  }, [filters, hasLocation, onFiltersChange]);
-
   // Geolocation request for inline prompt
   const handleUseLocation = useCallback(async () => {
     setLocationPrompt('requesting');
@@ -228,7 +169,7 @@ export function FilterSheet({
       localStorage.setItem('clouded_user_coords', JSON.stringify(coords));
       setLocationPrompt('hidden');
       onFiltersChange({ ...filters, sortBy: 'distance' });
-      setSortOpen(false);
+  
       onLocationSet?.();
       trackEvent('filter_change', undefined, { action: 'location_set', method: 'geolocation' });
     } catch {
@@ -260,10 +201,19 @@ export function FilterSheet({
     setZipInput('');
     setZipError('');
     onFiltersChange({ ...filters, sortBy: 'distance' });
-    setSortOpen(false);
+
     onLocationSet?.();
     trackEvent('filter_change', undefined, { action: 'location_set', method: 'zip', zip });
   }, [zipInput, filters, onFiltersChange, onLocationSet]);
+
+  // Open sheet with location prompt when triggered externally (e.g., sort dropdown "Nearest First")
+  useEffect(() => {
+    if (openForLocation) {
+      setIsOpen(true);
+      setLocationPrompt('choose');
+      onOpenForLocationHandled?.();
+    }
+  }, [openForLocation, onOpenForLocationHandled]);
 
   // Auto-expand location section when user has location or active location filters
   useEffect(() => {
@@ -406,17 +356,6 @@ export function FilterSheet({
             {activeFilterCount > 0 && !dispoFullscreen && (
               <div className="flex-shrink-0 px-5 pt-3 pb-1">
                 <div className="flex flex-wrap gap-1.5">
-                  {filters.categories.map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => toggleCategory(cat)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full bg-purple-500/15 text-purple-400 text-xs font-medium"
-                      aria-label={`Remove ${cat} filter`}
-                    >
-                      {cat}
-                      <X className="w-3 h-3" />
-                    </button>
-                  ))}
                   {filters.distanceRange !== 'all' && (
                     <button
                       onClick={() => onFiltersChange({ ...filters, distanceRange: 'all', quickFilter: 'none' })}
@@ -455,130 +394,73 @@ export function FilterSheet({
             <div ref={scrollRef} className={`flex-1 min-h-0 px-5 py-4 overscroll-contain ${
               dispoFullscreen ? 'flex flex-col' : 'overflow-y-auto space-y-6'
             }`}>
-              {/* Category — primary filter, shown first (hidden in dispo fullscreen) */}
-              {!dispoFullscreen && <section>
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Category</h3>
-                <div className="flex flex-wrap gap-2">
-                  {CATEGORIES.map((cat) => {
-                    const isSelected = filters.categories.includes(cat.id);
-                    return (
-                      <button
-                        key={cat.id}
-                        onClick={() => toggleCategory(cat.id)}
-                        className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all ${
-                          isSelected
-                            ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                            : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
-                        }`}
-                      >
-                        <span className="text-sm">{cat.icon}</span>
-                        {cat.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>}
-
-              {/* Sort By (collapsible, collapsed by default — hidden in dispo fullscreen) */}
-              {!dispoFullscreen && <section>
-                <button
-                  onClick={() => setSortOpen(!sortOpen)}
-                  className="flex items-center justify-between w-full"
-                  aria-expanded={sortOpen}
-                  aria-label="Toggle sort options"
-                >
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                    Sort: <span className="text-slate-300 normal-case">{SORT_OPTIONS.find(o => o.id === filters.sortBy)?.label}</span>
-                  </h3>
-                  <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${sortOpen ? 'rotate-180' : ''}`} />
-                </button>
-                {sortOpen && (
-                  <div className="mt-2 space-y-0.5 rounded-xl bg-slate-800/50 p-1.5">
-                    {SORT_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.id}
-                        onClick={() => handleSortSelect(opt.id)}
-                        className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${
-                          filters.sortBy === opt.id
-                            ? 'bg-purple-500/15 text-purple-400'
-                            : 'text-slate-400 hover:bg-slate-800'
-                        }`}
-                      >
-                        {opt.label}
-                        {opt.id === 'distance' && !hasLocation && (
-                          <span className="ml-1.5 text-[10px] text-slate-600">(set location)</span>
-                        )}
-                      </button>
-                    ))}
+              {/* Location prompt — shown when user needs to set location (triggered from sort dropdown) */}
+              {locationPrompt !== 'hidden' && !dispoFullscreen && (
+                <section>
+                  <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
+                    {locationPrompt === 'choose' && (
+                      <div className="space-y-2.5">
+                        <p className="text-xs text-slate-400 mb-3">Set your location to sort by distance</p>
+                        <button
+                          onClick={handleUseLocation}
+                          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-purple-500/15 text-purple-400 text-sm font-medium hover:bg-purple-500/25 transition-colors"
+                        >
+                          <Navigation className="w-4 h-4" />
+                          Use my location
+                        </button>
+                        <button
+                          onClick={() => {
+                            setLocationPrompt('zip');
+                            setTimeout(() => zipInputRef.current?.focus(), 100);
+                          }}
+                          className="w-full text-center text-xs text-slate-500 hover:text-slate-400 transition-colors py-1"
+                        >
+                          Or enter a zip code
+                        </button>
+                      </div>
+                    )}
+                    {locationPrompt === 'requesting' && (
+                      <div className="flex items-center justify-center gap-2 py-3 text-sm text-slate-400">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Requesting location...
+                      </div>
+                    )}
+                    {locationPrompt === 'zip' && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-slate-400">Enter your Las Vegas area zip code</p>
+                        <div className="flex gap-2">
+                          <input
+                            ref={zipInputRef}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={5}
+                            value={zipInput}
+                            onChange={(e) => { setZipInput(e.target.value.replace(/\D/g, '')); setZipError(''); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleZipSubmit(); }}
+                            placeholder="89101"
+                            className="flex-1 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500/50"
+                          />
+                          <button
+                            onClick={handleZipSubmit}
+                            className="px-4 py-2 rounded-lg bg-purple-500/20 text-purple-400 text-sm font-medium hover:bg-purple-500/30 transition-colors"
+                          >
+                            Go
+                          </button>
+                        </div>
+                        {zipError && <p className="text-xs text-red-400">{zipError}</p>}
+                        <button
+                          onClick={() => { setLocationPrompt('choose'); setZipInput(''); setZipError(''); }}
+                          className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors"
+                        >
+                          Back
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
+                </section>
+              )}
 
-                {/* Inline location prompt — shown when user taps "Nearest First" without location */}
-                {locationPrompt !== 'hidden' && (
-                    <div className="mt-3 rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
-                      {locationPrompt === 'choose' && (
-                        <div className="space-y-2.5">
-                          <p className="text-xs text-slate-400 mb-3">Set your location to sort by distance</p>
-                          <button
-                            onClick={handleUseLocation}
-                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-purple-500/15 text-purple-400 text-sm font-medium hover:bg-purple-500/25 transition-colors"
-                          >
-                            <Navigation className="w-4 h-4" />
-                            Use my location
-                          </button>
-                          <button
-                            onClick={() => {
-                              setLocationPrompt('zip');
-                              setTimeout(() => zipInputRef.current?.focus(), 100);
-                            }}
-                            className="w-full text-center text-xs text-slate-500 hover:text-slate-400 transition-colors py-1"
-                          >
-                            Or enter a zip code
-                          </button>
-                        </div>
-                      )}
-                      {locationPrompt === 'requesting' && (
-                        <div className="flex items-center justify-center gap-2 py-3 text-sm text-slate-400">
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Requesting location...
-                        </div>
-                      )}
-                      {locationPrompt === 'zip' && (
-                        <div className="space-y-2">
-                          <p className="text-xs text-slate-400">Enter your Las Vegas area zip code</p>
-                          <div className="flex gap-2">
-                            <input
-                              ref={zipInputRef}
-                              type="text"
-                              inputMode="numeric"
-                              maxLength={5}
-                              value={zipInput}
-                              onChange={(e) => { setZipInput(e.target.value.replace(/\D/g, '')); setZipError(''); }}
-                              onKeyDown={(e) => { if (e.key === 'Enter') handleZipSubmit(); }}
-                              placeholder="89101"
-                              className="flex-1 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500/50"
-                            />
-                            <button
-                              onClick={handleZipSubmit}
-                              className="px-4 py-2 rounded-lg bg-purple-500/20 text-purple-400 text-sm font-medium hover:bg-purple-500/30 transition-colors"
-                            >
-                              Go
-                            </button>
-                          </div>
-                          {zipError && <p className="text-xs text-red-400">{zipError}</p>}
-                          <button
-                            onClick={() => { setLocationPrompt('choose'); setZipInput(''); setZipError(''); }}
-                            className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors"
-                          >
-                            Back
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-              </section>}
-
-              {/* Weight / Size — multi-select (hidden in dispo fullscreen) */}
+              {/* Weight / Size — universal options (hidden in dispo fullscreen) */}
               {!dispoFullscreen && <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
                   Size / Weight
@@ -592,7 +474,7 @@ export function FilterSheet({
                   )}
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {weightOptions.filter(o => o.id !== 'all').map((opt) => {
+                  {WEIGHT_OPTIONS.map((opt) => {
                     const isSelected = filters.weightFilters.includes(opt.id);
                     return (
                     <button

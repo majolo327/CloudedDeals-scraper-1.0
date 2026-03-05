@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Clock, ChevronDown, Loader2 } from 'lucide-react';
+import { Clock, ChevronDown, Loader2, Sparkles } from 'lucide-react';
 import type { Deal } from '@/types';
 import { DealCard } from './cards';
 import { SwipeOverlay } from './SwipeOverlay';
@@ -10,7 +10,7 @@ import { ExpiredDealsBanner } from './ExpiredDealsBanner';
 import { FilterSheet } from './FilterSheet';
 import { StickyStatsBar } from './layout';
 import { DealCardSkeleton } from './Skeleton';
-import { getTimeUntilMidnight, isDealsFromYesterday } from '@/utils';
+import { getTimeUntilMidnight, isDealsFromYesterday, formatUpdateTime } from '@/utils';
 import { useDeck } from '@/hooks/useDeck';
 import { useUniversalFilters, formatDistance } from '@/hooks/useUniversalFilters';
 import { hapticSpecial } from '@/lib/haptics';
@@ -89,6 +89,22 @@ export function DealsPage({
 
     return () => clearTimeout(timer);
   }, [deals, isExpired, onRefresh]);
+
+  // Location-needed flow: when sort dropdown selects "Nearest First" without location,
+  // open the FilterSheet with the location prompt.
+  const [needsLocation, setNeedsLocation] = useState(false);
+
+  const handleLocationNeeded = useCallback(() => {
+    setNeedsLocation(true);
+  }, []);
+
+  const handleLocationNeededHandled = useCallback(() => {
+    setNeedsLocation(false);
+  }, []);
+
+  const handleSortChange = useCallback((sort: typeof filters.sortBy) => {
+    setFilters({ ...filters, sortBy: sort });
+  }, [setFilters, filters]);
 
   const handleLocationSet = useCallback(() => {
     refreshLocation();
@@ -199,6 +215,10 @@ export function DealsPage({
         onCategoryChange={setActiveCategory}
         showSwipeMode={!isExpired && filteredDeals.length > 0}
         onSwipeModeClick={() => setSwipeOpen(true)}
+        sortBy={filters.sortBy}
+        onSortChange={handleSortChange}
+        hasLocation={!!userCoords}
+        onLocationNeeded={handleLocationNeeded}
       >
         <FilterSheet
           filters={filters}
@@ -208,6 +228,8 @@ export function DealsPage({
           onReset={resetFilters}
           activeFilterCount={activeFilterCount}
           onLocationSet={handleLocationSet}
+          openForLocation={needsLocation}
+          onOpenForLocationHandled={handleLocationNeededHandled}
         />
       </StickyStatsBar>
 
