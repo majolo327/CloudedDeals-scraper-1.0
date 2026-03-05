@@ -28,9 +28,9 @@ export const revalidate = 3600;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://cloudeddeals.com';
 
 export const metadata: Metadata = {
-  title: 'Las Vegas Dispensary Deals Today — Every Deal, Every Dispensary',
+  title: 'Las Vegas Dispensary Deals Today — Only the Best, Every Dispensary',
   description:
-    'Compare cannabis deals from every Las Vegas dispensary, updated daily at 8 AM PT. Flower, vapes, edibles, concentrates & pre-rolls — the best prices in one place.',
+    'The best cannabis deals from every Las Vegas dispensary, curated daily at 8 AM PT. Flower, vapes, edibles, concentrates & pre-rolls — only the deals worth your money.',
   keywords: [
     'las vegas dispensary deals',
     'vegas weed deals',
@@ -44,9 +44,9 @@ export const metadata: Metadata = {
     canonical: `${SITE_URL}/las-vegas-dispensary-deals`,
   },
   openGraph: {
-    title: 'Las Vegas Dispensary Deals Today — Every Deal, Every Dispensary | CloudedDeals',
+    title: 'Las Vegas Dispensary Deals Today — Only the Best, Every Dispensary | CloudedDeals',
     description:
-      'Compare cannabis deals from every Las Vegas dispensary, updated daily. The best prices on flower, vapes, edibles & concentrates.',
+      'The best cannabis deals from every Las Vegas dispensary, curated daily. Flower, vapes, edibles & concentrates — only the deals worth your money.',
     url: `${SITE_URL}/las-vegas-dispensary-deals`,
     siteName: 'CloudedDeals',
     type: 'website',
@@ -56,7 +56,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Las Vegas Dispensary Deals Today | CloudedDeals',
     description:
-      'Every deal from every Las Vegas dispensary. Flower, vapes, edibles & concentrates — updated daily at 8 AM.',
+      'The best deals from every Las Vegas dispensary. Flower, vapes, edibles & concentrates — curated daily at 8 AM.',
   },
 };
 
@@ -87,7 +87,7 @@ const FAQS = [
   {
     question: 'Is CloudedDeals free to use?',
     answer:
-      'Yes, CloudedDeals is completely free. No account needed. We check every dispensary every morning and bring every deal into one place — no sponsored placements.',
+      'Yes, CloudedDeals is completely free. No account needed. We scan every dispensary every morning and surface only the deals worth your money — no sponsored placements.',
   },
 ];
 
@@ -156,8 +156,8 @@ export default async function LasVegasDealsPage() {
             Las Vegas Dispensary Deals — Updated Daily
           </h1>
           <p className="text-slate-400 text-base sm:text-lg max-w-2xl mb-6">
-            We check every dispensary in Las Vegas every morning and bring every deal into one place.
-            Flower, vapes, edibles, concentrates — the best prices, no account needed.
+            We scan every dispensary in Las Vegas every morning and surface only the deals worth your money.
+            Flower, vapes, edibles, concentrates — if it&apos;s here, it earned its spot.
           </p>
 
           {/* Stats */}
@@ -337,12 +337,11 @@ export default async function LasVegasDealsPage() {
               — especially if you&apos;re visiting and unfamiliar with local pricing.
             </p>
             <p>
-              CloudedDeals solves this by checking every dispensary in Las Vegas every
-              single morning. Our system scans menus from 27+ dispensaries across the
+              CloudedDeals solves this by scanning every dispensary in Las Vegas every
+              single morning. We check menus from 27+ dispensaries across the
               valley — from Strip-adjacent spots like Planet 13 and Oasis Cannabis to
-              local favorites in Henderson and North Las Vegas. Every deal is scored on
-              discount percentage, absolute savings, and value, then ranked so the best
-              deals rise to the top.
+              local favorites in Henderson and North Las Vegas. Most deals don&apos;t make
+              the cut. The ones that do are the best prices you&apos;ll find today.
             </p>
             <p>
               Whether you&apos;re looking for the cheapest eighth of flower near the

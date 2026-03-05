@@ -55,7 +55,7 @@ export async function generateMetadata({ params }: DealPageProps): Promise<Metad
               url: `${siteUrl}/og-image.png`,
               width: 1200,
               height: 630,
-              alt: 'Clouded Deals — Every Deal. Every Dispensary. One Place.',
+              alt: 'Clouded Deals — The Best Deals. Every Dispensary.',
             },
           ],
         },
@@ -73,7 +73,7 @@ export async function generateMetadata({ params }: DealPageProps): Promise<Metad
 
   return {
     title: 'Deal — Clouded Deals',
-    description: 'Every deal. Every dispensary. One place.',
+    description: 'The best deals. Every dispensary.',
   };
 }
 
