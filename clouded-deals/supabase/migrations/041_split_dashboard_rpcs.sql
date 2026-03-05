@@ -369,9 +369,9 @@ BEGIN
     ORDER BY started_at DESC LIMIT 15
   )
   SELECT ROUND(AVG(
-    CASE WHEN (COALESCE(array_length(sites_scraped, 1), 0) + COALESCE(array_length(sites_failed, 1), 0)) > 0
-    THEN COALESCE(array_length(sites_scraped, 1), 0)::numeric
-      / (COALESCE(array_length(sites_scraped, 1), 0) + COALESCE(array_length(sites_failed, 1), 0)) * 100
+    CASE WHEN (COALESCE(jsonb_array_length(sites_scraped), 0) + COALESCE(jsonb_array_length(sites_failed), 0)) > 0
+    THEN COALESCE(jsonb_array_length(sites_scraped), 0)::numeric
+      / (COALESCE(jsonb_array_length(sites_scraped), 0) + COALESCE(jsonb_array_length(sites_failed), 0)) * 100
     ELSE 100 END
   ), 0) INTO v_scraper_success FROM recent;
 
@@ -386,12 +386,12 @@ BEGIN
   by_region AS (
     SELECT
       base_region,
-      SUM(COALESCE(array_length(sites_scraped, 1), 0)) AS sites_ok,
+      SUM(COALESCE(jsonb_array_length(sites_scraped), 0)) AS sites_ok,
       SUM(total_products) AS products,
       ROUND(AVG(
-        CASE WHEN (COALESCE(array_length(sites_scraped, 1), 0) + COALESCE(array_length(sites_failed, 1), 0)) > 0
-        THEN COALESCE(array_length(sites_scraped, 1), 0)::numeric
-          / (COALESCE(array_length(sites_scraped, 1), 0) + COALESCE(array_length(sites_failed, 1), 0)) * 100
+        CASE WHEN (COALESCE(jsonb_array_length(sites_scraped), 0) + COALESCE(jsonb_array_length(sites_failed), 0)) > 0
+        THEN COALESCE(jsonb_array_length(sites_scraped), 0)::numeric
+          / (COALESCE(jsonb_array_length(sites_scraped), 0) + COALESCE(jsonb_array_length(sites_failed), 0)) * 100
         ELSE 100 END
       ), 0) AS success_rate_7d,
       MAX(started_at) AS last_run
