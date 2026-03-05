@@ -13,8 +13,7 @@ Usage:
 Environment variables (for CI):
     DRY_RUN=true              # scrape only, skip all DB writes
     LIMIT_DISPENSARIES=true   # scrape only 3 sites (1 per platform)
-    PLATFORM_GROUP=stable     # scrape only stable platforms (dutchie/curaleaf/jane)
-    PLATFORM_GROUP=new        # scrape only new platforms (rise/carrot/aiq)
+    PLATFORM_GROUP=stable     # scrape stable platforms (dutchie/curaleaf/jane/carrot/aiq/rise)
     PLATFORM_GROUP=all        # scrape everything (default)
     REGION=southern-nv        # scrape only one region/state
     REGION=northern-nv        # scrape only Northern Nevada (Reno/Sparks/Carson City)
@@ -56,6 +55,8 @@ from clouded_logic import CloudedLogic, BRANDS_LOWER
 from deal_detector import detect_deals, get_last_report_data
 from metrics_collector import collect_daily_metrics
 from product_classifier import classify_product
+from platforms import AIQScraper, CarrotScraper, CuraleafScraper, DutchieScraper, JaneScraper, RiseScraper
+from platforms.base import launch_stealth_browser
 from platforms import (
     AIQScraper, CarrotScraper, CuraleafScraper, DutchieScraper,
     JaneScraper, RiseScraper, launch_stealth_browser,
@@ -1840,7 +1841,9 @@ async def run(slug_filter: str | None = None) -> None:
     status = "failed"
 
     try:
-        # Launch ONE shared browser for all concurrent scrapers
+        # Launch ONE shared browser for all concurrent scrapers.
+        # Uses launch_stealth_browser() which tries real Chrome first
+        # (legitimate TLS fingerprint) then falls back to bundled Chromium.
         pw = await async_playwright().start()
         browser = await launch_stealth_browser(
             pw,

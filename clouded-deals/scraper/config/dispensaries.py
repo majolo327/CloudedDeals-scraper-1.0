@@ -1,4 +1,24 @@
 """
+Dispensary configuration across 11 regions and 5 active platforms.
+
+Regions (1143 active):
+  - michigan:      196 dispensaries (Dutchie-dominant)
+  - illinois:      165 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - colorado:      133 dispensaries (Dutchie + Jane)
+  - massachusetts: 111 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - new-jersey:    102 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - arizona:        99 dispensaries (Dutchie + Curaleaf/Zen Leaf + Jane)
+  - missouri:       89 dispensaries (Dutchie-only)
+  - ohio:           78 dispensaries (Dutchie + Jane + Curaleaf/Zen Leaf)
+  - new-york:       74 dispensaries (Dutchie + Jane + Curaleaf)
+  - southern-nv:    53 dispensaries (Dutchie/Jane/Carrot/Curaleaf/Zen Leaf/AIQ)
+  - pennsylvania:   43 dispensaries (Curaleaf/Zen Leaf + Dutchie)
+
+Platforms (1143 active / 1192 total):
+  - dutchie: ~846 — iframe-based menus (Dutchie/TD sites)
+  - jane:    ~181 — hybrid iframe/direct with "View More" pagination
+  - curaleaf: ~109 — direct page loads (Curaleaf + Zen Leaf)
+  - rise:        3 — canary sites testing stealth v2 (34 still deactivated)
 Dispensary configuration across 12 regions and 5 active platforms.
 
 Regions (~2072 active / ~2121 total):
@@ -23,8 +43,9 @@ Platforms (~2072 active / ~2122 total):
   - carrot:      5 — JS widget via getcarrot.io
   - aiq:         2 — Alpine IQ / Dispense React SPA
 
-Rise sites (37) are kept in config with is_active=False for DB history
-but are universally skipped due to Cloudflare blocking.
+Rise sites: 3 canaries re-enabled for stealth v2 testing (Chrome channel +
+playwright-stealth).  Remaining 34 sites kept is_active=False until canaries
+confirm Cloudflare bypass works.
 Curaleaf MI sites (4) deactivated — Curaleaf exited Michigan late 2023.
 
 Sites marked ``is_active: False`` are known-broken (redirects, rebrands,
@@ -39,7 +60,17 @@ The ``REGION`` env var in main.py controls which state is scraped.
 # Browser / Playwright defaults — stealth configuration
 # ---------------------------------------------------------------------------
 
+import logging as _logging
 import random as _random
+
+_log = _logging.getLogger(__name__)
+
+# Use real Chrome (not bundled Chromium) for a legitimate TLS fingerprint.
+# Bundled Chromium has a distinct JA3/JA4 TLS hash that Cloudflare flags
+# instantly — before any JS stealth patches even run.
+# Install with: playwright install chrome
+# Falls back to bundled Chromium if Chrome is unavailable (see base.py).
+BROWSER_CHANNEL = "chrome"
 
 BROWSER_ARGS = [
     "--no-sandbox",
@@ -49,6 +80,23 @@ BROWSER_ARGS = [
     "--disable-features=AutomationControlled",
 ]
 
+# Pool of realistic Chrome User-Agents — MUST track the actual Chrome
+# version installed by `playwright install chrome`.  Mismatched UA vs
+# real binary version is a Cloudflare detection signal.
+# Current: Chrome 133 (Feb 2026).
+_USER_AGENT_POOL = [
+    # Chrome 133 — Windows
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+    # Chrome 133 — macOS
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+    # Chrome 133 — Linux
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+    # Chrome 132 — Windows (still common)
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+    # Chrome 132 — macOS
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+    # Chrome 133 — Windows 11
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 Edg/133.0.0.0",
 # Prefer real Chrome over bundled Chromium.  playwright-stealth patches work
 # best on the branded Chrome channel because its TLS fingerprint, navigator
 # properties, and codec support match what Cloudflare expects.  The launcher
@@ -99,6 +147,15 @@ def get_viewport() -> dict[str, int]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Stealth — handled by playwright-stealth 2.0+
+#
+# The playwright-stealth package patches 30+ detection vectors automatically
+# (webdriver, plugins, languages, chrome.runtime, permissions API, WebGL,
+# canvas, AudioContext, CDP leak, navigator.connection, screen dimensions,
+# etc.).  Our previous hand-rolled STEALTH_INIT_SCRIPT only covered ~5.
+#
+# Kept as a legacy fallback in case playwright-stealth is unavailable.
 # ---------------------------------------------------------------------------
 # Region-aware timezone / locale mapping
 # ---------------------------------------------------------------------------
@@ -160,31 +217,12 @@ def get_context_fingerprint(region: str | None = None) -> dict:
 # Playwright/Chromium automation signals.  Industry-standard technique
 # used by all major scraping frameworks.
 STEALTH_INIT_SCRIPT = """
-// 1. Mask navigator.webdriver (primary bot signal)
-Object.defineProperty(navigator, 'webdriver', {
-    get: () => undefined,
-});
-
-// 2. Override navigator.plugins to look like a real browser
-Object.defineProperty(navigator, 'plugins', {
-    get: () => [1, 2, 3, 4, 5],
-});
-
-// 3. Override navigator.languages to match User-Agent
-Object.defineProperty(navigator, 'languages', {
-    get: () => ['en-US', 'en'],
-});
-
-// 4. Mask chrome.runtime (present in real Chrome, absent in headless)
+// Legacy fallback — only used if playwright-stealth is not installed.
+Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
 if (!window.chrome) { window.chrome = {}; }
 if (!window.chrome.runtime) { window.chrome.runtime = {}; }
-
-// 5. Override permissions API (Notification permission query leaks headless)
-const _origQuery = window.navigator.permissions.query.bind(navigator.permissions);
-window.navigator.permissions.query = (params) =>
-    params.name === 'notifications'
-        ? Promise.resolve({ state: Notification.permission })
-        : _origQuery(params);
 """
 
 # Use 'domcontentloaded' — NOT 'networkidle' — to avoid hanging on
@@ -661,7 +699,7 @@ DISPENSARIES = [
         "slug": "rise-tropicana",
         "platform": "rise",
         "url": "https://risecannabis.com/dispensaries/nevada/west-tropicana/886/pickup-menu/",
-        "is_active": False,  # Cloudflare blocked
+        "is_active": True,  # Stealth v2 canary — testing Chrome channel + playwright-stealth
         "region": "southern-nv",
     },
     {
@@ -1322,7 +1360,7 @@ DISPENSARIES = [
 
     # ── RISE ILLINOIS (GTI — 11 locations, Rise platform) ──────────
     # All Rise sites deactivated — 100% Cloudflare blocked across all regions
-    {"name": "Rise Mundelein IL", "slug": "rise-mundelein", "platform": "rise", "url": "https://risecannabis.com/dispensaries/illinois/mundelein/1342/recreational-menu/", "is_active": False, "region": "illinois"},
+    {"name": "Rise Mundelein IL", "slug": "rise-mundelein", "platform": "rise", "url": "https://risecannabis.com/dispensaries/illinois/mundelein/1342/recreational-menu/", "is_active": True, "region": "illinois"},  # Stealth v2 canary
     {"name": "Rise Niles IL", "slug": "rise-niles", "platform": "rise", "url": "https://risecannabis.com/dispensaries/illinois/niles/1812/recreational-menu/", "is_active": False, "region": "illinois"},
     {"name": "Rise Naperville IL", "slug": "rise-naperville", "platform": "rise", "url": "https://risecannabis.com/dispensaries/illinois/naperville/2265/recreational-menu/", "is_active": False, "region": "illinois"},
     {"name": "Rise Lake in the Hills IL", "slug": "rise-lake-hills", "platform": "rise", "url": "https://risecannabis.com/dispensaries/illinois/lake-in-the-hills/2901/recreational-menu/", "is_active": False, "region": "illinois"},
@@ -1969,7 +2007,7 @@ DISPENSARIES = [
 
     # ── RISE NJ (GTI — Rise platform) ────────────────────────────
     # All Rise sites deactivated — 100% Cloudflare blocked across all regions
-    {"name": "Rise Bloomfield NJ", "slug": "rise-nj-bloomfield", "platform": "rise", "url": "https://risecannabis.com/dispensaries/new-jersey/bloomfield/3120/recreational-menu/", "is_active": False, "region": "new-jersey"},
+    {"name": "Rise Bloomfield NJ", "slug": "rise-nj-bloomfield", "platform": "rise", "url": "https://risecannabis.com/dispensaries/new-jersey/bloomfield/3120/recreational-menu/", "is_active": True, "region": "new-jersey"},  # Stealth v2 canary
     {"name": "Rise Paterson NJ", "slug": "rise-nj-paterson", "platform": "rise", "url": "https://risecannabis.com/dispensaries/new-jersey/paterson/3104/recreational-menu/", "is_active": False, "region": "new-jersey"},
 
     # ── ZEN LEAF NJ (Verano) ─────────────────────────────────────
@@ -4022,9 +4060,9 @@ def get_chain_id(dispensary_slug: str) -> str:
 # ---------------------------------------------------------------------------
 
 PLATFORM_GROUPS: dict[str, list[str]] = {
-    "stable": ["dutchie", "curaleaf", "jane", "carrot", "aiq"],
+    "stable": ["dutchie", "curaleaf", "jane", "carrot", "aiq", "rise"],
     "new": [],
-    "disabled": ["rise"],
+    "disabled": [],
 }
 
 # Reverse lookup: platform → group name
