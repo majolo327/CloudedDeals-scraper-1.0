@@ -102,7 +102,8 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is False
 
     def test_below_min_discount_rejected(self, make_product):
-        p = make_product(discount_percent=14)
+        """14% discount on a non-budget flower ($20) — below 15% floor."""
+        p = make_product(discount_percent=14, sale_price=20.0, original_price=23.26)
         assert passes_hard_filters(p) is False
 
     def test_at_min_discount_passes(self, make_product):
@@ -262,6 +263,40 @@ class TestPassesHardFilters:
         p = make_product(category="vape", sale_price=26.0, original_price=28.89,
                          discount_percent=10, product_subtype="disposable",
                          weight_value=1.0)
+        assert passes_hard_filters(p) is False
+
+    # ── Budget flower discount bypass ─────────────────────────────
+    # Flower ≤$15 only needs *any* discount (>0%) instead of the
+    # normal 15% floor — the absolute price IS the value proposition.
+
+    def test_budget_flower_low_discount_passes(self, make_product):
+        """$14 flower from $15 = 7% — below 15% floor but budget bypass lets it through."""
+        p = make_product(category="flower", sale_price=14.0, original_price=15.0,
+                         discount_percent=7, weight_value=3.5)
+        assert passes_hard_filters(p) is True
+
+    def test_budget_flower_10_dollar_passes(self, make_product):
+        """$10 flower from $12 = 17% — classic budget steal, easily passes."""
+        p = make_product(category="flower", sale_price=10.0, original_price=12.0,
+                         discount_percent=17, weight_value=3.5)
+        assert passes_hard_filters(p) is True
+
+    def test_budget_flower_tiny_discount_passes(self, make_product):
+        """$12 flower from $13 = 8% — still passes with budget bypass."""
+        p = make_product(category="flower", sale_price=12.0, original_price=13.0,
+                         discount_percent=8, weight_value=3.5)
+        assert passes_hard_filters(p) is True
+
+    def test_budget_flower_zero_discount_rejected(self, make_product):
+        """$14 flower with 0% discount still rejected — need *some* markdown."""
+        p = make_product(category="flower", sale_price=14.0, original_price=14.0,
+                         discount_percent=0, weight_value=3.5)
+        assert passes_hard_filters(p) is False
+
+    def test_non_budget_flower_needs_15pct(self, make_product):
+        """$18 flower at 10% — above $15 threshold, normal 15% floor applies."""
+        p = make_product(category="flower", sale_price=18.0, original_price=20.0,
+                         discount_percent=10, weight_value=3.5)
         assert passes_hard_filters(p) is False
 
     # ── Half-gram disposable cap widened $15 → $18 ─────────────────
@@ -932,6 +967,36 @@ class TestCalculateDealScore:
         # discount=0 → rejected by hard filter, but score function doesn't check that
         s = calculate_deal_score(p)
         assert s >= boost  # at minimum the category boost is included
+
+    def test_budget_flower_gets_bonus(self, make_product):
+        """$12 flower should get the +5pt budget bonus; $18 flower should not."""
+        p_cheap = make_product(
+            discount_percent=20, sale_price=12.0, original_price=15.0,
+            category="flower", weight_value=3.5,
+        )
+        p_normal = make_product(
+            discount_percent=20, sale_price=18.0, original_price=22.5,
+            category="flower", weight_value=3.5,
+        )
+        s_cheap = calculate_deal_score(p_cheap)
+        s_normal = calculate_deal_score(p_normal)
+        # Cheap flower gets budget bonus (+5) and better price attractiveness,
+        # so it should score noticeably higher despite similar discount %.
+        assert s_cheap > s_normal
+
+    def test_budget_edible_gets_bonus(self, make_product):
+        """$8 edible should get the +5pt budget bonus; $14 edible should not."""
+        p_cheap = make_product(
+            discount_percent=20, sale_price=8.0, original_price=10.0,
+            category="edible", weight_value=None,
+        )
+        p_normal = make_product(
+            discount_percent=20, sale_price=14.0, original_price=17.5,
+            category="edible", weight_value=None,
+        )
+        s_cheap = calculate_deal_score(p_cheap)
+        s_normal = calculate_deal_score(p_normal)
+        assert s_cheap > s_normal
 
 
 # =====================================================================

@@ -794,6 +794,13 @@ def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> b
         and subtype == "disposable"
         and sale_price <= 25
     )
+    # Budget flower: cheap eighths (≤$15) are genuine steals where the
+    # absolute price is the value proposition.  The 15% discount minimum
+    # blocks many of these (e.g. $14→$12 = 14.3%) because dispensaries
+    # don't heavily mark down already-cheap product.
+    is_budget_flower = (
+        category == "flower" and sale_price <= 15
+    )
 
     # Budget disposables (≤$25) skip discount AND original_price checks.
     # Most Dutchie disposables only show a retail price without a was-price
@@ -802,9 +809,9 @@ def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> b
     if is_budget_disposable:
         return _passes_price_cap(sale_price, category, weight_value, region)
 
-    # Budget edibles/prerolls still require *any* discount (>0%) but bypass
-    # the full minimum discount floors.
-    if is_budget_edible_preroll:
+    # Budget edibles/prerolls/flower still require *any* discount (>0%) but
+    # bypass the full minimum discount floors.
+    if is_budget_edible_preroll or is_budget_flower:
         min_disc = 1
     else:
         min_disc = CATEGORY_MIN_DISCOUNT.get(category, HARD_FILTERS["min_discount_percent"])
@@ -1414,7 +1421,7 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
       4. Unit value            — up to 15 pts
       5. Category boost        — up to 8 pts
       6. Price attractiveness  — up to 12 pts
-      7. Budget deal bonus     — up to 5 pts (prerolls/edibles ≤$11)
+      7. Budget deal bonus     — up to 5 pts (prerolls/edibles ≤$11, flower ≤$15)
     """
     score = 0
     discount = product.get("discount_percent") or 0
@@ -1481,10 +1488,13 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
         score += 4
 
     # 7. BUDGET DEAL BONUS (up to 5 points)
-    # Prerolls and edibles at $11 or less are accessible price points that
-    # consumers actively seek out.  Give them a scoring boost so more appear
-    # in the feed instead of being outscored by higher-priced categories.
-    if category in ("preroll", "edible") and sale_price <= 11:
+    # Prerolls and edibles at $11 or less, and flower at $15 or less, are
+    # accessible price points that consumers actively seek out.  Give them a
+    # scoring boost so more appear in the feed instead of being outscored by
+    # higher-priced categories.
+    if (category in ("preroll", "edible") and sale_price <= 11) or (
+        category == "flower" and sale_price <= 15
+    ):
         score += 5
 
     # 8. DISPOSABLE BOOST (up to 12 points)
