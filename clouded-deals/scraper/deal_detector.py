@@ -1035,6 +1035,75 @@ def _score_brand(brand: str) -> int:
 # =====================================================================
 
 
+def _pick_disposable_price_leaders(
+    pool: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Pick the cheapest disposable from each weight tier.
+
+    Weight tiers:
+      - small: ≤0.5g  (0.3g, 0.5g disposables)
+      - medium: 0.5g–0.8g exclusive (0.8g disposables)
+      - large: ≥0.8g  (0.8g, 1.0g, 1.5g disposables)
+
+    Returns up to 3 deals (one per tier that has inventory), sorted by
+    price ascending.  If a tier has no products, the slot goes to the
+    next-cheapest overall disposable.
+    """
+    def _weight_g(deal: dict) -> float:
+        """Extract weight in grams from deal, defaulting to 0."""
+        w = deal.get("weight_value") or deal.get("weight") or 0
+        if isinstance(w, str):
+            try:
+                w = float(w.replace("g", "").strip())
+            except (ValueError, AttributeError):
+                w = 0
+        return float(w)
+
+    def _price(deal: dict) -> float:
+        return deal.get("sale_price") or deal.get("current_price") or 999
+
+    # Bucket by weight tier
+    small: list[dict] = []   # ≤0.5g
+    medium: list[dict] = []  # >0.5g and <0.8g
+    large: list[dict] = []   # ≥0.8g
+    unknown: list[dict] = [] # no weight info
+
+    for d in pool:
+        w = _weight_g(d)
+        if w <= 0:
+            unknown.append(d)
+        elif w <= 0.5:
+            small.append(d)
+        elif w < 0.8:
+            medium.append(d)
+        else:
+            large.append(d)
+
+    # Sort each tier by price ascending
+    for tier in (small, medium, large, unknown):
+        tier.sort(key=_price)
+
+    # Pick cheapest from each tier
+    leaders: list[dict] = []
+    for tier in (small, medium, large):
+        if tier:
+            leaders.append(tier[0])
+
+    # If we have fewer than 3 leaders, backfill from unknown or remaining
+    if len(leaders) < 3:
+        picked_ids = set(id(d) for d in leaders)
+        remaining = [d for d in pool if id(d) not in picked_ids]
+        remaining.sort(key=_price)
+        for d in remaining:
+            if len(leaders) >= 3:
+                break
+            leaders.append(d)
+
+    # Sort final leaders by price ascending
+    leaders.sort(key=_price)
+    return leaders
+
+
 def _pick_guaranteed_deals(
     products: list[dict[str, Any]],
     max_picks: int = 1,
@@ -1520,17 +1589,29 @@ def select_top_deals(
     # category), then by deal_score for the rest.  This ensures the
     # absolute cheapest deals in each category get priority slots,
     # giving users the "steals" they want to see at the top.
+    #
+    # For disposables: weight-tier-aware selection — pick the cheapest
+    # deal from each weight tier (≤0.5g, 0.5–0.8g, ≥0.8g) so users
+    # see the best-priced disposable at every common size (0.3g, 0.5g,
+    # 0.8g–1.0g).
     _PRICE_PRIORITY_SLOTS = 3
     for cat in buckets:
         pool = buckets[cat]
-        # Sort by price ascending to find cheapest deals
-        pool.sort(key=lambda d: d.get("sale_price") or d.get("current_price") or 999)
-        price_leaders = pool[:_PRICE_PRIORITY_SLOTS]
-        rest = pool[_PRICE_PRIORITY_SLOTS:]
-        # Sort rest by deal_score descending
-        rest.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
-        # Reassemble: price leaders first, then score-ranked
-        buckets[cat] = price_leaders + rest
+
+        if cat == "disposable" and len(pool) >= 3:
+            # Weight-tier price leaders: cheapest disposable per size tier
+            price_leaders = _pick_disposable_price_leaders(pool)
+            leader_set = set(id(d) for d in price_leaders)
+            rest = [d for d in pool if id(d) not in leader_set]
+            rest.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+            buckets[cat] = price_leaders + rest
+        else:
+            # Standard: 3 cheapest first, then by score
+            pool.sort(key=lambda d: d.get("sale_price") or d.get("current_price") or 999)
+            price_leaders = pool[:_PRICE_PRIORITY_SLOTS]
+            rest = pool[_PRICE_PRIORITY_SLOTS:]
+            rest.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+            buckets[cat] = price_leaders + rest
 
     # ------------------------------------------------------------------
     # Step 2: Calculate category slot allocation

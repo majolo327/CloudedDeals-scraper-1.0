@@ -307,14 +307,18 @@ export async function fetchDeals(region?: string): Promise<FetchDealsResult> {
       : [];
 
     // Chain-level cap: multi-location chains (Rise=7, Thrive=5, etc.)
-    // can flood the feed. Cap at 25 per chain while guaranteeing at least
+    // can flood the feed. Cap at 40 per chain while guaranteeing at least
     // 1 deal per individual dispensary. Backend already caps per-store at 12.
-    const chainCapped = applyChainDiversityCap(allDeals, 25);
+    // Raised from 25 → 40: with 277 deals selected, 25 was cutting ~96 deals
+    // and leaving only 181 on the frontend.
+    const chainCapped = applyChainDiversityCap(allDeals, 40);
 
-    // Two-tier brand cap: (1) max 4 per brand per category so one brand
-    // can't crowd out an entire category, (2) max 12 per brand total so
-    // a brand with deals across every category can't flood the deck.
-    const deals = applyGlobalBrandCap(chainCapped, 4, 12);
+    // Two-tier brand cap: (1) max 6 per brand per category so one brand
+    // can't crowd out an entire category, (2) max 18 per brand total so
+    // a brand with deals across many categories still gets good coverage.
+    // Raised from (4, 12) → (6, 18): users want to see more deals, and
+    // the scraper already applies brand diversity at selection time.
+    const deals = applyGlobalBrandCap(chainCapped, 6, 18);
 
     // --- Filter impact log (visible in browser DevTools → Console) ---
     console.log(

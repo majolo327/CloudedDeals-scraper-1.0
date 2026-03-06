@@ -202,6 +202,10 @@ async def _ensure_store_selected(page: Page, slug: str) -> None:
     store_selector_patterns = [
         'button:has-text("Shopping at")',
         'a:has-text("Shopping at")',
+        'button:has-text("Planet 13")',
+        'button:has-text("Medizin")',
+        'a:has-text("Planet 13")',
+        'a:has-text("Medizin")',
         '[class*="store-selector"]',
         '[class*="storeSelector"]',
         '[class*="location-picker"]',
@@ -209,6 +213,13 @@ async def _ensure_store_selected(page: Page, slug: str) -> None:
         '[data-testid*="store"]',
         '[class*="StorePicker"]',
         '[class*="store-picker"]',
+        # P13 site header elements
+        '[class*="location"] button',
+        '[class*="Location"] button',
+        'header button:has-text("Planet")',
+        'header button:has-text("Medizin")',
+        'header a:has-text("Planet")',
+        'header a:has-text("Medizin")',
     ]
 
     selector_el = None
@@ -386,7 +397,147 @@ _DUTCHIE_CATEGORIES = [
     "Flower", "Edibles", "Concentrates", "Vapes", "Pre-Rolls",
     "Topicals", "Tinctures", "Accessories", "Beverages",
     "Cartridges", "Pre-Roll", "Preroll", "Edible", "Vape",
+    "Vaporizers", "Vaporizer",
 ]
+
+# Labels that indicate a vaporizer/vape category tab — used for targeted
+# vape-tab scraping on production NV to ensure disposable coverage.
+_VAPE_TAB_LABELS = {
+    "vapes", "vape", "vaporizers", "vaporizer", "cartridges",
+}
+
+# Selectors for the Dutchie sort dropdown / select control.
+# Dutchie menus have a "Sort by" dropdown (top-right of product grid)
+# with options like "Popular", "Price: Low to High", "Price: High to Low",
+# "Name A-Z".  Sorting by lowest price first ensures the cheapest
+# disposables land on page 1 where we always capture them.
+_SORT_DROPDOWN_SELECTORS = [
+    'select[data-testid*="sort"]',
+    'select[class*="sort"]',
+    'select[class*="Sort"]',
+    'select[aria-label*="sort" i]',
+    'select[aria-label*="Sort" i]',
+    '[data-testid*="sort"] select',
+    '[class*="sort"] select',
+    '[class*="Sort"] select',
+]
+
+_SORT_BUTTON_SELECTORS = [
+    'button[data-testid*="sort"]',
+    'button[class*="sort"]',
+    'button[class*="Sort"]',
+    'button[aria-label*="sort" i]',
+    '[class*="sort"] button',
+    '[class*="Sort"] button',
+]
+
+# JS to click a sort option matching "Price: Low to High" (or similar)
+# inside a listbox / dropdown menu that opened from a button click.
+_JS_CLICK_SORT_PRICE_LOW = """
+(labels) => {
+    // Look for option/li/button elements whose text matches price-low patterns
+    const candidates = document.querySelectorAll(
+        'option, li[role="option"], [role="listbox"] li, [role="menu"] li, ' +
+        '[class*="dropdown"] li, [class*="Dropdown"] li, ' +
+        '[class*="sort"] li, [class*="Sort"] li, ' +
+        'ul[class*="menu"] li, [class*="popover"] li'
+    );
+    for (const el of candidates) {
+        const text = (el.textContent || '').trim().toLowerCase();
+        for (const label of labels) {
+            if (text.includes(label)) {
+                el.click();
+                return text;
+            }
+        }
+    }
+    return null;
+}
+"""
+
+# Text patterns to match "Price: Low to High" sort option (lowercase).
+_SORT_PRICE_LOW_LABELS = [
+    "price: low to high",
+    "price low to high",
+    "price (low to high)",
+    "low to high",
+    "lowest price",
+    "price ascending",
+    "price - low",
+]
+
+
+async def _try_sort_by_price_low(
+    target: Page | Frame,
+    slug: str,
+) -> bool:
+    """Try to sort the Dutchie menu by price low-to-high.
+
+    Tries two approaches:
+      1. Native <select> dropdown — change value to price-low option.
+      2. Button-based dropdown — click the sort button, then click the
+         "Price: Low to High" option in the popup menu.
+
+    Returns True if sort was applied, False otherwise.  Best-effort:
+    failure is not fatal — the scraper will still paginate and collect
+    products in whatever order they appear.
+    """
+    # --- Approach 1: native <select> element --------------------------------
+    for selector in _SORT_DROPDOWN_SELECTORS:
+        try:
+            el = await target.query_selector(selector)
+            if el and await el.is_visible():
+                # Read all options and find the price-low one
+                options = await el.evaluate("""
+                    (sel) => Array.from(sel.options).map(o => ({
+                        value: o.value,
+                        text: o.textContent.trim().toLowerCase()
+                    }))
+                """)
+                for opt in options:
+                    for label in _SORT_PRICE_LOW_LABELS:
+                        if label in opt["text"]:
+                            await el.select_option(value=opt["value"])
+                            logger.info(
+                                "[%s] Sorted by price (low→high) via <select> (%s)",
+                                slug, opt["text"],
+                            )
+                            await asyncio.sleep(2 + random.uniform(0, 1.5))
+                            return True
+        except Exception:
+            continue
+
+    # --- Approach 2: button-based sort dropdown -----------------------------
+    for selector in _SORT_BUTTON_SELECTORS:
+        try:
+            btn = await target.query_selector(selector)
+            if btn and await btn.is_visible():
+                await btn.click()
+                await asyncio.sleep(1 + random.uniform(0, 0.5))
+
+                # Now look for "Price: Low to High" in the opened dropdown
+                result = await target.evaluate(
+                    _JS_CLICK_SORT_PRICE_LOW, _SORT_PRICE_LOW_LABELS,
+                )
+                if result:
+                    logger.info(
+                        "[%s] Sorted by price (low→high) via button dropdown (%s)",
+                        slug, result,
+                    )
+                    await asyncio.sleep(2 + random.uniform(0, 1.5))
+                    return True
+                else:
+                    # Close the dropdown if we couldn't find the option
+                    try:
+                        await btn.click()
+                    except Exception:
+                        pass
+        except Exception:
+            continue
+
+    logger.debug("[%s] No sort control found — using default order", slug)
+    return False
+
 
 # JS to find and return all clickable category filter buttons/tabs.
 # Returns a list of {text, index} objects for each unique category button found.
@@ -423,7 +574,8 @@ _JS_FIND_CATEGORY_TABS = """
     // Strategy 3: nav buttons/links with category-like labels
     const categoryNames = new Set([
         'flower', 'edibles', 'edible', 'concentrates', 'concentrate',
-        'vapes', 'vape', 'pre-rolls', 'pre-roll', 'preroll', 'prerolls',
+        'vapes', 'vape', 'vaporizers', 'vaporizer',
+        'pre-rolls', 'pre-roll', 'preroll', 'prerolls',
         'topicals', 'topical', 'tinctures', 'tincture', 'accessories',
         'beverages', 'beverage', 'cartridges', 'cartridge', 'specials',
         'all', 'all products', 'shop all'
@@ -722,15 +874,21 @@ class DutchieScraper(BaseScraper):
                 break
 
         # --- Category tab iteration for expanded coverage ----------------------
-        # EXPANSION STATES ONLY — production NV sites use proven stable patterns.
         # After paginating the initial view (usually "Specials" or "All"),
-        # click through each category tab (Flower, Edibles, Concentrates,
-        # etc.) and paginate each one independently.  This captures products
-        # that are only shown when a specific category filter is active.
-        # Dedup prevents double-counting products seen in the "All" view.
+        # click through category tabs to capture products only visible under
+        # a specific filter.  Dedup prevents double-counting.
+        #
+        # EXPANSION STATES: full category tab iteration (all tabs).
+        # PRODUCTION NV: targeted vape-tab-only scraping to ensure disposable
+        #   coverage — specials pages often omit vaporizers entirely, causing
+        #   disposables to be missed.
         region = self.dispensary.get("region", "southern-nv")
-        if is_expansion_region(region) and len(all_products) > 0:
-            category_products = await self._scrape_category_tabs(target, all_products)
+        if len(all_products) > 0:
+            if is_expansion_region(region):
+                category_products = await self._scrape_category_tabs(target, all_products)
+            else:
+                # Production NV: only scrape vape/vaporizer tabs for disposables
+                category_products = await self._scrape_vape_tab(target, all_products)
             if category_products:
                 all_products.extend(category_products)
                 logger.info(
@@ -914,7 +1072,149 @@ class DutchieScraper(BaseScraper):
         return all_products
 
     # ------------------------------------------------------------------
-    # Category tab iteration (expansion states only)
+    # Targeted vape-tab scraping (production NV)
+    # ------------------------------------------------------------------
+
+    async def _scrape_vape_tab(
+        self,
+        target: Page | Frame,
+        existing_products: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Click the Vaporizers/Vapes tab to capture disposable products.
+
+        Production NV sites typically load a specials page which may omit
+        vaporizer products entirely.  This method specifically targets the
+        vape/vaporizer category tab so that disposable, all-in-one, and
+        ready-to-use devices at common sizes (0.3g, 0.5g, 0.8g–1.0g) are
+        scraped from every dispensary.
+
+        Returns a list of new products not already in *existing_products*.
+        """
+        # Build dedup set from existing products
+        seen_names: set[str] = set()
+        for p in existing_products:
+            key = p.get("name", "").lower().strip()
+            if key:
+                seen_names.add(key)
+
+        # Find category tabs in the DOM
+        try:
+            tabs = await target.evaluate(_JS_FIND_CATEGORY_TABS)
+        except Exception:
+            logger.debug("[%s] Vape tab: category tab detection JS failed", self.slug)
+            return []
+
+        if not tabs:
+            logger.info("[%s] Vape tab: no category tabs found — skipping", self.slug)
+            return []
+
+        # Find the vape/vaporizer tab specifically
+        vape_tab = None
+        for tab_info in tabs:
+            tab_text = tab_info.get("text", "")
+            if tab_text.lower().strip() in _VAPE_TAB_LABELS:
+                vape_tab = tab_text
+                break
+
+        if not vape_tab:
+            logger.info(
+                "[%s] Vape tab: no vape/vaporizer tab found among: %s",
+                self.slug,
+                ", ".join(t.get("text", "?") for t in tabs[:10]),
+            )
+            return []
+
+        logger.info("[%s] Vape tab: clicking '%s' for disposable coverage", self.slug, vape_tab)
+
+        # Try to click the vape tab
+        clicked = False
+        for selector in _CATEGORY_TAB_SELECTORS:
+            try:
+                locator = target.locator(f'{selector}:has-text("{vape_tab}")').first
+                if await locator.count() > 0 and await locator.is_visible():
+                    await locator.click(timeout=5_000)
+                    clicked = True
+                    break
+            except Exception:
+                continue
+
+        if not clicked:
+            # Fallback: try exact text match
+            try:
+                btn = target.locator(f'text="{vape_tab}"').first
+                if await btn.count() > 0:
+                    await btn.click(timeout=5_000)
+                    clicked = True
+            except Exception:
+                pass
+
+        if not clicked:
+            logger.warning("[%s] Vape tab: could not click '%s'", self.slug, vape_tab)
+            return []
+
+        # Wait for content to reload after tab click
+        await asyncio.sleep(3 + random.uniform(0, 2))
+
+        # Scroll to trigger lazy-loaded vape products
+        await _scroll_to_load_content(target, self.slug)
+        await _wait_for_product_cards(target, self.slug, timeout_ms=15_000)
+
+        # Try to sort by lowest price first — ensures the cheapest
+        # disposables (at each weight tier) land on page 1 where we
+        # always capture them, even if pagination fails partway through.
+        sorted_by_price = await _try_sort_by_price_low(target, self.slug)
+        if sorted_by_price:
+            # Re-wait for product cards after sort change
+            await _wait_for_product_cards(target, self.slug, timeout_ms=10_000)
+
+        # Paginate through all pages within the vape tab — uses the same
+        # page-number + "Next" button navigation as the main scrape flow.
+        new_products: list[dict[str, Any]] = []
+        page_num = 1
+        consecutive_empty = 0
+        while True:
+            products = await self._extract_products(target)
+
+            # Filter to only new products
+            cat_new = []
+            for p in products:
+                pkey = p.get("name", "").lower().strip()
+                if pkey and pkey not in seen_names:
+                    seen_names.add(pkey)
+                    cat_new.append(p)
+
+            new_products.extend(cat_new)
+            logger.info(
+                "[%s] Vape tab '%s' page %d → %d products (%d new, %d total new)",
+                self.slug, vape_tab, page_num, len(products),
+                len(cat_new), len(new_products),
+            )
+
+            if len(products) == 0:
+                consecutive_empty += 1
+                if consecutive_empty >= 2:
+                    break
+            else:
+                consecutive_empty = 0
+
+            page_num += 1
+            if page_num > 20:  # Safety cap
+                break
+
+            try:
+                if not await navigate_dutchie_page(target, page_num):
+                    break
+            except Exception:
+                break
+
+        logger.info(
+            "[%s] Vape tab scraping complete — %d new vape products",
+            self.slug, len(new_products),
+        )
+        return new_products
+
+    # ------------------------------------------------------------------
+    # Full category tab iteration (expansion states)
     # ------------------------------------------------------------------
 
     async def _scrape_category_tabs(
@@ -922,10 +1222,11 @@ class DutchieScraper(BaseScraper):
         target: Page | Frame,
         existing_products: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
-        """Click through category tabs and paginate each to find new products.
+        """Click through ALL category tabs and paginate each to find new products.
 
-        Only called for expansion state dispensaries.  Builds a dedup set
-        from *existing_products* so only genuinely new products are returned.
+        Called for expansion state dispensaries.  Production NV uses the
+        targeted ``_scrape_vape_tab`` instead.  Builds a dedup set from
+        *existing_products* so only genuinely new products are returned.
 
         Returns a list of new products not already in *existing_products*.
         """
@@ -999,6 +1300,13 @@ class DutchieScraper(BaseScraper):
 
             # Wait for product cards to appear
             await _wait_for_product_cards(target, self.slug, timeout_ms=15_000)
+
+            # For vape/vaporizer tabs, try sorting by lowest price first
+            # to ensure disposables at each weight tier are captured early.
+            if lower in _VAPE_TAB_LABELS:
+                sorted_ok = await _try_sort_by_price_low(target, self.slug)
+                if sorted_ok:
+                    await _wait_for_product_cards(target, self.slug, timeout_ms=10_000)
 
             # Paginate within this category
             page_num = 1

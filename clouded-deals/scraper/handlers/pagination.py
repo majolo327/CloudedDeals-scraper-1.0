@@ -119,22 +119,71 @@ async def navigate_dutchie_page(
         f'button[aria-label="Go to page {page_number}"]',
         f'a[aria-label="go to page {page_number}"]',
         f'a[aria-label="Go to page {page_number}"]',
-        f'button:has-text("{page_number}")',
         f'[data-page="{page_number}"]',
+        # Dutchie pagination list items (common in embedded menus)
+        f'nav li a:has-text("{page_number}")',
+        f'nav li button:has-text("{page_number}")',
+        f'[class*="pagination"] a:has-text("{page_number}")',
+        f'[class*="pagination"] button:has-text("{page_number}")',
+        f'[class*="Pagination"] a:has-text("{page_number}")',
+        f'[class*="Pagination"] button:has-text("{page_number}")',
+        f'[class*="pager"] a:has-text("{page_number}")',
+        f'[class*="pager"] button:has-text("{page_number}")',
+        f'ul[class*="page"] li a:has-text("{page_number}")',
+        f'ul[class*="page"] li button:has-text("{page_number}")',
+        # Generic button with page number (last resort — can false-match)
+        f'button:has-text("{page_number}")',
     ]
 
-    # "Next" fallback selectors
+    # "Next" / forward-arrow fallback selectors
     next_selectors = [
         'button[aria-label="Go to next page"]',
         'button[aria-label="go to next page"]',
         'button[aria-label="Next page"]',
         'button[aria-label="Next"]',
-        'button:has-text("Next")',
+        'a[aria-label="Go to next page"]',
+        'a[aria-label="go to next page"]',
+        'a[aria-label="Next page"]',
         'a[aria-label="Next"]',
+        # Dutchie chevron/arrow ">" next buttons
+        '[class*="pagination"] a[rel="next"]',
+        '[class*="pagination"] button[rel="next"]',
+        'nav a[rel="next"]',
+        '[class*="pagination"] li:last-child a',
+        '[class*="Pagination"] li:last-child a',
+        # Text-based next
+        'button:has-text("Next")',
         'a:has-text("Next")',
+        # Arrow/chevron buttons (common in Dutchie embeds)
+        'button:has-text("›")',
+        'a:has-text("›")',
+        'button:has-text("»")',
+        'a:has-text("»")',
+        'button:has-text(">")',
     ]
 
     for attempt in range(1, _DUTCHIE_NAV_MAX_RETRIES + 1):
+        # Scroll to bottom of the frame/page to expose pagination buttons
+        # that may be below the viewport (common in Dutchie iframes).
+        try:
+            await target.evaluate("""
+            () => {
+                // Try scrolling the document itself
+                window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' });
+                // Also scroll any overflow containers (iframes where the
+                // window scroll doesn't work)
+                const containers = document.querySelectorAll(
+                    '[style*="overflow"], [class*="scroll"], main, [class*="menu-list"]'
+                );
+                for (const c of containers) {
+                    c.scrollTop = c.scrollHeight;
+                }
+            }
+            """)
+            await asyncio.sleep(0.5)
+        except Exception:
+            pass  # best-effort
+
         # --- Try page-number buttons first (instant checks) ---------------
         for selector in page_selectors:
             try:
@@ -175,6 +224,81 @@ async def navigate_dutchie_page(
                 if 'element is not enabled' in str(exc).lower():
                     return False
                 continue
+
+        # --- Strategy 3: JavaScript DOM search for page-number elements ------
+        # Dutchie iframes may use <li>, <span>, or other non-standard elements
+        # for pagination that CSS selectors miss.  Search the DOM directly.
+        try:
+            clicked_via_js = await target.evaluate("""
+            (pageNum) => {
+                // Look for pagination containers
+                const containers = document.querySelectorAll(
+                    '[class*="pagination"], [class*="Pagination"], [class*="pager"], ' +
+                    'nav, [role="navigation"], [class*="page-nav"], [class*="PageNav"]'
+                );
+
+                // Strategy A: find exact page number in pagination container
+                for (const container of containers) {
+                    const els = container.querySelectorAll('a, button, li, span[role="button"]');
+                    for (const el of els) {
+                        const text = (el.textContent || '').trim();
+                        if (text === String(pageNum)) {
+                            // Verify it's not disabled/current
+                            const isDisabled = el.hasAttribute('disabled') ||
+                                el.classList.contains('disabled') ||
+                                el.getAttribute('aria-disabled') === 'true' ||
+                                el.getAttribute('aria-current') === 'page';
+                            if (!isDisabled) {
+                                el.click();
+                                return 'page_number';
+                            }
+                        }
+                    }
+
+                    // Strategy B: find "next" arrow/chevron in pagination container
+                    const nextEls = container.querySelectorAll(
+                        'a[rel="next"], [class*="next"], [aria-label*="next" i], ' +
+                        '[aria-label*="Next" i]'
+                    );
+                    for (const el of nextEls) {
+                        const isDisabled = el.hasAttribute('disabled') ||
+                            el.classList.contains('disabled') ||
+                            el.getAttribute('aria-disabled') === 'true';
+                        if (!isDisabled) {
+                            el.click();
+                            return 'next_arrow';
+                        }
+                    }
+                }
+
+                // Strategy C: find any element that looks like page N (broad search)
+                const allClickable = document.querySelectorAll('a, button, [role="button"]');
+                for (const el of allClickable) {
+                    const text = (el.textContent || '').trim();
+                    if (text === String(pageNum)) {
+                        // Only consider if it's near the bottom of the page (pagination area)
+                        const rect = el.getBoundingClientRect();
+                        const pageHeight = document.documentElement.scrollHeight;
+                        if (rect.top > pageHeight * 0.6) {
+                            el.click();
+                            return 'broad_match';
+                        }
+                    }
+                }
+
+                return null;
+            }
+            """, page_number)
+
+            if clicked_via_js:
+                logger.info(
+                    "Navigated to Dutchie page %d via JS DOM search (%s)",
+                    page_number, clicked_via_js,
+                )
+                await asyncio.sleep(_settle_delay(5))
+                return True
+        except Exception:
+            pass
 
         if attempt < _DUTCHIE_NAV_MAX_RETRIES:
             logger.info(
