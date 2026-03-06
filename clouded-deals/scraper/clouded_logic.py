@@ -27,6 +27,7 @@ Usage:
 """
 
 import re
+from difflib import SequenceMatcher
 from collections import defaultdict
 
 # ============================================================================
@@ -235,6 +236,47 @@ BRANDS = sorted(set([
 
 # Pre-compute lowercase brand set for fast lookup
 BRANDS_LOWER = {b.lower(): b for b in BRANDS}
+
+
+# ============================================================================
+# FUZZY BRAND MATCHING — catches misspellings and near-matches
+# ============================================================================
+# Uses stdlib SequenceMatcher (no new deps). Only applied as fallback when
+# exact regex matching fails. Threshold: 0.85 similarity = match.
+
+_FUZZY_THRESHOLD = 0.85  # minimum similarity ratio to consider a fuzzy match
+_FUZZY_MIN_LENGTH = 4    # don't fuzzy-match very short strings (too noisy)
+
+
+def fuzzy_brand_match(candidate: str, threshold: float = _FUZZY_THRESHOLD) -> tuple[str | None, float]:
+    """Try to fuzzy-match a candidate string against the brand database.
+
+    Returns (matched_brand, similarity_score) or (None, 0.0) if no match.
+    Only considers candidates >= 4 chars to avoid false positives.
+    """
+    if not candidate or len(candidate) < _FUZZY_MIN_LENGTH:
+        return None, 0.0
+
+    candidate_lower = candidate.lower().strip()
+
+    # Quick exact check first (already in BRANDS_LOWER)
+    if candidate_lower in BRANDS_LOWER:
+        return BRANDS_LOWER[candidate_lower], 1.0
+
+    best_match = None
+    best_score = 0.0
+
+    for brand_lower, brand_canonical in BRANDS_LOWER.items():
+        # Skip brands much shorter/longer than candidate (saves time)
+        if abs(len(brand_lower) - len(candidate_lower)) > max(3, len(candidate_lower) * 0.4):
+            continue
+        score = SequenceMatcher(None, candidate_lower, brand_lower).ratio()
+        if score > best_score and score >= threshold:
+            best_score = score
+            best_match = brand_canonical
+
+    return best_match, best_score
+
 
 # Pre-compile word-boundary regex for each brand (used in detect_brand)
 # Brands starting with non-word chars (like "&Shine") need special handling
@@ -1139,6 +1181,12 @@ class CloudedLogic:
                 seen_canonicals.add(canonical)
 
         if not found_brands:
+            # Fallback: fuzzy match the first segment of the product name
+            # (before dash/pipe), which is often the brand name.
+            candidate = re.split(r'\s*[-|–—]\s*', text, maxsplit=1)[0].strip()
+            matched, score = fuzzy_brand_match(candidate)
+            if matched and matched not in blocked_brands:
+                return BRAND_ALIASES.get(matched, matched)
             return None
 
         # Return best match (longest + position-weighted), resolved through aliases
