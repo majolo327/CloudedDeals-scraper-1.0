@@ -78,7 +78,11 @@ export type EventType =
   | 'shared_page_cta'
   | 'user_feedback'
   | 'dispensary_deals_expanded'
-  | 'campaign_landing';
+  | 'campaign_landing'
+  | 'session_start'
+  | 'return_visit'
+  | 'category_viewed'
+  | 'dispensary_filtered';
 
 /**
  * Collect device and context metadata (non-PII) for analytics enrichment.
@@ -207,6 +211,20 @@ export function initializeAnonUser(): void {
   }
 
   touchSession();
+
+  // Fire session_start on every app load
+  trackEvent('session_start');
+
+  // Detect return visits (user whose first visit was before today)
+  const LAST_VISIT_KEY = 'clouded_last_visit_date';
+  const today = new Date().toISOString().slice(0, 10);
+  const lastVisit = localStorage.getItem(LAST_VISIT_KEY);
+  if (lastVisit && lastVisit < today) {
+    const daysSince = Math.round((Date.now() - new Date(lastVisit).getTime()) / 86400000);
+    trackEvent('return_visit', undefined, { days_since_last: daysSince });
+  }
+  localStorage.setItem(LAST_VISIT_KEY, today);
+
   startHeartbeat();
 }
 

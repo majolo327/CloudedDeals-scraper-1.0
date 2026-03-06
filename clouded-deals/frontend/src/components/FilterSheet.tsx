@@ -143,6 +143,11 @@ export function FilterSheet({
       : filters.dispensaryIds.filter((d) => d !== id);
     if (isAdding) trackRecentDispensary(id);
     onFiltersChange({ ...filters, dispensaryIds: next, quickFilter: 'none' });
+    trackEvent('dispensary_filtered', undefined, {
+      dispensary_id: id,
+      action: isAdding ? 'select' : 'deselect',
+      total_selected: next.length,
+    });
   };
 
   const selectAllDispensaries = () => {
