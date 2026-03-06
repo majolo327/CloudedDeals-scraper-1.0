@@ -196,7 +196,14 @@ export function applyGlobalBrandCap(
     if (!brand) return true; // keep unbranded deals
     const total = brandTotalCounts.get(brand) ?? 0;
     if (total >= maxPerBrandTotal) return false;
-    const catKey = `${brand}::${deal.category}`;
+    // Disposable vapes get their own category bucket so they don't
+    // compete with carts/pods for the same 4 brand-per-category slots.
+    // Without this, a brand like STIIIZY with 4 carts + 3 disposables
+    // would have disposables crowded out by carts under a shared "vape" key.
+    const cat = deal.category === 'vape' && deal.product_subtype === 'disposable'
+      ? 'disposable'
+      : deal.category;
+    const catKey = `${brand}::${cat}`;
     const catCount = brandCategoryCounts.get(catKey) ?? 0;
     if (catCount >= maxPerBrandPerCategory) return false;
     brandTotalCounts.set(brand, total + 1);
