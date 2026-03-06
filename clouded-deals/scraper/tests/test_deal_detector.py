@@ -17,10 +17,12 @@ from deal_detector import (
     MAX_SAME_BRAND_PER_DISPENSARY,
     MAX_SAME_BRAND_TOTAL,
     MAX_SAME_DISPENSARY_TOTAL,
+    MIN_DEALS_PER_DISPENSARY,
     PREMIUM_BRANDS,
     TARGET_DEAL_COUNT,
     VAPE_SUBTYPE_PRICE_CAPS,
     VAPE_SUBTYPE_PRICE_FLOORS,
+    _dispensary_deal_floor,
     _score_brand,
     _score_unit_value,
     _weight_tier,
@@ -1262,25 +1264,27 @@ class TestDetectDeals:
         )
 
     def test_guaranteed_picks_two_deals(self, make_product):
-        """Store where all products fail hard filters should get 2 guaranteed deals."""
-        # Products that fail hard filters: over price cap, no discount
+        """Store with 10+ products (all failing hard filters) should get
+        floor=2 guaranteed deals."""
+        # 10 products that fail hard filters: over price cap, no discount
+        categories = ["flower", "vape", "edible", "concentrate", "preroll"]
         products = [
             make_product(
-                name=f"Deep Roots {cat.title()} Product",
+                name=f"Deep Roots {categories[i % 5].title()} Product {i}",
                 brand="Deep Roots",
-                category=cat,
+                category=categories[i % 5],
                 sale_price=40.0,
                 original_price=40.0,
                 discount_percent=0,
-                weight_value=3.5 if cat == "flower" else 1.0,
+                weight_value=3.5 if categories[i % 5] == "flower" else 1.0,
                 dispensary_id="deep-roots-craig",
             )
-            for cat in ["flower", "vape", "edible", "concentrate"]
+            for i in range(10)
         ]
         result = detect_deals(products)
         assert len(result) == 2, (
-            f"Store with all products failing hard filters should get 2 "
-            f"guaranteed deals, got {len(result)}"
+            f"Store with 10 products (all failing hard filters) should get 2 "
+            f"guaranteed deals (floor for 10-49 products), got {len(result)}"
         )
 
     def test_disposable_no_weight_survives_full_pipeline(self, make_product):
@@ -1305,6 +1309,120 @@ class TestDetectDeals:
         assert len(disposables) >= 1, (
             "Disposable vape without weight should survive quality gate "
             "and appear in results via the disposable category allocation"
+        )
+
+
+# =====================================================================
+# Dispensary deal floor
+# =====================================================================
+
+
+class TestDispensaryDealFloor:
+    """_dispensary_deal_floor() returns the minimum deals for a store size."""
+
+    def test_tiny_store(self):
+        """Stores with <10 products still get at least 1 deal."""
+        assert _dispensary_deal_floor(5) == 1
+        assert _dispensary_deal_floor(1) == 1
+        assert _dispensary_deal_floor(9) == 1
+
+    def test_small_store(self):
+        """10-49 products → floor 2."""
+        assert _dispensary_deal_floor(10) == 2
+        assert _dispensary_deal_floor(30) == 2
+        assert _dispensary_deal_floor(49) == 2
+
+    def test_medium_store_wallflower(self):
+        """50-99 products → floor 3 (Wallflower ~80 products scenario)."""
+        assert _dispensary_deal_floor(50) == 3
+        assert _dispensary_deal_floor(80) == 3
+        assert _dispensary_deal_floor(99) == 3
+
+    def test_large_store(self):
+        """100-199 products → floor 4."""
+        assert _dispensary_deal_floor(100) == 4
+        assert _dispensary_deal_floor(150) == 4
+        assert _dispensary_deal_floor(199) == 4
+
+    def test_very_large_store(self):
+        """200+ products → floor 5."""
+        assert _dispensary_deal_floor(200) == 5
+        assert _dispensary_deal_floor(500) == 5
+
+    def test_min_deals_per_dispensary_is_at_least_2(self):
+        """Global minimum in select_top_deals must be >= 2."""
+        assert MIN_DEALS_PER_DISPENSARY >= 2
+
+
+class TestMediumStoreFloorIntegration:
+    """Integration test: medium-sized stores (like Wallflower) should hit
+    their deal floor even when few products pass hard filters normally."""
+
+    def test_medium_store_backfills_to_floor(self, make_product):
+        """80-product store with only 2 deals passing quality gate should
+        backfill from quality-gate rejects to hit floor=3.
+
+        Simulates Wallflower: most products pass hard filters but fail the
+        strict quality gate (no brand detected).  The relaxed gate allows
+        brandless deals, so the floor backfill recovers them.
+        """
+        categories = ["flower", "vape", "edible", "concentrate"]
+        # 76 products: pass hard filters (good discount) but fail strict
+        # quality gate (brand is empty → rejected by passes_quality_gate)
+        brandless = [
+            make_product(
+                name=f"Mystery {categories[i % 4].title()} {i} 3.5g",
+                brand="",  # fails strict quality gate
+                category=categories[i % 4],
+                sale_price=12.0,
+                original_price=24.0,
+                discount_percent=50,
+                weight_value=3.5,
+                dispensary_id="wallflower-blue-diamond",
+            )
+            for i in range(76)
+        ]
+        # 2 products that pass the full pipeline (brand + discount + price cap)
+        good = [
+            make_product(
+                name="Good Flower Deal 3.5g",
+                brand="Connected",
+                category="flower",
+                sale_price=15.0,
+                original_price=30.0,
+                discount_percent=50,
+                weight_value=3.5,
+                dispensary_id="wallflower-blue-diamond",
+            ),
+            make_product(
+                name="Good Edible Deal 100mg",
+                brand="PLUS",
+                category="edible",
+                sale_price=10.0,
+                original_price=20.0,
+                discount_percent=50,
+                weight_value=None,
+                dispensary_id="wallflower-blue-diamond",
+            ),
+        ]
+        # 2 more filler to reach 80 total
+        extra_filler = [
+            make_product(
+                name=f"Filler Product {i} 3.5g",
+                brand="",
+                category="flower",
+                sale_price=12.0,
+                original_price=24.0,
+                discount_percent=50,
+                weight_value=3.5,
+                dispensary_id="wallflower-blue-diamond",
+            )
+            for i in range(2)
+        ]
+        result = detect_deals(brandless + good + extra_filler)
+        assert len(result) >= 3, (
+            f"Store with 80 products should surface at least 3 deals "
+            f"(floor for 50-99 products), got {len(result)}"
         )
 
 
