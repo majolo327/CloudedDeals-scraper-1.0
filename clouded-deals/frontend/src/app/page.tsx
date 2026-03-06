@@ -522,9 +522,9 @@ export default function Home() {
             <>
               {/* Category bar skeleton */}
               <div className="sticky z-40 border-b safe-top-sticky" style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderColor: 'rgba(120, 100, 200, 0.06)' }}>
-                <div className="max-w-6xl mx-auto px-4 h-10 flex items-center gap-2">
+                <div className="max-w-6xl mx-auto px-4 h-9 flex items-center gap-2">
                   {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="h-6 rounded-full animate-pulse" style={{ width: `${40 + i * 5}px`, background: 'rgba(45,50,80,0.3)' }} />
+                    <div key={i} className="h-5 rounded-full animate-pulse" style={{ width: `${40 + i * 5}px`, background: 'rgba(45,50,80,0.3)' }} />
                   ))}
                 </div>
               </div>
