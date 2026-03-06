@@ -238,6 +238,50 @@ BRANDS = sorted(set([
 BRANDS_LOWER = {b.lower(): b for b in BRANDS}
 
 
+def load_approved_brands(db) -> int:
+    """Load approved brands from the brand_candidates table and merge into runtime lookups.
+
+    Call once at pipeline start. Approved brand candidates are added to
+    BRANDS, BRANDS_LOWER, and _BRAND_PATTERNS so they receive proper brand
+    detection and scoring without requiring code changes.
+
+    Returns the number of new brands added.
+    """
+    try:
+        result = (
+            db.table("brand_candidates")
+            .select("name, canonical_name")
+            .eq("status", "approved")
+            .execute()
+        )
+        rows = result.data or []
+    except Exception:
+        # Table may not exist yet — silently skip
+        return 0
+
+    added = 0
+    for row in rows:
+        # Use canonical_name if set, otherwise the discovered name
+        name = row.get("canonical_name") or row.get("name", "")
+        if not name:
+            continue
+        name_lower = name.lower()
+        if name_lower not in BRANDS_LOWER:
+            BRANDS_LOWER[name_lower] = name
+            BRANDS.append(name)
+            # Also add compiled regex pattern so detect_brand() works
+            _BRAND_PATTERNS[name] = _brand_pattern(name)
+            added += 1
+
+    if added:
+        import logging
+        logging.getLogger(__name__).info(
+            "Loaded %d approved brands from brand_candidates (total brands: %d)",
+            added, len(BRANDS),
+        )
+    return added
+
+
 # ============================================================================
 # FUZZY BRAND MATCHING — catches misspellings and near-matches
 # ============================================================================

@@ -238,6 +238,161 @@ def compute_brand_pricing(
     return snapshots
 
 
+def compute_price_cap_recommendations(
+    db: Any,
+    *,
+    min_sample_size: int = 20,
+    cap_multiplier: float = 1.1,
+) -> list[dict[str, Any]]:
+    """Compute data-driven price caps from current price distributions.
+
+    For each (region, category, weight_tier) bucket with enough data,
+    sets recommended_cap = p30 * cap_multiplier.
+
+    Logic: a "deal" should be cheaper than ~70% of products in that market.
+    The p30 (30th percentile) represents that threshold; the multiplier
+    adds a small buffer to avoid being too aggressive on edge cases.
+
+    Buckets with < min_sample_size products fall back to hardcoded caps
+    (this function records the hardcoded cap for comparison but marks
+    the recommendation as based on actual data only when sample is large
+    enough).
+    """
+    # Import hardcoded caps for comparison/fallback
+    from deal_detector import CATEGORY_PRICE_CAPS, STATE_PRICE_CAP_OVERRIDES, _get_state_region
+
+    # Fetch active products with prices
+    query = (
+        db.table("products")
+        .select("dispensary_id, category, weight_value, weight_unit, sale_price")
+        .eq("is_active", True)
+        .gt("sale_price", 0)
+    )
+    result = query.execute()
+    rows = result.data or []
+
+    if not rows:
+        logger.warning("No active products found for price cap recommendations")
+        return []
+
+    disp_result = db.table("dispensaries").select("id, region").execute()
+    disp_region = {d["id"]: d["region"] for d in (disp_result.data or [])}
+
+    # Group prices by (region, category, weight_tier)
+    buckets: dict[tuple[str, str, str], list[float]] = defaultdict(list)
+    for row in rows:
+        region = disp_region.get(row["dispensary_id"], "unknown")
+        category = row.get("category") or "other"
+        wt = _weight_tier(category, row.get("weight_value"), row.get("weight_unit"))
+        if not wt:
+            continue
+        buckets[(region, category, wt)].append(float(row["sale_price"]))
+
+    recommendations = []
+    for (region, category, weight_tier), prices in sorted(buckets.items()):
+        prices.sort()
+        n = len(prices)
+
+        # Compute p30 (30th percentile)
+        p30_idx = int(n * 0.30)
+        p30 = round(prices[p30_idx], 2)
+        recommended = round(p30 * cap_multiplier, 2)
+
+        # Look up the hardcoded cap for comparison
+        hardcoded_cap = _lookup_hardcoded_cap(category, weight_tier, region)
+
+        cap_delta = None
+        if hardcoded_cap and hardcoded_cap > 0:
+            cap_delta = round((recommended - hardcoded_cap) / hardcoded_cap * 100, 1)
+
+        recommendations.append({
+            "region": region,
+            "category": category,
+            "weight_tier": weight_tier,
+            "recommended_cap": recommended,
+            "p25": round(prices[n // 4], 2),
+            "p30": p30,
+            "p50": round(prices[n // 2], 2) if n > 1 else p30,
+            "p75": round(prices[3 * n // 4], 2),
+            "sample_size": n,
+            "hardcoded_cap": hardcoded_cap,
+            "cap_delta_pct": cap_delta,
+            "is_active": n >= min_sample_size,
+        })
+
+    active = sum(1 for r in recommendations if r["is_active"])
+    logger.info(
+        "Price cap recommendations: %d buckets (%d active with n>=%d, %d fallback)",
+        len(recommendations), active, min_sample_size, len(recommendations) - active,
+    )
+
+    return recommendations
+
+
+def _lookup_hardcoded_cap(
+    category: str, weight_tier: str, region: str
+) -> float | None:
+    """Look up the hardcoded cap for a (category, weight_tier, region) combo."""
+    from deal_detector import CATEGORY_PRICE_CAPS, STATE_PRICE_CAP_OVERRIDES, _get_state_region
+
+    state = _get_state_region(region)
+
+    # Check state overrides first
+    caps = None
+    if state and state in STATE_PRICE_CAP_OVERRIDES:
+        overrides = STATE_PRICE_CAP_OVERRIDES[state]
+        if category in overrides:
+            caps = overrides[category]
+
+    if caps is None:
+        caps = CATEGORY_PRICE_CAPS.get(category)
+
+    if caps is None:
+        return None
+
+    if isinstance(caps, dict):
+        # weight_tier is like "3.5g" — strip the unit for lookup
+        weight_key = weight_tier.rstrip("gm")
+        return caps.get(weight_key)
+    else:
+        return float(caps)
+
+
+def write_price_cap_recommendations(
+    db: Any,
+    recommendations: list[dict[str, Any]],
+    *,
+    dry_run: bool = False,
+) -> int:
+    """Write price cap recommendations to the ml_price_caps table."""
+    if not recommendations:
+        return 0
+
+    if dry_run:
+        logger.info("[DRY RUN] Would write %d price cap recommendations:", len(recommendations))
+        for r in recommendations[:10]:
+            active = "ACTIVE" if r["is_active"] else "fallback"
+            delta = f" (delta={r['cap_delta_pct']:+.1f}%)" if r["cap_delta_pct"] is not None else ""
+            logger.info(
+                "  %-15s %-12s %-5s  rec=$%.2f  hardcoded=$%s  n=%d  [%s]%s",
+                r["region"], r["category"], r["weight_tier"],
+                r["recommended_cap"], r.get("hardcoded_cap", "?"),
+                r["sample_size"], active, delta,
+            )
+        return len(recommendations)
+
+    try:
+        db.table("ml_price_caps").upsert(
+            recommendations,
+            on_conflict="region,category,weight_tier",
+        ).execute()
+        logger.info("Wrote %d price cap recommendations", len(recommendations))
+        return len(recommendations)
+    except Exception as exc:
+        logger.warning("Failed to write price cap recommendations: %s", exc)
+        return 0
+
+
 def write_snapshots(
     db: Any,
     snapshots: list[dict[str, Any]],
@@ -278,10 +433,16 @@ def run_enrichment_snapshots(db: Any, *, dry_run: bool = False) -> dict[str, int
     all_snapshots = price_dists + brand_prices
     written = write_snapshots(db, all_snapshots, dry_run=dry_run)
 
+    # Compute and write data-driven price cap recommendations
+    cap_recs = compute_price_cap_recommendations(db)
+    caps_written = write_price_cap_recommendations(db, cap_recs, dry_run=dry_run)
+
     return {
         "price_distributions": len(price_dists),
         "brand_pricing": len(brand_prices),
+        "price_cap_recommendations": len(cap_recs),
         "total_written": written,
+        "caps_written": caps_written,
     }
 
 
