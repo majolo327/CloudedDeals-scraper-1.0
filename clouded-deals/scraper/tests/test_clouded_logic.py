@@ -403,6 +403,14 @@ class TestDetectBrand:
         """'Haze' at the start of text IS the Haze brand."""
         assert logic.detect_brand("Haze Premium Flower 3.5g") == "Haze"
 
+    def test_lowkey_brand_detected(self, logic):
+        """LowKey Cannabis Co should be detected as brand 'LowKey'."""
+        assert logic.detect_brand("LowKey - Super Lemon Haze Live Resin Disposable") == "LowKey"
+
+    def test_lowkey_not_haze(self, logic):
+        """LowKey product with 'Haze' strain should detect LowKey, not Haze."""
+        assert logic.detect_brand("LOWKEY Super Lemon Haze 0.8g") == "LowKey"
+
     def test_cake_not_a_brand(self, logic):
         """'Cake' removed from brands — too many strain false positives
         (Wedding Cake, Ice Cream Cake, Orange Kush Cake, etc.)."""

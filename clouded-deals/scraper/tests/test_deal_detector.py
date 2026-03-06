@@ -25,6 +25,8 @@ from deal_detector import (
     _dispensary_deal_floor,
     _score_brand,
     _score_unit_value,
+    _pick_flower_price_leaders,
+    _pick_vape_price_leaders,
     _weight_tier,
     calculate_deal_score,
     detect_deals,
@@ -100,7 +102,8 @@ class TestPassesHardFilters:
         assert passes_hard_filters(p) is False
 
     def test_below_min_discount_rejected(self, make_product):
-        p = make_product(discount_percent=14)
+        """14% discount on a non-budget flower ($20) — below 15% floor."""
+        p = make_product(discount_percent=14, sale_price=20.0, original_price=23.26)
         assert passes_hard_filters(p) is False
 
     def test_at_min_discount_passes(self, make_product):
@@ -260,6 +263,40 @@ class TestPassesHardFilters:
         p = make_product(category="vape", sale_price=26.0, original_price=28.89,
                          discount_percent=10, product_subtype="disposable",
                          weight_value=1.0)
+        assert passes_hard_filters(p) is False
+
+    # ── Budget flower discount bypass ─────────────────────────────
+    # Flower ≤$15 only needs *any* discount (>0%) instead of the
+    # normal 15% floor — the absolute price IS the value proposition.
+
+    def test_budget_flower_low_discount_passes(self, make_product):
+        """$14 flower from $15 = 7% — below 15% floor but budget bypass lets it through."""
+        p = make_product(category="flower", sale_price=14.0, original_price=15.0,
+                         discount_percent=7, weight_value=3.5)
+        assert passes_hard_filters(p) is True
+
+    def test_budget_flower_10_dollar_passes(self, make_product):
+        """$10 flower from $12 = 17% — classic budget steal, easily passes."""
+        p = make_product(category="flower", sale_price=10.0, original_price=12.0,
+                         discount_percent=17, weight_value=3.5)
+        assert passes_hard_filters(p) is True
+
+    def test_budget_flower_tiny_discount_passes(self, make_product):
+        """$12 flower from $13 = 8% — still passes with budget bypass."""
+        p = make_product(category="flower", sale_price=12.0, original_price=13.0,
+                         discount_percent=8, weight_value=3.5)
+        assert passes_hard_filters(p) is True
+
+    def test_budget_flower_zero_discount_rejected(self, make_product):
+        """$14 flower with 0% discount still rejected — need *some* markdown."""
+        p = make_product(category="flower", sale_price=14.0, original_price=14.0,
+                         discount_percent=0, weight_value=3.5)
+        assert passes_hard_filters(p) is False
+
+    def test_non_budget_flower_needs_15pct(self, make_product):
+        """$18 flower at 10% — above $15 threshold, normal 15% floor applies."""
+        p = make_product(category="flower", sale_price=18.0, original_price=20.0,
+                         discount_percent=10, weight_value=3.5)
         assert passes_hard_filters(p) is False
 
     # ── Half-gram disposable cap widened $15 → $18 ─────────────────
@@ -930,6 +967,36 @@ class TestCalculateDealScore:
         # discount=0 → rejected by hard filter, but score function doesn't check that
         s = calculate_deal_score(p)
         assert s >= boost  # at minimum the category boost is included
+
+    def test_budget_flower_gets_bonus(self, make_product):
+        """$12 flower should get the +5pt budget bonus; $18 flower should not."""
+        p_cheap = make_product(
+            discount_percent=20, sale_price=12.0, original_price=15.0,
+            category="flower", weight_value=3.5,
+        )
+        p_normal = make_product(
+            discount_percent=20, sale_price=18.0, original_price=22.5,
+            category="flower", weight_value=3.5,
+        )
+        s_cheap = calculate_deal_score(p_cheap)
+        s_normal = calculate_deal_score(p_normal)
+        # Cheap flower gets budget bonus (+5) and better price attractiveness,
+        # so it should score noticeably higher despite similar discount %.
+        assert s_cheap > s_normal
+
+    def test_budget_edible_gets_bonus(self, make_product):
+        """$8 edible should get the +5pt budget bonus; $14 edible should not."""
+        p_cheap = make_product(
+            discount_percent=20, sale_price=8.0, original_price=10.0,
+            category="edible", weight_value=None,
+        )
+        p_normal = make_product(
+            discount_percent=20, sale_price=14.0, original_price=17.5,
+            category="edible", weight_value=None,
+        )
+        s_cheap = calculate_deal_score(p_cheap)
+        s_normal = calculate_deal_score(p_normal)
+        assert s_cheap > s_normal
 
 
 # =====================================================================
@@ -1693,3 +1760,126 @@ class TestDisposableAsFirstClassCategory:
         assert len(disposables) == 5  # all 5 available picked
         # Total should still fill (surplus slots redistributed to flower)
         assert len(result) >= 50
+
+    # --- Flower weight-tier diversity ---
+
+    def test_flower_weight_tier_diversity(self, make_product):
+        """Flower selection should include deals from all weight tiers (3.5g, 7g, 14g, 28g)."""
+        deals = []
+        # 60 eighths — dominant supply
+        for i in range(60):
+            deals.append(make_product(
+                name=f"Eighth {i}", brand=f"Brand{i % 30}",
+                category="flower", dispensary_id=f"disp_{i % 20}",
+                sale_price=12.0, original_price=30.0, discount_percent=60,
+                weight_value=3.5, deal_score=80 - (i % 10),
+            ))
+        # 10 quarters (7g)
+        for i in range(10):
+            deals.append(make_product(
+                name=f"Quarter {i}", brand=f"QBrand{i}",
+                category="flower", dispensary_id=f"disp_{i}",
+                sale_price=25.0, original_price=50.0, discount_percent=50,
+                weight_value=7.0, deal_score=70,
+            ))
+        # 8 halves (14g)
+        for i in range(8):
+            deals.append(make_product(
+                name=f"Half {i}", brand=f"HBrand{i}",
+                category="flower", dispensary_id=f"disp_{i}",
+                sale_price=35.0, original_price=70.0, discount_percent=50,
+                weight_value=14.0, deal_score=65,
+            ))
+        # 5 ounces (28g)
+        for i in range(5):
+            deals.append(make_product(
+                name=f"Oz {i}", brand=f"OBrand{i}",
+                category="flower", dispensary_id=f"disp_{i}",
+                sale_price=80.0, original_price=200.0, discount_percent=60,
+                weight_value=28.0, deal_score=75,
+            ))
+        result = select_top_deals(deals)
+        flowers = [d for d in result if d.get("category") == "flower"]
+        quarters = [d for d in flowers if _weight_tier(d) == "flower_quarter"]
+        halves = [d for d in flowers if _weight_tier(d) == "flower_half"]
+        ounces = [d for d in flowers if _weight_tier(d) == "flower_oz"]
+        assert len(quarters) >= 2, f"Expected ≥2 quarter deals, got {len(quarters)}"
+        assert len(halves) >= 1, f"Expected ≥1 half-oz deal, got {len(halves)}"
+        assert len(ounces) >= 1, f"Expected ≥1 oz deal, got {len(ounces)}"
+
+    def test_flower_price_leaders_per_tier(self, make_product):
+        """_pick_flower_price_leaders should return cheapest flower per weight tier."""
+        pool = [
+            make_product(name="Cheap Eighth", sale_price=10.0, weight_value=3.5),
+            make_product(name="Pricey Eighth", sale_price=20.0, weight_value=3.5),
+            make_product(name="Cheap Quarter", sale_price=22.0, weight_value=7.0),
+            make_product(name="Pricey Quarter", sale_price=35.0, weight_value=7.0),
+            make_product(name="Cheap Half", sale_price=30.0, weight_value=14.0),
+            make_product(name="Cheap Oz", sale_price=70.0, weight_value=28.0),
+        ]
+        leaders = _pick_flower_price_leaders(pool)
+        assert len(leaders) == 4
+        names = [d["name"] for d in leaders]
+        assert "Cheap Eighth" in names
+        assert "Cheap Quarter" in names
+        assert "Cheap Half" in names
+        assert "Cheap Oz" in names
+        # Should be sorted by price ascending
+        prices = [d.get("sale_price", 999) for d in leaders]
+        assert prices == sorted(prices)
+
+    # --- Vape (cart/pod) weight-tier diversity ---
+
+    def test_vape_weight_tier_diversity(self, make_product):
+        """Vape (cart/pod) selection should include both half-gram and full-gram."""
+        deals = []
+        # Flower filler
+        for i in range(80):
+            deals.append(make_product(
+                name=f"Flower {i}", brand=f"Brand{i % 30}",
+                category="flower", dispensary_id=f"disp_{i % 20}",
+                sale_price=12.0, original_price=30.0, discount_percent=60,
+                weight_value=3.5, deal_score=80 - (i % 10),
+            ))
+        # Half-gram carts (0.5g)
+        for i in range(10):
+            deals.append(make_product(
+                name=f"Cart Half {i}", brand=f"CBrand{i}",
+                category="vape", product_subtype="cartridge",
+                dispensary_id=f"disp_{i}", sale_price=15.0,
+                original_price=30.0, discount_percent=50,
+                weight_value=0.5, deal_score=65,
+            ))
+        # Full-gram carts (1g)
+        for i in range(10):
+            deals.append(make_product(
+                name=f"Cart Full {i}", brand=f"CBrandF{i}",
+                category="vape", product_subtype="cartridge",
+                dispensary_id=f"disp_{i}", sale_price=20.0,
+                original_price=40.0, discount_percent=50,
+                weight_value=1.0, deal_score=60,
+            ))
+        result = select_top_deals(deals)
+        vapes = [d for d in result
+                 if d.get("category") == "vape"
+                 and d.get("product_subtype") != "disposable"]
+        half_gram = [d for d in vapes if _weight_tier(d) == "vape_half"]
+        full_gram = [d for d in vapes if _weight_tier(d) == "vape_full"]
+        assert len(half_gram) > 0, "Should have at least one half-gram cart/pod"
+        assert len(full_gram) > 0, "Should have at least one full-gram cart/pod"
+
+    def test_vape_price_leaders_per_tier(self, make_product):
+        """_pick_vape_price_leaders should return cheapest cart/pod per weight tier."""
+        pool = [
+            make_product(name="Cheap Half Cart", sale_price=12.0, weight_value=0.5),
+            make_product(name="Pricey Half Cart", sale_price=20.0, weight_value=0.5),
+            make_product(name="Cheap Full Cart", sale_price=18.0, weight_value=1.0),
+            make_product(name="Pricey Full Cart", sale_price=24.0, weight_value=1.0),
+        ]
+        leaders = _pick_vape_price_leaders(pool)
+        assert len(leaders) == 2
+        names = [d["name"] for d in leaders]
+        assert "Cheap Half Cart" in names
+        assert "Cheap Full Cart" in names
+        prices = [d.get("sale_price", 999) for d in leaders]
+        assert prices == sorted(prices)

@@ -794,6 +794,13 @@ def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> b
         and subtype == "disposable"
         and sale_price <= 25
     )
+    # Budget flower: cheap eighths (≤$15) are genuine steals where the
+    # absolute price is the value proposition.  The 15% discount minimum
+    # blocks many of these (e.g. $14→$12 = 14.3%) because dispensaries
+    # don't heavily mark down already-cheap product.
+    is_budget_flower = (
+        category == "flower" and sale_price <= 15
+    )
 
     # Budget disposables (≤$25) skip discount AND original_price checks.
     # Most Dutchie disposables only show a retail price without a was-price
@@ -802,9 +809,9 @@ def passes_hard_filters(product: dict[str, Any], region: str | None = None) -> b
     if is_budget_disposable:
         return _passes_price_cap(sale_price, category, weight_value, region)
 
-    # Budget edibles/prerolls still require *any* discount (>0%) but bypass
-    # the full minimum discount floors.
-    if is_budget_edible_preroll:
+    # Budget edibles/prerolls/flower still require *any* discount (>0%) but
+    # bypass the full minimum discount floors.
+    if is_budget_edible_preroll or is_budget_flower:
         min_disc = 1
     else:
         min_disc = CATEGORY_MIN_DISCOUNT.get(category, HARD_FILTERS["min_discount_percent"])
@@ -1193,6 +1200,134 @@ def _pick_disposable_price_leaders(
     return leaders
 
 
+def _pick_flower_price_leaders(
+    pool: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Pick the cheapest flower deal from each weight tier.
+
+    Weight tiers (same thresholds as ``_weight_tier()``):
+      - eighth:  ≤4g    (3.5g eighths)
+      - quarter: 4–8g   (7g quarters)
+      - half:    8–15g  (14g half-ounces)
+      - oz:      >15g   (28g ounces)
+
+    Returns up to 4 deals (one per tier that has inventory), sorted by
+    price ascending.  If a tier has no products, the slot goes to the
+    next-cheapest overall flower.
+    """
+    def _weight_g(deal: dict) -> float:
+        w = deal.get("weight_value") or deal.get("weight") or 0
+        if isinstance(w, str):
+            try:
+                w = float(w.replace("g", "").strip())
+            except (ValueError, AttributeError):
+                w = 0
+        return float(w)
+
+    def _price(deal: dict) -> float:
+        return deal.get("sale_price") or deal.get("current_price") or 999
+
+    eighth: list[dict] = []    # ≤4g
+    quarter: list[dict] = []   # 4–8g
+    half: list[dict] = []      # 8–15g
+    oz: list[dict] = []        # >15g
+    unknown: list[dict] = []   # no weight info
+
+    for d in pool:
+        w = _weight_g(d)
+        if w <= 0:
+            unknown.append(d)
+        elif w <= 4:
+            eighth.append(d)
+        elif w <= 8:
+            quarter.append(d)
+        elif w <= 15:
+            half.append(d)
+        else:
+            oz.append(d)
+
+    for tier in (eighth, quarter, half, oz, unknown):
+        tier.sort(key=_price)
+
+    # Pick cheapest from each tier
+    leaders: list[dict] = []
+    for tier in (eighth, quarter, half, oz):
+        if tier:
+            leaders.append(tier[0])
+
+    # Backfill from remaining pool if fewer than 4 tiers have inventory
+    if len(leaders) < 4:
+        picked_ids = set(id(d) for d in leaders)
+        remaining = [d for d in pool if id(d) not in picked_ids]
+        remaining.sort(key=_price)
+        for d in remaining:
+            if len(leaders) >= 4:
+                break
+            leaders.append(d)
+
+    leaders.sort(key=_price)
+    return leaders
+
+
+def _pick_vape_price_leaders(
+    pool: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Pick the cheapest non-disposable vape (cart/pod) from each weight tier.
+
+    Weight tiers (matching ``_weight_tier()``):
+      - half: ≤0.6g  (0.3g, 0.5g carts/pods)
+      - full: >0.6g  (0.8g, 0.9g, 1.0g carts/pods)
+
+    Returns up to 2 deals (one per tier that has inventory), sorted by
+    price ascending.
+    """
+    def _weight_g(deal: dict) -> float:
+        w = deal.get("weight_value") or deal.get("weight") or 0
+        if isinstance(w, str):
+            try:
+                w = float(w.replace("g", "").strip())
+            except (ValueError, AttributeError):
+                w = 0
+        return float(w)
+
+    def _price(deal: dict) -> float:
+        return deal.get("sale_price") or deal.get("current_price") or 999
+
+    half: list[dict] = []     # ≤0.6g
+    full: list[dict] = []     # >0.6g
+    unknown: list[dict] = []  # no weight info
+
+    for d in pool:
+        w = _weight_g(d)
+        if w <= 0:
+            unknown.append(d)
+        elif w <= 0.6:
+            half.append(d)
+        else:
+            full.append(d)
+
+    for tier in (half, full, unknown):
+        tier.sort(key=_price)
+
+    leaders: list[dict] = []
+    for tier in (half, full):
+        if tier:
+            leaders.append(tier[0])
+
+    # Backfill from remaining if fewer than 2 tiers have inventory
+    if len(leaders) < 2:
+        picked_ids = set(id(d) for d in leaders)
+        remaining = [d for d in pool if id(d) not in picked_ids]
+        remaining.sort(key=_price)
+        for d in remaining:
+            if len(leaders) >= 2:
+                break
+            leaders.append(d)
+
+    leaders.sort(key=_price)
+    return leaders
+
+
 def _pick_guaranteed_deals(
     products: list[dict[str, Any]],
     max_picks: int = 1,
@@ -1286,7 +1421,7 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
       4. Unit value            — up to 15 pts
       5. Category boost        — up to 8 pts
       6. Price attractiveness  — up to 12 pts
-      7. Budget deal bonus     — up to 5 pts (prerolls/edibles ≤$11)
+      7. Budget deal bonus     — up to 5 pts (prerolls/edibles ≤$11, flower ≤$15)
     """
     score = 0
     discount = product.get("discount_percent") or 0
@@ -1353,10 +1488,13 @@ def calculate_deal_score(product: dict[str, Any]) -> int:
         score += 4
 
     # 7. BUDGET DEAL BONUS (up to 5 points)
-    # Prerolls and edibles at $11 or less are accessible price points that
-    # consumers actively seek out.  Give them a scoring boost so more appear
-    # in the feed instead of being outscored by higher-priced categories.
-    if category in ("preroll", "edible") and sale_price <= 11:
+    # Prerolls and edibles at $11 or less, and flower at $15 or less, are
+    # accessible price points that consumers actively seek out.  Give them a
+    # scoring boost so more appear in the feed instead of being outscored by
+    # higher-priced categories.
+    if (category in ("preroll", "edible") and sale_price <= 11) or (
+        category == "flower" and sale_price <= 15
+    ):
         score += 5
 
     # 8. DISPOSABLE BOOST (up to 12 points)
@@ -1600,9 +1738,13 @@ def _pick_from_pools(
             already_picked.add(deal_key)
             return True
 
-        # First pass: one deal per brand AND per weight tier.
+        # First pass: one deal per brand AND limited per weight tier.
+        # For large categories (flower, 58 slots), allow up to 2 deals per
+        # tier so weight-tier diversity doesn't squeeze out quarter/half/oz
+        # sizes.  All other categories keep the original 1-per-tier limit.
+        tier_limit = 2 if slots >= 40 else 1
         seen_brands: set[str] = set()
-        seen_tiers: set[str] = set()
+        tier_counts: dict[str, int] = defaultdict(int)
         for i, deal in enumerate(pool):
             if len(picks) >= slots:
                 break
@@ -1610,11 +1752,11 @@ def _pick_from_pools(
             tier = _weight_tier(deal)
             if brand in seen_brands:
                 continue
-            if tier in seen_tiers:
+            if tier_counts[tier] >= tier_limit:
                 continue
             if _try_pick(deal, i):
                 seen_brands.add(brand)
-                seen_tiers.add(tier)
+                tier_counts[tier] += 1
 
         # Second pass: one per brand (allow repeat weight tiers)
         if len(picks) < slots:
@@ -1674,15 +1816,14 @@ def select_top_deals(
             cat = "other"
         buckets[cat].append(deal)
 
-    # Sort each category bucket: lowest-price steals first (top 3 per
+    # Sort each category bucket: lowest-price steals first (top N per
     # category), then by deal_score for the rest.  This ensures the
     # absolute cheapest deals in each category get priority slots,
     # giving users the "steals" they want to see at the top.
     #
-    # For disposables: weight-tier-aware selection — pick the cheapest
-    # deal from each weight tier (≤0.5g, 0.5–0.8g, ≥0.8g) so users
-    # see the best-priced disposable at every common size (0.3g, 0.5g,
-    # 0.8g–1.0g).
+    # For disposables and flower: weight-tier-aware selection — pick the
+    # cheapest deal from each weight tier so users see the best-priced
+    # option at every common size.
     _PRICE_PRIORITY_SLOTS = 3
     for cat in buckets:
         pool = buckets[cat]
@@ -1690,6 +1831,24 @@ def select_top_deals(
         if cat == "disposable" and len(pool) >= 3:
             # Weight-tier price leaders: cheapest disposable per size tier
             price_leaders = _pick_disposable_price_leaders(pool)
+            leader_set = set(id(d) for d in price_leaders)
+            rest = [d for d in pool if id(d) not in leader_set]
+            rest.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+            buckets[cat] = price_leaders + rest
+        elif cat == "flower" and len(pool) >= 4:
+            # Weight-tier price leaders: cheapest flower per size tier
+            # (eighth, quarter, half, oz) — guarantees 7g/14g/28g
+            # representation instead of all-3.5g price leaders.
+            price_leaders = _pick_flower_price_leaders(pool)
+            leader_set = set(id(d) for d in price_leaders)
+            rest = [d for d in pool if id(d) not in leader_set]
+            rest.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+            buckets[cat] = price_leaders + rest
+        elif cat == "vape" and len(pool) >= 2:
+            # Weight-tier price leaders: cheapest cart/pod per size tier
+            # (half-gram ≤0.6g, full-gram >0.6g) — ensures both 0.5g
+            # and 1g carts/pods get priority slots.
+            price_leaders = _pick_vape_price_leaders(pool)
             leader_set = set(id(d) for d in price_leaders)
             rest = [d for d in pool if id(d) not in leader_set]
             rest.sort(key=lambda d: d.get("deal_score", 0), reverse=True)

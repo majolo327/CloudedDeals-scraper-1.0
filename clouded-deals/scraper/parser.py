@@ -515,6 +515,7 @@ KNOWN_BRANDS: list[str] = [
     "Keef",
     "Lift Tickets",
     "Local's Only",
+    "LowKey",
     "Mojo",
     "Neon Cactus",
     "Nitro Dabs",
@@ -568,6 +569,7 @@ BRAND_VARIATIONS: dict[str, list[str]] = {
     "&Shine": ["& Shine", "And Shine"],
     "AMA": ["Alternative Medicine Association", "Alternative Medical Association"],
     "HSH": ["High Sierra Holistics"],
+    "LowKey": ["LowKey Cannabis Co", "LowKey Cannabis", "Low Key", "Low Key Cannabis"],
 }
 
 # Pre-compile a single pattern for speed (case-insensitive) with word boundaries

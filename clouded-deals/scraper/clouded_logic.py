@@ -146,7 +146,7 @@ BRANDS = sorted(set([
     'Kingpen', 'Kiva', 'Kiva Lost Farm', 'Kushberry Farms', 'Kynd',
     # L
     'Later Days', 'LAVI', 'Leaf & Vine', 'Leaf and Vine', 'Lemonnade', 'LEVEL',
-    'Lift Tickets', 'LIT', "Local's Only", 'Local Cannabis', 'Lost Farm',
+    'Lift Tickets', 'LIT', "Local's Only", 'Local Cannabis', 'Lost Farm', 'LowKey',
     'Lowell', 'LP Exotics',
     # M
     'Matrix', 'MedMen', 'Medizin', 'Mellow Vibes', 'Mojave', 'Mojo', 'Moxie',
@@ -493,6 +493,11 @@ _BRAND_VARIATION_MAP: dict[str, str] = {
     'effin\'': 'Effin',
     '& shine': '&Shine',
     'and shine': '&Shine',
+    # LowKey Cannabis Co. variations
+    'lowkey cannabis co': 'LowKey',
+    'lowkey cannabis': 'LowKey',
+    'low key': 'LowKey',
+    'low key cannabis': 'LowKey',
     # "The Lab" brand — dispensaries sometimes list as just "Lab"
     'lab': 'The Lab',
     # Nevada abbreviation brands — menus use the abbreviation, not full name
