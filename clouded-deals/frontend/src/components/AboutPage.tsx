@@ -12,7 +12,7 @@ export function AboutPage() {
 
       <div className="space-y-4 text-sm sm:text-base text-slate-400 leading-relaxed">
         <p>
-          We scan every dispensary in Las Vegas every single morning — but only
+          We check every dispensary in Las Vegas every single morning — but only
           the best deals make the cut.
         </p>
 

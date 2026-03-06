@@ -87,7 +87,7 @@ const FAQS = [
   {
     question: 'Is CloudedDeals free to use?',
     answer:
-      'Yes, CloudedDeals is completely free. No account needed. We scan every dispensary every morning and surface only the deals worth your money — no sponsored placements.',
+      'Yes, CloudedDeals is completely free. No account needed. We check every dispensary every morning and surface only the deals worth your money — no sponsored placements.',
   },
 ];
 
@@ -156,7 +156,7 @@ export default async function LasVegasDealsPage() {
             Las Vegas Dispensary Deals — Updated Daily
           </h1>
           <p className="text-slate-400 text-base sm:text-lg max-w-2xl mb-6">
-            We scan every dispensary in Las Vegas every morning and surface only the deals worth your money.
+            We compare every dispensary in Las Vegas every morning and surface only the deals worth your money.
             Flower, vapes, edibles, concentrates — if it&apos;s here, it earned its spot.
           </p>
 
@@ -337,7 +337,7 @@ export default async function LasVegasDealsPage() {
               — especially if you&apos;re visiting and unfamiliar with local pricing.
             </p>
             <p>
-              CloudedDeals solves this by scanning every dispensary in Las Vegas every
+              CloudedDeals solves this by comparing every dispensary in Las Vegas every
               single morning. We check menus from 27+ dispensaries across the
               valley — from Strip-adjacent spots like Planet 13 and Oasis Cannabis to
               local favorites in Henderson and North Las Vegas. Most deals don&apos;t make
