@@ -1262,6 +1262,65 @@ def _pick_flower_price_leaders(
     return leaders
 
 
+def _pick_vape_price_leaders(
+    pool: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Pick the cheapest non-disposable vape (cart/pod) from each weight tier.
+
+    Weight tiers (matching ``_weight_tier()``):
+      - half: ≤0.6g  (0.3g, 0.5g carts/pods)
+      - full: >0.6g  (0.8g, 0.9g, 1.0g carts/pods)
+
+    Returns up to 2 deals (one per tier that has inventory), sorted by
+    price ascending.
+    """
+    def _weight_g(deal: dict) -> float:
+        w = deal.get("weight_value") or deal.get("weight") or 0
+        if isinstance(w, str):
+            try:
+                w = float(w.replace("g", "").strip())
+            except (ValueError, AttributeError):
+                w = 0
+        return float(w)
+
+    def _price(deal: dict) -> float:
+        return deal.get("sale_price") or deal.get("current_price") or 999
+
+    half: list[dict] = []     # ≤0.6g
+    full: list[dict] = []     # >0.6g
+    unknown: list[dict] = []  # no weight info
+
+    for d in pool:
+        w = _weight_g(d)
+        if w <= 0:
+            unknown.append(d)
+        elif w <= 0.6:
+            half.append(d)
+        else:
+            full.append(d)
+
+    for tier in (half, full, unknown):
+        tier.sort(key=_price)
+
+    leaders: list[dict] = []
+    for tier in (half, full):
+        if tier:
+            leaders.append(tier[0])
+
+    # Backfill from remaining if fewer than 2 tiers have inventory
+    if len(leaders) < 2:
+        picked_ids = set(id(d) for d in leaders)
+        remaining = [d for d in pool if id(d) not in picked_ids]
+        remaining.sort(key=_price)
+        for d in remaining:
+            if len(leaders) >= 2:
+                break
+            leaders.append(d)
+
+    leaders.sort(key=_price)
+    return leaders
+
+
 def _pick_guaranteed_deals(
     products: list[dict[str, Any]],
     max_picks: int = 1,
@@ -1771,6 +1830,15 @@ def select_top_deals(
             # (eighth, quarter, half, oz) — guarantees 7g/14g/28g
             # representation instead of all-3.5g price leaders.
             price_leaders = _pick_flower_price_leaders(pool)
+            leader_set = set(id(d) for d in price_leaders)
+            rest = [d for d in pool if id(d) not in leader_set]
+            rest.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+            buckets[cat] = price_leaders + rest
+        elif cat == "vape" and len(pool) >= 2:
+            # Weight-tier price leaders: cheapest cart/pod per size tier
+            # (half-gram ≤0.6g, full-gram >0.6g) — ensures both 0.5g
+            # and 1g carts/pods get priority slots.
+            price_leaders = _pick_vape_price_leaders(pool)
             leader_set = set(id(d) for d in price_leaders)
             rest = [d for d in pool if id(d) not in leader_set]
             rest.sort(key=lambda d: d.get("deal_score", 0), reverse=True)

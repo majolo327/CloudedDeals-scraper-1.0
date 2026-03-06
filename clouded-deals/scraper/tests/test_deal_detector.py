@@ -26,6 +26,7 @@ from deal_detector import (
     _score_brand,
     _score_unit_value,
     _pick_flower_price_leaders,
+    _pick_vape_price_leaders,
     _weight_tier,
     calculate_deal_score,
     detect_deals,
@@ -1759,5 +1760,61 @@ class TestDisposableAsFirstClassCategory:
         assert "Cheap Half" in names
         assert "Cheap Oz" in names
         # Should be sorted by price ascending
+        prices = [d.get("sale_price", 999) for d in leaders]
+        assert prices == sorted(prices)
+
+    # --- Vape (cart/pod) weight-tier diversity ---
+
+    def test_vape_weight_tier_diversity(self, make_product):
+        """Vape (cart/pod) selection should include both half-gram and full-gram."""
+        deals = []
+        # Flower filler
+        for i in range(80):
+            deals.append(make_product(
+                name=f"Flower {i}", brand=f"Brand{i % 30}",
+                category="flower", dispensary_id=f"disp_{i % 20}",
+                sale_price=12.0, original_price=30.0, discount_percent=60,
+                weight_value=3.5, deal_score=80 - (i % 10),
+            ))
+        # Half-gram carts (0.5g)
+        for i in range(10):
+            deals.append(make_product(
+                name=f"Cart Half {i}", brand=f"CBrand{i}",
+                category="vape", product_subtype="cartridge",
+                dispensary_id=f"disp_{i}", sale_price=15.0,
+                original_price=30.0, discount_percent=50,
+                weight_value=0.5, deal_score=65,
+            ))
+        # Full-gram carts (1g)
+        for i in range(10):
+            deals.append(make_product(
+                name=f"Cart Full {i}", brand=f"CBrandF{i}",
+                category="vape", product_subtype="cartridge",
+                dispensary_id=f"disp_{i}", sale_price=20.0,
+                original_price=40.0, discount_percent=50,
+                weight_value=1.0, deal_score=60,
+            ))
+        result = select_top_deals(deals)
+        vapes = [d for d in result
+                 if d.get("category") == "vape"
+                 and d.get("product_subtype") != "disposable"]
+        half_gram = [d for d in vapes if _weight_tier(d) == "vape_half"]
+        full_gram = [d for d in vapes if _weight_tier(d) == "vape_full"]
+        assert len(half_gram) > 0, "Should have at least one half-gram cart/pod"
+        assert len(full_gram) > 0, "Should have at least one full-gram cart/pod"
+
+    def test_vape_price_leaders_per_tier(self, make_product):
+        """_pick_vape_price_leaders should return cheapest cart/pod per weight tier."""
+        pool = [
+            make_product(name="Cheap Half Cart", sale_price=12.0, weight_value=0.5),
+            make_product(name="Pricey Half Cart", sale_price=20.0, weight_value=0.5),
+            make_product(name="Cheap Full Cart", sale_price=18.0, weight_value=1.0),
+            make_product(name="Pricey Full Cart", sale_price=24.0, weight_value=1.0),
+        ]
+        leaders = _pick_vape_price_leaders(pool)
+        assert len(leaders) == 2
+        names = [d["name"] for d in leaders]
+        assert "Cheap Half Cart" in names
+        assert "Cheap Full Cart" in names
         prices = [d.get("sale_price", 999) for d in leaders]
         assert prices == sorted(prices)
