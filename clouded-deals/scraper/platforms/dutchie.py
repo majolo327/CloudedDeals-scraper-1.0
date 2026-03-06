@@ -386,7 +386,14 @@ _DUTCHIE_CATEGORIES = [
     "Flower", "Edibles", "Concentrates", "Vapes", "Pre-Rolls",
     "Topicals", "Tinctures", "Accessories", "Beverages",
     "Cartridges", "Pre-Roll", "Preroll", "Edible", "Vape",
+    "Vaporizers", "Vaporizer",
 ]
+
+# Labels that indicate a vaporizer/vape category tab — used for targeted
+# vape-tab scraping on production NV to ensure disposable coverage.
+_VAPE_TAB_LABELS = {
+    "vapes", "vape", "vaporizers", "vaporizer", "cartridges",
+}
 
 # JS to find and return all clickable category filter buttons/tabs.
 # Returns a list of {text, index} objects for each unique category button found.
@@ -423,7 +430,8 @@ _JS_FIND_CATEGORY_TABS = """
     // Strategy 3: nav buttons/links with category-like labels
     const categoryNames = new Set([
         'flower', 'edibles', 'edible', 'concentrates', 'concentrate',
-        'vapes', 'vape', 'pre-rolls', 'pre-roll', 'preroll', 'prerolls',
+        'vapes', 'vape', 'vaporizers', 'vaporizer',
+        'pre-rolls', 'pre-roll', 'preroll', 'prerolls',
         'topicals', 'topical', 'tinctures', 'tincture', 'accessories',
         'beverages', 'beverage', 'cartridges', 'cartridge', 'specials',
         'all', 'all products', 'shop all'
@@ -722,15 +730,21 @@ class DutchieScraper(BaseScraper):
                 break
 
         # --- Category tab iteration for expanded coverage ----------------------
-        # EXPANSION STATES ONLY — production NV sites use proven stable patterns.
         # After paginating the initial view (usually "Specials" or "All"),
-        # click through each category tab (Flower, Edibles, Concentrates,
-        # etc.) and paginate each one independently.  This captures products
-        # that are only shown when a specific category filter is active.
-        # Dedup prevents double-counting products seen in the "All" view.
+        # click through category tabs to capture products only visible under
+        # a specific filter.  Dedup prevents double-counting.
+        #
+        # EXPANSION STATES: full category tab iteration (all tabs).
+        # PRODUCTION NV: targeted vape-tab-only scraping to ensure disposable
+        #   coverage — specials pages often omit vaporizers entirely, causing
+        #   disposables to be missed.
         region = self.dispensary.get("region", "southern-nv")
-        if is_expansion_region(region) and len(all_products) > 0:
-            category_products = await self._scrape_category_tabs(target, all_products)
+        if len(all_products) > 0:
+            if is_expansion_region(region):
+                category_products = await self._scrape_category_tabs(target, all_products)
+            else:
+                # Production NV: only scrape vape/vaporizer tabs for disposables
+                category_products = await self._scrape_vape_tab(target, all_products)
             if category_products:
                 all_products.extend(category_products)
                 logger.info(
@@ -914,7 +928,137 @@ class DutchieScraper(BaseScraper):
         return all_products
 
     # ------------------------------------------------------------------
-    # Category tab iteration (expansion states only)
+    # Targeted vape-tab scraping (production NV)
+    # ------------------------------------------------------------------
+
+    async def _scrape_vape_tab(
+        self,
+        target: Page | Frame,
+        existing_products: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Click the Vaporizers/Vapes tab to capture disposable products.
+
+        Production NV sites typically load a specials page which may omit
+        vaporizer products entirely.  This method specifically targets the
+        vape/vaporizer category tab so that disposable, all-in-one, and
+        ready-to-use devices at common sizes (0.3g, 0.5g, 0.8g–1.0g) are
+        scraped from every dispensary.
+
+        Returns a list of new products not already in *existing_products*.
+        """
+        # Build dedup set from existing products
+        seen_names: set[str] = set()
+        for p in existing_products:
+            key = p.get("name", "").lower().strip()
+            if key:
+                seen_names.add(key)
+
+        # Find category tabs in the DOM
+        try:
+            tabs = await target.evaluate(_JS_FIND_CATEGORY_TABS)
+        except Exception:
+            logger.debug("[%s] Vape tab: category tab detection JS failed", self.slug)
+            return []
+
+        if not tabs:
+            logger.info("[%s] Vape tab: no category tabs found — skipping", self.slug)
+            return []
+
+        # Find the vape/vaporizer tab specifically
+        vape_tab = None
+        for tab_info in tabs:
+            tab_text = tab_info.get("text", "")
+            if tab_text.lower().strip() in _VAPE_TAB_LABELS:
+                vape_tab = tab_text
+                break
+
+        if not vape_tab:
+            logger.info(
+                "[%s] Vape tab: no vape/vaporizer tab found among: %s",
+                self.slug,
+                ", ".join(t.get("text", "?") for t in tabs[:10]),
+            )
+            return []
+
+        logger.info("[%s] Vape tab: clicking '%s' for disposable coverage", self.slug, vape_tab)
+
+        # Try to click the vape tab
+        clicked = False
+        for selector in _CATEGORY_TAB_SELECTORS:
+            try:
+                locator = target.locator(f'{selector}:has-text("{vape_tab}")').first
+                if await locator.count() > 0 and await locator.is_visible():
+                    await locator.click(timeout=5_000)
+                    clicked = True
+                    break
+            except Exception:
+                continue
+
+        if not clicked:
+            # Fallback: try exact text match
+            try:
+                btn = target.locator(f'text="{vape_tab}"').first
+                if await btn.count() > 0:
+                    await btn.click(timeout=5_000)
+                    clicked = True
+            except Exception:
+                pass
+
+        if not clicked:
+            logger.warning("[%s] Vape tab: could not click '%s'", self.slug, vape_tab)
+            return []
+
+        # Wait for content to reload after tab click
+        await asyncio.sleep(3 + random.uniform(0, 2))
+        await _wait_for_product_cards(target, self.slug, timeout_ms=15_000)
+
+        # Paginate within the vape tab
+        new_products: list[dict[str, Any]] = []
+        page_num = 1
+        consecutive_empty = 0
+        while True:
+            products = await self._extract_products(target)
+
+            # Filter to only new products
+            cat_new = []
+            for p in products:
+                pkey = p.get("name", "").lower().strip()
+                if pkey and pkey not in seen_names:
+                    seen_names.add(pkey)
+                    cat_new.append(p)
+
+            new_products.extend(cat_new)
+            logger.info(
+                "[%s] Vape tab '%s' page %d → %d products (%d new, %d total new)",
+                self.slug, vape_tab, page_num, len(products),
+                len(cat_new), len(new_products),
+            )
+
+            if len(products) == 0:
+                consecutive_empty += 1
+                if consecutive_empty >= 2:
+                    break
+            else:
+                consecutive_empty = 0
+
+            page_num += 1
+            if page_num > 20:  # Safety cap
+                break
+
+            try:
+                if not await navigate_dutchie_page(target, page_num):
+                    break
+            except Exception:
+                break
+
+        logger.info(
+            "[%s] Vape tab scraping complete — %d new vape products",
+            self.slug, len(new_products),
+        )
+        return new_products
+
+    # ------------------------------------------------------------------
+    # Full category tab iteration (expansion states)
     # ------------------------------------------------------------------
 
     async def _scrape_category_tabs(
@@ -922,10 +1066,11 @@ class DutchieScraper(BaseScraper):
         target: Page | Frame,
         existing_products: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
-        """Click through category tabs and paginate each to find new products.
+        """Click through ALL category tabs and paginate each to find new products.
 
-        Only called for expansion state dispensaries.  Builds a dedup set
-        from *existing_products* so only genuinely new products are returned.
+        Called for expansion state dispensaries.  Production NV uses the
+        targeted ``_scrape_vape_tab`` instead.  Builds a dedup set from
+        *existing_products* so only genuinely new products are returned.
 
         Returns a list of new products not already in *existing_products*.
         """
