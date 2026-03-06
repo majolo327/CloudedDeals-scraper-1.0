@@ -14,7 +14,7 @@ import { DealsPage } from '@/components/DealsPage';
 function TabSkeleton() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:gap-5">
         {Array.from({ length: 6 }).map((_, i) => <DealCardSkeleton key={i} />)}
       </div>
     </div>
@@ -525,7 +525,7 @@ export default function Home() {
               </div>
               <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
                 <TopPickSkeleton />
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 xl:gap-5">
+                <div className="grid grid-cols-2 gap-4 sm:gap-5">
                   {Array.from({ length: 8 }).map((_, i) => (
                     <DealCardSkeleton key={i} />
                   ))}

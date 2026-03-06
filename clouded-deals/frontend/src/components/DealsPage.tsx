@@ -213,8 +213,6 @@ export function DealsPage({
       <StickyStatsBar
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
-        showSwipeMode={!isExpired && filteredDeals.length > 0}
-        onSwipeModeClick={() => setSwipeOpen(true)}
         sortBy={filters.sortBy}
         onSortChange={handleSortChange}
         hasLocation={!!userCoords}
@@ -335,8 +333,8 @@ export function DealsPage({
 
           {/* Deal content — always grid mode */}
           {isLoading ? (
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-5">
-              {Array.from({ length: 9 }).map((_, i) => (
+            <div className="grid grid-cols-2 gap-4 sm:gap-5">
+              {Array.from({ length: 6 }).map((_, i) => (
                 <DealCardSkeleton key={i} />
               ))}
             </div>
@@ -394,7 +392,7 @@ export function DealsPage({
             </div>
           ) : (
             /* Grid mode — position-stable: replacements appear in-place */
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-5">
+            <div className="grid grid-cols-2 gap-4 sm:gap-5">
               {deck.visible.map((deal, index) => {
                 const isDismissing = deck.dismissingId === deal.id;
                 const isAppearing = deck.appearingId === deal.id;
@@ -473,7 +471,7 @@ export function DealsPage({
             </button>
 
             {pastDealsExpanded && (
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-5 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="grid grid-cols-2 gap-4 sm:gap-5 animate-in fade-in slide-in-from-top-2 duration-300">
                 {expiredDeals.map((deal) => (
                   <div key={deal.id}>
                     <DealCard

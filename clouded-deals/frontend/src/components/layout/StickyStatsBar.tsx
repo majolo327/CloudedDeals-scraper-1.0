@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Sparkles, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import type { SortOption } from '@/hooks/useUniversalFilters';
 
 type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'preroll';
@@ -18,8 +18,6 @@ interface StickyStatsBarProps {
   activeCategory?: DealCategory;
   onCategoryChange?: (category: DealCategory) => void;
   children?: React.ReactNode;
-  showSwipeMode?: boolean;
-  onSwipeModeClick?: () => void;
   sortBy?: SortOption;
   onSortChange?: (sort: SortOption) => void;
   hasLocation?: boolean;
@@ -30,8 +28,6 @@ export function StickyStatsBar({
   activeCategory = 'all',
   onCategoryChange,
   children,
-  showSwipeMode,
-  onSwipeModeClick,
   sortBy = 'deal_score',
   onSortChange,
   hasLocation = false,
@@ -145,18 +141,6 @@ export function StickyStatsBar({
                 </div>
               )}
             </div>
-          </>
-        )}
-        {showSwipeMode && onSwipeModeClick && (
-          <>
-            <div className="w-px h-5 bg-slate-700/60 flex-shrink-0" />
-            <button
-              onClick={onSwipeModeClick}
-              className="flex-shrink-0 p-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500/20 transition-colors"
-              aria-label="Swipe Mode"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-            </button>
           </>
         )}
       </div>
