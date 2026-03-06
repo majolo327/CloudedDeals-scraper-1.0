@@ -75,7 +75,7 @@ export function StickyStatsBar({
       className="sticky z-40 border-b safe-top-sticky"
       style={{ backgroundColor: 'rgba(10, 12, 28, 0.92)', borderColor: 'rgba(120, 100, 200, 0.06)', WebkitBackdropFilter: 'blur(40px) saturate(1.3)', backdropFilter: 'blur(40px) saturate(1.3)' }}
     >
-      <div className="max-w-6xl mx-auto px-4 h-10 flex items-center gap-1.5">
+      <div className="max-w-6xl mx-auto px-4 h-9 flex items-center gap-1">
         {children && (
           <>
             <div className="flex-shrink-0">{children}</div>
@@ -83,15 +83,15 @@ export function StickyStatsBar({
           </>
         )}
         {onCategoryChange && (
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide min-w-0">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide min-w-0">
             {categories.map((category) => (
               <button
                 key={category.id}
                 onClick={() => onCategoryChange(category.id)}
-                className={`px-2.5 py-1 min-h-[32px] flex items-center rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 ${
+                className={`px-2 py-0.5 min-h-[28px] flex items-center rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 ${
                   activeCategory === category.id
-                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 scale-105 shadow-[0_0_8px_rgba(168,85,247,0.15)]'
-                    : 'text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10 scale-100'
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-[0_0_8px_rgba(168,85,247,0.15)]'
+                    : 'text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10'
                 }`}
               >
                 {category.label}
@@ -106,7 +106,7 @@ export function StickyStatsBar({
             <div className="relative flex-shrink-0" ref={dropdownRef}>
               <button
                 onClick={() => setSortOpen(!sortOpen)}
-                className={`flex items-center gap-1 px-2.5 py-1 min-h-[32px] rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 ${
+                className={`flex items-center gap-1 px-2 py-0.5 min-h-[28px] rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 ${
                   isNonDefault
                     ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
                     : 'text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10'

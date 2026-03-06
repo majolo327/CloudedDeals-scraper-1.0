@@ -18,6 +18,15 @@ import { hapticSpecial } from '@/lib/haptics';
 
 type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'preroll';
 
+const CATEGORY_LABELS: Record<DealCategory, string> = {
+  all: "Today's",
+  flower: 'Flower',
+  vape: 'Vape',
+  edible: 'Edible',
+  preroll: 'Pre-Roll',
+  concentrate: 'Concentrate',
+};
+
 interface DealsPageProps {
   deals: Deal[];
   expiredDeals?: Deal[];
@@ -290,7 +299,11 @@ export function DealsPage({
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 min-w-0">
               <h2 className="text-sm font-medium text-slate-300">
-                Today&apos;s deals{deals.length > 0 ? ` (${deals.length})` : ''}
+                {CATEGORY_LABELS[activeCategory]} deals{(() => {
+                  const isFiltered = activeCategory !== 'all' || hasActiveFilters;
+                  const count = isFiltered ? filteredDeals.length : deals.length;
+                  return count > 0 ? ` (${count})` : '';
+                })()}
               </h2>
               {!isExpired && deals.length > 0 && (() => {
                 const updateText = formatUpdateTime(deals);
