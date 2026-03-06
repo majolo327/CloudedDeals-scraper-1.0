@@ -504,6 +504,15 @@ MIN_DEALS_PER_DISPENSARY = 2
 # each storefront.  Applied as post-processing after the main selection.
 MAX_DISPOSABLES_PER_CHAIN = 4
 
+# Per-chain overall cap — prevents multi-location chains (Curaleaf 4 locs,
+# TD 3 locs, Thrive 4 locs) from crowding out single-location dispensaries
+# like Oasis, The Grove, and Beyond Hello.  Applied as post-processing
+# after the main selection, keeps highest-scored deals per chain.
+# Set to 20 — a chain with 4 locations gets 20 total, not 4×12=48.
+# Generous enough to preserve category diversity within the chain but
+# tight enough to redistribute slots to single-location dispensaries.
+MAX_DEALS_PER_CHAIN = 16
+
 # =====================================================================
 # Phase 4: Badge thresholds
 # =====================================================================
@@ -1328,6 +1337,37 @@ def _pick_vape_price_leaders(
     return leaders
 
 
+def _pick_subtype_leaders(
+    pool: list[dict[str, Any]],
+    subtype_field: str = "product_subtype",
+) -> list[dict[str, Any]]:
+    """Pick the cheapest deal from each detected subtype in a pool.
+
+    Groups deals by ``product_subtype``, picks the cheapest from each group,
+    and returns them sorted by price ascending.  Deals with no subtype are
+    ignored (they'll appear in the score-sorted remainder).
+
+    Used for concentrates, edibles, and prerolls to ensure subtype diversity
+    (e.g. live_resin AND rosin AND shatter, not just the cheapest format).
+    """
+    def _price(deal: dict) -> float:
+        return deal.get("sale_price") or deal.get("current_price") or 999
+
+    by_subtype: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for d in pool:
+        st = d.get(subtype_field)
+        if st:
+            by_subtype[st].append(d)
+
+    leaders: list[dict[str, Any]] = []
+    for subtype_deals in by_subtype.values():
+        subtype_deals.sort(key=_price)
+        leaders.append(subtype_deals[0])
+
+    leaders.sort(key=_price)
+    return leaders
+
+
 def _pick_guaranteed_deals(
     products: list[dict[str, Any]],
     max_picks: int = 1,
@@ -1853,6 +1893,25 @@ def select_top_deals(
             rest = [d for d in pool if id(d) not in leader_set]
             rest.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
             buckets[cat] = price_leaders + rest
+        elif cat in ("concentrate", "edible", "preroll") and len(pool) >= 2:
+            # Subtype leaders: cheapest deal per detected subtype
+            # (e.g. live_resin, rosin, shatter for concentrates;
+            # gummy, chocolate, beverage for edibles;
+            # infused_preroll, preroll_pack, None for prerolls).
+            # Guarantees subtype diversity in the feed.
+            subtype_leaders = _pick_subtype_leaders(pool)
+            if subtype_leaders:
+                leader_set = set(id(d) for d in subtype_leaders)
+                rest = [d for d in pool if id(d) not in leader_set]
+                rest.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+                buckets[cat] = subtype_leaders + rest
+            else:
+                # No subtypes detected — fall through to standard sort
+                pool.sort(key=lambda d: d.get("sale_price") or d.get("current_price") or 999)
+                price_leaders = pool[:_PRICE_PRIORITY_SLOTS]
+                rest = pool[_PRICE_PRIORITY_SLOTS:]
+                rest.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+                buckets[cat] = price_leaders + rest
         else:
             # Standard: 3 cheapest first, then by score
             pool.sort(key=lambda d: d.get("sale_price") or d.get("current_price") or 999)
@@ -2199,6 +2258,56 @@ def select_top_deals(
         logger.info(
             "Disposable chain cap: trimmed %d excess disposable deals",
             len(trim_indices),
+        )
+
+    # ------------------------------------------------------------------
+    # Step 5c: Overall chain cap enforcement
+    # ------------------------------------------------------------------
+    # Prevent multi-location chains (Curaleaf 4 locs, TD 3 locs) from
+    # taking too many total slots across all categories, crowding out
+    # single-location dispensaries.
+    chain_all_groups: dict[str, list[tuple[int, dict[str, Any]]]] = defaultdict(list)
+    for i, deal in enumerate(result):
+        chain = _chain_prefix(deal.get("dispensary_id") or "")
+        if chain:
+            chain_all_groups[chain].append((i, deal))
+
+    chain_trim_indices: set[int] = set()
+    for chain, entries in chain_all_groups.items():
+        if len(entries) > MAX_DEALS_PER_CHAIN:
+            # Category-aware trimming: keep at least 1 per category,
+            # then fill remaining slots with highest-scored deals.
+            # This prevents the trim from disproportionately removing
+            # non-flower categories and skewing the feed.
+            by_cat: dict[str, list[tuple[int, dict]]] = defaultdict(list)
+            for idx, deal in entries:
+                cat = deal.get("category", "other")
+                by_cat[cat].append((idx, deal))
+            # Sort each category by score descending
+            for cat_entries in by_cat.values():
+                cat_entries.sort(key=lambda x: x[1].get("deal_score", 0), reverse=True)
+            # Keep best 1 per category as guaranteed slots
+            keep_indices: set[int] = set()
+            for cat_entries in by_cat.values():
+                keep_indices.add(cat_entries[0][0])
+            # Fill remaining slots with highest-scored across all categories
+            remaining_slots = MAX_DEALS_PER_CHAIN - len(keep_indices)
+            all_remaining = [
+                (idx, deal) for idx, deal in entries
+                if idx not in keep_indices
+            ]
+            all_remaining.sort(key=lambda x: x[1].get("deal_score", 0), reverse=True)
+            for idx, _ in all_remaining[:max(0, remaining_slots)]:
+                keep_indices.add(idx)
+            # Everything not kept gets trimmed
+            for idx, _ in entries:
+                if idx not in keep_indices:
+                    chain_trim_indices.add(idx)
+    if chain_trim_indices:
+        result = [d for i, d in enumerate(result) if i not in chain_trim_indices]
+        logger.info(
+            "Chain cap: trimmed %d excess deals from multi-location chains",
+            len(chain_trim_indices),
         )
 
     return result[:TARGET_DEAL_COUNT]

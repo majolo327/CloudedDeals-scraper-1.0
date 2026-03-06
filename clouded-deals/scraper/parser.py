@@ -549,6 +549,13 @@ KNOWN_BRANDS: list[str] = [
     "Kanji",
     "LEVEL",
     "LIT",
+    # -- Missing disposable brands (2026-03-06) --
+    "Bloom Farms",
+    "Dime Industries",
+    "Friendly Farms",
+    "High Heads",
+    "Sundaze",
+    "The 55",
 ]
 
 # Brand name variations for fuzzy matching — maps variant spellings
@@ -570,6 +577,10 @@ BRAND_VARIATIONS: dict[str, list[str]] = {
     "AMA": ["Alternative Medicine Association", "Alternative Medical Association"],
     "HSH": ["High Sierra Holistics"],
     "LowKey": ["LowKey Cannabis Co", "LowKey Cannabis", "Low Key", "Low Key Cannabis"],
+    "Dime Industries": ["Dime", "DIME"],
+    "Friendly Farms": ["Friendly Farm"],
+    "The 55": ["The55", "The 55 Cannabis"],
+    "Sundaze": ["Sundaze Cannabis"],
 }
 
 # Pre-compile a single pattern for speed (case-insensitive) with word boundaries
