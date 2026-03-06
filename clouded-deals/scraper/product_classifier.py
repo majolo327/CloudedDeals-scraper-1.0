@@ -192,7 +192,10 @@ _DISPOSABLE_BRAND_LINES: dict[str, list[re.Pattern]] = {
     ],
     "trendi": [
         re.compile(r"\bdisposable\b", re.IGNORECASE),
-        re.compile(r"\b2\s*hottie\b", re.IGNORECASE),    # TRENDI 2 Hottie
+        # NOTE: "2 Hottie" removed — Trendi sells 2 Hottie in BOTH disposable
+        # and 510 cartridge form factors.  Without explicit "disposable" or
+        # "cartridge" in the scraped name we can't distinguish them, so we
+        # let the generic keyword/fallback layers decide.
     ],
     "camp": [
         re.compile(r"\bdisposable\b", re.IGNORECASE),

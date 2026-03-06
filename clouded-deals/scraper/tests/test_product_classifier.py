@@ -204,6 +204,29 @@ class TestVapeDisposableDetection:
         r = classify_product("Ripper Live Resin 0.5g", brand="Matrix", category="vape")
         assert r["product_subtype"] == "disposable"
 
+    def test_trendi_disposable_explicit(self):
+        """Trendi products with explicit 'disposable' keyword → disposable."""
+        r = classify_product("Trendi Disposable Live Resin 0.5g", brand="Trendi", category="vape")
+        assert r["product_subtype"] == "disposable"
+
+    def test_trendi_2_hottie_without_cartridge_not_disposable(self):
+        """Trendi 2 Hottie without form factor keyword should NOT be forced to disposable.
+
+        Trendi sells '2 Hottie' in both disposable and 510 cartridge form
+        factors.  When the scraped name lacks 'cartridge' or 'disposable',
+        the classifier should NOT assume disposable.
+        """
+        r = classify_product("Biscotti 2 Hottie Live Resin 0.5g", brand="Trendi", category="vape")
+        assert r["product_subtype"] != "disposable"
+
+    def test_trendi_2_hottie_cartridge(self):
+        """Trendi 2 Hottie Cartridge should be classified as cartridge."""
+        r = classify_product(
+            "Biscotti 2 Hottie .5g Live Resin Vape Cartridge",
+            brand="Trendi", category="vape",
+        )
+        assert r["product_subtype"] == "cartridge"
+
     # --- Layer 2b: Brand cart/pod fallback (non-disposable product lines) ---
 
     def test_rove_generic_is_cartridge(self):
