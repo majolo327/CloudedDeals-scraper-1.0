@@ -196,6 +196,16 @@ export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState & {
       const deal = shuffledDeck.find((d) => d.id === dealId);
       const position = slots.findIndex((d) => d.id === dealId);
 
+      // Add to dismissed set IMMEDIATELY so any deck rebuild triggered
+      // during the animation (e.g. auto-retry fetch) correctly excludes
+      // this deal. Without this, a setDeals() call during the 320ms
+      // animation window would rebuild slots and the deal would reappear.
+      setDismissedIds((prev) => {
+        const next = new Set(prev);
+        next.add(dealId);
+        return next;
+      });
+
       // Start dismiss animation
       setDismissingId(dealId);
 
@@ -211,12 +221,6 @@ export function useDeck(deals: Deal[], options: DeckOptions = {}): DeckState & {
 
       // After dismiss animation completes, swap the card IN-PLACE
       dismissTimeoutRef.current = setTimeout(() => {
-        // Add to dismissed set
-        setDismissedIds((prev) => {
-          const next = new Set(prev);
-          next.add(dealId);
-          return next;
-        });
         setDismissingId(null);
 
         // Find the replacement: next card from deck not currently in grid slots
