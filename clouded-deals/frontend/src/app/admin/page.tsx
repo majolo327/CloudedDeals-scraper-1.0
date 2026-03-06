@@ -312,13 +312,13 @@ export default function AdminDashboard() {
             noData={!loading && p?.total_deals_active == null}
           />
           <MetricCard
-            label="Total Products Scraped"
+            label="Unique Products in DB"
             value={
               p?.total_products != null
                 ? p.total_products.toLocaleString()
                 : null
             }
-            sub="unique rows"
+            sub="active products"
             loading={loading}
             noData={!loading && p?.total_products == null}
           />

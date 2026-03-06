@@ -68,9 +68,10 @@ const SUBTYPES: { value: string; label: string; categories: string[] }[] = [
   { value: "preroll_pack",   label: "Pre-Roll Pack",    categories: ["preroll"] },
 ];
 
-// All regions including NV production
+// All regions including NV production (both southern + northern)
 const ALL_REGIONS = [
-  { id: "southern-nv", label: "Nevada", emoji: "NV", color: "amber" },
+  { id: "southern-nv", label: "Nevada (S)", emoji: "NV", color: "amber" },
+  { id: "northern-nv", label: "Nevada (N)", emoji: "NV", color: "amber" },
   { id: "michigan", label: "Michigan", emoji: "MI", color: "blue" },
   { id: "illinois", label: "Illinois", emoji: "IL", color: "indigo" },
   { id: "new-jersey", label: "New Jersey", emoji: "NJ", color: "teal" },
@@ -117,6 +118,7 @@ interface RegionSummary {
 
 const REGION_LABELS: Record<string, string> = {
   "southern-nv": "NV",
+  "northern-nv": "NV",
   michigan: "MI",
   illinois: "IL",
   arizona: "AZ",
@@ -148,6 +150,7 @@ const EXPECTED_SHARDS: Record<string, number> = {
 
 const REGION_COLORS: Record<string, string> = {
   "southern-nv": "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",
+  "northern-nv": "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",
   michigan: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",
   illinois: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400",
   arizona: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400",
@@ -338,21 +341,29 @@ export default function ScraperPage() {
 
           const latestRun = regionRuns[0] ?? null;
 
-          // Aggregate today's runs across ALL shards for this region
+          // Aggregate today's runs across ALL shards — deduplicate sites by slug
           const todayRuns = regionRuns.filter(
             (run) => new Date(run.started_at) >= todayStart
           );
           const uniqueShards = new Set(todayRuns.map((run) => run.region));
-          let todaySitesOk = 0;
-          let todaySitesFailed = 0;
+          const allScraped = new Set<string>();
+          const allFailedMap = new Map<string, { slug: string; error: string }>();
           let todayProducts = 0;
           let todayDeals = 0;
           for (const run of todayRuns) {
-            todaySitesOk += Array.isArray(run.sites_scraped) ? run.sites_scraped.length : 0;
-            todaySitesFailed += Array.isArray(run.sites_failed) ? run.sites_failed.length : 0;
+            if (Array.isArray(run.sites_scraped)) {
+              for (const slug of run.sites_scraped) allScraped.add(slug);
+            }
+            if (Array.isArray(run.sites_failed)) {
+              for (const f of run.sites_failed) allFailedMap.set(f.slug, f);
+            }
             todayProducts += run.total_products || 0;
             todayDeals += run.qualifying_deals || 0;
           }
+          // Remove sites that succeeded in one shard but failed in another
+          for (const slug of allScraped) allFailedMap.delete(slug);
+          const todaySitesOk = allScraped.size;
+          const todaySitesFailed = allFailedMap.size;
 
           return {
             region: r.id,
