@@ -352,7 +352,7 @@ export default function AdminDashboard() {
           <div className="mt-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium text-zinc-600 dark:text-zinc-400">
-                Path to 1,000,000 Deals Pipeline
+                Path to 1,000,000 Unique Products
               </span>
               <span className="font-bold text-zinc-800 dark:text-zinc-200">
                 {(p.deals_pipeline_total ?? 0).toLocaleString()} / 1,000,000
