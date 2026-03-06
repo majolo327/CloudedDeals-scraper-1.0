@@ -42,9 +42,9 @@ export function Footer({ onNavigateToForBusiness, onNavigate, onNavigateToAbout,
           {showHowItWorks && (
             <div className="mt-4 max-w-md mx-auto p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
               <p className="text-xs text-slate-400 leading-relaxed text-center">
-                Every morning we scan every dispensary in Las Vegas and surface only the deals actually worth your money.
+                Every morning we check every dispensary in Las Vegas and surface only the deals actually worth your money.
                 Tap any deal to go straight to the dispensary. Save with{' '}
-                <span className="text-purple-400">&hearts;</span> &mdash; new drops at midnight.
+                <span className="text-purple-400">&hearts;</span> &mdash; new drops daily.
               </p>
               {/* Replay guided tour toggle */}
               <button
