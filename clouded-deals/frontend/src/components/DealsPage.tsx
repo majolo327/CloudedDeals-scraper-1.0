@@ -13,6 +13,7 @@ import { DealCardSkeleton } from './Skeleton';
 import { getTimeUntilMidnight, isDealsFromYesterday, formatUpdateTime } from '@/utils';
 import { useDeck } from '@/hooks/useDeck';
 import { useUniversalFilters, formatDistance } from '@/hooks/useUniversalFilters';
+import { trackEvent } from '@/lib/analytics';
 import { hapticSpecial } from '@/lib/haptics';
 
 type DealCategory = 'all' | 'flower' | 'concentrate' | 'vape' | 'edible' | 'preroll';
@@ -49,6 +50,12 @@ export function DealsPage({
   onRefresh,
 }: DealsPageProps) {
   const [activeCategory, setActiveCategory] = useState<DealCategory>('all');
+  const handleCategoryChange = useCallback((cat: DealCategory) => {
+    setActiveCategory(cat);
+    if (cat !== 'all') {
+      trackEvent('category_viewed', undefined, { category: cat });
+    }
+  }, []);
   const [isLoading, setIsLoading] = useState(true);
   const [countdown, setCountdown] = useState(() => getTimeUntilMidnight());
   const [swipeOpenLocal, setSwipeOpenLocal] = useState(false);
@@ -212,7 +219,7 @@ export function DealsPage({
     <>
       <StickyStatsBar
         activeCategory={activeCategory}
-        onCategoryChange={setActiveCategory}
+        onCategoryChange={handleCategoryChange}
         sortBy={filters.sortBy}
         onSortChange={handleSortChange}
         hasLocation={!!userCoords}

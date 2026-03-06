@@ -219,6 +219,11 @@ export default function Home() {
   useEffect(() => {
     if (selectedDeal) {
       trackDealModalOpen(selectedDeal.id, activePage);
+      trackEvent('deal_viewed', selectedDeal.id, {
+        category: selectedDeal.category,
+        brand: selectedDeal.brand,
+        source: activePage,
+      });
     }
   }, [selectedDeal, activePage]);
 
