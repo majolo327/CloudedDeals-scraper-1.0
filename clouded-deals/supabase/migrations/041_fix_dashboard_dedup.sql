@@ -322,14 +322,14 @@ BEGIN
   FROM products
   WHERE is_active = true AND deal_score > 0;
 
-  -- Unique active products currently in DB (not historical/stale rows)
+  -- Total unique products ever scraped (deduplicated by upsert constraint:
+  -- dispensary_id + name + weight_value + sale_price). This IS the data moat.
   SELECT COALESCE(COUNT(*), 0) INTO v_total_products
-  FROM products
-  WHERE is_active = true;
+  FROM products;
 
-  -- Total deals ever detected (cumulative pipeline — includes historical)
-  SELECT COALESCE(COUNT(*), 0) INTO v_deals_pipeline_total
-  FROM products WHERE deal_score > 0;
+  -- Total unique products = the pipeline metric (data moat progress to 1M)
+  -- Use total products, not just qualifying deals — every product scraped is data.
+  v_deals_pipeline_total := v_total_products;
 
   -- States live (distinct regions with scrape runs in last 7 days)
   SELECT COALESCE(COUNT(DISTINCT
