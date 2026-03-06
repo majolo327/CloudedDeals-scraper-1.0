@@ -52,8 +52,8 @@ from config.dispensaries import (
     get_platforms_for_group, get_dispensaries_by_group,
     get_dispensaries_by_region, is_expansion_region,
 )
-from clouded_logic import CloudedLogic, BRANDS_LOWER
-from deal_detector import detect_deals, get_last_report_data
+from clouded_logic import CloudedLogic, BRANDS_LOWER, load_approved_brands
+from deal_detector import detect_deals, get_last_report_data, load_dynamic_caps
 from metrics_collector import collect_daily_metrics
 from product_classifier import classify_product
 from platforms import (
@@ -1775,6 +1775,24 @@ async def run(slug_filter: str | None = None) -> None:
 
     _seed_dispensaries()
 
+    # Load data-driven price caps (Phase 0: ML price caps from enrichment data).
+    # Falls back to hardcoded caps silently if table is empty or doesn't exist.
+    try:
+        n_caps = load_dynamic_caps(db)
+        if n_caps:
+            logger.info("Loaded %d dynamic price caps from ml_price_caps", n_caps)
+    except Exception as exc:
+        logger.debug("Dynamic price cap loading skipped: %s", exc)
+
+    # Load approved brand candidates (Phase 1: brand auto-discovery).
+    # Merges admin-approved brands into runtime lookup for scoring.
+    try:
+        n_brands = load_approved_brands(db)
+        if n_brands:
+            logger.info("Loaded %d approved brands from brand_candidates", n_brands)
+    except Exception as exc:
+        logger.debug("Approved brand loading skipped: %s", exc)
+
     dispensaries = _get_active_dispensaries(slug_filter)
 
     # ── Platform interleaving ──────────────────────────────────────────
@@ -2240,6 +2258,19 @@ async def run(slug_filter: str | None = None) -> None:
             )
         except Exception as exc:
             logger.warning("Failed to collect daily metrics: %s", exc)
+
+        # ─── Brand auto-discovery (Phase 1) ─────────────────────────────
+        # Runs after metrics so top_unmatched_brands is fresh in daily_metrics.
+        try:
+            from brand_learner import run_brand_learner
+            brand_result = run_brand_learner(db, dry_run=DRY_RUN)
+            logger.info(
+                "Brand learner: %d candidates found, %d written",
+                brand_result.get("candidates_found", 0),
+                brand_result.get("candidates_written", 0),
+            )
+        except Exception as exc:
+            logger.warning("Brand learner failed (non-fatal): %s", exc)
 
         # ─── Refresh materialized view ────────────────────────────────
         try:

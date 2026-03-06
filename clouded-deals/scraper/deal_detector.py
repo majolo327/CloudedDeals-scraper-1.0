@@ -543,11 +543,90 @@ def _get_state_region(region: str | None) -> str | None:
     return region
 
 
+# =====================================================================
+# Dynamic price caps — loaded from ml_price_caps table at pipeline start
+# =====================================================================
+
+# Module-level cache: populated by load_dynamic_caps() before scoring.
+# Keyed by (region, category, weight_tier) → recommended_cap float.
+# Empty dict means "not loaded" or "no dynamic caps available" — all
+# lookups fall back to hardcoded caps.
+_dynamic_caps: dict[tuple[str, str, str], float] = {}
+
+
+def load_dynamic_caps(db: Any) -> int:
+    """Load active data-driven price caps from ml_price_caps table.
+
+    Call once at pipeline start, before any scoring. Returns the number
+    of dynamic caps loaded. If the table is empty or doesn't exist,
+    returns 0 and all scoring falls back to hardcoded caps.
+    """
+    global _dynamic_caps
+    _dynamic_caps = {}
+
+    try:
+        result = (
+            db.table("ml_price_caps")
+            .select("region, category, weight_tier, recommended_cap, sample_size")
+            .eq("is_active", True)
+            .execute()
+        )
+        rows = result.data or []
+    except Exception as exc:
+        logger.warning("Could not load dynamic price caps (falling back to hardcoded): %s", exc)
+        return 0
+
+    for row in rows:
+        key = (row["region"], row["category"], row["weight_tier"])
+        _dynamic_caps[key] = float(row["recommended_cap"])
+
+    if _dynamic_caps:
+        logger.info(
+            "Loaded %d dynamic price caps across %d regions",
+            len(_dynamic_caps),
+            len({k[0] for k in _dynamic_caps}),
+        )
+    return len(_dynamic_caps)
+
+
+def _get_dynamic_cap(category: str, weight_value: float | None, region: str | None) -> float | None:
+    """Look up a dynamic cap for the given product attributes.
+
+    Returns None if no dynamic cap exists (caller should fall back to hardcoded).
+    """
+    if not _dynamic_caps or not region:
+        return None
+
+    # Determine weight tier from raw weight value
+    from enrichment_snapshots import _weight_tier
+    wt = _weight_tier(category, weight_value, "g")
+    if not wt:
+        return None
+
+    # Try exact region match first
+    cap = _dynamic_caps.get((region, category, wt))
+    if cap is not None:
+        return cap
+
+    # Try normalized state (e.g. "michigan-2" → "michigan")
+    state = _get_state_region(region)
+    if state and state != region:
+        cap = _dynamic_caps.get((state, category, wt))
+        if cap is not None:
+            return cap
+
+    return None
+
+
 def _get_caps_for_region(category: str, region: str | None) -> dict[str, float] | float | None:
     """Return the price cap config for *category* in *region*.
 
     Uses state-specific overrides when available, falling back to the
     base NV-calibrated ``CATEGORY_PRICE_CAPS``.
+
+    Note: Dynamic caps are checked at a higher level (_get_dynamic_cap)
+    and take priority when available. This function returns the hardcoded
+    caps used as fallback.
     """
     state = _get_state_region(region)
     if state and state in STATE_PRICE_CAP_OVERRIDES:
@@ -570,7 +649,17 @@ def _passes_price_cap(
     When *region* is provided, state-specific cap overrides are applied.
     When *cap_multiplier* > 1.0, all caps are scaled up (used for
     Jane/Carrot/AIQ platforms where displayed prices are retail, not sale).
+
+    Dynamic caps (from ml_price_caps table) take priority when available.
+    Falls back to hardcoded caps when dynamic caps aren't loaded or don't
+    cover this (region, category, weight_tier) combination.
     """
+    # Try dynamic cap first (data-driven from enrichment snapshots)
+    dynamic = _get_dynamic_cap(category, weight_value, region)
+    if dynamic is not None:
+        return sale_price <= dynamic * cap_multiplier
+
+    # Fall back to hardcoded caps
     caps = _get_caps_for_region(category, region)
     if caps is None:
         return sale_price <= 50 * cap_multiplier
