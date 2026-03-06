@@ -495,9 +495,9 @@ _BACKFILL_UNKNOWN_BRAND_TOTAL = 0
 _BACKFILL_THRESHOLD = 0.85  # trigger backfill when round 1 fills < 85% of target
 
 # Dispensary minimum exposure — every dispensary with qualifying deals
-# should appear at least this many times in the feed.  Ensures smaller
-# shops get visibility alongside high-volume dispensaries.
-MIN_DEALS_PER_DISPENSARY = 1
+# should appear at least this many times in the feed.  Raised from 1 → 2
+# for the 300-deal feed so stores like Wallflower don't get buried.
+MIN_DEALS_PER_DISPENSARY = 2
 
 # Per-chain disposable cap — prevents Rise (7 locations), Thrive (5), or
 # Curaleaf (4) from flooding the disposable feed with the same deal from
@@ -885,19 +885,23 @@ def passes_quality_gate(product: dict[str, Any]) -> bool:
 def _dispensary_deal_floor(product_count: int) -> int:
     """Minimum number of deals a dispensary should surface based on scraped product count.
 
-    Scales with store size so every dispensary gets fair representation:
-      10-49 products  → at least 1 deal
-      50-149 products → at least 2 deals
-      150+ products   → at least 3 deals
-    Stores with <10 products get no guaranteed floor.
+    Scales with store size so every dispensary gets fair representation.
+    Thresholds raised for the 300-deal feed (~5.7 deals/store avg for NV):
+      <10 products   → at least 1 deal
+      10-49 products → at least 2 deals
+      50-99 products → at least 3 deals
+      100-199        → at least 4 deals
+      200+           → at least 5 deals
     """
-    if product_count >= 150:
-        return 3
+    if product_count >= 200:
+        return 5
+    if product_count >= 100:
+        return 4
     if product_count >= 50:
-        return 2
+        return 3
     if product_count >= 10:
-        return 1
-    return 0
+        return 2
+    return 1
 
 
 def passes_relaxed_quality_gate(product: dict[str, Any]) -> bool:
@@ -2007,18 +2011,29 @@ def detect_deals(
     logger.info("Selected %d top deals for display", len(top_deals))
 
     # Step 6: Guaranteed minimum exposure
-    # If the dispensary was scraped but the normal pipeline found 0 deals,
-    # force-pick the best available product so every store shows something.
-    # Even stores with just a few products deserve representation.
+    # If the dispensary was scraped but the normal pipeline produced fewer
+    # deals than the store's floor, force-pick the best available products
+    # so every store gets fair representation.
     guaranteed_count = 0
-    if len(products) >= MIN_PRODUCTS_FOR_GUARANTEE and not top_deals:
-        guaranteed = _pick_guaranteed_deals(products, max_picks=2)
+    floor = _dispensary_deal_floor(len(products))
+    if len(products) >= MIN_PRODUCTS_FOR_GUARANTEE and len(top_deals) < max(floor, 1):
+        needed = max(floor, 1) - len(top_deals)
+        # Exclude products already selected
+        selected_keys = {
+            (d.get("name", ""), d.get("sale_price")) for d in top_deals
+        }
+        remaining = [
+            p for p in products
+            if (p.get("name", ""), p.get("sale_price")) not in selected_keys
+        ]
+        guaranteed = _pick_guaranteed_deals(remaining, max_picks=needed)
         if guaranteed:
             top_deals.extend(guaranteed)
             guaranteed_count = len(guaranteed)
             logger.info(
-                "Guaranteed exposure: forced %d deal(s) from %d products",
-                guaranteed_count, len(products),
+                "Guaranteed exposure: forced %d deal(s) from %d products "
+                "(floor=%d, had %d)",
+                guaranteed_count, len(products), floor, len(top_deals) - guaranteed_count,
             )
 
     # Store reporting data for the scrape summary
