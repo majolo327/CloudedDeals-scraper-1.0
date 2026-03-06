@@ -1126,15 +1126,16 @@ def _expire_stale_deal_history(group_slugs: list[str] | None = None) -> None:
 
 _SITE_TIMEOUT_SEC = 480  # 8 min — Dutchie cascade (90s smart-wait + 105s detection + 30s card-wait + extraction) needs room.
 _SITE_TIMEOUT_SEC_EXPANSION = 480  # 8 min for expansion states (was 600s/10min — reduced to match NV; most sites finish in 2-4 min)
-_RETRY_TIMEOUT_SEC = 240  # 4 min for retries (was 300s — enough for warm retry with primed caches)
-_MAX_RETRIES = 2  # 2 attempts total — saves ~5 min per broken site vs 3
-_RETRY_DELAYS = [5, 15]  # Backoff between retries
+_RETRY_TIMEOUT_SEC = 420  # 7 min for retries — near-full budget; warm caches compensate for reduction
+_MAX_RETRIES = 3  # 3 attempts total — prioritize data completeness over speed
+_RETRY_DELAYS = [10, 30, 45]  # Backoff between retries — give sites time to recover
+_LOW_PRODUCT_THRESHOLD = 25  # Sites returning fewer products get a retry
 
 # Job-level time budget (seconds).  The orchestrator will skip retries
 # and abort new scrape attempts when the elapsed time exceeds this limit,
 # ensuring the summary report is always generated before the GitHub Actions
 # hard timeout kills the process.  Set 5 min below the GHA timeout-minutes.
-_JOB_BUDGET_SEC = int(os.getenv("JOB_BUDGET_SEC", "6900"))  # 115 min
+_JOB_BUDGET_SEC = int(os.getenv("JOB_BUDGET_SEC", "9900"))  # 165 min
 
 
 def _split_weight(weight_str: str | None) -> tuple[float | None, str | None]:
@@ -1564,6 +1565,7 @@ async def scrape_site(
     to the remaining budget so individual sites can't overrun the job.
     """
     slug = dispensary["slug"]
+    best_result = None
 
     for attempt in range(1, _MAX_RETRIES + 1):
         # ── Job deadline gate ──────────────────────────────────────
@@ -1601,7 +1603,27 @@ async def scrape_site(
                 _scrape_site_inner(dispensary, browser=browser),
                 timeout=timeout,
             )
-            # Success — return immediately
+            product_count = result.get("products", 0)
+            # Low-product retry: if the site returned data but suspiciously
+            # few products, treat as soft failure and retry (the site may
+            # have loaded incompletely).  Skip on final attempt.
+            if (
+                product_count > 0
+                and product_count < _LOW_PRODUCT_THRESHOLD
+                and attempt < _MAX_RETRIES
+            ):
+                delay = _RETRY_DELAYS[min(attempt - 1, len(_RETRY_DELAYS) - 1)]
+                logger.warning(
+                    "[%s] Low product count (%d < %d) — retrying in %ds (attempt %d/%d)",
+                    slug, product_count, _LOW_PRODUCT_THRESHOLD, delay, attempt, _MAX_RETRIES,
+                )
+                if best_result is None or product_count > best_result.get("products", 0):
+                    best_result = result
+                await asyncio.sleep(delay)
+                continue
+            # Return whichever result got more products
+            if best_result is not None and product_count < best_result.get("products", 0):
+                return best_result
             return result
         except asyncio.TimeoutError:
             logger.warning("[%s] Timed out after %ds (attempt %d)", slug, timeout, attempt)
@@ -1616,7 +1638,9 @@ async def scrape_site(
                 logger.info("[%s] Retrying in %ds...", slug, delay)
                 await asyncio.sleep(delay)
 
-    # All attempts exhausted
+    # All attempts exhausted — return best partial result if any
+    if best_result is not None:
+        return best_result
     return {"slug": slug, "error": f"Failed after {_MAX_RETRIES} attempts"}
 
 
