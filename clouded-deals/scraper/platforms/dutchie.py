@@ -202,6 +202,10 @@ async def _ensure_store_selected(page: Page, slug: str) -> None:
     store_selector_patterns = [
         'button:has-text("Shopping at")',
         'a:has-text("Shopping at")',
+        'button:has-text("Planet 13")',
+        'button:has-text("Medizin")',
+        'a:has-text("Planet 13")',
+        'a:has-text("Medizin")',
         '[class*="store-selector"]',
         '[class*="storeSelector"]',
         '[class*="location-picker"]',
@@ -209,6 +213,13 @@ async def _ensure_store_selected(page: Page, slug: str) -> None:
         '[data-testid*="store"]',
         '[class*="StorePicker"]',
         '[class*="store-picker"]',
+        # P13 site header elements
+        '[class*="location"] button',
+        '[class*="Location"] button',
+        'header button:has-text("Planet")',
+        'header button:has-text("Medizin")',
+        'header a:has-text("Planet")',
+        'header a:has-text("Medizin")',
     ]
 
     selector_el = None
