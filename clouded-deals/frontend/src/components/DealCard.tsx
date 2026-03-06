@@ -98,7 +98,7 @@ export const DealCard = memo(function DealCard({ deal, isSaved, isUsed = false, 
       onTouchStart={handleTouchStartLP}
       onTouchMove={handleTouchMoveLP}
       onTouchEnd={handleTouchEndLP}
-      className={`group glass frost rounded-2xl p-3 sm:p-4 xl:p-5 cursor-pointer transition-gentle card-interactive h-full flex flex-col relative ${
+      className={`group glass frost rounded-2xl p-4 sm:p-5 cursor-pointer transition-gentle card-interactive h-full flex flex-col relative ${
         isExpired ? 'opacity-50 saturate-[0.6]' : ''
       } ${
         isSaved
@@ -178,9 +178,9 @@ export const DealCard = memo(function DealCard({ deal, isSaved, isUsed = false, 
         </>
       )}
       {/* Top row: brand + save */}
-      <div className="flex items-start justify-between gap-2 sm:gap-3 mb-1 sm:mb-2">
+      <div className="flex items-start justify-between gap-2 sm:gap-3 mb-2 sm:mb-2.5">
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-          <span className="text-[10px] sm:text-[13px] text-purple-400 uppercase tracking-wide font-bold truncate">
+          <span className="text-[11px] sm:text-sm text-purple-400 uppercase tracking-wide font-bold truncate">
             {deal.brand?.name || 'Unknown'}
           </span>
           {isUsed && (
@@ -219,12 +219,12 @@ export const DealCard = memo(function DealCard({ deal, isSaved, isUsed = false, 
       </div>
 
       {/* Product name */}
-      <h3 className="text-xs sm:text-sm font-medium text-slate-100 mb-0.5 sm:mb-1 line-clamp-2 leading-snug">
+      <h3 className="text-sm sm:text-base font-medium text-slate-100 mb-1 sm:mb-1.5 line-clamp-2 leading-snug">
         {getDisplayName(deal.product_name, deal.brand?.name || '')}
       </h3>
 
       {/* Category + Strain Type + Weight */}
-      <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium mb-2 sm:mb-3">
+      <p className="text-[11px] sm:text-xs text-slate-400 font-medium mb-2.5 sm:mb-3">
         {categoryLabel}
         {deal.strain_type && (
           <span className={`ml-1 font-medium ${
@@ -239,11 +239,11 @@ export const DealCard = memo(function DealCard({ deal, isSaved, isUsed = false, 
       </p>
 
       {/* Spacer to push price + footer to bottom */}
-      <div className="flex-1 min-h-[4px]" />
+      <div className="flex-1 min-h-[8px]" />
 
       {/* Price — sale price only, big and clean */}
-      <div className="mb-2 sm:mb-3 flex items-baseline gap-1.5">
-        <span className="text-base sm:text-xl font-mono font-bold text-white" style={{ textShadow: '0 0 12px rgba(168, 85, 247, 0.15)' }}>${Number(deal.deal_price).toFixed(2)}</span>
+      <div className="mb-2.5 sm:mb-3 flex items-baseline gap-1.5">
+        <span className="text-lg sm:text-2xl font-mono font-bold text-white" style={{ textShadow: '0 0 12px rgba(168, 85, 247, 0.15)' }}>${Number(deal.deal_price).toFixed(2)}</span>
         {deal.category === 'flower' && (() => {
           const ppg = getPricePerUnit(deal);
           return ppg ? <span className="text-[10px] text-slate-500 font-medium">{ppg}</span> : null;
@@ -252,7 +252,7 @@ export const DealCard = memo(function DealCard({ deal, isSaved, isUsed = false, 
 
       {/* Footer: Dispensary + Distance + Dismiss */}
       <div className="flex items-center justify-between gap-1.5 sm:gap-2">
-        <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-[11px] text-slate-400 min-w-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs text-slate-400 min-w-0">
           <MapPin className="w-2.5 h-2.5 opacity-60 shrink-0" />
           <span className="truncate">{deal.dispensary?.name || 'Unknown'}</span>
           {(distanceLabel || distance != null) && (
@@ -274,7 +274,7 @@ export const DealCard = memo(function DealCard({ deal, isSaved, isUsed = false, 
       </div>
 
       {/* Watermark for screenshots */}
-      <p className="text-[8px] sm:text-[9px] text-slate-600 text-right mt-1 sm:mt-2 select-none">found on cloudeddeals.com</p>
+      <p className="text-[9px] sm:text-[10px] text-slate-600 text-right mt-1.5 sm:mt-2 select-none">found on cloudeddeals.com</p>
     </div>
   );
 }, (prev, next) => (
