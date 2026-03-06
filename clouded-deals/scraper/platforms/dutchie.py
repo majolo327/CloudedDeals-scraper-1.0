@@ -395,6 +395,139 @@ _VAPE_TAB_LABELS = {
     "vapes", "vape", "vaporizers", "vaporizer", "cartridges",
 }
 
+# Selectors for the Dutchie sort dropdown / select control.
+# Dutchie menus have a "Sort by" dropdown (top-right of product grid)
+# with options like "Popular", "Price: Low to High", "Price: High to Low",
+# "Name A-Z".  Sorting by lowest price first ensures the cheapest
+# disposables land on page 1 where we always capture them.
+_SORT_DROPDOWN_SELECTORS = [
+    'select[data-testid*="sort"]',
+    'select[class*="sort"]',
+    'select[class*="Sort"]',
+    'select[aria-label*="sort" i]',
+    'select[aria-label*="Sort" i]',
+    '[data-testid*="sort"] select',
+    '[class*="sort"] select',
+    '[class*="Sort"] select',
+]
+
+_SORT_BUTTON_SELECTORS = [
+    'button[data-testid*="sort"]',
+    'button[class*="sort"]',
+    'button[class*="Sort"]',
+    'button[aria-label*="sort" i]',
+    '[class*="sort"] button',
+    '[class*="Sort"] button',
+]
+
+# JS to click a sort option matching "Price: Low to High" (or similar)
+# inside a listbox / dropdown menu that opened from a button click.
+_JS_CLICK_SORT_PRICE_LOW = """
+(labels) => {
+    // Look for option/li/button elements whose text matches price-low patterns
+    const candidates = document.querySelectorAll(
+        'option, li[role="option"], [role="listbox"] li, [role="menu"] li, ' +
+        '[class*="dropdown"] li, [class*="Dropdown"] li, ' +
+        '[class*="sort"] li, [class*="Sort"] li, ' +
+        'ul[class*="menu"] li, [class*="popover"] li'
+    );
+    for (const el of candidates) {
+        const text = (el.textContent || '').trim().toLowerCase();
+        for (const label of labels) {
+            if (text.includes(label)) {
+                el.click();
+                return text;
+            }
+        }
+    }
+    return null;
+}
+"""
+
+# Text patterns to match "Price: Low to High" sort option (lowercase).
+_SORT_PRICE_LOW_LABELS = [
+    "price: low to high",
+    "price low to high",
+    "price (low to high)",
+    "low to high",
+    "lowest price",
+    "price ascending",
+    "price - low",
+]
+
+
+async def _try_sort_by_price_low(
+    target: Page | Frame,
+    slug: str,
+) -> bool:
+    """Try to sort the Dutchie menu by price low-to-high.
+
+    Tries two approaches:
+      1. Native <select> dropdown — change value to price-low option.
+      2. Button-based dropdown — click the sort button, then click the
+         "Price: Low to High" option in the popup menu.
+
+    Returns True if sort was applied, False otherwise.  Best-effort:
+    failure is not fatal — the scraper will still paginate and collect
+    products in whatever order they appear.
+    """
+    # --- Approach 1: native <select> element --------------------------------
+    for selector in _SORT_DROPDOWN_SELECTORS:
+        try:
+            el = await target.query_selector(selector)
+            if el and await el.is_visible():
+                # Read all options and find the price-low one
+                options = await el.evaluate("""
+                    (sel) => Array.from(sel.options).map(o => ({
+                        value: o.value,
+                        text: o.textContent.trim().toLowerCase()
+                    }))
+                """)
+                for opt in options:
+                    for label in _SORT_PRICE_LOW_LABELS:
+                        if label in opt["text"]:
+                            await el.select_option(value=opt["value"])
+                            logger.info(
+                                "[%s] Sorted by price (low→high) via <select> (%s)",
+                                slug, opt["text"],
+                            )
+                            await asyncio.sleep(2 + random.uniform(0, 1.5))
+                            return True
+        except Exception:
+            continue
+
+    # --- Approach 2: button-based sort dropdown -----------------------------
+    for selector in _SORT_BUTTON_SELECTORS:
+        try:
+            btn = await target.query_selector(selector)
+            if btn and await btn.is_visible():
+                await btn.click()
+                await asyncio.sleep(1 + random.uniform(0, 0.5))
+
+                # Now look for "Price: Low to High" in the opened dropdown
+                result = await target.evaluate(
+                    _JS_CLICK_SORT_PRICE_LOW, _SORT_PRICE_LOW_LABELS,
+                )
+                if result:
+                    logger.info(
+                        "[%s] Sorted by price (low→high) via button dropdown (%s)",
+                        slug, result,
+                    )
+                    await asyncio.sleep(2 + random.uniform(0, 1.5))
+                    return True
+                else:
+                    # Close the dropdown if we couldn't find the option
+                    try:
+                        await btn.click()
+                    except Exception:
+                        pass
+        except Exception:
+            continue
+
+    logger.debug("[%s] No sort control found — using default order", slug)
+    return False
+
+
 # JS to find and return all clickable category filter buttons/tabs.
 # Returns a list of {text, index} objects for each unique category button found.
 _JS_FIND_CATEGORY_TABS = """
@@ -1010,9 +1143,21 @@ class DutchieScraper(BaseScraper):
 
         # Wait for content to reload after tab click
         await asyncio.sleep(3 + random.uniform(0, 2))
+
+        # Scroll to trigger lazy-loaded vape products
+        await _scroll_to_load_content(target, self.slug)
         await _wait_for_product_cards(target, self.slug, timeout_ms=15_000)
 
-        # Paginate within the vape tab
+        # Try to sort by lowest price first — ensures the cheapest
+        # disposables (at each weight tier) land on page 1 where we
+        # always capture them, even if pagination fails partway through.
+        sorted_by_price = await _try_sort_by_price_low(target, self.slug)
+        if sorted_by_price:
+            # Re-wait for product cards after sort change
+            await _wait_for_product_cards(target, self.slug, timeout_ms=10_000)
+
+        # Paginate through all pages within the vape tab — uses the same
+        # page-number + "Next" button navigation as the main scrape flow.
         new_products: list[dict[str, Any]] = []
         page_num = 1
         consecutive_empty = 0
@@ -1144,6 +1289,13 @@ class DutchieScraper(BaseScraper):
 
             # Wait for product cards to appear
             await _wait_for_product_cards(target, self.slug, timeout_ms=15_000)
+
+            # For vape/vaporizer tabs, try sorting by lowest price first
+            # to ensure disposables at each weight tier are captured early.
+            if lower in _VAPE_TAB_LABELS:
+                sorted_ok = await _try_sort_by_price_low(target, self.slug)
+                if sorted_ok:
+                    await _wait_for_product_cards(target, self.slug, timeout_ms=10_000)
 
             # Paginate within this category
             page_num = 1
