@@ -48,12 +48,12 @@ _TD_SLUGS = {"td-gibson", "td-eastern", "td-decatur"}
 # Proven pattern uses a fixed 5s sleep — 30s is generous but prevents the
 # 120s waits that were consuming most of the timeout budget.
 _SMART_WAIT_MS = 30_000          # 30 s — if embed hasn't injected by now, it won't
-_SMART_WAIT_RETRY_MS = 20_000    # 20 s on retry attempts
+_SMART_WAIT_RETRY_MS = 30_000    # 30 s on retry attempts — match first-attempt timeout
 
 # Shorter timeouts for dutchie.com direct URLs (React SPAs) — these either
 # render product cards within ~15 s or not at all.
 _SMART_WAIT_DIRECT_MS = 15_000       # 15 s first attempt
-_SMART_WAIT_DIRECT_RETRY_MS = 10_000  # 10 s retry
+_SMART_WAIT_DIRECT_RETRY_MS = 15_000  # 15 s retry — match first-attempt timeout
 
 # Planet 13 / Medizin share planet13.com — a store selector in the header
 # must be confirmed so the Dutchie embed loads the correct dispensary menu.
