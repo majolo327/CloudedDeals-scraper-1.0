@@ -1669,9 +1669,13 @@ def _pick_from_pools(
             already_picked.add(deal_key)
             return True
 
-        # First pass: one deal per brand AND per weight tier.
+        # First pass: one deal per brand AND limited per weight tier.
+        # For large categories (flower, 58 slots), allow up to 2 deals per
+        # tier so weight-tier diversity doesn't squeeze out quarter/half/oz
+        # sizes.  All other categories keep the original 1-per-tier limit.
+        tier_limit = 2 if slots >= 40 else 1
         seen_brands: set[str] = set()
-        seen_tiers: set[str] = set()
+        tier_counts: dict[str, int] = defaultdict(int)
         for i, deal in enumerate(pool):
             if len(picks) >= slots:
                 break
@@ -1679,11 +1683,11 @@ def _pick_from_pools(
             tier = _weight_tier(deal)
             if brand in seen_brands:
                 continue
-            if tier in seen_tiers:
+            if tier_counts[tier] >= tier_limit:
                 continue
             if _try_pick(deal, i):
                 seen_brands.add(brand)
-                seen_tiers.add(tier)
+                tier_counts[tier] += 1
 
         # Second pass: one per brand (allow repeat weight tiers)
         if len(picks) < slots:
