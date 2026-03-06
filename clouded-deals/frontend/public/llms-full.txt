@@ -2,13 +2,13 @@
 
 > Every deal from every Las Vegas dispensary, updated daily at 8 AM.
 
-CloudedDeals (https://cloudeddeals.com) is a free cannabis deal comparison platform for Las Vegas. We scrape menus from 27+ licensed dispensaries every morning at 8 AM Pacific, classify products into categories, calculate deal scores, and display the best prices. No account is needed to browse deals.
+CloudedDeals (https://cloudeddeals.com) is a free cannabis deal comparison platform for Las Vegas. We pull menus from 27+ licensed dispensaries every morning at 8 AM Pacific, classify products into categories, calculate deal scores, and display the best prices. No account is needed to browse deals.
 
 ---
 
 ## How It Works
 
-1. Every morning at 8 AM PT, automated scrapers visit the online menus of 27+ licensed Las Vegas dispensaries
+1. Every morning at 8 AM PT, automated systems check the online menus of 27+ licensed Las Vegas dispensaries
 2. Products are extracted, classified (flower, vapes, edibles, concentrates, pre-rolls), and priced
 3. Each deal receives a score from 0-100 based on how the price compares to the market average for that product type and weight
 4. Deals are published on cloudeddeals.com, searchable and filterable by dispensary, category, price, and zone
@@ -116,7 +116,7 @@ Each dispensary has a dedicated page at `https://cloudeddeals.com/dispensary/{sl
 ## Frequently Asked Questions
 
 **Q: How often are deals updated?**
-A: Every day at 8 AM Pacific. We scrape live dispensary menus each morning.
+A: Every day at 8 AM Pacific. We check live dispensary menus each morning.
 
 **Q: How many dispensaries do you cover?**
 A: 27+ licensed Las Vegas dispensaries across the Strip, Downtown, and local neighborhoods.

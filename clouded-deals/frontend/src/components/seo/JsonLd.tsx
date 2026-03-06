@@ -56,7 +56,7 @@ export function OrganizationJsonLd() {
     logo: `${SITE_URL}/og-image.png`,
     sameAs: ['https://twitter.com/CloudedDeals'],
     description:
-      'Las Vegas cannabis deals aggregator. We scan every dispensary every morning and surface only the deals worth your money.',
+      'Las Vegas cannabis deals aggregator. We check every dispensary every morning and find only the deals worth your money.',
   };
 
   return (

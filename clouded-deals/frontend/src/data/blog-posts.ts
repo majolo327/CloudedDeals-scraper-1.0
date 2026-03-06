@@ -73,7 +73,7 @@ export const BLOG_POSTS: BlogPost[] = [
       {
         heading: 'How to Find the Best Deal Today',
         content: [
-          'Check CloudedDeals every morning — deals refresh at 8 AM PT when we scrape every dispensary menu in the valley. Look for deal scores above 70 (FIRE deals) or 85+ (STEAL deals). These scores mean the price is significantly below the market average for that exact product type and weight.',
+          'Check CloudedDeals every morning — deals refresh at 8 AM PT when we check every dispensary menu in the valley. Look for deal scores above 70 (FIRE deals) or 85+ (STEAL deals). These scores mean the price is significantly below the market average for that exact product type and weight.',
           'You can also compare by category. If you know you want flower, head straight to the flower deals page. Same for vapes, edibles, concentrates, and pre-rolls. And don\'t assume the closest dispensary has the best price — a 10-minute Uber can save you $20 or more.',
         ],
         links: [
@@ -114,7 +114,7 @@ export const BLOG_POSTS: BlogPost[] = [
     readingTime: '5 min read',
     category: 'comparison',
     heroSubtitle:
-      'We scan every dispensary every morning. Only the best prices make it here.',
+      'We check every dispensary every morning. Only the best prices make it here.',
     sections: [
       {
         heading: 'Price Matters in Vegas',
@@ -151,7 +151,7 @@ export const BLOG_POSTS: BlogPost[] = [
       {
         heading: 'How CloudedDeals Finds the Cheapest Deals',
         content: [
-          'Our system scrapes every dispensary menu at 8 AM PT daily. Each product is classified by type, weight, and brand, then scored against the market average for that exact combination. Scores above 70 mean the price is significantly below average — that\'s a genuinely good deal.',
+          'Our system checks every dispensary menu at 8 AM PT daily. Each product is classified by type, weight, and brand, then scored against the market average for that exact combination. Scores above 70 mean the price is significantly below average — that\'s a genuinely good deal.',
           'There are no sponsored placements. Ranking is purely algorithmic. The dispensary with the best price wins, regardless of size or brand. Check the homepage every morning for today\'s cheapest deals across every dispensary.',
         ],
         links: [{ text: 'Today\'s best deals', href: '/' }],
@@ -249,7 +249,7 @@ export const BLOG_POSTS: BlogPost[] = [
         heading: 'How Las Vegas Dispensary Deals Work',
         content: [
           'Most Las Vegas dispensaries rotate their specials daily. The BOGO flower deal from yesterday might be replaced by a vape promotion today — and by tomorrow it could be something else entirely. This constant rotation makes it nearly impossible to keep track without a tool.',
-          'Popular deals sell out by early afternoon, especially on weekends. CloudedDeals solves this by scanning every dispensary menu at 8 AM PT, every single day. By the time you wake up, today\'s deals are already compared, scored, and ready to browse.',
+          'Popular deals sell out by early afternoon, especially on weekends. CloudedDeals solves this by checking every dispensary menu at 8 AM PT, every single day. By the time you wake up, today\'s deals are already compared, scored, and ready to browse.',
         ],
         links: [
           { text: 'All Las Vegas deals', href: '/las-vegas-dispensary-deals' },
@@ -268,7 +268,7 @@ export const BLOG_POSTS: BlogPost[] = [
       {
         heading: 'Today\'s Deals by Category',
         content: [
-          'Deals vary every day, so there\'s no "always cheapest" option. What you can do is check each category page for today\'s current prices and top-scoring brands. Every category page shows live data from this morning\'s menu scrape.',
+          'Deals vary every day, so there\'s no "always cheapest" option. What you can do is check each category page for today\'s current prices and top-scoring brands. Every category page shows live data from this morning\'s menu update.',
         ],
         links: [
           { text: 'Flower deals', href: '/deals/flower' },

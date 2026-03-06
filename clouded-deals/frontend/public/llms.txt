@@ -2,7 +2,7 @@
 
 > Every deal from every Las Vegas dispensary, updated daily at 8 AM.
 
-CloudedDeals is a free cannabis deal comparison platform covering 27+ licensed Las Vegas dispensaries. We scrape dispensary menus every morning, classify products, score deals, and present the best prices in one place. No account required.
+CloudedDeals is a free cannabis deal comparison platform covering 27+ licensed Las Vegas dispensaries. We check dispensary menus every morning, classify products, score deals, and present the best prices in one place. No account required.
 
 ## What We Cover
 
