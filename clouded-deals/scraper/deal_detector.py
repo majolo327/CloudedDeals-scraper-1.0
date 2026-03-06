@@ -1193,6 +1193,75 @@ def _pick_disposable_price_leaders(
     return leaders
 
 
+def _pick_flower_price_leaders(
+    pool: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Pick the cheapest flower deal from each weight tier.
+
+    Weight tiers (same thresholds as ``_weight_tier()``):
+      - eighth:  ≤4g    (3.5g eighths)
+      - quarter: 4–8g   (7g quarters)
+      - half:    8–15g  (14g half-ounces)
+      - oz:      >15g   (28g ounces)
+
+    Returns up to 4 deals (one per tier that has inventory), sorted by
+    price ascending.  If a tier has no products, the slot goes to the
+    next-cheapest overall flower.
+    """
+    def _weight_g(deal: dict) -> float:
+        w = deal.get("weight_value") or deal.get("weight") or 0
+        if isinstance(w, str):
+            try:
+                w = float(w.replace("g", "").strip())
+            except (ValueError, AttributeError):
+                w = 0
+        return float(w)
+
+    def _price(deal: dict) -> float:
+        return deal.get("sale_price") or deal.get("current_price") or 999
+
+    eighth: list[dict] = []    # ≤4g
+    quarter: list[dict] = []   # 4–8g
+    half: list[dict] = []      # 8–15g
+    oz: list[dict] = []        # >15g
+    unknown: list[dict] = []   # no weight info
+
+    for d in pool:
+        w = _weight_g(d)
+        if w <= 0:
+            unknown.append(d)
+        elif w <= 4:
+            eighth.append(d)
+        elif w <= 8:
+            quarter.append(d)
+        elif w <= 15:
+            half.append(d)
+        else:
+            oz.append(d)
+
+    for tier in (eighth, quarter, half, oz, unknown):
+        tier.sort(key=_price)
+
+    # Pick cheapest from each tier
+    leaders: list[dict] = []
+    for tier in (eighth, quarter, half, oz):
+        if tier:
+            leaders.append(tier[0])
+
+    # Backfill from remaining pool if fewer than 4 tiers have inventory
+    if len(leaders) < 4:
+        picked_ids = set(id(d) for d in leaders)
+        remaining = [d for d in pool if id(d) not in picked_ids]
+        remaining.sort(key=_price)
+        for d in remaining:
+            if len(leaders) >= 4:
+                break
+            leaders.append(d)
+
+    leaders.sort(key=_price)
+    return leaders
+
+
 def _pick_guaranteed_deals(
     products: list[dict[str, Any]],
     max_picks: int = 1,
@@ -1674,15 +1743,14 @@ def select_top_deals(
             cat = "other"
         buckets[cat].append(deal)
 
-    # Sort each category bucket: lowest-price steals first (top 3 per
+    # Sort each category bucket: lowest-price steals first (top N per
     # category), then by deal_score for the rest.  This ensures the
     # absolute cheapest deals in each category get priority slots,
     # giving users the "steals" they want to see at the top.
     #
-    # For disposables: weight-tier-aware selection — pick the cheapest
-    # deal from each weight tier (≤0.5g, 0.5–0.8g, ≥0.8g) so users
-    # see the best-priced disposable at every common size (0.3g, 0.5g,
-    # 0.8g–1.0g).
+    # For disposables and flower: weight-tier-aware selection — pick the
+    # cheapest deal from each weight tier so users see the best-priced
+    # option at every common size.
     _PRICE_PRIORITY_SLOTS = 3
     for cat in buckets:
         pool = buckets[cat]
@@ -1690,6 +1758,15 @@ def select_top_deals(
         if cat == "disposable" and len(pool) >= 3:
             # Weight-tier price leaders: cheapest disposable per size tier
             price_leaders = _pick_disposable_price_leaders(pool)
+            leader_set = set(id(d) for d in price_leaders)
+            rest = [d for d in pool if id(d) not in leader_set]
+            rest.sort(key=lambda d: d.get("deal_score", 0), reverse=True)
+            buckets[cat] = price_leaders + rest
+        elif cat == "flower" and len(pool) >= 4:
+            # Weight-tier price leaders: cheapest flower per size tier
+            # (eighth, quarter, half, oz) — guarantees 7g/14g/28g
+            # representation instead of all-3.5g price leaders.
+            price_leaders = _pick_flower_price_leaders(pool)
             leader_set = set(id(d) for d in price_leaders)
             rest = [d for d in pool if id(d) not in leader_set]
             rest.sort(key=lambda d: d.get("deal_score", 0), reverse=True)

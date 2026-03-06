@@ -25,6 +25,7 @@ from deal_detector import (
     _dispensary_deal_floor,
     _score_brand,
     _score_unit_value,
+    _pick_flower_price_leaders,
     _weight_tier,
     calculate_deal_score,
     detect_deals,
@@ -1693,3 +1694,70 @@ class TestDisposableAsFirstClassCategory:
         assert len(disposables) == 5  # all 5 available picked
         # Total should still fill (surplus slots redistributed to flower)
         assert len(result) >= 50
+
+    # --- Flower weight-tier diversity ---
+
+    def test_flower_weight_tier_diversity(self, make_product):
+        """Flower selection should include deals from all weight tiers (3.5g, 7g, 14g, 28g)."""
+        deals = []
+        # 60 eighths — dominant supply
+        for i in range(60):
+            deals.append(make_product(
+                name=f"Eighth {i}", brand=f"Brand{i % 30}",
+                category="flower", dispensary_id=f"disp_{i % 20}",
+                sale_price=12.0, original_price=30.0, discount_percent=60,
+                weight_value=3.5, deal_score=80 - (i % 10),
+            ))
+        # 10 quarters (7g)
+        for i in range(10):
+            deals.append(make_product(
+                name=f"Quarter {i}", brand=f"QBrand{i}",
+                category="flower", dispensary_id=f"disp_{i}",
+                sale_price=25.0, original_price=50.0, discount_percent=50,
+                weight_value=7.0, deal_score=70,
+            ))
+        # 8 halves (14g)
+        for i in range(8):
+            deals.append(make_product(
+                name=f"Half {i}", brand=f"HBrand{i}",
+                category="flower", dispensary_id=f"disp_{i}",
+                sale_price=35.0, original_price=70.0, discount_percent=50,
+                weight_value=14.0, deal_score=65,
+            ))
+        # 5 ounces (28g)
+        for i in range(5):
+            deals.append(make_product(
+                name=f"Oz {i}", brand=f"OBrand{i}",
+                category="flower", dispensary_id=f"disp_{i}",
+                sale_price=80.0, original_price=200.0, discount_percent=60,
+                weight_value=28.0, deal_score=75,
+            ))
+        result = select_top_deals(deals)
+        flowers = [d for d in result if d.get("category") == "flower"]
+        quarters = [d for d in flowers if _weight_tier(d) == "flower_quarter"]
+        halves = [d for d in flowers if _weight_tier(d) == "flower_half"]
+        ounces = [d for d in flowers if _weight_tier(d) == "flower_oz"]
+        assert len(quarters) >= 2, f"Expected ≥2 quarter deals, got {len(quarters)}"
+        assert len(halves) >= 1, f"Expected ≥1 half-oz deal, got {len(halves)}"
+        assert len(ounces) >= 1, f"Expected ≥1 oz deal, got {len(ounces)}"
+
+    def test_flower_price_leaders_per_tier(self, make_product):
+        """_pick_flower_price_leaders should return cheapest flower per weight tier."""
+        pool = [
+            make_product(name="Cheap Eighth", sale_price=10.0, weight_value=3.5),
+            make_product(name="Pricey Eighth", sale_price=20.0, weight_value=3.5),
+            make_product(name="Cheap Quarter", sale_price=22.0, weight_value=7.0),
+            make_product(name="Pricey Quarter", sale_price=35.0, weight_value=7.0),
+            make_product(name="Cheap Half", sale_price=30.0, weight_value=14.0),
+            make_product(name="Cheap Oz", sale_price=70.0, weight_value=28.0),
+        ]
+        leaders = _pick_flower_price_leaders(pool)
+        assert len(leaders) == 4
+        names = [d["name"] for d in leaders]
+        assert "Cheap Eighth" in names
+        assert "Cheap Quarter" in names
+        assert "Cheap Half" in names
+        assert "Cheap Oz" in names
+        # Should be sorted by price ascending
+        prices = [d.get("sale_price", 999) for d in leaders]
+        assert prices == sorted(prices)
