@@ -1120,7 +1120,7 @@ class TestRemoveSimilarDeals:
         assert len(result) == 3
 
     def test_keeps_highest_scored(self, make_product):
-        """Should keep the highest-scored entries from each group (top 2 per brand+cat+dispo)."""
+        """Should keep the highest-scored entries from each group (top 3 per brand+cat+dispo)."""
         deals = [
             make_product(name=f"P{i}", brand="STIIIZY", category="vape",
                          dispensary_id="planet13", deal_score=90 - i * 5)
@@ -1128,7 +1128,7 @@ class TestRemoveSimilarDeals:
         ]
         result = remove_similar_deals(deals)
         scores = [d["deal_score"] for d in result]
-        assert scores == [90, 85]
+        assert scores == [90, 85, 80]
 
 
 # =====================================================================
@@ -1618,13 +1618,13 @@ class TestDisposableAsFirstClassCategory:
                 category="flower", dispensary_id=f"disp_{i % 20}",
                 deal_score=80 - (i % 10),
             ))
-        # Disposable vapes from 10 dispensaries
-        for i in range(20):
+        # Disposable vapes from 15 dispensaries (enough to meet minimum of 25)
+        for i in range(45):
             deals.append(make_product(
-                name=f"Disposable {i}", brand=f"DVBrand{i % 10}",
+                name=f"Disposable {i}", brand=f"DVBrand{i % 15}",
                 category="vape", product_subtype="disposable",
-                dispensary_id=f"disp_{i % 10}",
-                sale_price=18.0, weight_value=1.0,
+                dispensary_id=f"disp_{i % 15}",
+                sale_price=18.0, weight_value=1.0 if i % 2 == 0 else 0.5,
                 deal_score=70 - (i % 5),
             ))
         result = select_top_deals(deals)
@@ -1640,7 +1640,7 @@ class TestDisposableAsFirstClassCategory:
     def test_disposable_category_target_exists(self):
         """CATEGORY_TARGETS must include a 'disposable' key with 30 slots."""
         assert "disposable" in CATEGORY_TARGETS
-        assert CATEGORY_TARGETS["disposable"] == 30
+        assert CATEGORY_TARGETS["disposable"] == 45
 
     def test_disposable_category_minimum_exists(self):
         """CATEGORY_MINIMUMS must include a 'disposable' key."""

@@ -226,17 +226,26 @@ export function useUniversalFilters() {
       result = result.filter(d => filters.dispensaryIds.includes(d.dispensary.id));
     }
 
-    // Weight filter — multi-select (match ANY selected weight or subtype)
+    // Weight filter — multi-select with AND logic between subtype and weight.
+    // "Disposable + 1g" = only 1g disposables (intersection, not union).
+    // "Disposable" alone = all disposables.  "1g" alone = all 1g products.
     if (filters.weightFilters.length > 0) {
       const hasDisposable = filters.weightFilters.includes('disposable');
       const weightOnly = filters.weightFilters.filter(w => w !== 'disposable');
       result = result.filter(d => {
-        // Match disposable by product_subtype (not weight range)
-        if (hasDisposable && d.product_subtype === 'disposable') return true;
-        // Match remaining weight selections by weight
-        if (weightOnly.length > 0 && d.weight) {
-          return weightOnly.some(w => weightsMatch(d.weight, w));
+        const isDisposable = d.product_subtype === 'disposable';
+        const matchesWeight = weightOnly.length > 0 && d.weight
+          ? weightOnly.some(w => weightsMatch(d.weight, w))
+          : false;
+
+        // Both subtype AND weight selected → require BOTH (intersection)
+        if (hasDisposable && weightOnly.length > 0) {
+          return isDisposable && matchesWeight;
         }
+        // Only subtype selected → show all disposables
+        if (hasDisposable) return isDisposable;
+        // Only weight selected → show all matching weights
+        if (weightOnly.length > 0) return matchesWeight;
         return false;
       });
     }

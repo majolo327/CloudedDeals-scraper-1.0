@@ -157,12 +157,12 @@ def realistic_scrape(make_product):
 
 
 class TestPipelineVolume:
-    """The pipeline should produce 150-200 deals from realistic input."""
+    """The pipeline should produce 150-300 deals from realistic input."""
 
     def test_produces_target_volume(self, realistic_scrape):
         result = detect_deals(realistic_scrape)
-        assert 100 <= len(result) <= TARGET_DEAL_COUNT, \
-            f"Pipeline produced {len(result)} deals, expected 100-{TARGET_DEAL_COUNT}"
+        assert 150 <= len(result) <= TARGET_DEAL_COUNT, \
+            f"Pipeline produced {len(result)} deals, expected 150-{TARGET_DEAL_COUNT}"
 
     def test_report_data_complete(self, realistic_scrape):
         detect_deals(realistic_scrape)

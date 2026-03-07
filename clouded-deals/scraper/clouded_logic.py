@@ -106,8 +106,9 @@ BRANDS = sorted(set([
     # B
     'Backpack Boyz', 'Bad Batch', 'Bad Boy', 'BaM', 'Ballers', 'Bear Quartz',
     'Beboe', 'Bhang', 'Bic', 'Big Chief Extracts', 'Binske', 'BirthJays', 'Bits',
-    'Blazer', 'Blazy Susan', 'Blink', 'BLUEBIRDS', 'BLVD', 'Bohemian Brothers',
-    'Bonanza Cannabis', 'Boom Town', 'Bounti', 'Brass Knuckles', 'Bud Bandz',
+    'Blazer', 'Blazy Susan', 'Blink', 'Bloom Farms', 'BLUEBIRDS', 'BLVD',
+    'Bohemian Brothers', 'Bonanza Cannabis', 'Boom Town', 'Bounti', 'Brass Knuckles',
+    'Bud Bandz',
     # C
     'Cali Traditional', 'Camino', 'Camo', 'CAMP', 'CANN', 'Cannafornia',
     'Cannabiotix', 'Cannabreezy', 'Cannalean', 'Cannavative', 'Cannavore',
@@ -127,15 +128,15 @@ BRANDS = sorted(set([
     'The Essence', 'Evergreen Organix', 'EVOL', 'Eyce',
     # F
     'Featured Farms', 'Fig Farms', 'Find.', 'Fleur', 'Flight Bites', 'Flora Vega',
-    'FloraVega', 'Flower One', 'Fumeur', 'Fuze Extracts',
+    'FloraVega', 'Flower One', 'Friendly Farms', 'Fumeur', 'Fuze Extracts',
     # G
     'Garcia Hand Picked', 'GB Sciences', 'Ghost Town', 'Glass House', 'GLP',
     'Golden Savvy', 'Golden State Banana', 'Good Green', 'Good Tide',
     'Grandiflora', 'Grassroots', 'GRAV Labs', 'Green Life Productions',
     'Greenway LV', 'Greenway Medical', 'Groove', 'Grön', 'GTI',
     # H
-    'HaHa Edibles', 'Hamilton Devices', 'Haze', 'Heavy Hitters', 'High Hemp',
-    'High Roller', 'Highlights', 'Highly Edible', 'Hijinks', 'Hippies Peaces',
+    'HaHa Edibles', 'Hamilton Devices', 'Haze', 'Heavy Hitters', 'High Heads',
+    'High Hemp', 'High Roller', 'Highlights', 'Highly Edible', 'Hijinks', 'Hippies Peaces',
     'Hits Blunt', 'Houseplant', 'HSH', 'Huni Badger', 'Hustlers Ambition',
     "Hustler's Ambition", 'Huxton',
     # I
@@ -168,10 +169,10 @@ BRANDS = sorted(set([
     'Sauce Essentials', 'Savvy', 'SeCHe', 'SELECT', 'Shango', 'Sip',
     'Sin City', 'Smokiez Edibles', 'Smyle Labs', 'Special Blue',
     'Srene', 'StackHouse NV', 'State Flower', 'Stillwater', 'STIIIZY',
-    'Stone Road', 'Storz & Bickel', 'Sundae Co.', 'Super Good', 'Superior',
+    'Stone Road', 'Storz & Bickel', 'Sundae Co.', 'Sundaze', 'Super Good', 'Superior',
     'SVC',
     # T
-    'Tahoe Hydro', 'Taproots', 'Terra', 'THC Design', 'The Bank', 'The Clear',
+    'Tahoe Hydro', 'Taproots', 'Terra', 'The 55', 'THC Design', 'The Bank', 'The Clear',
     'The Grower Circle', 'The Lab', 'The Sanctuary', 'The Source', 'Thrive',
     'Toast', 'Toker Poker', 'Trendi', 'Trulieve', 'Tryke',
     'Tsunami Labs', 'Tumbleweed', 'Tumbleweedz', 'TWE', 'Twisted Hemp',
@@ -504,6 +505,19 @@ _BRAND_VARIATION_MAP: dict[str, str] = {
     'alternative medicine association': 'AMA',
     'alternative medical association': 'AMA',
     'high sierra holistics': 'HSH',
+    # Disposable brand variations — product_classifier uses these but menus
+    # may list them slightly differently
+    'dime': 'Dime Industries',
+    'dime industries': 'Dime Industries',
+    'matrix nv': 'Matrix',
+    'bloom farm': 'Bloom Farms',
+    'the55': 'The 55',
+    'the 55 cannabis': 'The 55',
+    'sundaze cannabis': 'Sundaze',
+    'friendly farm': 'Friendly Farms',
+    'friendly farms cannabis': 'Friendly Farms',
+    'high head': 'High Heads',
+    'high heads cannabis': 'High Heads',
 }
 
 def _variation_pattern(var: str) -> re.Pattern:
